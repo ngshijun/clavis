@@ -4,6 +4,7 @@ import {
   SidebarMenuButton,
   SidebarMenu,
   SidebarMenuItem,
+  SidebarSeparator,
 } from '@/components/ui/sidebar'
 import { KeyRound } from 'lucide-vue-next'
 </script>
@@ -27,5 +28,6 @@ import { KeyRound } from 'lucide-vue-next'
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
+    <SidebarSeparator />
   </SidebarHeader>
 </template>
