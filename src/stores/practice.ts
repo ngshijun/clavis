@@ -622,16 +622,15 @@ export const usePracticeStore = defineStore('practice', () => {
 
   /**
    * Fetch unique questions answered per sub-topic for the current student
-   * This counts distinct question_ids from student_question_progress
+   * Uses server-side aggregation to avoid the default 1000-row limit
    */
   async function fetchSubTopicProgress(): Promise<void> {
     if (!authStore.user) return
 
     try {
-      // Query distinct question_ids per topic_id (which references sub_topics)
       const { data, error: fetchError } = await supabase
         .from('student_question_progress')
-        .select('topic_id, question_id')
+        .select('topic_id, question_id.count()')
         .eq('student_id', authStore.user.id)
 
       if (fetchError) {
@@ -639,19 +638,9 @@ export const usePracticeStore = defineStore('practice', () => {
         return
       }
 
-      // Count unique questions per sub-topic
-      const progressMap = new Map<string, Set<string>>()
-      for (const row of data ?? []) {
-        if (!progressMap.has(row.topic_id)) {
-          progressMap.set(row.topic_id, new Set())
-        }
-        progressMap.get(row.topic_id)!.add(row.question_id)
-      }
-
-      // Convert to count map
       const countMap = new Map<string, number>()
-      for (const [topicId, questionIds] of progressMap) {
-        countMap.set(topicId, questionIds.size)
+      for (const row of (data ?? []) as unknown as { topic_id: string; count: number }[]) {
+        countMap.set(row.topic_id, row.count)
       }
 
       subTopicProgress.value = countMap

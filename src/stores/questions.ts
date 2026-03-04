@@ -163,15 +163,22 @@ export const useQuestionsStore = defineStore('questions', () => {
   const {
     filters: questionBankFilters,
     pagination: questionBankPagination,
-    setGradeLevel: setQuestionBankGradeLevel,
-    setSubject: setQuestionBankSubject,
-    setTopic: setQuestionBankTopic,
-    setSubTopic: setQuestionBankSubTopic,
-    setSearch: setQuestionBankSearch,
-    setPageIndex: setQuestionBankPageIndex,
-    setPageSize: setQuestionBankPageSize,
+    setGradeLevel: _setQuestionBankGradeLevel,
+    setSubject: _setQuestionBankSubject,
+    setTopic: _setQuestionBankTopic,
+    setSubTopic: _setQuestionBankSubTopic,
+    setSearch: _setQuestionBankSearch,
+    setPageIndex: _setQuestionBankPageIndex,
+    setPageSize: _setQuestionBankPageSize,
     resetFilters: resetQuestionBankFilters,
   } = useCascadingFilters({ hasSearch: true })
+
+  // Server-side pagination state for question bank
+  const serverQuestions = ref<Question[]>([])
+  const serverTotalCount = ref(0)
+  const serverIsLoading = ref(false)
+  let fetchVersion = 0
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
   // ============================================
   // Question Feedback Page State (persisted across navigation)
@@ -201,11 +208,60 @@ export const useQuestionsStore = defineStore('questions', () => {
     resetFilters: resetQuestionStatisticsFilters,
   } = useCascadingFilters({ hasSearch: true })
 
+  const ALL_VALUE = '__all__'
+
   /**
-   * Fetch all questions from the database
+   * Resolve current question bank filters to an array of sub_topic IDs
+   * using the already-loaded curriculum hierarchy.
+   * Returns null if no filters are applied (fetch all questions).
    */
-  async function fetchQuestions(): Promise<void> {
-    isLoading.value = true
+  function resolveSubTopicIds(): string[] | null {
+    const f = questionBankFilters.value
+    const gradeLevel = f.gradeLevel !== ALL_VALUE ? f.gradeLevel : undefined
+    const subject = f.subject !== ALL_VALUE ? f.subject : undefined
+    const topic = f.topic !== ALL_VALUE ? f.topic : undefined
+    const subTopic = f.subTopic !== ALL_VALUE ? f.subTopic : undefined
+
+    if (!gradeLevel && !subject && !topic && !subTopic) return null
+
+    const ids: string[] = []
+    for (const gl of curriculumStore.gradeLevels) {
+      if (gradeLevel && gl.name !== gradeLevel) continue
+      for (const sub of gl.subjects) {
+        if (subject && sub.name !== subject) continue
+        for (const t of sub.topics) {
+          if (topic && t.name !== topic) continue
+          for (const st of t.subTopics) {
+            if (subTopic && st.name !== subTopic) continue
+            ids.push(st.id)
+          }
+        }
+      }
+    }
+    return ids
+  }
+
+  /** Escape SQL LIKE wildcards so user input is matched literally */
+  function escapeLikePattern(value: string): string {
+    return value.replace(/%/g, '\\%').replace(/_/g, '\\_')
+  }
+
+  /**
+   * Get current filter parameters for query building.
+   */
+  function getFilterParams() {
+    return {
+      subTopicIds: resolveSubTopicIds(),
+      search: (questionBankFilters.value as { search?: string }).search?.trim() || '',
+    }
+  }
+
+  /**
+   * Fetch a single page of questions for the question bank (server-side pagination).
+   */
+  async function fetchQuestionBankPage(): Promise<void> {
+    const version = ++fetchVersion
+    serverIsLoading.value = true
     error.value = null
 
     try {
@@ -214,14 +270,128 @@ export const useQuestionsStore = defineStore('questions', () => {
         await curriculumStore.fetchCurriculum()
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('questions')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const { pageIndex, pageSize } = questionBankPagination.value
+      const from = pageIndex * pageSize
+      const to = from + pageSize - 1
+      const { subTopicIds, search } = getFilterParams()
+
+      // No sub-topics match filters — return empty immediately
+      if (subTopicIds !== null && subTopicIds.length === 0) {
+        serverQuestions.value = []
+        serverTotalCount.value = 0
+        serverIsLoading.value = false
+        return
+      }
+
+      let query = supabase.from('questions').select('*', { count: 'exact', head: false })
+
+      if (subTopicIds !== null) {
+        query = query.in('topic_id', subTopicIds)
+      }
+      if (search) {
+        query = query.ilike('question', `%${escapeLikePattern(search)}%`)
+      }
+
+      const {
+        data,
+        count,
+        error: fetchError,
+      } = await query.order('created_at', { ascending: false }).range(from, to)
 
       if (fetchError) throw fetchError
 
-      questions.value = (data ?? []).map((row) => rowToQuestion(row, curriculumStore))
+      // Discard stale responses
+      if (version !== fetchVersion) return
+
+      serverQuestions.value = (data ?? []).map((row) => rowToQuestion(row, curriculumStore))
+      serverTotalCount.value = count ?? 0
+    } catch (err) {
+      if (version !== fetchVersion) return
+      error.value = handleError(err, 'Failed to fetch questions.')
+    } finally {
+      if (version === fetchVersion) {
+        serverIsLoading.value = false
+      }
+    }
+  }
+
+  /**
+   * Fetch ALL questions matching current filters (for export).
+   * Uses batch fetching since exports can exceed 1000 rows.
+   * Only called on explicit export actions, not on page load.
+   */
+  async function fetchAllFilteredQuestions(): Promise<Question[]> {
+    if (curriculumStore.gradeLevels.length === 0) {
+      await curriculumStore.fetchCurriculum()
+    }
+
+    const { subTopicIds, search } = getFilterParams()
+
+    // No sub-topics match filters — return empty immediately
+    if (subTopicIds !== null && subTopicIds.length === 0) {
+      return []
+    }
+
+    const BATCH_SIZE = 1000
+    const allRows: QuestionRow[] = []
+    let from = 0
+    let hasMore = true
+
+    while (hasMore) {
+      let query = supabase.from('questions').select('*')
+
+      if (subTopicIds !== null) {
+        query = query.in('topic_id', subTopicIds)
+      }
+      if (search) {
+        query = query.ilike('question', `%${escapeLikePattern(search)}%`)
+      }
+
+      const { data, error: fetchError } = await query
+        .order('created_at', { ascending: false })
+        .range(from, from + BATCH_SIZE - 1)
+
+      if (fetchError) throw fetchError
+      allRows.push(...(data ?? []))
+      hasMore = (data?.length ?? 0) === BATCH_SIZE
+      from += BATCH_SIZE
+    }
+
+    return allRows.map((row) => rowToQuestion(row, curriculumStore))
+  }
+
+  /**
+   * Fetch all questions into local `questions` array.
+   * Used by question statistics and feedback pages that still need all questions loaded.
+   */
+  async function fetchQuestions(): Promise<void> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      if (curriculumStore.gradeLevels.length === 0) {
+        await curriculumStore.fetchCurriculum()
+      }
+
+      const BATCH_SIZE = 1000
+      const allRows: QuestionRow[] = []
+      let from = 0
+      let hasMore = true
+
+      while (hasMore) {
+        const { data, error: fetchError } = await supabase
+          .from('questions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + BATCH_SIZE - 1)
+
+        if (fetchError) throw fetchError
+        allRows.push(...(data ?? []))
+        hasMore = (data?.length ?? 0) === BATCH_SIZE
+        from += BATCH_SIZE
+      }
+
+      questions.value = allRows.map((row) => rowToQuestion(row, curriculumStore))
     } catch (err) {
       error.value = handleError(err, 'Failed to fetch questions.')
     } finally {
@@ -313,9 +483,8 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       if (insertError) throw insertError
 
-      // Add to local state
-      const newQuestion = rowToQuestion(data, curriculumStore)
-      questions.value.unshift(newQuestion)
+      // Refresh current page to show the new question
+      await fetchQuestionBankPage()
 
       return { error: null, id: data.id }
     } catch (err) {
@@ -377,11 +546,8 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
-      const index = questions.value.findIndex((q) => q.id === id)
-      if (index !== -1) {
-        questions.value[index] = rowToQuestion(data, curriculumStore)
-      }
+      // Refresh current page
+      await fetchQuestionBankPage()
 
       return { error: null }
     } catch (err) {
@@ -399,11 +565,8 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       if (deleteError) throw deleteError
 
-      // Remove from local state
-      const index = questions.value.findIndex((q) => q.id === id)
-      if (index !== -1) {
-        questions.value.splice(index, 1)
-      }
+      // Refresh current page
+      await fetchQuestionBankPage()
 
       return { error: null }
     } catch (err) {
@@ -581,30 +744,34 @@ export const useQuestionsStore = defineStore('questions', () => {
     })
   })
 
-  // Filter helpers
+  // Filter helpers — derive from curriculum store (works without loading all questions)
   function getGradeLevels(): string[] {
-    const gradeLevels = new Set(questions.value.map((q) => q.gradeLevelName).filter(Boolean))
-    return Array.from(gradeLevels).sort()
+    return curriculumStore.gradeLevels.map((gl) => gl.name).sort()
   }
 
   function getSubjects(gradeLevelName?: string): string[] {
-    const filtered = gradeLevelName
-      ? questions.value.filter((q) => q.gradeLevelName === gradeLevelName)
-      : questions.value
-    const subjects = new Set(filtered.map((q) => q.subjectName).filter(Boolean))
-    return Array.from(subjects).sort()
+    const subjects: string[] = []
+    for (const gl of curriculumStore.gradeLevels) {
+      if (gradeLevelName && gl.name !== gradeLevelName) continue
+      for (const sub of gl.subjects) {
+        subjects.push(sub.name)
+      }
+    }
+    return [...new Set(subjects)].sort()
   }
 
   function getTopics(gradeLevelName?: string, subjectName?: string): string[] {
-    let filtered = questions.value
-    if (gradeLevelName) {
-      filtered = filtered.filter((q) => q.gradeLevelName === gradeLevelName)
+    const topics: string[] = []
+    for (const gl of curriculumStore.gradeLevels) {
+      if (gradeLevelName && gl.name !== gradeLevelName) continue
+      for (const sub of gl.subjects) {
+        if (subjectName && sub.name !== subjectName) continue
+        for (const t of sub.topics) {
+          topics.push(t.name)
+        }
+      }
     }
-    if (subjectName) {
-      filtered = filtered.filter((q) => q.subjectName === subjectName)
-    }
-    const topics = new Set(filtered.map((q) => q.topicName).filter(Boolean))
-    return Array.from(topics).sort()
+    return [...new Set(topics)].sort()
   }
 
   function getSubTopics(
@@ -612,18 +779,20 @@ export const useQuestionsStore = defineStore('questions', () => {
     subjectName?: string,
     topicName?: string,
   ): string[] {
-    let filtered = questions.value
-    if (gradeLevelName) {
-      filtered = filtered.filter((q) => q.gradeLevelName === gradeLevelName)
+    const subTopics: string[] = []
+    for (const gl of curriculumStore.gradeLevels) {
+      if (gradeLevelName && gl.name !== gradeLevelName) continue
+      for (const sub of gl.subjects) {
+        if (subjectName && sub.name !== subjectName) continue
+        for (const t of sub.topics) {
+          if (topicName && t.name !== topicName) continue
+          for (const st of t.subTopics) {
+            subTopics.push(st.name)
+          }
+        }
+      }
     }
-    if (subjectName) {
-      filtered = filtered.filter((q) => q.subjectName === subjectName)
-    }
-    if (topicName) {
-      filtered = filtered.filter((q) => q.topicName === topicName)
-    }
-    const subTopics = new Set(filtered.map((q) => q.subTopicName).filter(Boolean))
-    return Array.from(subTopics).sort()
+    return [...new Set(subTopics)].sort()
   }
 
   function getFilteredQuestions(
@@ -687,8 +856,49 @@ export const useQuestionsStore = defineStore('questions', () => {
     questionFeedbackPagination.value.pageIndex = 0
   }
 
+  // ============================================
+  // Question Bank filter setters (trigger server refetch)
+  // ============================================
+  function setQuestionBankGradeLevel(value: string) {
+    _setQuestionBankGradeLevel(value)
+    fetchQuestionBankPage()
+  }
+  function setQuestionBankSubject(value: string) {
+    _setQuestionBankSubject(value)
+    fetchQuestionBankPage()
+  }
+  function setQuestionBankTopic(value: string) {
+    _setQuestionBankTopic(value)
+    fetchQuestionBankPage()
+  }
+  function setQuestionBankSubTopic(value: string) {
+    _setQuestionBankSubTopic(value)
+    fetchQuestionBankPage()
+  }
+  function setQuestionBankSearch(value: string) {
+    // Intentionally bypasses _setQuestionBankSearch to avoid resetting pageIndex on every keystroke.
+    // pageIndex is reset in the debounce callback so the page and data update together.
+    ;(questionBankFilters.value as { search: string }).search = value
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = setTimeout(() => {
+      questionBankPagination.value.pageIndex = 0
+      fetchQuestionBankPage()
+    }, 300)
+  }
+  function setQuestionBankPageIndex(value: number) {
+    _setQuestionBankPageIndex(value)
+    fetchQuestionBankPage()
+  }
+  function setQuestionBankPageSize(value: number) {
+    _setQuestionBankPageSize(value)
+    fetchQuestionBankPage()
+  }
+
   function $reset() {
     questions.value = []
+    serverQuestions.value = []
+    serverTotalCount.value = 0
+    serverIsLoading.value = false
     questionStatistics.value = []
     isLoading.value = false
     error.value = null
@@ -706,8 +916,15 @@ export const useQuestionsStore = defineStore('questions', () => {
     isLoading,
     error,
 
+    // Server-side pagination state (question bank)
+    serverQuestions,
+    serverTotalCount,
+    serverIsLoading,
+
     // Actions
     fetchQuestions,
+    fetchQuestionBankPage,
+    fetchAllFilteredQuestions,
     fetchQuestionsBySubTopic,
     fetchQuestionById,
     addQuestion,

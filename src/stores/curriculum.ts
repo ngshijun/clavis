@@ -150,33 +150,34 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
     try {
       // Fetch all data in parallel for better performance
-      const [gradeResult, subjectResult, topicResult, subTopicResult, questionCountResult] =
-        await Promise.all([
-          supabase.from('grade_levels').select('*').order('display_order', { ascending: true }),
-          supabase.from('subjects').select('*').order('display_order', { ascending: true }),
-          supabase.from('topics').select('*').order('display_order', { ascending: true }),
-          supabase.from('sub_topics').select('*').order('display_order', { ascending: true }),
-          supabase.from('questions').select('topic_id'),
-        ])
+      // Use resource embedding on sub_topics to get question counts efficiently
+      // (avoids Supabase's default 1000-row limit on a separate questions query)
+      const [gradeResult, subjectResult, topicResult, subTopicResult] = await Promise.all([
+        supabase.from('grade_levels').select('*').order('display_order', { ascending: true }),
+        supabase.from('subjects').select('*').order('display_order', { ascending: true }),
+        supabase.from('topics').select('*').order('display_order', { ascending: true }),
+        supabase
+          .from('sub_topics')
+          .select('*, questions(count)')
+          .order('display_order', { ascending: true }),
+      ])
 
       // Check for errors
       if (gradeResult.error) throw gradeResult.error
       if (subjectResult.error) throw subjectResult.error
       if (topicResult.error) throw topicResult.error
       if (subTopicResult.error) throw subTopicResult.error
-      if (questionCountResult.error) throw questionCountResult.error
 
       const gradeData = gradeResult.data
       const subjectData = subjectResult.data
       const topicData = topicResult.data
       const subTopicData = subTopicResult.data
-      const questionCounts = questionCountResult.data
 
-      // Build question count map
+      // Build question count map from embedded counts
       const questionCountMap = new Map<string, number>()
-      for (const q of questionCounts ?? []) {
-        const count = questionCountMap.get(q.topic_id) ?? 0
-        questionCountMap.set(q.topic_id, count + 1)
+      for (const st of subTopicData ?? []) {
+        const count = (st.questions as unknown as { count: number }[])?.[0]?.count ?? 0
+        questionCountMap.set(st.id, count)
       }
 
       // Store flat lists

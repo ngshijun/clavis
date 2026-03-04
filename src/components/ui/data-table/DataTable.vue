@@ -46,6 +46,10 @@ const props = defineProps<{
   pageSize?: number
   onPageIndexChange?: (index: number) => void
   onPageSizeChange?: (size: number) => void
+  // Server-side pagination: when true, pagination is handled externally
+  manualPagination?: boolean
+  // Total row count for server-side pagination
+  rowCount?: number
 }>()
 
 const sorting = ref<SortingState>(props.initialSorting ?? [])
@@ -90,9 +94,13 @@ const table = useVueTable({
     return props.columns
   },
   getCoreRowModel: getCoreRowModel(),
-  getPaginationRowModel: getPaginationRowModel(),
+  ...(props.manualPagination ? {} : { getPaginationRowModel: getPaginationRowModel() }),
   getSortedRowModel: getSortedRowModel(),
   getFilteredRowModel: getFilteredRowModel(),
+  manualPagination: props.manualPagination,
+  get rowCount() {
+    return props.rowCount
+  },
   onSortingChange: (updaterOrValue) => valueUpdater(updaterOrValue, sorting),
   onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
   onPaginationChange: (updaterOrValue) => {
@@ -189,7 +197,10 @@ defineExpose({ table })
     <!-- Pagination -->
     <div class="flex items-center justify-between px-2 py-4">
       <div class="text-sm text-muted-foreground">
-        {{ table.getFilteredRowModel().rows.length }} row(s) total.
+        {{
+          props.manualPagination ? (props.rowCount ?? 0) : table.getFilteredRowModel().rows.length
+        }}
+        row(s) total.
       </div>
       <div class="flex items-center space-x-6 lg:space-x-8">
         <div class="flex items-center space-x-2">

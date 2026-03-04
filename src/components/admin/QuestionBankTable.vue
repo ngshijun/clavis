@@ -63,32 +63,8 @@ const availableSubTopics = computed(() =>
   questionsStore.getSubTopics(gradeLevelFilter.value, subjectFilter.value, topicFilter.value),
 )
 
-// Filter questions based on dropdown filters and search
-const filteredQuestions = computed(() => {
-  // First apply dropdown filters
-  let filtered = questionsStore.getFilteredQuestions(
-    gradeLevelFilter.value,
-    subjectFilter.value,
-    topicFilter.value,
-    subTopicFilter.value,
-  )
-
-  // Then apply search query
-  const searchQuery = questionsStore.questionBankFilters.search
-  if (searchQuery) {
-    const query = searchQuery.toLowerCase()
-    filtered = filtered.filter(
-      (q) =>
-        q.question.toLowerCase().includes(query) ||
-        q.gradeLevelName.toLowerCase().includes(query) ||
-        q.subjectName.toLowerCase().includes(query) ||
-        q.topicName.toLowerCase().includes(query) ||
-        q.subTopicName.toLowerCase().includes(query),
-    )
-  }
-
-  return filtered
-})
+// Server-side data from the store
+const serverQuestions = computed(() => questionsStore.serverQuestions)
 
 // Column definitions
 const columns: ColumnDef<Question>[] = [
@@ -205,7 +181,7 @@ function handleRowClick(question: Question) {
   emit('preview', question)
 }
 
-defineExpose({ filteredQuestions })
+defineExpose({ filteredQuestions: serverQuestions })
 </script>
 
 <template>
@@ -293,11 +269,13 @@ defineExpose({ filteredQuestions })
   <!-- Data Table -->
   <DataTable
     :columns="columns"
-    :data="filteredQuestions"
+    :data="serverQuestions"
     :on-row-click="handleRowClick"
     :page-index="questionsStore.questionBankPagination.pageIndex"
     :page-size="questionsStore.questionBankPagination.pageSize"
     :on-page-index-change="questionsStore.setQuestionBankPageIndex"
     :on-page-size-change="questionsStore.setQuestionBankPageSize"
+    :manual-pagination="true"
+    :row-count="questionsStore.serverTotalCount"
   />
 </template>

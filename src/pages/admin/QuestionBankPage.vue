@@ -25,8 +25,6 @@ import { generateQuestionTemplate, exportQuestionsToExcel } from '@/lib/excel/qu
 const questionsStore = useQuestionsStore()
 const curriculumStore = useCurriculumStore()
 
-const questionBankTable = ref<InstanceType<typeof QuestionBankTable> | null>(null)
-
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -39,12 +37,12 @@ const previewQuestion = ref<Question | null>(null)
 const isDeleting = ref(false)
 const isExporting = ref(false)
 
-// Fetch questions on mount
+// Fetch first page of questions on mount (server-side pagination)
 onMounted(async () => {
-  await questionsStore.fetchQuestions()
+  await questionsStore.fetchQuestionBankPage()
 })
 
-const filteredQuestions = computed(() => questionBankTable.value?.filteredQuestions ?? [])
+const totalFilteredCount = computed(() => questionsStore.serverTotalCount)
 
 function openAddDialog() {
   selectedQuestion.value = null
@@ -95,7 +93,7 @@ async function handleEditSave() {
 }
 
 async function handleBulkUploadComplete() {
-  await questionsStore.fetchQuestions()
+  await questionsStore.fetchQuestionBankPage()
   toast.success('Questions uploaded successfully')
 }
 
@@ -124,13 +122,13 @@ const exportSummary = computed(() => {
   if (f.search) filters.push(`Search: "${f.search}"`)
   return {
     filters: filters.length > 0 ? filters : ['All questions (no filters applied)'],
-    count: filteredQuestions.value.length,
+    count: totalFilteredCount.value,
     isFiltered: filters.length > 0,
   }
 })
 
 function openExportDialog() {
-  if (filteredQuestions.value.length === 0) {
+  if (totalFilteredCount.value === 0) {
     toast.warning('No questions to export')
     return
   }
@@ -141,7 +139,9 @@ async function confirmExport() {
   showExportDialog.value = false
   isExporting.value = true
   try {
-    await exportQuestionsToExcel(filteredQuestions.value, async (imagePath: string) => {
+    // Fetch ALL matching questions for export (not just current page)
+    const allQuestions = await questionsStore.fetchAllFilteredQuestions()
+    await exportQuestionsToExcel(allQuestions, async (imagePath: string) => {
       try {
         const url = questionsStore.getQuestionImageUrl(imagePath)
         if (!url) return null
@@ -165,7 +165,7 @@ async function confirmExport() {
         return null
       }
     })
-    toast.info(`Exported ${filteredQuestions.value.length} questions`)
+    toast.info(`Exported ${allQuestions.length} questions`)
   } catch (error) {
     console.error('Error exporting questions:', error)
     toast.error('Failed to export questions')
@@ -183,13 +183,17 @@ async function confirmExport() {
         <p class="text-muted-foreground">Manage your question library.</p>
       </div>
       <div class="flex gap-2">
-        <Button variant="outline" :disabled="questionsStore.isLoading" @click="downloadTemplate">
+        <Button
+          variant="outline"
+          :disabled="questionsStore.serverIsLoading"
+          @click="downloadTemplate"
+        >
           <Download class="mr-2 size-4" />
           Template
         </Button>
         <Button
           variant="outline"
-          :disabled="questionsStore.isLoading || isExporting || filteredQuestions.length === 0"
+          :disabled="questionsStore.serverIsLoading || isExporting || totalFilteredCount === 0"
           @click="openExportDialog"
         >
           <Loader2 v-if="isExporting" class="mr-2 size-4 animate-spin" />
@@ -198,27 +202,29 @@ async function confirmExport() {
         </Button>
         <Button
           variant="outline"
-          :disabled="questionsStore.isLoading"
+          :disabled="questionsStore.serverIsLoading"
           @click="showBulkUploadDialog = true"
         >
           <Upload class="mr-2 size-4" />
           Bulk Upload
         </Button>
-        <Button :disabled="questionsStore.isLoading" @click="openAddDialog">
+        <Button :disabled="questionsStore.serverIsLoading" @click="openAddDialog">
           <Plus class="mr-2 size-4" />
           Add Question
         </Button>
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="questionsStore.isLoading" class="flex items-center justify-center py-12">
+    <!-- Loading State (initial load only) -->
+    <div
+      v-if="questionsStore.serverIsLoading && questionsStore.serverQuestions.length === 0"
+      class="flex items-center justify-center py-12"
+    >
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
     <QuestionBankTable
       v-else
-      ref="questionBankTable"
       @edit="handleEdit"
       @delete="handleDeleteRequest"
       @preview="handlePreview"

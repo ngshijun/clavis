@@ -162,8 +162,8 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         monthlyUpgradesResult,
         tierDistributionResult,
       ] = await Promise.all([
-        // Total users by type
-        supabase.from('profiles').select('user_type'),
+        // Total users by type (server-side aggregation)
+        supabase.from('profiles').select('user_type, user_type.count()'),
 
         // Active students today (rows in daily_statuses with date = today)
         supabase
@@ -178,43 +178,74 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           .gte('created_at', `${today}T00:00:00+08:00`)
           .lt('created_at', `${today}T23:59:59.999+08:00`),
 
-        // Total revenue (all time, only succeeded payments)
-        supabase.from('payment_history').select('amount_cents, currency').eq('status', 'succeeded'),
-
-        // Current month revenue
+        // Total revenue (server-side sum, grouped by currency)
         supabase
           .from('payment_history')
-          .select('amount_cents')
+          .select('currency, amount_cents.sum()')
+          .eq('status', 'succeeded'),
+
+        // Current month revenue (server-side sum)
+        supabase
+          .from('payment_history')
+          .select('amount_cents.sum()')
           .eq('status', 'succeeded')
           .gte('created_at', currentMonthStart),
 
-        // Previous month revenue
+        // Previous month revenue (server-side sum)
         supabase
           .from('payment_history')
-          .select('amount_cents')
+          .select('amount_cents.sum()')
           .eq('status', 'succeeded')
           .gte('created_at', previousMonth.start)
           .lte('created_at', previousMonth.end),
 
-        // Monthly revenue for last 12 months
-        supabase
-          .from('payment_history')
-          .select('amount_cents, created_at')
-          .eq('status', 'succeeded')
-          .gte('created_at', last12MonthsStart)
-          .order('created_at', { ascending: true }),
+        // Monthly revenue for last 12 months (batch fetch to avoid 1000-row cap)
+        (async () => {
+          const BATCH = 1000
+          const rows: { amount_cents: number | null; created_at: string | null }[] = []
+          let from = 0
+          let hasMore = true
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from('payment_history')
+              .select('amount_cents, created_at')
+              .eq('status', 'succeeded')
+              .gte('created_at', last12MonthsStart)
+              .order('created_at', { ascending: true })
+              .range(from, from + BATCH - 1)
+            if (error) return { data: null, error }
+            rows.push(...(data ?? []))
+            hasMore = (data?.length ?? 0) === BATCH
+            from += BATCH
+          }
+          return { data: rows, error: null }
+        })(),
 
-        // Monthly upgrades by tier for last 12 months (excluding basic tier)
-        supabase
-          .from('payment_history')
-          .select('tier, created_at')
-          .eq('status', 'succeeded')
-          .in('tier', ['plus', 'pro', 'max'])
-          .gte('created_at', last12MonthsStart)
-          .order('created_at', { ascending: true }),
+        // Monthly upgrades by tier for last 12 months (batch fetch to avoid 1000-row cap)
+        (async () => {
+          const BATCH = 1000
+          const rows: { tier: string | null; created_at: string | null }[] = []
+          let from = 0
+          let hasMore = true
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from('payment_history')
+              .select('tier, created_at')
+              .eq('status', 'succeeded')
+              .in('tier', ['plus', 'pro', 'max'])
+              .gte('created_at', last12MonthsStart)
+              .order('created_at', { ascending: true })
+              .range(from, from + BATCH - 1)
+            if (error) return { data: null, error }
+            rows.push(...(data ?? []))
+            hasMore = (data?.length ?? 0) === BATCH
+            from += BATCH
+          }
+          return { data: rows, error: null }
+        })(),
 
-        // Subscription tier distribution (from student profiles)
-        supabase.from('student_profiles').select('subscription_tier'),
+        // Subscription tier distribution (server-side aggregation)
+        supabase.from('student_profiles').select('subscription_tier, subscription_tier.count()'),
       ])
 
       // Check for errors
@@ -224,13 +255,17 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         return { error: message }
       }
 
-      // Process users
+      // Process users (server-side grouped counts)
       if (usersResult.data) {
-        const users = usersResult.data
-        stats.value.users.total = users.length
-        stats.value.users.students = users.filter((u) => u.user_type === 'student').length
-        stats.value.users.parents = users.filter((u) => u.user_type === 'parent').length
-        stats.value.users.admins = users.filter((u) => u.user_type === 'admin').length
+        const rows = usersResult.data as unknown as { user_type: string; count: number }[]
+        let total = 0
+        for (const row of rows) {
+          total += row.count
+          if (row.user_type === 'student') stats.value.users.students = row.count
+          else if (row.user_type === 'parent') stats.value.users.parents = row.count
+          else if (row.user_type === 'admin') stats.value.users.admins = row.count
+        }
+        stats.value.users.total = total
       }
 
       // Process active students
@@ -239,33 +274,22 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
       // Process practice sessions
       stats.value.practiceSessionsToday = practiceSessionsResult.count ?? 0
 
-      // Process revenue
+      // Process revenue (server-side sums)
       if (totalRevenueResult.data) {
-        const totalCents = totalRevenueResult.data.reduce(
-          (sum, p) => sum + (p.amount_cents || 0),
-          0,
-        )
-        stats.value.revenue.total = totalCents / 100
-
-        // Get currency from first payment, default to MYR
-        const firstPayment = totalRevenueResult.data[0]
-        stats.value.revenue.currency = firstPayment?.currency?.toUpperCase() || 'MYR'
+        const rows = totalRevenueResult.data as unknown as { currency: string; sum: number }[]
+        const firstRow = rows[0]
+        stats.value.revenue.total = (firstRow?.sum ?? 0) / 100
+        stats.value.revenue.currency = firstRow?.currency?.toUpperCase() || 'MYR'
       }
 
       if (currentMonthRevenueResult.data) {
-        const currentCents = currentMonthRevenueResult.data.reduce(
-          (sum, p) => sum + (p.amount_cents || 0),
-          0,
-        )
-        stats.value.revenue.currentMonth = currentCents / 100
+        const rows = currentMonthRevenueResult.data as unknown as { sum: number }[]
+        stats.value.revenue.currentMonth = (rows[0]?.sum ?? 0) / 100
       }
 
       if (previousMonthRevenueResult.data) {
-        const previousCents = previousMonthRevenueResult.data.reduce(
-          (sum, p) => sum + (p.amount_cents || 0),
-          0,
-        )
-        stats.value.revenue.previousMonth = previousCents / 100
+        const rows = previousMonthRevenueResult.data as unknown as { sum: number }[]
+        stats.value.revenue.previousMonth = (rows[0]?.sum ?? 0) / 100
       }
 
       // Calculate percentage change
@@ -322,7 +346,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         }))
       }
 
-      // Process subscription tier distribution
+      // Process subscription tier distribution (server-side grouped counts)
       if (tierDistributionResult.data) {
         const tierColors: Record<string, string> = {
           core: 'var(--chart-4)',
@@ -336,10 +360,14 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           pro: 'Pro',
           max: 'Max',
         }
+        const rows = tierDistributionResult.data as unknown as {
+          subscription_tier: string
+          count: number
+        }[]
         const tierCounts = new Map<string, number>()
-        for (const sub of tierDistributionResult.data) {
-          if (sub.subscription_tier) {
-            tierCounts.set(sub.subscription_tier, (tierCounts.get(sub.subscription_tier) ?? 0) + 1)
+        for (const row of rows) {
+          if (row.subscription_tier) {
+            tierCounts.set(row.subscription_tier, row.count)
           }
         }
         stats.value.tierDistribution = ['core', 'plus', 'pro', 'max'].map((tier) => ({
