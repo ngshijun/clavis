@@ -746,7 +746,7 @@ export const useQuestionsStore = defineStore('questions', () => {
 
   // Filter helpers — derive from curriculum store (works without loading all questions)
   function getGradeLevels(): string[] {
-    return curriculumStore.gradeLevels.map((gl) => gl.name).sort()
+    return curriculumStore.gradeLevels.map((gl) => gl.name)
   }
 
   function getSubjects(gradeLevelName?: string): string[] {
@@ -757,7 +757,7 @@ export const useQuestionsStore = defineStore('questions', () => {
         subjects.push(sub.name)
       }
     }
-    return [...new Set(subjects)].sort()
+    return [...new Set(subjects)]
   }
 
   function getTopics(gradeLevelName?: string, subjectName?: string): string[] {
@@ -771,7 +771,7 @@ export const useQuestionsStore = defineStore('questions', () => {
         }
       }
     }
-    return [...new Set(topics)].sort()
+    return [...new Set(topics)]
   }
 
   function getSubTopics(
@@ -792,7 +792,7 @@ export const useQuestionsStore = defineStore('questions', () => {
         }
       }
     }
-    return [...new Set(subTopics)].sort()
+    return [...new Set(subTopics)]
   }
 
   function getFilteredQuestions(
