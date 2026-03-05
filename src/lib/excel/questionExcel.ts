@@ -619,6 +619,26 @@ export async function exportQuestionsToExcel(
     { header: 'Explanation', key: 'explanation', width: 40 },
   ]
 
+  // Set text format on content columns to prevent Excel from auto-converting
+  // values like fractions (2/5) into dates when the file is opened
+  const textColumns = [
+    COLUMNS.TYPE,
+    COLUMNS.GRADE_LEVEL,
+    COLUMNS.SUBJECT,
+    COLUMNS.TOPIC,
+    COLUMNS.SUB_TOPIC,
+    COLUMNS.QUESTION_TEXT,
+    COLUMNS.OPTION_A,
+    COLUMNS.OPTION_B,
+    COLUMNS.OPTION_C,
+    COLUMNS.OPTION_D,
+    COLUMNS.CORRECT_ANSWER,
+    COLUMNS.EXPLANATION,
+  ]
+  for (const col of textColumns) {
+    sheet.getColumn(col).numFmt = '@'
+  }
+
   // Style header
   const headerRow = sheet.getRow(1)
   headerRow.font = { bold: true }
