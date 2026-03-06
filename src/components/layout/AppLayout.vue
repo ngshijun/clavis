@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, defineAsyncComponent } from 'vue'
+import { computed, ref, watch, onMounted, defineAsyncComponent } from 'vue'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { toast } from 'vue-sonner'
 import { Loader2, CirclePoundSterling, Apple } from 'lucide-vue-next'
+import { useTour } from '@/composables/useTour'
 import AppSidebar from './AppSidebar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
@@ -29,6 +30,7 @@ const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
 const isDev = import.meta.env.DEV
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
+const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
 
 // Grade selection dialog state
 const showGradeDialog = ref(false)
@@ -40,6 +42,16 @@ onMounted(async () => {
   if (authStore.isStudent && !authStore.studentProfile?.gradeLevelId) {
     await curriculumStore.fetchCurriculum()
     showGradeDialog.value = true
+  } else {
+    // No grade dialog needed — prompt tour directly
+    promptTour()
+  }
+})
+
+// After grade dialog closes, prompt the tour
+watch(showGradeDialog, (open) => {
+  if (!open) {
+    promptTour()
   }
 })
 
@@ -103,6 +115,7 @@ const greeting = computed(() => {
           <!-- Coins and Food display for students -->
           <template v-if="isStudent">
             <div
+              data-tour="student-currency"
               class="flex min-w-28 items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 dark:bg-amber-950/30"
             >
               <CirclePoundSterling class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -176,6 +189,22 @@ const greeting = computed(() => {
             <Loader2 v-if="isSaving" class="mr-2 size-4 animate-spin" />
             Continue
           </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <!-- Welcome Tour Dialog (for first-time users) -->
+    <AlertDialog :open="showWelcomeDialog">
+      <AlertDialogContent class="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Welcome to Clavis!</AlertDialogTitle>
+          <AlertDialogDescription>
+            Looks like this is your first time here. Would you like a quick tour of the app?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button variant="outline" @click="skipTour">Skip</Button>
+          <Button @click="startTour">Start Tour</Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

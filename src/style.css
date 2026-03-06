@@ -136,3 +136,48 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* driver.js tour theme overrides */
+.clavis-tour-popover .driver-popover {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
+
+.clavis-tour-popover .driver-popover-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.clavis-tour-popover .driver-popover-description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.clavis-tour-popover .driver-popover-progress-text {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.clavis-tour-popover .driver-popover-prev-btn {
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  background-color: transparent;
+  border-radius: var(--radius);
+  text-shadow: none;
+}
+
+.clavis-tour-popover .driver-popover-next-btn,
+.clavis-tour-popover .driver-popover-close-btn-text {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius);
+  text-shadow: none;
+}
+
+.clavis-tour-popover .driver-popover-arrow-side-left .driver-popover-arrow,
+.clavis-tour-popover .driver-popover-arrow-side-right .driver-popover-arrow,
+.clavis-tour-popover .driver-popover-arrow-side-top .driver-popover-arrow,
+.clavis-tour-popover .driver-popover-arrow-side-bottom .driver-popover-arrow {
+  background-color: var(--popover);
+}

@@ -18,6 +18,7 @@ export interface AuthUser {
   avatarPath: string | null
   dateOfBirth: string | null
   createdAt: string | null
+  hasCompletedTour: boolean
   // Student-specific fields
   studentProfile?: {
     xp: number
@@ -58,6 +59,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
       avatarPath: profile.avatar_path,
       dateOfBirth: profile.date_of_birth,
       createdAt: profile.created_at,
+      hasCompletedTour: profile.has_completed_tour ?? false,
     }
 
     // Fetch type-specific profile
@@ -637,6 +639,25 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Mark the guided tour as completed (or reset it)
+   */
+  async function setTourCompleted(completed: boolean) {
+    if (!user.value) return { error: 'Not authenticated' }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ has_completed_tour: completed })
+      .eq('id', user.value.id)
+
+    if (error) {
+      return { error: handleError(error, 'Failed to update tour status.') }
+    }
+
+    user.value.hasCompletedTour = completed
+    return { error: null }
+  }
+
+  /**
    * Set selected pet
    */
   async function setSelectedPet(petId: string | null) {
@@ -694,6 +715,7 @@ export const useAuthStore = defineStore('auth', () => {
     uploadAvatarFromUrl,
     getAvatarUrl,
     updateGradeLevel,
+    setTourCompleted,
     setSelectedPet,
   }
 })

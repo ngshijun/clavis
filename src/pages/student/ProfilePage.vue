@@ -35,7 +35,9 @@ import {
   Crown,
   CreditCard,
   Check,
+  RotateCcw,
 } from 'lucide-vue-next'
+import { useTour } from '@/composables/useTour'
 
 const authStore = useAuthStore()
 const practiceStore = usePracticeStore()
@@ -43,6 +45,7 @@ const subscriptionStore = useSubscriptionStore()
 const curriculumStore = useCurriculumStore()
 const { isSaving, userInitials, formattedDateJoined, userAvatarUrl, saveAvatar, saveName } =
   useProfileEditor()
+const { resetAndStartTour } = useTour()
 
 // Subscription
 const subscriptionStatus = ref<StudentSubscriptionStatus | null>(null)
@@ -153,9 +156,15 @@ async function handleBirthdaySave(dateString: string | null) {
 <template>
   <div class="space-y-6 p-6">
     <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold">My Profile</h1>
-      <p class="text-muted-foreground">Manage your account settings and preferences</p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">My Profile</h1>
+        <p class="text-muted-foreground">Manage your account settings and preferences</p>
+      </div>
+      <Button variant="outline" size="sm" @click="resetAndStartTour">
+        <RotateCcw class="mr-2 size-4" />
+        Restart Tour
+      </Button>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">

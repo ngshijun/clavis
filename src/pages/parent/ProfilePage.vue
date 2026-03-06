@@ -9,12 +9,14 @@ import { Badge } from '@/components/ui/badge'
 import EditAvatarDialog from '@/components/shared/EditAvatarDialog.vue'
 import EditNameDialog from '@/components/shared/EditNameDialog.vue'
 import EditBirthdayDialog from '@/components/shared/EditBirthdayDialog.vue'
-import { Mail, Calendar, Pencil, Camera, Baby, Cake } from 'lucide-vue-next'
+import { Mail, Calendar, Pencil, Camera, Baby, Cake, RotateCcw } from 'lucide-vue-next'
+import { useTour } from '@/composables/useTour'
 import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
 const { isSaving, userInitials, formattedDateJoined, userAvatarUrl, saveAvatar, saveName } =
   useProfileEditor()
+const { resetAndStartTour } = useTour()
 
 const showAvatarDialog = ref(false)
 const showEditNameDialog = ref(false)
@@ -70,9 +72,15 @@ async function handleBirthdaySave(dateString: string | null) {
 <template>
   <div class="space-y-6 p-6">
     <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold">My Profile</h1>
-      <p class="text-muted-foreground">Manage your account settings and preferences</p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">My Profile</h1>
+        <p class="text-muted-foreground">Manage your account settings and preferences</p>
+      </div>
+      <Button variant="outline" size="sm" @click="resetAndStartTour">
+        <RotateCcw class="mr-2 size-4" />
+        Restart Tour
+      </Button>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">

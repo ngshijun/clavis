@@ -105,13 +105,13 @@ watch(isLoading, async (loading) => {
       <!-- Hero Layout: Pet (1/3) + Cards (2/3) -->
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
         <!-- Pet (spans 2 rows on desktop) -->
-        <CurrentPetCard class="sm:row-span-2 sm:min-h-[28rem]" />
+        <CurrentPetCard data-tour="dashboard-pet" class="sm:row-span-2 sm:min-h-[28rem]" />
 
         <!-- Best Subject (spans 2 cols on desktop) -->
         <BestSubjectCard class="lg:col-span-2" />
 
         <!-- Practice Streak (spans 2 cols on desktop) -->
-        <StreakCard class="lg:col-span-2" />
+        <StreakCard data-tour="dashboard-streak" class="lg:col-span-2" />
       </div>
 
       <!-- In-Progress Sessions -->

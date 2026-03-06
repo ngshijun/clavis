@@ -65,6 +65,7 @@ async function handleLogout() {
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <SidebarMenuButton
+              data-tour="sidebar-profile"
               size="lg"
               class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
