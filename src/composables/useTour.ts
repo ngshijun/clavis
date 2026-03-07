@@ -1,10 +1,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { driver, type Driver } from 'driver.js'
-import 'driver.js/dist/driver.css'
 import { useAuthStore } from '@/stores/auth'
-import { getStudentTourSteps } from './tour/studentTourSteps'
-import { getParentTourSteps } from './tour/parentTourSteps'
 
 const TOUR_CACHE_PREFIX = 'tour_completed_'
 
@@ -26,8 +22,22 @@ function setCacheCompleted(userId: string, completed: boolean) {
   }
 }
 
+/** Lazily load driver.js and its CSS */
+let driverCssLoaded = false
+async function loadDriver() {
+  const { driver } = await import('driver.js')
+
+  // Inject CSS once
+  if (!driverCssLoaded) {
+    await import('driver.js/dist/driver.css')
+    driverCssLoaded = true
+  }
+
+  return driver
+}
+
 const showWelcomeDialog = ref(false)
-let driverInstance: Driver | null = null
+let driverInstance: ReturnType<typeof import('driver.js').driver> | null = null
 
 export function useTour() {
   const authStore = useAuthStore()
@@ -54,10 +64,16 @@ export function useTour() {
   }
 
   /** Start the driver.js tour */
-  function startTour() {
+  async function startTour() {
     showWelcomeDialog.value = false
 
     const userType = authStore.user?.userType
+    const [driver, { getStudentTourSteps }, { getParentTourSteps }] = await Promise.all([
+      loadDriver(),
+      import('./tour/studentTourSteps'),
+      import('./tour/parentTourSteps'),
+    ])
+
     const steps = userType === 'student' ? getStudentTourSteps() : getParentTourSteps()
 
     driverInstance = driver({
@@ -108,7 +124,7 @@ export function useTour() {
     // Wait for dashboard to render before starting tour
     setTimeout(() => {
       startTour()
-    }, 500)
+    }, 300)
   }
 
   return {

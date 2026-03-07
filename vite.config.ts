@@ -44,6 +44,15 @@ export default defineConfig({
           if (id.includes('node_modules/@tanstack/')) {
             return 'tanstack'
           }
+          if (id.includes('node_modules/driver.js/')) {
+            return 'driver'
+          }
+          if (id.includes('node_modules/vee-validate/') || id.includes('node_modules/@vee-validate/')) {
+            return 'vee-validate'
+          }
+          if (id.includes('node_modules/zod/')) {
+            return 'zod'
+          }
         },
       },
     },

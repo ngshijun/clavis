@@ -1,95 +1,109 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useChildLinkStore } from '@/stores/child-link'
-import { useParentLinkStore } from '@/stores/parent-link'
-import { useCurriculumStore } from '@/stores/curriculum'
-import { usePetsStore } from '@/stores/pets'
-import { useQuestionsStore } from '@/stores/questions'
-import { useAnnouncementsStore } from '@/stores/announcements'
-import { useSubscriptionStore } from '@/stores/subscription'
-import { useLeaderboardStore } from '@/stores/leaderboard'
 
 /**
  * Route guards for data preloading
- * These ensure required store data is loaded before entering routes
+ * Store modules are dynamically imported to keep them out of the initial bundle.
+ * Each guard uses fire-and-forget pattern (non-blocking).
  */
 
 // Parent routes: fire-and-forget data preloading (non-blocking)
 function parentRouteGuard() {
-  const childLinkStore = useChildLinkStore()
-  const announcementsStore = useAnnouncementsStore()
-  const subscriptionStore = useSubscriptionStore()
+  Promise.all([
+    import('@/stores/child-link'),
+    import('@/stores/announcements'),
+    import('@/stores/subscription'),
+  ]).then(([childLinkMod, announcementsMod, subscriptionMod]) => {
+    const childLinkStore = childLinkMod.useChildLinkStore()
+    const announcementsStore = announcementsMod.useAnnouncementsStore()
+    const subscriptionStore = subscriptionMod.useSubscriptionStore()
 
-  if (childLinkStore.linkedChildren.length === 0 && !childLinkStore.isLoading) {
-    // Chain: once children load, preload their subscriptions
-    childLinkStore.fetchLinkedChildren().then(() => {
-      if (childLinkStore.linkedChildren.length > 0) {
-        const childIds = childLinkStore.linkedChildren.map((c) => c.id)
-        subscriptionStore.fetchChildrenSubscriptions(childIds)
-      }
-    })
-  } else if (childLinkStore.linkedChildren.length > 0) {
-    subscriptionStore.fetchChildrenSubscriptions(childLinkStore.linkedChildren.map((c) => c.id))
-  }
+    if (childLinkStore.linkedChildren.length === 0 && !childLinkStore.isLoading) {
+      // Chain: once children load, preload their subscriptions
+      childLinkStore.fetchLinkedChildren().then(() => {
+        if (childLinkStore.linkedChildren.length > 0) {
+          const childIds = childLinkStore.linkedChildren.map((c) => c.id)
+          subscriptionStore.fetchChildrenSubscriptions(childIds)
+        }
+      })
+    } else if (childLinkStore.linkedChildren.length > 0) {
+      subscriptionStore.fetchChildrenSubscriptions(childLinkStore.linkedChildren.map((c) => c.id))
+    }
 
-  if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
-    announcementsStore.fetchAnnouncements()
-  }
+    if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
+      announcementsStore.fetchAnnouncements()
+    }
 
-  subscriptionStore.fetchPlans()
+    subscriptionStore.fetchPlans()
+  })
 }
 
 // Student routes: fire-and-forget data preloading (non-blocking)
 function studentRouteGuard() {
-  const curriculumStore = useCurriculumStore()
-  const petsStore = usePetsStore()
-  const parentLinkStore = useParentLinkStore()
-  const announcementsStore = useAnnouncementsStore()
-  const leaderboardStore = useLeaderboardStore()
+  Promise.all([
+    import('@/stores/curriculum'),
+    import('@/stores/pets'),
+    import('@/stores/parent-link'),
+    import('@/stores/announcements'),
+    import('@/stores/leaderboard'),
+  ]).then(([curriculumMod, petsMod, parentLinkMod, announcementsMod, leaderboardMod]) => {
+    const curriculumStore = curriculumMod.useCurriculumStore()
+    const petsStore = petsMod.usePetsStore()
+    const parentLinkStore = parentLinkMod.useParentLinkStore()
+    const announcementsStore = announcementsMod.useAnnouncementsStore()
+    const leaderboardStore = leaderboardMod.useLeaderboardStore()
 
-  if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
-    curriculumStore.fetchCurriculum()
-  }
+    if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+      curriculumStore.fetchCurriculum()
+    }
 
-  if (petsStore.allPets.length === 0 && !petsStore.isLoading) {
-    petsStore.fetchAllPets()
-    petsStore.fetchOwnedPets()
-  }
+    if (petsStore.allPets.length === 0 && !petsStore.isLoading) {
+      petsStore.fetchAllPets()
+      petsStore.fetchOwnedPets()
+    }
 
-  if (parentLinkStore.linkedParents.length === 0 && !parentLinkStore.isLoading) {
-    parentLinkStore.fetchLinkedParents()
-  }
+    if (parentLinkStore.linkedParents.length === 0 && !parentLinkStore.isLoading) {
+      parentLinkStore.fetchLinkedParents()
+    }
 
-  if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
-    announcementsStore.fetchAnnouncements()
-  }
+    if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
+      announcementsStore.fetchAnnouncements()
+    }
 
-  leaderboardStore.checkUnseenReward()
+    leaderboardStore.checkUnseenReward()
+  })
 }
 
 // Admin routes: fire-and-forget data preloading (non-blocking)
 function adminRouteGuard() {
-  const curriculumStore = useCurriculumStore()
-  const questionsStore = useQuestionsStore()
-  const petsStore = usePetsStore()
-  const announcementsStore = useAnnouncementsStore()
+  Promise.all([
+    import('@/stores/curriculum'),
+    import('@/stores/questions'),
+    import('@/stores/pets'),
+    import('@/stores/announcements'),
+  ]).then(([curriculumMod, questionsMod, petsMod, announcementsMod]) => {
+    const curriculumStore = curriculumMod.useCurriculumStore()
+    const questionsStore = questionsMod.useQuestionsStore()
+    const petsStore = petsMod.usePetsStore()
+    const announcementsStore = announcementsMod.useAnnouncementsStore()
 
-  if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
-    curriculumStore.fetchCurriculum()
-  }
+    if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+      curriculumStore.fetchCurriculum()
+    }
 
-  if (questionsStore.questions.length === 0 && !questionsStore.isLoading) {
-    questionsStore.fetchQuestions()
-  }
+    if (questionsStore.questions.length === 0 && !questionsStore.isLoading) {
+      questionsStore.fetchQuestions()
+    }
 
-  if (petsStore.allPets.length === 0 && !petsStore.isLoading) {
-    petsStore.fetchAllPets()
-  }
+    if (petsStore.allPets.length === 0 && !petsStore.isLoading) {
+      petsStore.fetchAllPets()
+    }
 
-  if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
-    announcementsStore.fetchAnnouncements()
-  }
+    if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
+      announcementsStore.fetchAnnouncements()
+    }
+  })
 }
 
 const router = createRouter({
