@@ -13,7 +13,7 @@ const progress = computed(() => authStore.xpProgress)
 </script>
 
 <template>
-  <SidebarGroup>
+  <SidebarGroup data-tour="sidebar-xp">
     <SidebarGroupContent>
       <div class="px-2 py-3">
         <!-- Level Progress -->

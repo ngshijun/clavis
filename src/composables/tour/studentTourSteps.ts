@@ -3,6 +3,16 @@ import type { DriveStep } from 'driver.js'
 export function getStudentTourSteps(): DriveStep[] {
   return [
     {
+      element: '[data-tour="sidebar-xp"]',
+      popover: {
+        title: 'XP & Level',
+        description:
+          'This is your experience bar. Earn XP by completing practice sessions to level up!',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
       element: '[data-tour="sidebar-nav"]',
       popover: {
         title: 'Navigation Menu',
