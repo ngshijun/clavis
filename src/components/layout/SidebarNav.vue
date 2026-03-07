@@ -49,7 +49,7 @@ function getBadgeText(item: NavItem): string {
 </script>
 
 <template>
-  <SidebarGroup>
+  <SidebarGroup data-tour="sidebar-nav">
     <SidebarGroupLabel>Navigation</SidebarGroupLabel>
     <SidebarGroupContent>
       <SidebarMenu>

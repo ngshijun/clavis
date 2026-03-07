@@ -3,7 +3,7 @@ import type { DriveStep } from 'driver.js'
 export function getParentTourSteps(): DriveStep[] {
   return [
     {
-      element: '[data-sidebar="group-content"]',
+      element: '[data-tour="sidebar-nav"]',
       popover: {
         title: 'Navigation Menu',
         description: 'This is your navigation menu. Use it to access all the features of the app.',

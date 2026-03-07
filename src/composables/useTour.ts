@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { driver, type Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useAuthStore } from '@/stores/auth'
@@ -30,6 +31,7 @@ let driverInstance: Driver | null = null
 
 export function useTour() {
   const authStore = useAuthStore()
+  const router = useRouter()
 
   /** Whether this user should see the tour (not completed, not cached) */
   function shouldShowTour(): boolean {
@@ -99,10 +101,14 @@ export function useTour() {
     setCacheCompleted(userId, false)
     await authStore.setTourCompleted(false)
 
-    // Small delay to ensure UI is ready after any re-renders
+    // Navigate to dashboard first so tour elements are visible
+    const dashboardPath = `/${authStore.user!.userType}/dashboard`
+    await router.push(dashboardPath)
+
+    // Wait for dashboard to render before starting tour
     setTimeout(() => {
       startTour()
-    }, 100)
+    }, 500)
   }
 
   return {
