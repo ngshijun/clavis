@@ -22,6 +22,15 @@ export function getStudentTourSteps(): DriveStep[] {
       },
     },
     {
+      element: 'a[href="/student/announcements"]',
+      popover: {
+        title: 'Announcements',
+        description: 'Stay updated with the latest news and announcements.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
       element: 'a[href="/student/practice"]',
       popover: {
         title: 'Practice',
