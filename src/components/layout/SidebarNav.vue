@@ -14,9 +14,16 @@ import { useLeaderboardStore } from '@/stores/leaderboard'
 import { useAuthStore } from '@/stores/auth'
 import type { NavItem } from '@/types'
 
-defineProps<{
+import { computed } from 'vue'
+
+const PET_PATHS = new Set(['/student/my-pet', '/student/collections'])
+
+const props = defineProps<{
   items: NavItem[]
 }>()
+
+const mainItems = computed(() => props.items.filter((item) => !PET_PATHS.has(item.path)))
+const petItems = computed(() => props.items.filter((item) => PET_PATHS.has(item.path)))
 
 const route = useRoute()
 const announcementsStore = useAnnouncementsStore()
@@ -53,7 +60,7 @@ function getBadgeText(item: NavItem): string {
     <SidebarGroupLabel>Navigation</SidebarGroupLabel>
     <SidebarGroupContent>
       <SidebarMenu>
-        <SidebarMenuItem v-for="item in items" :key="item.path">
+        <SidebarMenuItem v-for="item in mainItems" :key="item.path">
           <SidebarMenuButton as-child :is-active="route.path === item.path">
             <RouterLink :to="item.path" class="flex items-center justify-between w-full">
               <div class="flex items-center gap-2">
@@ -70,6 +77,18 @@ function getBadgeText(item: NavItem): string {
             </RouterLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        <div v-if="petItems.length" data-tour="sidebar-pets" class="flex flex-col gap-1">
+          <SidebarMenuItem v-for="item in petItems" :key="item.path">
+            <SidebarMenuButton as-child :is-active="route.path === item.path">
+              <RouterLink :to="item.path" class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-2">
+                  <component :is="item.icon" class="size-4" />
+                  <span>{{ item.title }}</span>
+                </div>
+              </RouterLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </div>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>

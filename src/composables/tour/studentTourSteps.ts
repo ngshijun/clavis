@@ -60,20 +60,10 @@ export function getStudentTourSteps(): DriveStep[] {
       },
     },
     {
-      element: 'a[href="/student/my-pet"]',
+      element: '[data-tour="sidebar-pets"]',
       popover: {
-        title: 'My Pet',
-        description: 'View your active pet, feed it to evolve, and set your favourite companion.',
-        side: 'right',
-        align: 'center',
-      },
-    },
-    {
-      element: 'a[href="/student/collections"]',
-      popover: {
-        title: 'Collections',
-        description:
-          "Browse all the pets you've collected and discover ones you haven't found yet.",
+        title: 'Pets & Collections',
+        description: 'Manage your pets, feed them to evolve, and browse your full collection.',
         side: 'right',
         align: 'center',
       },
