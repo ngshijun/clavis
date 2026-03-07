@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   useSubscriptionStore,
   type SubscriptionTier,
@@ -42,7 +42,8 @@ import UpgradePreviewDialog from '@/components/parent/UpgradePreviewDialog.vue'
 const subscriptionStore = useSubscriptionStore()
 const childLinkStore = useChildLinkStore()
 
-const selectedChildId = ref<string>('')
+const SELECTED_CHILD_KEY = 'parent_selected_child_id'
+const selectedChildId = ref<string>(localStorage.getItem(SELECTED_CHILD_KEY) || '')
 
 // Upgrade preview state
 const upgradePreview = ref<UpgradePreview | null>(null)
@@ -62,8 +63,13 @@ onMounted(async () => {
     await childLinkStore.fetchLinkedChildren()
   }
 
-  // Set default selected child
-  if (childLinkStore.linkedChildren.length > 0 && !selectedChildId.value) {
+  // Restore saved selection or select first child
+  const savedChildId = localStorage.getItem(SELECTED_CHILD_KEY)
+  const isValidSelection = childLinkStore.linkedChildren.some((c) => c.id === savedChildId)
+
+  if (savedChildId && isValidSelection) {
+    selectedChildId.value = savedChildId
+  } else if (childLinkStore.linkedChildren.length > 0 && !selectedChildId.value) {
     selectedChildId.value = childLinkStore.linkedChildren[0]?.id ?? ''
   }
 
@@ -93,6 +99,13 @@ onMounted(async () => {
       description: 'You cancelled the checkout process.',
     })
     window.history.replaceState({}, '', window.location.pathname)
+  }
+})
+
+// Persist selection to localStorage
+watch(selectedChildId, (newId) => {
+  if (newId) {
+    localStorage.setItem(SELECTED_CHILD_KEY, newId)
   }
 })
 
