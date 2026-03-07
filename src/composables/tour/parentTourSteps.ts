@@ -64,7 +64,7 @@ export function getParentTourSteps(): DriveStep[] {
       popover: {
         title: 'Switch Children',
         description:
-          'If you have multiple children linked, use this dropdown to switch between them.',
+          "If you have multiple children linked, use this dropdown to switch between them. You'll find a similar selector on the Subscription page.",
         side: 'bottom',
         align: 'end',
       },
