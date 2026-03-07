@@ -347,10 +347,27 @@ Rules:
   data.questions.forEach((q, index) => {
     const status = q.isCorrect ? '✓ CORRECT' : '✗ WRONG'
 
+    // Build option list text for MCQ/MRQ so the AI knows what each label means
+    let optionsText = ''
+    if ((q.type === 'mcq' || q.type === 'mrq') && q.options.length > 0) {
+      const textOptions = q.options.filter((opt) => opt.text)
+      if (textOptions.length > 0) {
+        optionsText = '\n   Options: ' + textOptions.map((opt) => `${opt.label}: ${opt.text}`).join(', ')
+      }
+    }
+
+    // Include option values alongside labels for student/correct answers
+    const studentAnswerText = q.studentAnswer
+      ? q.options.filter((opt) => opt.isStudentAnswer).map((opt) => opt.text ? `${opt.label} (${opt.text})` : opt.label).join(', ') || q.studentAnswer
+      : 'No answer'
+    const correctAnswerText = q.correctAnswer
+      ? q.options.filter((opt) => opt.isCorrect).map((opt) => opt.text ? `${opt.label} (${opt.text})` : opt.label).join(', ') || q.correctAnswer
+      : 'N/A'
+
     // Add question text with status
     userContent.push({
       type: 'text',
-      text: `\n${index + 1}. [${status}] Question: ${q.question}\n   Student's answer: ${q.studentAnswer || 'No answer'}\n   Correct answer: ${q.correctAnswer || 'N/A'}`,
+      text: `\n${index + 1}. [${status}] Question: ${q.question}${optionsText}\n   Student's answer: ${studentAnswerText}\n   Correct answer: ${correctAnswerText}`,
     })
 
     // Add question image if exists
