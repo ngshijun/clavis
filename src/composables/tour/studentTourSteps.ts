@@ -70,6 +70,16 @@ export function getStudentTourSteps(): DriveStep[] {
       },
     },
     {
+      element: '[data-tour="dashboard-daily"]',
+      popover: {
+        title: 'Daily Spin & Mood',
+        description:
+          'Spin the wheel for daily rewards and set your mood to let your parents know how you feel!',
+        side: 'bottom',
+        align: 'end',
+      },
+    },
+    {
       element: '[data-tour="dashboard-pet"]',
       popover: {
         title: 'Your Pet Companion',
@@ -87,16 +97,6 @@ export function getStudentTourSteps(): DriveStep[] {
           'Track your daily practice streak here. Practice every day to keep your streak going!',
         side: 'left',
         align: 'center',
-      },
-    },
-    {
-      element: '[data-tour="dashboard-daily"]',
-      popover: {
-        title: 'Daily Spin & Mood',
-        description:
-          'Spin the wheel for daily rewards and set your mood to let your parents know how you feel!',
-        side: 'bottom',
-        align: 'end',
       },
     },
     {
