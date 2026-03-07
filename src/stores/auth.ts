@@ -548,11 +548,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value) return { path: null, error: 'Not authenticated' }
 
     try {
+      const oldAvatarPath = user.value.avatarPath
       const fileExt = file.name.split('.').pop()
-      const filePath = `${user.value.id}/avatar.${fileExt}`
+      const filePath = `${user.value.id}/${crypto.randomUUID()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, {
-        upsert: true,
         cacheControl: '31536000', // 1 year cache for CDN
       })
 
@@ -564,6 +564,11 @@ export const useAuthStore = defineStore('auth', () => {
         // Cleanup: delete the uploaded file since DB update failed
         await supabase.storage.from('avatars').remove([filePath])
         return { path: null, error: updateResult.error }
+      }
+
+      // Remove old avatar file (best-effort, don't block on failure)
+      if (oldAvatarPath && !oldAvatarPath.startsWith('http')) {
+        supabase.storage.from('avatars').remove([oldAvatarPath])
       }
 
       return { path: filePath, error: null }
@@ -582,6 +587,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value) return { path: null, error: 'Not authenticated' }
 
     try {
+      const oldAvatarPath = user.value.avatarPath
+
       // Fetch the image from the URL
       const response = await fetch(avatarUrl)
       if (!response.ok) {
@@ -591,11 +598,10 @@ export const useAuthStore = defineStore('auth', () => {
       const blob = await response.blob()
       const contentType = blob.type || 'image/svg+xml'
       const ext = contentType.includes('svg') ? 'svg' : 'png'
-      const filePath = `${user.value.id}/avatar.${ext}`
+      const filePath = `${user.value.id}/${crypto.randomUUID()}.${ext}`
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, blob, {
-        upsert: true,
         contentType,
         cacheControl: '31536000', // 1 year cache for CDN
       })
@@ -608,6 +614,11 @@ export const useAuthStore = defineStore('auth', () => {
         // Cleanup: delete the uploaded file since DB update failed
         await supabase.storage.from('avatars').remove([filePath])
         return { path: null, error: updateResult.error }
+      }
+
+      // Remove old avatar file (best-effort, don't block on failure)
+      if (oldAvatarPath && !oldAvatarPath.startsWith('http')) {
+        supabase.storage.from('avatars').remove([oldAvatarPath])
       }
 
       return { path: filePath, error: null }
