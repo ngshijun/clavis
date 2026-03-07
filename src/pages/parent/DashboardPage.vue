@@ -115,9 +115,9 @@ watch(selectedChildId, async (newId) => {
 
     <!-- Dashboard Content -->
     <div v-else-if="selectedChild" class="space-y-6">
-      <div data-tour="parent-dashboard-overview" class="grid gap-6 lg:grid-cols-2">
+      <div data-tour="parent-dashboard-overview" class="grid gap-6 lg:grid-cols-3">
         <ChildMoodCalendar :child-id="selectedChild.id" :child-name="selectedChild.name" />
-        <ChildSessionChart :child-id="selectedChild.id" />
+        <ChildSessionChart class="lg:col-span-2" :child-id="selectedChild.id" />
       </div>
 
       <!-- Announcements (full width) -->
