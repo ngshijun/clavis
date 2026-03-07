@@ -26,6 +26,7 @@ export interface AuthUser {
     food: number
     gradeLevelId: string | null
     selectedPetId: string | null
+    preferredLanguage: 'en' | 'zh'
   }
   // Parent-specific fields
   parentProfile?: {
@@ -77,6 +78,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
           food: studentProfile.food ?? 0,
           gradeLevelId: studentProfile.grade_level_id,
           selectedPetId: studentProfile.selected_pet_id,
+          preferredLanguage: (studentProfile.preferred_language as 'en' | 'zh') ?? 'en',
         }
       }
     } else if (profile.user_type === 'parent') {
@@ -638,6 +640,24 @@ export const useAuthStore = defineStore('auth', () => {
     return { error: null }
   }
 
+  async function updatePreferredLanguage(language: 'en' | 'zh') {
+    if (!user.value || user.value.userType !== 'student' || !user.value.studentProfile) {
+      return { error: 'Not a student' }
+    }
+
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ preferred_language: language })
+      .eq('id', user.value.id)
+
+    if (error) {
+      return { error: handleError(error, 'Failed to update language preference.') }
+    }
+
+    user.value.studentProfile.preferredLanguage = language
+    return { error: null }
+  }
+
   /**
    * Mark the guided tour as completed (or reset it)
    */
@@ -715,6 +735,7 @@ export const useAuthStore = defineStore('auth', () => {
     uploadAvatarFromUrl,
     getAvatarUrl,
     updateGradeLevel,
+    updatePreferredLanguage,
     setTourCompleted,
     setSelectedPet,
   }

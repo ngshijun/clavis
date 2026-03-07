@@ -98,6 +98,15 @@ Deno.serve(async (req: Request) => {
       return new Response(`Session not found: ${sessionError?.message}`, { status: 404, headers: corsHeaders })
     }
 
+    // Fetch student's language preference
+    const { data: studentProfile } = await supabase
+      .from('student_profiles')
+      .select('preferred_language')
+      .eq('id', session.student_id)
+      .single()
+
+    const preferredLanguage = studentProfile?.preferred_language ?? 'en'
+
     // If summary already exists, return it
     if (session.ai_summary) {
       return new Response(JSON.stringify({ summary: session.ai_summary }), {
@@ -213,7 +222,7 @@ Deno.serve(async (req: Request) => {
       correctCount: session.correct_count || 0,
       totalTimeSeconds: session.total_time_seconds || 0,
       questions: questionsData,
-    })
+    }, preferredLanguage)
 
     // Call OpenAI API directly using fetch
     // Note: gpt-5-nano uses max_completion_tokens (not max_tokens)
@@ -274,7 +283,7 @@ Deno.serve(async (req: Request) => {
   }
 })
 
-function buildMessages(data: SessionData): any[] {
+function buildMessages(data: SessionData, language: string): any[] {
   const score = data.totalQuestions > 0
     ? Math.round((data.correctCount / data.totalQuestions) * 100)
     : 0
@@ -316,6 +325,10 @@ Rules:
 - Be warm and encouraging, but honest about mistakes
 - Never be harsh or discouraging
 - If score is perfect, keep it SHORT (2-3 sentences max): celebrate the achievement, mention one specific thing they did well, and encourage them. Do NOT list individual questions.`,
+  }
+
+  if (language === 'zh') {
+    systemMessage.content += '\n\nIMPORTANT: Write your ENTIRE response in Chinese (Simplified). Use simple Chinese that a 7-12 year old can understand.'
   }
 
   // Build user message content (can include text and images)

@@ -1019,6 +1019,7 @@ export type Database = {
           food: number | null
           grade_level_id: string | null
           id: string
+          preferred_language: string
           selected_pet_id: string | null
           subscription_tier: Database['public']['Enums']['subscription_tier']
           updated_at: string | null
@@ -1031,6 +1032,7 @@ export type Database = {
           food?: number | null
           grade_level_id?: string | null
           id: string
+          preferred_language?: string
           selected_pet_id?: string | null
           subscription_tier?: Database['public']['Enums']['subscription_tier']
           updated_at?: string | null
@@ -1043,6 +1045,7 @@ export type Database = {
           food?: number | null
           grade_level_id?: string | null
           id?: string
+          preferred_language?: string
           selected_pet_id?: string | null
           subscription_tier?: Database['public']['Enums']['subscription_tier']
           updated_at?: string | null

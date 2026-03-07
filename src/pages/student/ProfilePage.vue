@@ -25,6 +25,7 @@ import {
   Mail,
   Calendar,
   GraduationCap,
+  Languages,
   Trophy,
   CirclePoundSterling,
   Pencil,
@@ -147,6 +148,22 @@ async function handleBirthdaySave(dateString: string | null) {
     }
     toast.success('Birthday updated successfully')
     showEditBirthdayDialog.value = false
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function handleLanguageChange(value: unknown) {
+  if (!value || (value !== 'en' && value !== 'zh')) return
+
+  isSaving.value = true
+  try {
+    const result = await authStore.updatePreferredLanguage(value)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success('Language preference updated successfully')
   } finally {
     isSaving.value = false
   }
@@ -284,7 +301,7 @@ async function handleBirthdaySave(dateString: string | null) {
               :disabled="isSaving || curriculumStore.isLoading"
               @update:model-value="handleGradeChange"
             >
-              <SelectTrigger class="w-[140px]">
+              <SelectTrigger class="w-auto">
                 <SelectValue placeholder="Select grade" />
               </SelectTrigger>
               <SelectContent>
@@ -295,6 +312,32 @@ async function handleBirthdaySave(dateString: string | null) {
                 >
                   {{ grade.name }}
                 </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <!-- AI Summary Language -->
+          <div class="flex items-center gap-4">
+            <div class="flex size-10 items-center justify-center rounded-lg bg-muted">
+              <Languages class="size-5 text-muted-foreground" />
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-muted-foreground">AI Summary Language</p>
+              <p class="font-medium">
+                {{ authStore.studentProfile?.preferredLanguage === 'zh' ? '中文' : 'English' }}
+              </p>
+            </div>
+            <Select
+              :model-value="authStore.studentProfile?.preferredLanguage ?? 'en'"
+              :disabled="isSaving"
+              @update:model-value="handleLanguageChange"
+            >
+              <SelectTrigger class="w-auto">
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
               </SelectContent>
             </Select>
           </div>
