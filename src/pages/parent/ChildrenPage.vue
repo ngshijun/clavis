@@ -158,7 +158,7 @@ async function handleRemoveChild(childId: string) {
               :key="child.id"
               class="flex items-center gap-3 rounded-lg border p-3"
             >
-              <Avatar>
+              <Avatar class="mx-2 size-12">
                 <AvatarImage
                   :src="childLinkStore.getAvatarUrl(child.avatarPath)"
                   :alt="child.name"
