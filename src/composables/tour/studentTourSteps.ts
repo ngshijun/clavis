@@ -113,7 +113,7 @@ export function getStudentTourSteps(): DriveStep[] {
       popover: {
         title: 'Your Profile',
         description:
-          'Access your profile here. You can restart this tour anytime from your Profile page.',
+          'Access your profile and parent page here. You can restart this tour anytime from your Profile page.',
         side: 'right',
         align: 'end',
       },
