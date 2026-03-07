@@ -12,6 +12,15 @@ export function getParentTourSteps(): DriveStep[] {
       },
     },
     {
+      element: 'a[href="/parent/announcements"]',
+      popover: {
+        title: 'Announcements',
+        description: 'Stay updated with the latest news and announcements.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
       element: 'a[href="/parent/children"]',
       popover: {
         title: 'Children',
@@ -42,10 +51,10 @@ export function getParentTourSteps(): DriveStep[] {
       },
     },
     {
-      element: 'a[href="/parent/announcements"]',
+      element: 'a[href="/parent/contact"]',
       popover: {
-        title: 'Announcements',
-        description: 'Stay updated with the latest news and announcements.',
+        title: 'Contact Us',
+        description: 'Have questions or need help? Reach out to us anytime.',
         side: 'right',
         align: 'center',
       },
