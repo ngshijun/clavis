@@ -175,6 +175,18 @@
   text-shadow: none;
 }
 
+.clavis-tour-popover .driver-popover-next-btn:hover,
+.clavis-tour-popover .driver-popover-close-btn-text:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  opacity: 0.9;
+}
+
+.clavis-tour-popover .driver-popover-prev-btn:hover {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
 .clavis-tour-popover .driver-popover-arrow-side-left .driver-popover-arrow,
 .clavis-tour-popover .driver-popover-arrow-side-right .driver-popover-arrow,
 .clavis-tour-popover .driver-popover-arrow-side-top .driver-popover-arrow,
