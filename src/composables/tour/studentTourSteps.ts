@@ -22,6 +22,44 @@ export function getStudentTourSteps(): DriveStep[] {
       },
     },
     {
+      element: 'a[href="/student/practice"]',
+      popover: {
+        title: 'Practice',
+        description:
+          'Start practice sessions here. Choose your subject and topic, then answer questions to earn XP and coins.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
+      element: 'a[href="/student/statistics"]',
+      popover: {
+        title: 'Statistics',
+        description: 'View your learning progress, accuracy rates, and session history.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
+      element: 'a[href="/student/leaderboard"]',
+      popover: {
+        title: 'Leaderboard',
+        description:
+          'Compete with other students! Climb the leaderboard by earning XP through practice.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
+      element: 'a[href="/student/my-pet"]',
+      popover: {
+        title: 'Pets & Collections',
+        description: 'Manage your pets, feed them to evolve, and browse your full collection.',
+        side: 'right',
+        align: 'center',
+      },
+    },
+    {
       element: '[data-tour="student-currency"]',
       popover: {
         title: 'Coins & Food',
@@ -59,44 +97,6 @@ export function getStudentTourSteps(): DriveStep[] {
           'Spin the wheel for daily rewards and set your mood to let your parents know how you feel!',
         side: 'bottom',
         align: 'end',
-      },
-    },
-    {
-      element: 'a[href="/student/practice"]',
-      popover: {
-        title: 'Practice',
-        description:
-          'Start practice sessions here. Choose your subject and topic, then answer questions to earn XP and coins.',
-        side: 'right',
-        align: 'center',
-      },
-    },
-    {
-      element: 'a[href="/student/statistics"]',
-      popover: {
-        title: 'Statistics',
-        description: 'View your learning progress, accuracy rates, and session history.',
-        side: 'right',
-        align: 'center',
-      },
-    },
-    {
-      element: 'a[href="/student/leaderboard"]',
-      popover: {
-        title: 'Leaderboard',
-        description:
-          'Compete with other students! Climb the leaderboard by earning XP through practice.',
-        side: 'right',
-        align: 'center',
-      },
-    },
-    {
-      element: 'a[href="/student/my-pet"]',
-      popover: {
-        title: 'Pets & Collections',
-        description: 'Manage your pets, feed them to evolve, and browse your full collection.',
-        side: 'right',
-        align: 'center',
       },
     },
     {
