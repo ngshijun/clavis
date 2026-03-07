@@ -56,7 +56,7 @@ export function getStudentTourSteps(): DriveStep[] {
       popover: {
         title: 'Daily Spin & Mood',
         description:
-          'Spin the wheel for daily rewards and set your mood to let your teacher know how you feel!',
+          'Spin the wheel for daily rewards and set your mood to let your parents know how you feel!',
         side: 'bottom',
         align: 'end',
       },
