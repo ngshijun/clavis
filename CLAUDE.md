@@ -92,6 +92,7 @@ Never suggest quick fixes, hacks, or workarounds. All recommendations must:
 - Be production-ready
 - Consider maintainability and scalability
 - Use proper typing (no `any` unless absolutely necessary)
+- Don't forcefully suggest fixes/improvements if there's nothing to be improved (just say everything is good)
 
 ### Vue 3 Conventions
 - Use `<script setup lang="ts">` syntax
