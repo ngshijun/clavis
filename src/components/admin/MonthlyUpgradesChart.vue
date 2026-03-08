@@ -29,10 +29,6 @@ const chartConfig = {
     label: 'Pro',
     color: 'var(--chart-2)',
   },
-  max: {
-    label: 'Max',
-    color: 'var(--chart-3)',
-  },
 } satisfies ChartConfig
 </script>
 
@@ -54,12 +50,8 @@ const chartConfig = {
         >
           <VisStackedBar
             :x="(_d: MonthlyUpgrades, i: number) => i"
-            :y="[
-              (d: MonthlyUpgrades) => d.plus,
-              (d: MonthlyUpgrades) => d.pro,
-              (d: MonthlyUpgrades) => d.max,
-            ]"
-            :color="[chartConfig.plus.color, chartConfig.pro.color, chartConfig.max.color]"
+            :y="[(d: MonthlyUpgrades) => d.plus, (d: MonthlyUpgrades) => d.pro]"
+            :color="[chartConfig.plus.color, chartConfig.pro.color]"
             :bar-padding="0.2"
             :rounded-corners="2"
           />

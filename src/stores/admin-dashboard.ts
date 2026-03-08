@@ -38,11 +38,10 @@ export interface MonthlyUpgrades {
   label: string // e.g., "Jan 2026"
   plus: number
   pro: number
-  max: number
 }
 
 export interface TierDistribution {
-  tier: string // 'core' | 'plus' | 'pro' | 'max'
+  tier: string // 'core' | 'plus' | 'pro'
   label: string
   count: number
   color: string
@@ -232,7 +231,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
               .from('payment_history')
               .select('tier, created_at')
               .eq('status', 'succeeded')
-              .in('tier', ['plus', 'pro', 'max'])
+              .in('tier', ['plus', 'pro'])
               .gte('created_at', last12MonthsStart)
               .order('created_at', { ascending: true })
               .range(from, from + BATCH - 1)
@@ -324,14 +323,14 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
 
       // Process monthly upgrades for stacked bar chart
       if (monthlyUpgradesResult.data) {
-        const upgradesMap = initializeMonthlyMap(() => ({ plus: 0, pro: 0, max: 0 }))
+        const upgradesMap = initializeMonthlyMap(() => ({ plus: 0, pro: 0 }))
 
         for (const upgrade of monthlyUpgradesResult.data) {
           if (upgrade.created_at && upgrade.tier) {
             const key = toMYTMonthKey(new Date(upgrade.created_at))
             const existing = upgradesMap.get(key)
             if (existing) {
-              const tier = upgrade.tier as 'plus' | 'pro' | 'max'
+              const tier = upgrade.tier as 'plus' | 'pro'
               existing[tier] = (existing[tier] ?? 0) + 1
             }
           }
@@ -342,7 +341,6 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           label: monthKeyToLabel(month),
           plus: counts.plus,
           pro: counts.pro,
-          max: counts.max,
         }))
       }
 
@@ -352,13 +350,11 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           core: 'var(--chart-4)',
           plus: 'var(--chart-1)',
           pro: 'var(--chart-2)',
-          max: 'var(--chart-3)',
         }
         const tierLabels: Record<string, string> = {
           core: 'Core',
           plus: 'Plus',
           pro: 'Pro',
-          max: 'Max',
         }
         const rows = tierDistributionResult.data as unknown as {
           subscription_tier: string
@@ -370,7 +366,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
             tierCounts.set(row.subscription_tier, row.count)
           }
         }
-        stats.value.tierDistribution = ['core', 'plus', 'pro', 'max'].map((tier) => ({
+        stats.value.tierDistribution = ['core', 'plus', 'pro'].map((tier) => ({
           tier,
           label: tierLabels[tier] ?? tier,
           count: tierCounts.get(tier) ?? 0,

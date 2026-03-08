@@ -51,10 +51,6 @@ const chartConfig = {
     label: 'Pro',
     color: 'var(--chart-2)',
   },
-  max: {
-    label: 'Max',
-    color: 'var(--chart-3)',
-  },
 } satisfies ChartConfig
 </script>
 

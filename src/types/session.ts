@@ -45,8 +45,10 @@ export interface PracticeSessionSummary {
   status: 'completed' | 'in_progress'
 }
 
-export interface PracticeSessionFull
-  extends Omit<PracticeSessionSummary, 'score' | 'durationSeconds' | 'completedAt'> {
+export interface PracticeSessionFull extends Omit<
+  PracticeSessionSummary,
+  'score' | 'durationSeconds' | 'completedAt'
+> {
   subjectId: string
   subTopicId: string
   topicId: string
