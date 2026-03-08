@@ -15,6 +15,7 @@ coverage
 *.local
 docs/
 logos/
+plan/
 supabase/.temp/
 .claude/settings.local.json
 
