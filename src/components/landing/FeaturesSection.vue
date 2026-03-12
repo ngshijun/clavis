@@ -16,12 +16,12 @@ const { t } = storeToRefs(useLanguageStore())
 const featureIcons = [GraduationCap, BookOpen, MessageSquareText, BarChart3, Trophy, Users]
 
 const featureScreenshots = [
-  '/screenshots/student-quiz.png',
-  '/screenshots/student-practice.png',
-  '/screenshots/student-quiz-explanation.png',
-  '/screenshots/student-session-result.png',
-  '/screenshots/student-collections.png',
-  '/screenshots/parent-dashboard.png',
+  '/screenshots/student-quiz.webp',
+  '/screenshots/student-practice.webp',
+  '/screenshots/student-quiz-explanation.webp',
+  '/screenshots/student-session-result.webp',
+  '/screenshots/student-collections.webp',
+  '/screenshots/parent-dashboard.webp',
 ]
 </script>
 
@@ -49,7 +49,14 @@ const featureScreenshots = [
             <CardDescription class="text-base">{{ feature.description }}</CardDescription>
           </CardHeader>
           <div class="px-6 pb-2">
-            <img :src="featureScreenshots[index]" :alt="feature.title" />
+            <img
+              :src="featureScreenshots[index]"
+              :alt="feature.title"
+              width="4336"
+              height="2804"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
         </Card>
       </div>
