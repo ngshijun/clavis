@@ -12,9 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import ChildMoodCalendar from '@/components/parent/ChildMoodCalendar.vue'
-import ChildSessionChart from '@/components/parent/ChildSessionChart.vue'
+import { defineAsyncComponent } from 'vue'
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
+
+const ChildMoodCalendar = defineAsyncComponent(
+  () => import('@/components/parent/ChildMoodCalendar.vue'),
+)
+const ChildSessionChart = defineAsyncComponent(
+  () => import('@/components/parent/ChildSessionChart.vue'),
+)
 
 const SELECTED_CHILD_KEY = 'parent_selected_child_id'
 

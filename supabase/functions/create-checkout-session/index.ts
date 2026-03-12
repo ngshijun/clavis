@@ -34,6 +34,11 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Invalid price ID', 400)
     }
 
+    // Block deprecated tiers from being purchased
+    if (validPlan.id === 'max') {
+      return errorResponse('This plan is no longer available', 400)
+    }
+
     // Construct redirect URLs server-side to prevent open redirect attacks
     const appUrl = Deno.env.get('APP_URL')
     if (!appUrl) {

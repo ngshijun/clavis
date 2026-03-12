@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { defineAsyncComponent, ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStudentDashboardStore } from '@/stores/student-dashboard'
 import { usePracticeHistoryStore } from '@/stores/practice-history'
@@ -8,12 +8,19 @@ import { useAuthStore } from '@/stores/auth'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import DailyStatus from '@/components/dashboard/DailyStatus.vue'
-import BestSubjectCard from '@/components/dashboard/BestSubjectCard.vue'
-import CurrentPetCard from '@/components/dashboard/CurrentPetCard.vue'
 import SpinWheelCard from '@/components/dashboard/SpinWheelCard.vue'
-import StreakCard from '@/components/dashboard/StreakCard.vue'
-import InProgressSessionsCard from '@/components/dashboard/InProgressSessionsCard.vue'
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
+
+const CurrentPetCard = defineAsyncComponent(
+  () => import('@/components/dashboard/CurrentPetCard.vue'),
+)
+const BestSubjectCard = defineAsyncComponent(
+  () => import('@/components/dashboard/BestSubjectCard.vue'),
+)
+const StreakCard = defineAsyncComponent(() => import('@/components/dashboard/StreakCard.vue'))
+const InProgressSessionsCard = defineAsyncComponent(
+  () => import('@/components/dashboard/InProgressSessionsCard.vue'),
+)
 
 const route = useRoute()
 const dashboardStore = useStudentDashboardStore()

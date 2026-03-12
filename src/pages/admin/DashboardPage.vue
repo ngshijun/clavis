@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { defineAsyncComponent, onMounted } from 'vue'
 import { useAdminDashboardStore } from '@/stores/admin-dashboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DollarSign, Users, Activity, BookOpen, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import MonthlyRevenueChart from '@/components/admin/MonthlyRevenueChart.vue'
-import MonthlyUpgradesChart from '@/components/admin/MonthlyUpgradesChart.vue'
-import SubscriptionTierChart from '@/components/admin/SubscriptionTierChart.vue'
+
+const MonthlyRevenueChart = defineAsyncComponent(
+  () => import('@/components/admin/MonthlyRevenueChart.vue'),
+)
+const MonthlyUpgradesChart = defineAsyncComponent(
+  () => import('@/components/admin/MonthlyUpgradesChart.vue'),
+)
+const SubscriptionTierChart = defineAsyncComponent(
+  () => import('@/components/admin/SubscriptionTierChart.vue'),
+)
 
 const dashboardStore = useAdminDashboardStore()
 
@@ -33,7 +40,7 @@ onMounted(async () => {
     </div>
 
     <!-- Stats Cards -->
-    <div v-else class="space-y-4">
+    <div v-else-if="dashboardStore.stats" class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <!-- Revenue Card -->
         <Card>

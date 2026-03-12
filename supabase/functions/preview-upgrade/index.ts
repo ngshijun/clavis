@@ -28,6 +28,11 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Invalid price ID', 400)
     }
 
+    // Block deprecated tiers
+    if (validPlan.id === 'max') {
+      return errorResponse('This plan is no longer available', 400)
+    }
+
     await verifyParentStudentLink(user.id, studentId)
 
     // Get current subscription

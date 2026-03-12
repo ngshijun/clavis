@@ -1,14 +1,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
-import { createClient } from 'jsr:@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, errorResponse } from '../_shared/stripe.ts'
+import { supabaseAdmin } from '../_shared/supabase-admin.ts'
+import { getAuthenticatedUser } from '../_shared/auth.ts'
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 interface QuestionData {
   question: string
@@ -58,18 +54,18 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Authenticate the request
+    const user = await getAuthenticatedUser(req)
+
     const { sessionId } = await req.json()
 
     if (!sessionId) {
-      return new Response('Missing sessionId', { status: 400, headers: corsHeaders })
+      return errorResponse('Missing sessionId', 400)
     }
-
-    // Create Supabase client with service role for full access
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Fetch session with sub_topic chain (sub_topics -> topics -> subjects -> grade_levels)
     // Note: topic_id column now references sub_topics table
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await supabaseAdmin
       .from('practice_sessions')
       .select(`
         id,
@@ -95,15 +91,26 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (sessionError || !session) {
-      return new Response(`Session not found: ${sessionError?.message}`, { status: 404, headers: corsHeaders })
+      return errorResponse('Session not found', 404)
     }
 
-    // Fetch student's language preference
-    const { data: studentProfile } = await supabase
+    // Verify the authenticated user owns this session
+    if (session.student_id !== user.id) {
+      return errorResponse('Not authorized to access this session', 403)
+    }
+
+    // Fetch student's subscription tier and language preference
+    const { data: studentProfile } = await supabaseAdmin
       .from('student_profiles')
-      .select('preferred_language')
+      .select('preferred_language, subscription_tier')
       .eq('id', session.student_id)
       .single()
+
+    // Verify Pro/Max tier (AI summaries are a paid feature)
+    const tier = studentProfile?.subscription_tier
+    if (tier !== 'pro' && tier !== 'max') {
+      return errorResponse('AI summaries require a Pro subscription', 403)
+    }
 
     const preferredLanguage = studentProfile?.preferred_language ?? 'en'
 
@@ -115,7 +122,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch answers with questions (including image paths)
-    const { data: answers, error: answersError } = await supabase
+    const { data: answers, error: answersError } = await supabaseAdmin
       .from('practice_answers')
       .select(`
         is_correct,
@@ -143,7 +150,7 @@ Deno.serve(async (req: Request) => {
       .eq('session_id', sessionId)
 
     if (answersError) {
-      return new Response(`Failed to fetch answers: ${answersError.message}`, { status: 500, headers: corsHeaders })
+      return errorResponse('Failed to fetch answers', 500, answersError)
     }
 
     // Build session data for prompt
@@ -264,7 +271,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Save summary to database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('practice_sessions')
       .update({ ai_summary: summary })
       .eq('id', sessionId)
@@ -278,8 +285,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Error:', error)
-    return new Response(`Internal error: ${error.message}`, { status: 500, headers: corsHeaders })
+    if (error instanceof Response) return error
+    return errorResponse('Failed to generate session summary', 500, error)
   }
 })
 

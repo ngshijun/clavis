@@ -44,6 +44,9 @@ export default defineConfig({
           if (id.includes('node_modules/@tanstack/')) {
             return 'tanstack'
           }
+          if (id.includes('node_modules/@unovis/')) {
+            return 'unovis'
+          }
           if (id.includes('node_modules/driver.js/')) {
             return 'driver'
           }

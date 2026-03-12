@@ -64,13 +64,16 @@ const statIcons = [BookOpen, GraduationCap, PawPrint] as const
         </div>
       </div>
 
-      <!-- Product screenshot placeholder -->
+      <!-- Product screenshot -->
       <div class="mx-auto mt-16 max-w-5xl px-4">
-        <div
-          class="flex aspect-video items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/50"
-        >
-          <p class="text-sm text-muted-foreground">App screenshot placeholder</p>
-        </div>
+        <img
+          src="/screenshots/student-dashboard.webp"
+          alt="Clavis student dashboard"
+          width="4336"
+          height="2804"
+          fetchpriority="high"
+          decoding="async"
+        />
       </div>
     </div>
 

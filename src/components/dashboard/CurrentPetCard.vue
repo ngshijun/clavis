@@ -56,6 +56,10 @@ function goToMyPet() {
             <img
               :src="selectedPetImage"
               :alt="petsStore.selectedPet.name"
+              width="320"
+              height="320"
+              fetchpriority="high"
+              decoding="async"
               class="relative z-10 h-full max-h-64 w-auto object-contain drop-shadow-lg animate-bounce-slow transition-transform group-hover:scale-110 sm:max-h-72 lg:max-h-80"
             />
           </div>
