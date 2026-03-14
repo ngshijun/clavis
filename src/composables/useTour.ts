@@ -71,6 +71,7 @@ export function useTour() {
       smoothScroll: true,
       stagePadding: 8,
       stageRadius: 8,
+      disableActiveInteraction: true,
       popoverClass: 'clavis-tour-popover',
       steps,
       onDestroyed: () => {
