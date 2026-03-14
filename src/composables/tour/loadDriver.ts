@@ -1,11 +1,13 @@
 /** Lazily load driver.js and its CSS (shared across tour composables) */
-let driverCssLoaded = false
+let driverPromise: Promise<typeof import('driver.js').driver> | null = null
 
-export async function loadDriver() {
-  const { driver } = await import('driver.js')
-  if (!driverCssLoaded) {
-    await import('driver.js/dist/driver.css')
-    driverCssLoaded = true
+export function loadDriver() {
+  if (!driverPromise) {
+    driverPromise = (async () => {
+      const { driver } = await import('driver.js')
+      await import('driver.js/dist/driver.css')
+      return driver
+    })()
   }
-  return driver
+  return driverPromise
 }

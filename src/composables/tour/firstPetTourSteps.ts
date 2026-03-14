@@ -11,17 +11,17 @@ export interface FirstPetTourCallbacks {
   onPetRevealStepReady: () => void
   /** Step 5: User clicks Close on the result dialog */
   onCloseResultStepReady: () => void
-  /** Step 5: User clicks Collections sidebar link to go back */
+  /** Step 6: User clicks Collections sidebar link to go back */
   onBackToCollectionsStepReady: () => void
-  /** Step 6: User clicks Cloud Bunny card to open detail dialog */
+  /** Step 7: User clicks Cloud Bunny card to open detail dialog */
   onPetCardStepReady: () => void
-  /** Step 7: User clicks "Select as My Pet" in the detail dialog */
+  /** Step 8: User clicks "Select as My Pet" in the detail dialog */
   onSelectCompanionStepReady: () => void
-  /** Step 8: User clicks X to close the detail dialog */
+  /** Step 9: User clicks X to close the detail dialog */
   onCloseDetailStepReady: () => void
-  /** Step 9: User clicks Dashboard sidebar link */
+  /** Step 10: User clicks Dashboard sidebar link */
   onDashboardStepReady: () => void
-  /** Step 10: Final — highlight pet card on dashboard */
+  /** Step 11: Final — highlight pet card on dashboard */
   onFinalStepReady: () => void
 }
 
@@ -162,6 +162,7 @@ export function getFirstPetTourSteps(callbacks: FirstPetTourCallbacks): DriveSte
     },
     {
       element: '[data-tour="dashboard-pet"]',
+      disableActiveInteraction: true,
       popover: {
         title: 'Your Pet is Here!',
         description:

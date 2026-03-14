@@ -41,7 +41,7 @@ export function useGachaPull() {
   const pullResults = ref<Pet[]>([])
   const newPetIds = ref<Set<string>>(new Set())
   const capsuleColor = ref('purple')
-  const lastPullType = ref<'single' | 'multi'>('single')
+  const lastPullType = ref<'single' | 'multi' | 'free'>('single')
 
   function getPetById(petId: string): Pet | undefined {
     return petsStore.allPets.find((p) => p.id === petId)
@@ -88,7 +88,7 @@ export function useGachaPull() {
   async function freePull() {
     if (isRolling.value) return
     isRolling.value = true
-    lastPullType.value = 'single'
+    lastPullType.value = 'free'
     capsuleColor.value = '#A855F7'
 
     const { petId, error } = await petsStore.initialPetDraw()

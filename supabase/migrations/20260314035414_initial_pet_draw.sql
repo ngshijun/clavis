@@ -21,6 +21,11 @@ BEGIN
     RAISE EXCEPTION 'Student profile not found';
   END IF;
 
+  -- Guard: only allow if student has no pets yet (prevents abuse via devtools/API)
+  IF EXISTS (SELECT 1 FROM owned_pets WHERE student_id = v_student_id) THEN
+    RAISE EXCEPTION 'Student already owns pets';
+  END IF;
+
   -- Look up Cloud Bunny by name (avoids hardcoded UUID across environments)
   SELECT id INTO v_pet_id FROM pets WHERE name = 'Cloud Bunny' LIMIT 1;
   IF v_pet_id IS NULL THEN

@@ -335,7 +335,7 @@ onMounted(async () => {
           <Button data-tour="gacha-close-results" variant="outline" @click="closeResults"
             >Close</Button
           >
-          <template v-if="!isFirstPetMode">
+          <template v-if="lastPullType !== 'free'">
             <!-- Single pull again button -->
             <Button
               v-if="lastPullType === 'single'"
