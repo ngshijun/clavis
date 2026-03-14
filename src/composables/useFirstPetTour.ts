@@ -140,6 +140,15 @@ export function useFirstPetTour() {
               // the element's bounding box taller than its visual content.
               // Force content-height so driver.js highlights just the card.
               card.style.alignSelf = 'start'
+              // Wait for the pet image inside the card to load so the layout is final
+              // before driver.js calculates the highlight bounds.
+              const img = card.querySelector('img')
+              if (img && !img.complete) {
+                await new Promise<void>((r) => {
+                  img.addEventListener('load', () => r(), { once: true })
+                  img.addEventListener('error', () => r(), { once: true })
+                })
+              }
               card.scrollIntoView({ behavior: 'smooth', block: 'center' })
               await new Promise<void>((r) => requestAnimationFrame(() => r()))
               tourInstance?.moveNext()
