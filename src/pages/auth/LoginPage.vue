@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { loginFormSchema } from '@/lib/validations'
@@ -13,6 +14,11 @@ import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'Log In',
+  description: 'Log in to Clavis to start your gamified learning journey.',
+})
 
 const isSubmitting = ref(false)
 const passwordRef = ref<InstanceType<typeof PasswordInput> | null>(null)

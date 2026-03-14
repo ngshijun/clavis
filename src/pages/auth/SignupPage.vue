@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { signupFormSchema } from '@/lib/validations'
@@ -17,6 +18,12 @@ import { createYearRange } from 'reka-ui/date'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'Sign Up',
+  description:
+    'Create a free Clavis account. Gamified practice sessions, collectible pets, and progress tracking for primary school students.',
+})
 
 const isSubmitting = ref(false)
 const dateOfBirthValue = shallowRef<DateValue | undefined>(undefined)

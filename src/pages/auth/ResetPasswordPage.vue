@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { z } from 'zod'
@@ -15,6 +16,12 @@ import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'Reset Password',
+  description: 'Set a new password for your Clavis account.',
+  robots: 'noindex',
+})
 
 const isSubmitting = ref(false)
 const isValidToken = ref(false)
