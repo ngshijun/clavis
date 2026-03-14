@@ -87,31 +87,31 @@ export function useFirstPetTour() {
       stageRadius: 8,
       popoverClass: 'clavis-first-pet-popover',
       steps: getFirstPetTourSteps({
-        // Step 1: User clicks a sidebar pet link → redirect to gacha page
-        onGachaStepReady: () => {
+        // Step 1: User clicks Collections sidebar link → navigates to Collections page
+        onCollectionsStepReady: () => {
           ensureSidebarOpen()
           const removeGuard = router.afterEach(async (to) => {
-            // Accept click on either "My Pet" or "Collections" and redirect to gacha
-            if (
-              to.path === '/student/my-pet' ||
-              to.path === '/student/collections' ||
-              to.path === '/student/gacha'
-            ) {
+            if (to.path === '/student/collections') {
               removeGuard()
-              if (to.path !== '/student/gacha') {
-                await router.replace('/student/gacha')
-              }
+              await waitForElement('[data-tour="unlock-new-pets"]')
+              tourInstance?.moveNext()
+            }
+          })
+        },
+
+        // Step 2: User clicks "Unlock New Pets" → navigates to Gacha page
+        onUnlockPetsStepReady: () => {
+          const removeGuard = router.afterEach(async (to) => {
+            if (to.path === '/student/gacha') {
+              removeGuard()
               await waitForElement('[data-tour="gacha-single-pull"]')
               tourInstance?.moveNext()
             }
           })
         },
 
-        // Step 2: User clicks the pull button → animation plays → result dialog → closes
+        // Step 3: User clicks the pull button → animation → result dialog → close
         onPullStepReady: () => {
-          // The pull button is interactive — user clicks it directly, which calls
-          // GachaPage's handleSinglePull → freePull. We just watch for the result
-          // dialog lifecycle.
           const waitForPullComplete = async () => {
             // Wait for the result dialog to appear (shadcn-vue dialog-content)
             await waitForElement('[data-slot="dialog-content"]')
@@ -127,8 +127,9 @@ export function useFirstPetTour() {
           waitForPullComplete()
         },
 
-        // Step 3: User clicks "Collections" sidebar link → navigates to collections page
-        onCollectionsStepReady: () => {
+        // Step 4: User clicks Collections sidebar link → back to Collections page
+        onBackToCollectionsStepReady: () => {
+          ensureSidebarOpen()
           const removeGuard = router.afterEach(async (to) => {
             if (to.path === '/student/collections') {
               removeGuard()
@@ -138,7 +139,7 @@ export function useFirstPetTour() {
           })
         },
 
-        // Step 4: "Done" button — directly selects Cloud Bunny and navigates to dashboard
+        // Step 5: "Done" button → select Cloud Bunny and go to dashboard
         onSelectPet: async () => {
           const cloudBunny = petsStore.allPets.find((p) => p.name === 'Cloud Bunny')
           if (cloudBunny) {

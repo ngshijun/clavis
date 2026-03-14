@@ -88,7 +88,7 @@ function closeCombineResult() {
           <p class="text-muted-foreground">View all available pets and track your collection</p>
         </div>
         <div class="flex items-center gap-4">
-          <Button variant="outline" as-child>
+          <Button variant="outline" as-child data-tour="unlock-new-pets">
             <RouterLink to="/student/gacha">
               <Sparkles class="mr-2 size-4" />
               Unlock New Pets
