@@ -102,24 +102,31 @@ export function useFirstPetTour() {
           })
         },
 
-        // Step 3: User clicks the pull button → animation → result dialog → close
+        // Step 3: User clicks the pull button → animation → result dialog appears
         onPullStepReady: () => {
           // Watch ownedPets reactively — when it goes from 0 to > 0, the pull succeeded.
-          // This is event-driven (no timeout), so it waits indefinitely for the user to click.
           const unwatch = watch(
             () => petsStore.ownedPets.length,
             async (newLen) => {
               if (newLen > 0) {
                 unwatch()
-                // Pet drawn — dialog is about to open. Wait for it to appear, then close.
-                await waitForElement('[data-slot="dialog-content"]')
-                await waitForElementGone('[data-slot="dialog-content"]')
-                ensureSidebarOpen()
-                await waitForElement('a[href="/student/collections"]')
+                // Pet drawn — wait for the Close button to appear, then highlight it
+                await waitForElement('[data-tour="gacha-close-results"]')
                 tourInstance?.moveNext()
               }
             },
           )
+        },
+
+        // Step 4: User clicks Close on the result dialog → dialog closes
+        onCloseResultStepReady: () => {
+          const waitForDialogClose = async () => {
+            await waitForElementGone('[data-slot="dialog-content"]')
+            ensureSidebarOpen()
+            await waitForElement('a[href="/student/collections"]')
+            tourInstance?.moveNext()
+          }
+          waitForDialogClose()
         },
 
         // Step 4: User clicks Collections sidebar link → back to Collections page

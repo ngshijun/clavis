@@ -331,7 +331,9 @@ onMounted(async () => {
           </div>
         </div>
         <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="closeResults">Close</Button>
+          <Button data-tour="gacha-close-results" variant="outline" @click="closeResults"
+            >Close</Button
+          >
           <template v-if="!isFirstPetMode">
             <!-- Single pull again button -->
             <Button
