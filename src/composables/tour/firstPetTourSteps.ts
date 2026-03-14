@@ -68,7 +68,7 @@ export function getFirstPetTourSteps(callbacks: FirstPetTourCallbacks): DriveSte
       },
     },
     {
-      element: '[data-slot="dialog-content"]',
+      element: '[data-tour="gacha-result-pet"]',
       disableActiveInteraction: true,
       popover: {
         title: 'Congratulations!',

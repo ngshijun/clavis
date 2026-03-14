@@ -307,6 +307,7 @@ onMounted(async () => {
           <div
             v-for="(pet, index) in pullResults"
             :key="index"
+            :data-tour="isFirstPetMode && index === 0 ? 'gacha-result-pet' : undefined"
             class="flex flex-col items-center rounded-xl border-2 px-2 pb-2 pt-3 transition-transform hover:scale-105"
             :class="[rarityConfig[pet.rarity].bgColor, rarityConfig[pet.rarity].borderColor]"
           >

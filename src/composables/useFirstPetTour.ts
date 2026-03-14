@@ -111,8 +111,8 @@ export function useFirstPetTour() {
             async (newLen) => {
               if (newLen > 0) {
                 unwatch()
-                // Pet drawn — wait for the result dialog to appear, then show pet reveal
-                await waitForElement('[data-slot="dialog-content"]')
+                // Pet drawn — wait for the result pet card to appear, then show pet reveal
+                await waitForElement('[data-tour="gacha-result-pet"]')
                 tourInstance?.moveNext()
               }
             },
