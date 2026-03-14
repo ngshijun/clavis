@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { z } from 'zod'
@@ -12,6 +13,11 @@ import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'Forgot Password',
+  description: 'Reset your Clavis password. Enter your email to receive a password reset link.',
+})
 
 const isSubmitting = ref(false)
 const emailSent = ref(false)

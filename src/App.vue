@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useHead } from '@unhead/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { Toaster } from '@/components/ui/sonner'
@@ -11,6 +12,11 @@ import 'vue-sonner/style.css'
 const router = useRouter()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+
+useHead({
+  titleTemplate: (title) =>
+    title ? `${title} — Clavis` : 'Clavis — Where Learning Feels Like Play',
+})
 
 const showUpdateNotice = ref(false)
 

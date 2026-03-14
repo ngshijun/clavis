@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useSeoMeta } from '@unhead/vue'
 import { useAuthStore } from '@/stores/auth'
 import { ArrowLeft, KeyRound, Loader2, CheckCircle, Mail } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +11,12 @@ import { toast } from 'vue-sonner'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'Check Your Email',
+  description: 'Verify your email address to complete your Clavis account setup.',
+  robots: 'noindex',
+})
 
 const email = ref('')
 const isResending = ref(false)
