@@ -77,7 +77,7 @@ export function useFirstPetTour() {
       smoothScroll: true,
       stagePadding: 4,
       stageRadius: 8,
-      popoverClass: 'clavis-first-pet-popover',
+      popoverClass: 'clavis-tour-popover',
       steps: getFirstPetTourSteps({
         // Step 1: User clicks Collections sidebar link → navigates to Collections page
         onCollectionsStepReady: () => {
