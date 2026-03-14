@@ -145,9 +145,6 @@ export function getFirstPetTourSteps(callbacks: FirstPetTourCallbacks): DriveSte
     },
     {
       element: '[data-tour="dashboard-pet"]',
-      onHighlightStarted: () => {
-        callbacks.onFinalStepReady()
-      },
       popover: {
         title: 'Your Pet is Here!',
         description:
