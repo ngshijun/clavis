@@ -111,7 +111,7 @@ export function useFirstPetTour() {
             async (newLen) => {
               if (newLen > 0) {
                 unwatch()
-                // Pet drawn — wait for the result dialog to appear, then highlight it
+                // Pet drawn — wait for the result dialog to appear, then show pet reveal
                 await waitForElement('[data-slot="dialog-content"]')
                 tourInstance?.moveNext()
               }
@@ -119,7 +119,12 @@ export function useFirstPetTour() {
           )
         },
 
-        // Step 4: User clicks Close on the result dialog → dialog closes
+        // Step 4: "Nice!" button → advance to close button step
+        onPetRevealStepReady: () => {
+          tourInstance?.moveNext()
+        },
+
+        // Step 5: User clicks Close on the result dialog → dialog closes
         onCloseResultStepReady: () => {
           const waitForDialogClose = async () => {
             await waitForElementGone('[data-slot="dialog-content"]')

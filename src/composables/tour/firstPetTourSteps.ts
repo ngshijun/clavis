@@ -7,7 +7,9 @@ export interface FirstPetTourCallbacks {
   onUnlockPetsStepReady: () => void
   /** Step 3: User clicks the pull button on Gacha page */
   onPullStepReady: () => void
-  /** Step 4: User clicks Close on the result dialog */
+  /** Step 4: Show the pet result (Next button to continue) */
+  onPetRevealStepReady: () => void
+  /** Step 5: User clicks Close on the result dialog */
   onCloseResultStepReady: () => void
   /** Step 5: User clicks Collections sidebar link to go back */
   onBackToCollectionsStepReady: () => void
@@ -67,12 +69,27 @@ export function getFirstPetTourSteps(callbacks: FirstPetTourCallbacks): DriveSte
     },
     {
       element: '[data-slot="dialog-content"]',
+      disableActiveInteraction: true,
+      popover: {
+        title: 'Congratulations!',
+        description: 'You got your first pet — Cloud Bunny!',
+        side: 'right',
+        align: 'center',
+        showButtons: ['next'],
+        nextBtnText: 'Nice!',
+        onNextClick: () => {
+          callbacks.onPetRevealStepReady()
+        },
+      },
+    },
+    {
+      element: '[data-tour="gacha-close-results"]',
       onHighlightStarted: () => {
         callbacks.onCloseResultStepReady()
       },
       popover: {
-        title: 'Congratulations!',
-        description: 'You got your first pet — Cloud Bunny! Tap "Close" to continue.',
+        title: 'Continue Your Journey!',
+        description: 'Tap "Close" to continue.',
         side: 'right',
         align: 'center',
         showButtons: [],
