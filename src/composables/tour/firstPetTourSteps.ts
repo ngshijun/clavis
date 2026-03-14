@@ -125,7 +125,7 @@ export function getFirstPetTourSteps(callbacks: FirstPetTourCallbacks): DriveSte
       popover: {
         title: 'Well Done!',
         description: 'Cloud Bunny is now your companion! Tap the X to close.',
-        side: 'left',
+        side: 'right',
         align: 'center',
         showButtons: [],
       },
