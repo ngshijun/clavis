@@ -23,6 +23,8 @@ import { useCurriculumStore } from '@/stores/curriculum'
 import { toast } from 'vue-sonner'
 import { Loader2, CirclePoundSterling, Apple } from 'lucide-vue-next'
 import { useTour } from '@/composables/useTour'
+import { useFirstPetTour } from '@/composables/useFirstPetTour'
+import { usePetsStore } from '@/stores/pets'
 import AppSidebar from './AppSidebar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
@@ -30,7 +32,9 @@ const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
 const isDev = import.meta.env.DEV
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
+const petsStore = usePetsStore()
 const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
+const { watchAndStart: watchAndStartFirstPetTour } = useFirstPetTour()
 
 // Grade selection dialog state
 const showGradeDialog = ref(false)
@@ -54,6 +58,20 @@ watch(showGradeDialog, (open) => {
     promptTour()
   }
 })
+
+// First pet tour: trigger once pets store is initialized (works on any student page)
+if (authStore.isStudent) {
+  const unwatchPets = watch(
+    () => petsStore.allPets.length,
+    (len) => {
+      if (len > 0) {
+        unwatchPets()
+        watchAndStartFirstPetTour()
+      }
+    },
+    { immediate: true },
+  )
+}
 
 async function handleSaveGrade() {
   if (!selectedGradeId.value) {

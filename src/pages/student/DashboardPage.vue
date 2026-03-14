@@ -7,7 +7,6 @@ import { usePetsStore } from '@/stores/pets'
 import { useAuthStore } from '@/stores/auth'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { useFirstPetTour } from '@/composables/useFirstPetTour'
 import DailyStatus from '@/components/dashboard/DailyStatus.vue'
 import SpinWheelCard from '@/components/dashboard/SpinWheelCard.vue'
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
@@ -28,7 +27,6 @@ const dashboardStore = useStudentDashboardStore()
 const practiceStore = usePracticeHistoryStore()
 const petsStore = usePetsStore()
 const authStore = useAuthStore()
-const { shouldShowFirstPetTour, watchAndStart: watchAndStartFirstPetTour } = useFirstPetTour()
 
 const isLoading = ref(true)
 const dailyStatusButtonRef = ref<InstanceType<typeof DailyStatus> | null>(null)
@@ -39,9 +37,6 @@ const MOOD_REMINDER_DISMISSED_KEY = 'mood_reminder_dismissed_date'
 function shouldShowMoodReminder(): boolean {
   // Don't show mood reminder if tour hasn't been completed (tour takes priority)
   if (!authStore.user?.hasCompletedTour) return false
-
-  // Don't show mood reminder if first pet tour should show (it takes priority)
-  if (shouldShowFirstPetTour()) return false
 
   // Don't show mood reminder if grade level is not set (grade dialog takes priority)
   if (!authStore.studentProfile?.gradeLevelId) return false
@@ -86,16 +81,11 @@ watch(
   },
 )
 
-// Show mood reminder dialog or start first pet tour after loading completes
+// Show mood reminder dialog after loading completes
 watch(isLoading, async (loading) => {
-  if (!loading) {
-    if (shouldShowMoodReminder()) {
-      await nextTick()
-      dailyStatusButtonRef.value?.openDialog(true)
-    }
-
-    // First pet onboarding (independent of general tour)
-    watchAndStartFirstPetTour()
+  if (!loading && shouldShowMoodReminder()) {
+    await nextTick()
+    dailyStatusButtonRef.value?.openDialog(true)
   }
 })
 </script>
