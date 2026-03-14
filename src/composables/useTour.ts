@@ -24,6 +24,7 @@ function setCacheCompleted(userId: string, completed: boolean) {
 }
 
 const showWelcomeDialog = ref(false)
+const isTourActive = ref(false)
 let driverInstance: ReturnType<typeof import('driver.js').driver> | null = null
 
 export function useTour() {
@@ -53,6 +54,7 @@ export function useTour() {
   /** Start the driver.js tour */
   async function startTour() {
     showWelcomeDialog.value = false
+    isTourActive.value = true
 
     const userType = authStore.user?.userType
     const [driver, { getStudentTourSteps }, { getParentTourSteps }] = await Promise.all([
@@ -88,6 +90,7 @@ export function useTour() {
     setCacheCompleted(userId, true)
     await authStore.setTourCompleted(true)
     driverInstance = null
+    isTourActive.value = false
   }
 
   /** Skip tour (same as complete — user chose not to see it) */
@@ -116,6 +119,7 @@ export function useTour() {
 
   return {
     showWelcomeDialog,
+    isTourActive,
     shouldShowTour,
     promptTour,
     startTour,

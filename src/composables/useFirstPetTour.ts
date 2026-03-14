@@ -52,13 +52,14 @@ export function useFirstPetTour() {
   const authStore = useAuthStore()
   const petsStore = usePetsStore()
   const router = useRouter()
-  const { showWelcomeDialog } = useTour()
+  const { showWelcomeDialog, isTourActive } = useTour()
 
   function shouldShowFirstPetTour(): boolean {
     if (!authStore.user) return false
     if (authStore.user.userType !== 'student') return false
     if (petsStore.ownedPets.length > 0) return false
     if (showWelcomeDialog.value) return false
+    if (isTourActive.value) return false
     if (tourInstance) return false
     return true
   }
@@ -218,24 +219,19 @@ export function useFirstPetTour() {
     tourInstance.drive()
   }
 
-  /** Watch for general tour dialog to close, then start first pet tour if needed */
+  /** Watch for general tour to finish, then start first pet tour if needed */
   function watchAndStart() {
     if (shouldShowFirstPetTour()) {
       startFirstPetTour()
       return
     }
 
-    // If general tour dialog is open, wait for it to close
-    if (showWelcomeDialog.value && petsStore.ownedPets.length === 0) {
-      const unwatch = watch(showWelcomeDialog, (open) => {
-        if (!open && shouldShowFirstPetTour()) {
+    // If general tour dialog or tour is active, wait for it to finish
+    if ((showWelcomeDialog.value || isTourActive.value) && petsStore.ownedPets.length === 0) {
+      const unwatch = watch(isTourActive, (active) => {
+        if (!active && shouldShowFirstPetTour()) {
           unwatch()
-          // Delay to let general tour start if user clicked "Start Tour"
-          setTimeout(() => {
-            if (shouldShowFirstPetTour()) {
-              startFirstPetTour()
-            }
-          }, 500)
+          startFirstPetTour()
         }
       })
     }
