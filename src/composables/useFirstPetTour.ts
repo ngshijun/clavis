@@ -102,9 +102,11 @@ export function useFirstPetTour() {
           ) as HTMLElement | null
           btn?.click()
 
-          // Wait for the result dialog to appear, then wait for it to close
-          await waitForElement('[role="dialog"]')
-          await waitForElementGone('[role="dialog"]')
+          // Wait for the result dialog to appear, then wait for it to close.
+          // Use data-slot="dialog-content" (shadcn-vue) to avoid matching driver.js's own popover
+          // which also has role="dialog".
+          await waitForElement('[data-slot="dialog-content"]')
+          await waitForElementGone('[data-slot="dialog-content"]')
 
           // Small delay for DOM to settle after dialog closes
           await new Promise((r) => setTimeout(r, 300))

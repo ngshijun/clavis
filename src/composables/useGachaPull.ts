@@ -86,6 +86,7 @@ export function useGachaPull() {
   }
 
   async function freePull() {
+    if (isRolling.value) return
     isRolling.value = true
     lastPullType.value = 'single'
     capsuleColor.value = '#A855F7'
