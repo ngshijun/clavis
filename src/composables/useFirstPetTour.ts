@@ -87,40 +87,58 @@ export function useFirstPetTour() {
       stageRadius: 8,
       popoverClass: 'clavis-first-pet-popover',
       steps: getFirstPetTourSteps({
-        onNavigateToGacha: async () => {
+        // Step 1: User clicks a sidebar pet link → redirect to gacha page
+        onGachaStepReady: () => {
           ensureSidebarOpen()
-          await router.push('/student/gacha')
-          await waitForElement('[data-tour="gacha-single-pull"]')
-          tourInstance?.moveNext()
+          const removeGuard = router.afterEach(async (to) => {
+            // Accept click on either "My Pet" or "Collections" and redirect to gacha
+            if (
+              to.path === '/student/my-pet' ||
+              to.path === '/student/collections' ||
+              to.path === '/student/gacha'
+            ) {
+              removeGuard()
+              if (to.path !== '/student/gacha') {
+                await router.replace('/student/gacha')
+              }
+              await waitForElement('[data-tour="gacha-single-pull"]')
+              tourInstance?.moveNext()
+            }
+          })
         },
 
-        onPull: async () => {
-          // Programmatically click GachaPage's pull button so its own
-          // useGachaPull instance handles animation and result dialog.
-          const btn = document.querySelector(
-            '[data-tour="gacha-single-pull"]',
-          ) as HTMLElement | null
-          btn?.click()
+        // Step 2: User clicks the pull button → animation plays → result dialog → closes
+        onPullStepReady: () => {
+          // The pull button is interactive — user clicks it directly, which calls
+          // GachaPage's handleSinglePull → freePull. We just watch for the result
+          // dialog lifecycle.
+          const waitForPullComplete = async () => {
+            // Wait for the result dialog to appear (shadcn-vue dialog-content)
+            await waitForElement('[data-slot="dialog-content"]')
+            // Wait for user to close it
+            await waitForElementGone('[data-slot="dialog-content"]')
 
-          // Wait for the result dialog to appear, then wait for it to close.
-          // Use data-slot="dialog-content" (shadcn-vue) to avoid matching driver.js's own popover
-          // which also has role="dialog".
-          await waitForElement('[data-slot="dialog-content"]')
-          await waitForElementGone('[data-slot="dialog-content"]')
-
-          // Small delay for DOM to settle after dialog closes
-          await new Promise((r) => setTimeout(r, 300))
-          ensureSidebarOpen()
-          await waitForElement('a[href="/student/collections"]')
-          tourInstance?.moveNext()
+            // Small delay for DOM to settle, then advance
+            await new Promise((r) => setTimeout(r, 300))
+            ensureSidebarOpen()
+            await waitForElement('a[href="/student/collections"]')
+            tourInstance?.moveNext()
+          }
+          waitForPullComplete()
         },
 
-        onNavigateToCollections: async () => {
-          await router.push('/student/collections')
-          await waitForElement('[data-tour="first-pet-card"]')
-          tourInstance?.moveNext()
+        // Step 3: User clicks "Collections" sidebar link → navigates to collections page
+        onCollectionsStepReady: () => {
+          const removeGuard = router.afterEach(async (to) => {
+            if (to.path === '/student/collections') {
+              removeGuard()
+              await waitForElement('[data-tour="first-pet-card"]')
+              tourInstance?.moveNext()
+            }
+          })
         },
 
+        // Step 4: "Done" button — directly selects Cloud Bunny and navigates to dashboard
         onSelectPet: async () => {
           const cloudBunny = petsStore.allPets.find((p) => p.name === 'Cloud Bunny')
           if (cloudBunny) {
