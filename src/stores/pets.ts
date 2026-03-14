@@ -607,6 +607,19 @@ export const usePetsStore = defineStore('pets', () => {
     }
   }
 
+  // Initial pet draw — free starter pet for first-time students (server-side RPC)
+  async function initialPetDraw(): Promise<{ petId: string | null; error: string | null }> {
+    try {
+      const { data: petId, error: rpcError } = await supabase.rpc('initial_pet_draw')
+      if (rpcError) {
+        return { petId: null, error: handleError(rpcError, 'Initial draw failed') }
+      }
+      return { petId: petId ?? null, error: null }
+    } catch (err) {
+      return { petId: null, error: handleError(err, 'Initial draw failed') }
+    }
+  }
+
   // Exchange coins for food (server-side RPC)
   async function exchangeCoinsForFood(foodAmount: number): Promise<{ error: string | null }> {
     try {
@@ -666,6 +679,7 @@ export const usePetsStore = defineStore('pets', () => {
     // Gacha & exchange
     gachaPull,
     gachaMultiPull,
+    initialPetDraw,
     exchangeCoinsForFood,
 
     // Student actions

@@ -185,7 +185,12 @@ function handleOpenChange(value: boolean) {
           <Check class="mr-2 size-4" />
           Selected
         </Button>
-        <Button v-else class="w-full" @click="handleSelectPet(props.pet.id)">
+        <Button
+          v-else
+          data-tour="select-as-companion"
+          class="w-full"
+          @click="handleSelectPet(props.pet.id)"
+        >
           <Star class="mr-2 size-4" />
           Select as My Pet
         </Button>

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { loadDriver } from './tour/loadDriver'
 
 const TOUR_CACHE_PREFIX = 'tour_completed_'
 
@@ -22,21 +23,8 @@ function setCacheCompleted(userId: string, completed: boolean) {
   }
 }
 
-/** Lazily load driver.js and its CSS */
-let driverCssLoaded = false
-async function loadDriver() {
-  const { driver } = await import('driver.js')
-
-  // Inject CSS once
-  if (!driverCssLoaded) {
-    await import('driver.js/dist/driver.css')
-    driverCssLoaded = true
-  }
-
-  return driver
-}
-
 const showWelcomeDialog = ref(false)
+const isTourActive = ref(false)
 let driverInstance: ReturnType<typeof import('driver.js').driver> | null = null
 
 export function useTour() {
@@ -66,6 +54,7 @@ export function useTour() {
   /** Start the driver.js tour */
   async function startTour() {
     showWelcomeDialog.value = false
+    isTourActive.value = true
 
     const userType = authStore.user?.userType
     const [driver, { getStudentTourSteps }, { getParentTourSteps }] = await Promise.all([
@@ -82,6 +71,8 @@ export function useTour() {
       smoothScroll: true,
       stagePadding: 8,
       stageRadius: 8,
+      disableActiveInteraction: true,
+      overlayClickBehavior: 'nextStep',
       popoverClass: 'clavis-tour-popover',
       steps,
       onDestroyed: () => {
@@ -101,6 +92,7 @@ export function useTour() {
     setCacheCompleted(userId, true)
     await authStore.setTourCompleted(true)
     driverInstance = null
+    isTourActive.value = false
   }
 
   /** Skip tour (same as complete — user chose not to see it) */
@@ -129,6 +121,7 @@ export function useTour() {
 
   return {
     showWelcomeDialog,
+    isTourActive,
     shouldShowTour,
     promptTour,
     startTour,

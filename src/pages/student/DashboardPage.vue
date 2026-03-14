@@ -38,6 +38,9 @@ function shouldShowMoodReminder(): boolean {
   // Don't show mood reminder if tour hasn't been completed (tour takes priority)
   if (!authStore.user?.hasCompletedTour) return false
 
+  // Don't show mood reminder if student has no pets (first pet tour takes priority)
+  if (petsStore.ownedPets.length === 0) return false
+
   // Don't show mood reminder if grade level is not set (grade dialog takes priority)
   if (!authStore.studentProfile?.gradeLevelId) return false
 

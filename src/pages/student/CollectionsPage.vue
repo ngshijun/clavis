@@ -88,7 +88,7 @@ function closeCombineResult() {
           <p class="text-muted-foreground">View all available pets and track your collection</p>
         </div>
         <div class="flex items-center gap-4">
-          <Button variant="outline" as-child>
+          <Button variant="outline" as-child data-tour="unlock-new-pets">
             <RouterLink to="/student/gacha">
               <Sparkles class="mr-2 size-4" />
               Unlock New Pets
@@ -128,6 +128,7 @@ function closeCombineResult() {
               <div
                 v-for="pet in petsStore.petsByRarity[rarity]"
                 :key="pet.id"
+                :data-tour="pet.name === 'Cloud Bunny' ? 'first-pet-card' : undefined"
                 class="relative flex flex-col items-center rounded-lg border px-2 pb-2 pt-3 transition-all"
                 :class="[
                   petsStore.isPetOwned(pet.id)

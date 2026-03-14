@@ -49,8 +49,20 @@ const {
   lastPullType,
   singlePull,
   multiPull,
+  freePull,
   closeResults,
 } = useGachaPull()
+
+// First-pet mode: student has 0 owned pets, use freePull instead of singlePull
+const isFirstPetMode = computed(() => petsStore.ownedPets.length === 0)
+
+function handleSinglePull() {
+  if (isFirstPetMode.value) {
+    freePull()
+  } else {
+    singlePull()
+  }
+}
 
 // Fetch pets on mount
 onMounted(async () => {
@@ -177,14 +189,16 @@ onMounted(async () => {
               <!-- Pull Buttons -->
               <div class="flex flex-col gap-4 sm:flex-row">
                 <Button
+                  data-tour="gacha-single-pull"
                   size="lg"
                   class="min-w-44 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white shadow-lg transition-all hover:from-purple-600 hover:to-fuchsia-600 hover:shadow-xl disabled:opacity-50"
-                  :disabled="isRolling || currentCoins < SINGLE_PULL_COST"
-                  @click="singlePull"
+                  :disabled="isRolling || (!isFirstPetMode && currentCoins < SINGLE_PULL_COST)"
+                  @click="handleSinglePull"
                 >
                   <span class="mr-2 text-lg">🎰</span>
-                  Single Pull
+                  {{ isFirstPetMode ? 'Free Draw!' : 'Single Pull' }}
                   <Badge
+                    v-if="!isFirstPetMode"
                     variant="secondary"
                     class="ml-2 gap-1 bg-white/20 text-white hover:bg-white/20"
                   >
@@ -193,6 +207,7 @@ onMounted(async () => {
                   </Badge>
                 </Button>
                 <Button
+                  v-if="!isFirstPetMode"
                   size="lg"
                   class="min-w-44 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-xl disabled:opacity-50"
                   :disabled="isRolling || currentCoins < MULTI_PULL_COST"
@@ -211,7 +226,7 @@ onMounted(async () => {
               </div>
 
               <p
-                v-if="currentCoins < SINGLE_PULL_COST"
+                v-if="!isFirstPetMode && currentCoins < SINGLE_PULL_COST"
                 class="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400"
               >
                 Not enough coins! Complete practice sessions to earn more.
@@ -292,6 +307,7 @@ onMounted(async () => {
           <div
             v-for="(pet, index) in pullResults"
             :key="index"
+            :data-tour="index === 0 ? 'gacha-result-pet' : undefined"
             class="flex flex-col items-center rounded-xl border-2 px-2 pb-2 pt-3 transition-transform hover:scale-105"
             :class="[rarityConfig[pet.rarity].bgColor, rarityConfig[pet.rarity].borderColor]"
           >
@@ -316,35 +332,45 @@ onMounted(async () => {
           </div>
         </div>
         <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="closeResults">Close</Button>
-          <!-- Single pull again button -->
-          <Button
-            v-if="lastPullType === 'single'"
-            class="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600"
-            :disabled="currentCoins < SINGLE_PULL_COST"
-            @click="(closeResults(), singlePull())"
+          <Button data-tour="gacha-close-results" variant="outline" @click="closeResults"
+            >Close</Button
           >
-            <span class="mr-1">🎰</span>
-            Pull 1 More
-            <Badge variant="secondary" class="ml-2 gap-1 bg-white/20 text-white hover:bg-white/20">
-              <CirclePoundSterling class="size-3" />
-              {{ SINGLE_PULL_COST }}
-            </Badge>
-          </Button>
-          <!-- Multi pull again button -->
-          <Button
-            v-else
-            class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-            :disabled="currentCoins < MULTI_PULL_COST"
-            @click="(closeResults(), multiPull())"
-          >
-            <span class="mr-1">✨</span>
-            Pull 10 More
-            <Badge variant="secondary" class="ml-2 gap-1 bg-white/20 text-white hover:bg-white/20">
-              <CirclePoundSterling class="size-3" />
-              {{ MULTI_PULL_COST }}
-            </Badge>
-          </Button>
+          <template v-if="lastPullType !== 'free'">
+            <!-- Single pull again button -->
+            <Button
+              v-if="lastPullType === 'single'"
+              class="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600"
+              :disabled="currentCoins < SINGLE_PULL_COST"
+              @click="(closeResults(), singlePull())"
+            >
+              <span class="mr-1">🎰</span>
+              Pull 1 More
+              <Badge
+                variant="secondary"
+                class="ml-2 gap-1 bg-white/20 text-white hover:bg-white/20"
+              >
+                <CirclePoundSterling class="size-3" />
+                {{ SINGLE_PULL_COST }}
+              </Badge>
+            </Button>
+            <!-- Multi pull again button -->
+            <Button
+              v-else
+              class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+              :disabled="currentCoins < MULTI_PULL_COST"
+              @click="(closeResults(), multiPull())"
+            >
+              <span class="mr-1">✨</span>
+              Pull 10 More
+              <Badge
+                variant="secondary"
+                class="ml-2 gap-1 bg-white/20 text-white hover:bg-white/20"
+              >
+                <CirclePoundSterling class="size-3" />
+                {{ MULTI_PULL_COST }}
+              </Badge>
+            </Button>
+          </template>
         </div>
       </DialogContent>
     </Dialog>

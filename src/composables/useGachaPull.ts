@@ -41,7 +41,7 @@ export function useGachaPull() {
   const pullResults = ref<Pet[]>([])
   const newPetIds = ref<Set<string>>(new Set())
   const capsuleColor = ref('purple')
-  const lastPullType = ref<'single' | 'multi'>('single')
+  const lastPullType = ref<'single' | 'multi' | 'free'>('single')
 
   function getPetById(petId: string): Pet | undefined {
     return petsStore.allPets.find((p) => p.id === petId)
@@ -76,6 +76,39 @@ export function useGachaPull() {
 
     capsuleColor.value = rarityColors[pet.rarity]
     newPetIds.value = new Set(isPetNew(pet.id) ? [pet.id] : [])
+
+    safeTimeout(async () => {
+      pullResults.value = [pet]
+      await Promise.all([authStore.refreshProfile(), petsStore.fetchOwnedPets()])
+      isRolling.value = false
+      showResultDialog.value = true
+    }, 1500)
+  }
+
+  async function freePull() {
+    if (isRolling.value) return
+    isRolling.value = true
+    lastPullType.value = 'free'
+    capsuleColor.value = '#A855F7'
+
+    const { petId, error } = await petsStore.initialPetDraw()
+
+    if (error || !petId) {
+      isRolling.value = false
+      toast.error(error ?? 'Pull failed')
+      return
+    }
+
+    const pet = getPetById(petId)
+    if (!pet) {
+      isRolling.value = false
+      await authStore.refreshProfile()
+      await petsStore.fetchOwnedPets()
+      return
+    }
+
+    capsuleColor.value = rarityColors[pet.rarity]
+    newPetIds.value = new Set([pet.id])
 
     safeTimeout(async () => {
       pullResults.value = [pet]
@@ -134,6 +167,7 @@ export function useGachaPull() {
     capsuleColor,
     lastPullType,
     singlePull,
+    freePull,
     multiPull,
     closeResults,
   }

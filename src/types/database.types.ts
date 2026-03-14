@@ -1483,6 +1483,7 @@ export type Database = {
         Returns: Database['public']['Enums']['subscription_tier']
       }
       get_unread_announcement_count: { Args: never; Returns: number }
+      initial_pet_draw: { Args: never; Returns: string }
       record_spin_reward: {
         Args: {
           p_daily_status_id: string
