@@ -3,5 +3,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /student/
 Disallow: /parent/
+Disallow: /reset-password
+Disallow: /signup/confirm
 
 Sitemap: https://clavis.com.my/sitemap.xml
