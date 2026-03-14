@@ -7,6 +7,7 @@ import { usePetsStore } from '@/stores/pets'
 import { useAuthStore } from '@/stores/auth'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useFirstPetTour } from '@/composables/useFirstPetTour'
 import DailyStatus from '@/components/dashboard/DailyStatus.vue'
 import SpinWheelCard from '@/components/dashboard/SpinWheelCard.vue'
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
@@ -27,6 +28,7 @@ const dashboardStore = useStudentDashboardStore()
 const practiceStore = usePracticeHistoryStore()
 const petsStore = usePetsStore()
 const authStore = useAuthStore()
+const { watchAndStart: watchAndStartFirstPetTour } = useFirstPetTour()
 
 const isLoading = ref(true)
 const dailyStatusButtonRef = ref<InstanceType<typeof DailyStatus> | null>(null)
@@ -81,13 +83,16 @@ watch(
   },
 )
 
-// Show mood reminder dialog after loading completes
+// Show mood reminder dialog or start first pet tour after loading completes
 watch(isLoading, async (loading) => {
-  if (!loading && shouldShowMoodReminder()) {
-    // Wait for Vue to finish rendering the v-else content
-    await nextTick()
-    // Open the DailyStatus dialog with "don't show again" option
-    dailyStatusButtonRef.value?.openDialog(true)
+  if (!loading) {
+    if (shouldShowMoodReminder()) {
+      await nextTick()
+      dailyStatusButtonRef.value?.openDialog(true)
+    }
+
+    // First pet onboarding (independent of general tour)
+    watchAndStartFirstPetTour()
   }
 })
 </script>
