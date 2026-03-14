@@ -397,6 +397,22 @@ router.beforeEach(
       }
     }
 
+    // First pet tour guard: students with 0 owned pets can only access
+    // dashboard, collections, and gacha (the pages used during the tour).
+    const tourAllowedPaths = ['/student/dashboard', '/student/collections', '/student/gacha']
+    if (
+      userType === 'student' &&
+      to.path.startsWith('/student/') &&
+      !tourAllowedPaths.includes(to.path)
+    ) {
+      const { usePetsStore } = await import('@/stores/pets')
+      const petsStore = usePetsStore()
+      // Only block after pets have been fetched (allPets.length > 0 means store is initialized)
+      if (petsStore.ownedPets.length === 0 && petsStore.allPets.length > 0) {
+        return next('/student/dashboard')
+      }
+    }
+
     next()
   },
 )
