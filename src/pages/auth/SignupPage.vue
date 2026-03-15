@@ -92,8 +92,10 @@ const onSubmit = handleSubmit(async (formValues) => {
     </Button>
     <Card class="w-full max-w-md">
       <CardHeader class="text-center">
-        <img :src="logoSvg" alt="Clavis logo" class="mx-auto mb-4 size-16" />
-        <CardTitle class="text-2xl">Clavis</CardTitle>
+        <div class="flex items-center justify-center gap-3">
+          <img :src="logoSvg" alt="Clavis logo" class="size-8" />
+          <CardTitle class="text-2xl">Clavis</CardTitle>
+        </div>
         <CardDescription>Create a new account</CardDescription>
       </CardHeader>
       <CardContent>

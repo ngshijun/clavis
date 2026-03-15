@@ -119,7 +119,11 @@ function buildAdminEmail(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="font-family:${FONT_STACK};font-size:20px;font-weight:700;color:#ffffff;">
-                    Clavis
+                    <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td valign="middle"><![endif]-->
+                    <img src="https://clavis.com.my/favicon-192.png" alt="" width="28" height="28" style="display:inline-block;vertical-align:middle;margin-right:8px;">
+                    <!--[if mso]></td><td valign="middle"><![endif]-->
+                    <span style="vertical-align:middle;">Clavis</span>
+                    <!--[if mso]></td></tr></table><![endif]-->
                   </td>
                 </tr>
               </table>
@@ -265,7 +269,11 @@ function buildConfirmationEmail(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" style="font-family:${FONT_STACK};font-size:24px;font-weight:700;color:#ffffff;padding-bottom:8px;">
-                    Clavis
+                    <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td valign="middle"><![endif]-->
+                    <img src="https://clavis.com.my/favicon-192.png" alt="" width="32" height="32" style="display:inline-block;vertical-align:middle;margin-right:8px;">
+                    <!--[if mso]></td><td valign="middle"><![endif]-->
+                    <span style="vertical-align:middle;">Clavis</span>
+                    <!--[if mso]></td></tr></table><![endif]-->
                   </td>
                 </tr>
                 <tr>
