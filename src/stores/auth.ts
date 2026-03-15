@@ -294,6 +294,15 @@ export const useAuthStore = defineStore('auth', () => {
         return { user: null, error: message }
       }
 
+      // Supabase returns a user with empty identities when the email is already registered
+      // (instead of an error, to prevent email enumeration)
+      if (data.user && data.user.identities?.length === 0) {
+        return {
+          user: null,
+          error: 'An account with this email already exists. Please login instead.',
+        }
+      }
+
       return { user: data.user, error: null }
     } catch (err) {
       const message = handleError(err, 'An unexpected error occurred.')

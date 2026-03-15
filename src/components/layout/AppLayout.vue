@@ -41,37 +41,47 @@ const showGradeDialog = ref(false)
 const selectedGradeId = ref<string>('')
 const isSaving = ref(false)
 
+// Sequenced onboarding: grade dialog → nav tour → first pet tour
+// Each step must complete before the next begins.
+function startOnboarding() {
+  promptTour()
+  startFirstPetTourWatcher()
+}
+
+function startFirstPetTourWatcher() {
+  if (!authStore.isStudent) return
+
+  if (petsStore.allPets.length > 0) {
+    watchAndStartFirstPetTour()
+  } else {
+    const unwatchPets = watch(
+      () => petsStore.allPets.length,
+      (len) => {
+        if (len > 0) {
+          unwatchPets()
+          watchAndStartFirstPetTour()
+        }
+      },
+    )
+  }
+}
+
 // Check if student needs to set grade on mount
 onMounted(async () => {
   if (authStore.isStudent && !authStore.studentProfile?.gradeLevelId) {
     await curriculumStore.fetchCurriculum()
     showGradeDialog.value = true
   } else {
-    // No grade dialog needed — prompt tour directly
-    promptTour()
+    startOnboarding()
   }
 })
 
-// After grade dialog closes, prompt the tour
+// After grade dialog closes, start the rest of onboarding
 watch(showGradeDialog, (open) => {
   if (!open) {
-    promptTour()
+    startOnboarding()
   }
 })
-
-// First pet tour: trigger once pets store is initialized (works on any student page)
-if (authStore.isStudent) {
-  const unwatchPets = watch(
-    () => petsStore.allPets.length,
-    (len) => {
-      if (len > 0) {
-        unwatchPets()
-        watchAndStartFirstPetTour()
-      }
-    },
-    { immediate: true },
-  )
-}
 
 async function handleSaveGrade() {
   if (!selectedGradeId.value) {

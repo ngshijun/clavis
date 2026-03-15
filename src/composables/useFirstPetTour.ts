@@ -283,10 +283,12 @@ export function useFirstPetTour() {
       return
     }
 
-    // If general tour dialog or tour is active, wait for it to finish
+    // If general tour dialog or tour is active, wait for it to finish.
+    // Watch both showWelcomeDialog and isTourActive so that skipping the tour
+    // (which only changes showWelcomeDialog, not isTourActive) also triggers.
     if ((showWelcomeDialog.value || isTourActive.value) && petsStore.ownedPets.length === 0) {
-      const unwatch = watch(isTourActive, (active) => {
-        if (!active && shouldShowFirstPetTour()) {
+      const unwatch = watch([showWelcomeDialog, isTourActive], ([dialogOpen, tourActive]) => {
+        if (!dialogOpen && !tourActive && shouldShowFirstPetTour()) {
           unwatch()
           startFirstPetTour()
         }
