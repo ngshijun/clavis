@@ -1,5 +1,31 @@
-
 [functions.send-contact-email]
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-contact-email/index.ts"
+
+# Storage Buckets
+
+[storage.buckets.avatars]
+public = true
+file_size_limit = "1MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+
+[storage.buckets."question-images"]
+public = true
+file_size_limit = "5MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+
+[storage.buckets."announcement-images"]
+public = true
+file_size_limit = "5MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+
+[storage.buckets."pet-images"]
+public = true
+file_size_limit = "5MiB"
+allowed_mime_types = ["image/png", "image/webp"]
+
+[storage.buckets."curriculum-images"]
+public = true
+file_size_limit = "2MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]

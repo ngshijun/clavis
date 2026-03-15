@@ -1269,6 +1269,44 @@ $$;
 ALTER FUNCTION "public"."guard_subscription_tier"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."initial_pet_draw"() RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_student_id uuid;
+  v_pet_id uuid;
+BEGIN
+  -- Get authenticated student
+  v_student_id := (SELECT auth.uid());
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Verify student profile exists
+  IF NOT EXISTS (SELECT 1 FROM student_profiles WHERE id = v_student_id) THEN
+    RAISE EXCEPTION 'Student profile not found';
+  END IF;
+
+  -- Look up Cloud Bunny by name (avoids hardcoded UUID across environments)
+  SELECT id INTO v_pet_id FROM pets WHERE name = 'Cloud Bunny' LIMIT 1;
+  IF v_pet_id IS NULL THEN
+    RAISE EXCEPTION 'Starter pet not found';
+  END IF;
+
+  -- Insert Cloud Bunny (UPSERT — truly idempotent, no error on retry)
+  INSERT INTO owned_pets (student_id, pet_id, count, tier, food_fed)
+  VALUES (v_student_id, v_pet_id, 1, 1, 0)
+  ON CONFLICT (student_id, pet_id) DO NOTHING;
+
+  RETURN v_pet_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."initial_pet_draw"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."populate_question_hierarchy"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -3252,10 +3290,6 @@ ALTER TABLE "public"."weekly_leaderboard_rewards" ENABLE ROW LEVEL SECURITY;
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
-
-
-
-GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
@@ -3553,6 +3587,12 @@ GRANT ALL ON FUNCTION "public"."guard_subscription_tier"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."initial_pet_draw"() TO "anon";
+GRANT ALL ON FUNCTION "public"."initial_pet_draw"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."initial_pet_draw"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."populate_question_hierarchy"() TO "anon";
 GRANT ALL ON FUNCTION "public"."populate_question_hierarchy"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."populate_question_hierarchy"() TO "service_role";
@@ -3823,7 +3863,6 @@ GRANT ALL ON TABLE "public"."weekly_leaderboard_rewards" TO "service_role";
 
 
 
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
@@ -3833,7 +3872,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQ
 
 
 
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
@@ -3843,7 +3881,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUN
 
 
 
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
@@ -3878,3 +3915,265 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
+drop extension if exists "pg_net";
+
+revoke update on table "public"."student_profiles" from "authenticated";
+
+
+  create policy "Admins can delete announcement images"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'announcement-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can delete curriculum images"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'curriculum-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can delete option images"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'option-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can delete pet images"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'pet-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can delete question images"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'question-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can update announcement images"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'announcement-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can update curriculum images"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'curriculum-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can update option images"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'option-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can update pet images"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'pet-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can update question images"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'question-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can upload announcement images"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'announcement-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can upload curriculum images"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'curriculum-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can upload option images"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'option-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can upload pet images"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'pet-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Admins can upload question images"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'question-images'::text) AND (EXISTS ( SELECT 1
+   FROM public.profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.user_type = 'admin'::public.user_type))))));
+
+
+
+  create policy "Announcement images are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'announcement-images'::text));
+
+
+
+  create policy "Avatars are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'avatars'::text));
+
+
+
+  create policy "Curriculum images are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'curriculum-images'::text));
+
+
+
+  create policy "Option images are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'option-images'::text));
+
+
+
+  create policy "Pet images are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'pet-images'::text));
+
+
+
+  create policy "Question images are publicly accessible"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using ((bucket_id = 'question-images'::text));
+
+
+
+  create policy "Users can delete own avatar"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'avatars'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text)));
+
+
+
+  create policy "Users can update own avatar"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'avatars'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text)));
+
+
+
+  create policy "Users can upload own avatar"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'avatars'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text)));
+
+
+-- Fix grants to match prod
+GRANT UPDATE("grade_level_id") ON TABLE "public"."student_profiles" TO "authenticated";
+GRANT UPDATE("selected_pet_id") ON TABLE "public"."student_profiles" TO "authenticated";
+GRANT UPDATE("preferred_language") ON TABLE "public"."student_profiles" TO "authenticated";
+
+REVOKE ALL ON TABLE "public"."leaderboard" FROM "anon";
+REVOKE ALL ON TABLE "public"."question_statistics" FROM "anon";
+REVOKE ALL ON TABLE "public"."question_statistics" FROM "authenticated";
+
+-- Enable PostgREST aggregate functions
+ALTER ROLE authenticator SET pgrst.db_aggregates_enabled = 'true';
+NOTIFY pgrst, 'reload config';
