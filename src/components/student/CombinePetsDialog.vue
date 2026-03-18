@@ -311,12 +311,15 @@ async function handleQuickCombine() {
             :class="[
               selectedPetsPreview[i - 1]
                 ? [
-                    'border-solid',
+                    'border-solid cursor-pointer hover:opacity-75 transition-opacity',
                     rarityConfig[selectedCombineRarity].bgColor,
                     rarityConfig[selectedCombineRarity].borderColor,
                   ]
                 : [rarityConfig[selectedCombineRarity].borderColor, 'opacity-40'],
             ]"
+            @click="
+              selectedPetsPreview[i - 1] && decrementSelection(selectedPetsPreview[i - 1]!.ownedPet)
+            "
           >
             <template v-if="selectedPetsPreview[i - 1]">
               <img
@@ -364,7 +367,7 @@ async function handleQuickCombine() {
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium">Your Pets</p>
-          <p class="text-xs text-muted-foreground">Click to add, right-click to remove</p>
+          <p class="text-xs text-muted-foreground">Click to add · click selected above to remove</p>
         </div>
 
         <div

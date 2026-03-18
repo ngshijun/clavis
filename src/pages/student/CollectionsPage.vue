@@ -96,7 +96,7 @@ function closeCombineResult() {
           </Button>
           <Button @click="showCombineDialog = true">
             <Combine class="mr-2 size-4" />
-            Combine
+            Combine Pets
           </Button>
           <div class="text-right">
             <p class="text-2xl font-bold">{{ petsStore.totalOwned }} / {{ petsStore.totalPets }}</p>

@@ -211,8 +211,10 @@ function handleOptionClick(optionId: string) {
   if (!currentQuestion.value) return
 
   if (currentQuestion.value.type === 'mcq') {
-    // MCQ: single selection (radio behavior)
+    // MCQ: single selection — submit immediately on click
     selectedOptionIds.value = new Set([optionId])
+    submitAnswer()
+    return
   } else if (currentQuestion.value.type === 'mrq') {
     // MRQ: toggle selection (checkbox behavior)
     const newSet = new Set(selectedOptionIds.value)
