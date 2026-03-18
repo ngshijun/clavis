@@ -1,115 +1,101 @@
-# Claude Code Instructions
+# Clavis — Claude Code Instructions
 
-## Tech Stack
+An education platform (student practice, parent monitoring, admin management) built with Vue 3 + TypeScript + TailwindCSS 4 + shadcn-vue + Supabase.
 
-- TypeScript
-- Vue 3 (Composition API)
-- TailwindCSS 4
-- shadcn-vue
-- Supabase
+## First Principles
+
+Reason from the original requirements and the root problem. If the motivation or goal is unclear, **stop and discuss** before proceeding. Do not assume the user knows exactly what they want.
+
+## Solution Standards
+
+When proposing modifications or refactoring plans:
+
+- Use the shortest path to implementation — no over-engineering
+- Only address the stated requirements — no unsolicited fallbacks, degradation paths, or scope additions that could cause business logic drift
+- Use production-grade solutions only — no compatibility shims, patches, or workarounds
+- Verify logical correctness across the full chain of execution
+- If there is nothing to improve, say so
+
+---
+
+## Commands
+
+```bash
+npm run dev          # Vite dev server
+npm run build        # vue-tsc --build + vite build (parallel)
+npm run type-check   # vue-tsc --build (NOT --noEmit; see gotchas)
+npm run lint         # eslint . --fix --cache
+npm run format       # prettier --write --experimental-cli src/
+```
+
+---
+
+## Code Style
+
+- `<script setup lang="ts">` for all Vue components
+- Composables in `src/composables/` for reusable logic
+- `defineProps` and `defineEmits` with TypeScript generics
+- Proper typing — no `any` unless absolutely necessary
+- Stores in `src/stores/` using Pinia
+- Role-scoped pages under `src/pages/{student,parent,admin}/`
 
 ---
 
 ## MCP Tool Usage
+
 ### Context7 (REQUIRED for code tasks)
+
 **Always use Context7 MCP tools** before generating code, configuration, or setup instructions.
 
-Workflow:
 1. Call `resolve-library-id` to find the correct library ID
 2. Call `get-library-docs` with that ID to fetch current documentation
 3. Generate code based on the retrieved docs
 
-**Triggers** — Use Context7 when:
-- Writing new components, composables, or utilities
-- Setting up or configuring libraries/tools
-- Referencing any library or API documentation
-- Answering questions about library usage or best practices
-
-### Other MCP Tools
-Use any relevant MCP tools automatically when they would improve the response. No permission needed.
+Use any other relevant MCP tools automatically when they would improve the response.
 
 ---
 
 ## Database Rules
-### Single Source of Truth
-`src/types/database.types.ts` is the **single source of truth** for all database schemas.
-**NEVER** edit this file manually — it is auto-generated.
 
-### Supabase Migration Workflow
-When database changes are needed, follow this exact sequence:
+`src/types/database.types.ts` is the **single source of truth** for all database schemas. NEVER edit it manually — it is auto-generated.
+
+### Migration Workflow
 
 ```bash
-# 1. Create migration file
-npx supabase migration new <migration-name>
-# 2. Edit the generated SQL file in supabase/migrations/
-# 3. Apply migration to database
-npx supabase db push
-# 4. Regenerate TypeScript types
-npx supabase gen types typescript --linked > src/types/database.types.ts
+npx supabase migration new <migration-name>   # 1. Create migration
+# 2. Edit the SQL file in supabase/migrations/
+npx supabase db push                           # 3. Apply to database
+npx supabase gen types typescript --linked > src/types/database.types.ts  # 4. Regen types
 ```
 
-Afterwards, check for security and performance issues with supabase mcp and fix them if necessary.
+Afterwards, check for security and performance issues with supabase MCP.
 
-### RLS Policy Best Practices
-When writing Row Level Security (RLS) policies, **always wrap `auth.uid()` and other auth functions in a subquery** to prevent re-evaluation for each row:
+### RLS Policies
+
+Wrap `auth.uid()`, `auth.jwt()`, and `current_setting()` in a subquery to prevent per-row re-evaluation:
 
 ```sql
--- BAD: Re-evaluates auth.uid() for every row (slow at scale)
-CREATE POLICY "Users can read own data" ON my_table
-FOR SELECT USING (user_id = auth.uid());
-
--- GOOD: Evaluates auth.uid() once per query (fast)
-CREATE POLICY "Users can read own data" ON my_table
+-- GOOD: evaluates once
+CREATE POLICY "read own" ON my_table
 FOR SELECT USING (user_id = (SELECT auth.uid()));
 ```
 
-This applies to all RLS policies using:
-- `auth.uid()`
-- `auth.jwt()`
-- `current_setting()`
+### Upserts
 
-See: https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select
-
-### Upsert Requirements
-When using Supabase `upsert` with `onConflict`, ensure:
-1. A **unique constraint** exists on the specified columns
-2. The user has **UPDATE permission** (RLS policy) if conflicts may occur
-
-```typescript
-// Requires: UNIQUE constraint on (student_id, topic_id, question_id)
-await supabase
-  .from('my_table')
-  .upsert(data, { onConflict: 'student_id,topic_id,question_id' })
-```
+`upsert` with `onConflict` requires a unique constraint on the conflict columns and an UPDATE RLS policy.
 
 ---
 
-## First Principles Thinking
-Use first-principles reasoning. Do not assume the user knows exactly what they want or how to get there. Be deliberate — reason from the original requirements and the root problem. If the motivation or goal is unclear, **stop and discuss** before proceeding.
+## Git
+
+- Branches: `main` (production) → `staging` (integration) → feature branches
+- Do NOT add `Co-Authored-By` lines to commit messages
+- Keep untracked: `.claude/settings.local.json`, `supabase/.temp/`
 
 ---
 
-## Solution Standards
-When proposing modifications or refactoring plans, all solutions must:
+## Gotchas
 
-- **No compatibility patches** — Do not propose backward-compatible shims or patch-style workarounds
-- **No over-engineering** — Use the shortest path to implementation without violating the above rule
-- **No scope creep** — Do not add solutions beyond the stated requirements (e.g., fallbacks, degradation paths) as this can cause business logic drift
-- **Logical correctness required** — Every solution must be logically sound and verified across the full chain of execution
-
----
-
-## Code Quality Standards
-### No Quick Fixes
-Never suggest quick fixes, hacks, or workarounds. All recommendations must:
-
-- Follow industry best practices
-- Be production-ready
-- Consider maintainability and scalability
-- Use proper typing (no `any` unless absolutely necessary)
-- Don't forcefully suggest fixes/improvements if there's nothing to be improved (just say everything is good)
-
-### Vue 3 Conventions
-- Use `<script setup lang="ts">` syntax
-- Prefer composables for reusable logic
-- Use `defineProps` and `defineEmits` with TypeScript generics
+- `vue-tsc --noEmit` may pass while `vue-tsc --build` fails (different modes). Always use `npm run type-check` (which runs `--build`).
+- Clean stale build cache: `rm -rf node_modules/.tmp/tsconfig.app.tsbuildinfo`
+- `shadcn-vue init --overwrite` resets `src/lib/utils.ts` and `src/style.css` to defaults — always revert these files as they contain custom functions and theming.
