@@ -196,7 +196,9 @@ function getItemIdKey(): keyof CurriculumIds {
         <!-- Name Input -->
         <VeeField v-slot="{ field, errors }" name="name">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel :for="addType + '-name'">{{ config.inputLabel }}</FieldLabel>
+            <FieldLabel :for="addType + '-name'"
+              >{{ config.inputLabel }} <span class="text-destructive">*</span></FieldLabel
+            >
             <Input
               :id="addType + '-name'"
               :placeholder="'Enter ' + config.inputLabel.toLowerCase()"

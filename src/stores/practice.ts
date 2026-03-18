@@ -164,7 +164,7 @@ export const usePracticeStore = defineStore('practice', () => {
       }
 
       // Filter out answered questions from current cycle
-      let unansweredQuestions = allQuestions.filter((q) => !answeredQuestionIds.has(q.id))
+      const unansweredQuestions = allQuestions.filter((q) => !answeredQuestionIds.has(q.id))
 
       // If not enough unanswered questions, start a new cycle
       let selectedQuestions: Question[] = []

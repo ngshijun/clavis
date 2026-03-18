@@ -214,7 +214,7 @@ const handleSave = handleSubmit(async (values) => {
         <!-- Pet Name -->
         <VeeField v-slot="{ field, errors }" name="name">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel for="pet-name">Name</FieldLabel>
+            <FieldLabel for="pet-name">Name <span class="text-destructive">*</span></FieldLabel>
             <Input
               id="pet-name"
               placeholder="Enter pet name"
@@ -229,7 +229,7 @@ const handleSave = handleSubmit(async (values) => {
         <!-- Rarity -->
         <VeeField v-slot="{ handleChange, value, errors }" name="rarity">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel>Rarity</FieldLabel>
+            <FieldLabel>Rarity <span class="text-destructive">*</span></FieldLabel>
             <Select :model-value="value" :disabled="isSaving" @update:model-value="handleChange">
               <SelectTrigger class="w-full" :class="{ 'border-destructive': !!errors.length }">
                 <SelectValue />

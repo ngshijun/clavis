@@ -4,7 +4,7 @@ import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { usePracticeStore } from '@/stores/practice'
 import { useQuestionsStore } from '@/stores/questions'
 import { useQuestionShuffle } from '@/composables/useQuestionShuffle'
-import { ChevronLeft, ChevronRight, Flag } from 'lucide-vue-next'
+import { ChevronRight, Flag } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -158,13 +158,6 @@ async function nextQuestion() {
   selectedOptionIds.value = new Set()
   textAnswer.value = ''
   await practiceStore.nextQuestion()
-}
-
-async function previousQuestion() {
-  // Reset input state
-  selectedOptionIds.value = new Set()
-  textAnswer.value = ''
-  await practiceStore.previousQuestion()
 }
 
 async function finishQuiz() {
@@ -343,49 +336,40 @@ onBeforeRouteLeave((to) => {
             </div>
           </CardContent>
 
-          <CardFooter class="flex justify-between">
-            <Button
-              variant="outline"
-              :disabled="practiceStore.currentQuestionNumber === 1"
-              @click="previousQuestion"
-            >
-              <ChevronLeft class="mr-2 size-4" />
-              Previous
-            </Button>
-
+          <CardFooter class="flex items-center">
             <button
               v-if="isAnswered"
-              class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-destructive/70 hover:bg-destructive/10 hover:text-destructive"
+              class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-destructive/70 hover:bg-destructive/10 hover:text-destructive"
               @click="showFeedbackDialog = true"
             >
-              <Flag class="size-3" />
+              <Flag class="size-3.5" />
               Report an issue
             </button>
 
-            <div class="flex gap-2">
+            <div class="ml-auto flex gap-2">
               <Button
-                v-if="!isAnswered"
+                v-if="!isAnswered && currentQuestion.type !== 'mcq'"
                 :disabled="
-                  currentQuestion.type === 'mcq' || currentQuestion.type === 'mrq'
-                    ? selectedOptionIds.size === 0
-                    : !textAnswer.trim()
+                  currentQuestion.type === 'mrq' ? selectedOptionIds.size === 0 : !textAnswer.trim()
                 "
                 @click="submitAnswer"
               >
                 Submit Answer
               </Button>
 
-              <Button v-else-if="!isLastQuestion" @click="nextQuestion">
-                Next
-                <ChevronRight class="ml-2 size-4" />
-              </Button>
+              <template v-if="isAnswered">
+                <Button v-if="!isLastQuestion" @click="nextQuestion">
+                  Next
+                  <ChevronRight class="ml-2 size-4" />
+                </Button>
 
-              <Button v-else-if="allQuestionsAnswered" @click="finishQuiz"> Finish Quiz </Button>
+                <Button v-else-if="allQuestionsAnswered" @click="finishQuiz"> Finish Quiz </Button>
 
-              <Button v-else @click="nextQuestion">
-                Next
-                <ChevronRight class="ml-2 size-4" />
-              </Button>
+                <Button v-else @click="nextQuestion">
+                  Next
+                  <ChevronRight class="ml-2 size-4" />
+                </Button>
+              </template>
             </div>
           </CardFooter>
         </Card>

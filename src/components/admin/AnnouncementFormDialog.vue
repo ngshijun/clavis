@@ -175,7 +175,9 @@ const handleSave = handleSubmit(async (values) => {
         <!-- Title -->
         <VeeField v-slot="{ field, errors }" name="title">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel for="announcement-title">Title</FieldLabel>
+            <FieldLabel for="announcement-title"
+              >Title <span class="text-destructive">*</span></FieldLabel
+            >
             <Input
               id="announcement-title"
               placeholder="Enter announcement title"
@@ -190,7 +192,9 @@ const handleSave = handleSubmit(async (values) => {
         <!-- Content -->
         <VeeField v-slot="{ field, errors }" name="content">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel for="announcement-content">Content</FieldLabel>
+            <FieldLabel for="announcement-content"
+              >Content <span class="text-destructive">*</span></FieldLabel
+            >
             <Textarea
               id="announcement-content"
               placeholder="Enter announcement content..."
@@ -208,7 +212,7 @@ const handleSave = handleSubmit(async (values) => {
           <!-- Target Audience -->
           <VeeField v-slot="{ handleChange, value, errors }" name="targetAudience">
             <Field :data-invalid="!!errors.length">
-              <FieldLabel>Target Audience</FieldLabel>
+              <FieldLabel>Target Audience <span class="text-destructive">*</span></FieldLabel>
               <Select :model-value="value" :disabled="isSaving" @update:model-value="handleChange">
                 <SelectTrigger class="w-full" :class="{ 'border-destructive': !!errors.length }">
                   <SelectValue placeholder="Select audience" />

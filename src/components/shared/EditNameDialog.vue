@@ -52,7 +52,7 @@ const onSubmit = handleSubmit((values) => {
       <form @submit="onSubmit">
         <VeeField v-slot="{ field, errors }" name="name">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel for="new-name">Name</FieldLabel>
+            <FieldLabel for="new-name">Name <span class="text-destructive">*</span></FieldLabel>
             <Input
               id="new-name"
               placeholder="Enter your name"

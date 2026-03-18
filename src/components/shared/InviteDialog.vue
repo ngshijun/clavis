@@ -72,7 +72,7 @@ defineExpose({ setFieldError })
         <VeeField v-slot="{ field, errors }" name="email">
           <Field :data-invalid="!!errors.length">
             <FieldLabel :for="`${entityLabel.toLowerCase()}Email`">
-              {{ entityLabel }}'s Email
+              {{ entityLabel }}'s Email <span class="text-destructive">*</span>
             </FieldLabel>
             <Input
               :id="`${entityLabel.toLowerCase()}Email`"

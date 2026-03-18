@@ -105,7 +105,9 @@ function handleOpenChange(value: boolean) {
       <form class="space-y-4 py-4" @submit="onSubmit">
         <VeeField v-slot="{ handleChange, value, errors }" name="category">
           <Field :data-invalid="!!errors.length">
-            <FieldLabel for="category">Issue Type</FieldLabel>
+            <FieldLabel for="category"
+              >Issue Type <span class="text-destructive">*</span></FieldLabel
+            >
             <Select :model-value="value" @update:model-value="handleChange">
               <SelectTrigger
                 id="category"
