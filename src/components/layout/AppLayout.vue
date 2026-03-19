@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { toast } from 'vue-sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2, CirclePoundSterling, Apple } from 'lucide-vue-next'
 import { useTour } from '@/composables/useTour'
 import { useFirstPetTour } from '@/composables/useFirstPetTour'
@@ -129,9 +130,20 @@ const greeting = computed(() => {
 </script>
 
 <template>
-  <!-- Loading guard: prevent rendering layout with null user during auth transitions -->
-  <div v-if="!authStore.user" class="flex h-dvh items-center justify-center">
-    <Loader2 class="size-8 animate-spin text-muted-foreground" />
+  <!-- Loading skeleton: matches actual layout structure to minimize CLS -->
+  <div v-if="!authStore.user" class="flex h-dvh">
+    <!-- Sidebar skeleton -->
+    <div class="hidden w-64 shrink-0 border-r bg-sidebar md:block" />
+    <div class="flex flex-1 flex-col">
+      <!-- Header skeleton -->
+      <div class="flex h-12 items-center border-b px-4">
+        <Skeleton class="h-4 w-48" />
+      </div>
+      <!-- Content skeleton -->
+      <div class="flex flex-1 items-center justify-center">
+        <Loader2 class="size-8 animate-spin text-muted-foreground" />
+      </div>
+    </div>
   </div>
 
   <SidebarProvider v-else>

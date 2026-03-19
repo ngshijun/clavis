@@ -54,6 +54,7 @@ const featureScreenshots = [
               :alt="feature.title"
               width="4336"
               height="2804"
+              class="aspect-[4336/2804] w-full"
               loading="lazy"
               decoding="async"
             />

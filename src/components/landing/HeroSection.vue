@@ -71,6 +71,7 @@ const statIcons = [BookOpen, GraduationCap, PawPrint] as const
           alt="Clavis student dashboard"
           width="4336"
           height="2804"
+          class="aspect-[4336/2804] w-full"
           fetchpriority="high"
           decoding="async"
         />
