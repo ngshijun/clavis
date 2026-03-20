@@ -50,36 +50,15 @@ const onSubmit = form.handleSubmit(async (formValues) => {
     const gradeLevelId = hierarchy?.gradeLevel.id ?? formValues.gradeLevelId
     const subjectId = hierarchy?.subject.id ?? formValues.subjectId
 
-    // First, create the question without images
-    const result = await questionsStore.addQuestion({
-      type: formValues.type,
-      question: formValues.question,
-      imagePath: null,
-      subTopicId: formValues.subTopicId,
-      gradeLevelId,
-      subjectId,
-      explanation: formValues.explanation || null,
-      answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
-      options:
-        formValues.type === 'mcq' || formValues.type === 'mrq'
-          ? (formValues.options || []).map((opt) => ({ ...opt, imagePath: null }))
-          : undefined,
-    })
-
-    if (result.error || !result.id) {
-      toast.error(result.error ?? 'Failed to create question')
-      return
-    }
-
-    const questionId = result.id
+    // Upload images BEFORE creating the question so image paths are included
+    // in the initial INSERT (required by DB constraints like mcq_has_two_options)
     let questionImagePath: string | null = null
     const optionImagePaths: Record<string, string | null> = { a: null, b: null, c: null, d: null }
 
-    // Upload question image if present
     if (form.questionImage.value.file) {
       const uploadResult = await questionsStore.uploadQuestionImage(
         form.questionImage.value.file,
-        questionId,
+        'pending',
       )
       if (uploadResult.path) {
         questionImagePath = uploadResult.path
@@ -88,12 +67,11 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       }
     }
 
-    // Upload option images if present (for MCQ/MRQ)
     if (formValues.type === 'mcq' || formValues.type === 'mrq') {
       for (const optionId of ['a', 'b', 'c', 'd'] as const) {
         const file = form.optionImages.value[optionId].file
         if (file) {
-          const uploadResult = await questionsStore.uploadQuestionImage(file, questionId, optionId)
+          const uploadResult = await questionsStore.uploadQuestionImage(file, 'pending', optionId)
           if (uploadResult.path) {
             optionImagePaths[optionId] = uploadResult.path
           } else {
@@ -103,33 +81,44 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       }
     }
 
-    // Update question with image paths if any were uploaded
+    // Compute image hash from File objects (no network fetch needed)
     const hasImages =
       questionImagePath || Object.values(optionImagePaths).some((path) => path !== null)
-
+    let imageHash: string | null = null
     if (hasImages) {
-      const updateOptions =
+      imageHash =
+        (await computeQuestionImageHash({
+          questionImage: form.questionImage.value.file,
+          optionAImage: form.optionImages.value.a.file,
+          optionBImage: form.optionImages.value.b.file,
+          optionCImage: form.optionImages.value.c.file,
+          optionDImage: form.optionImages.value.d.file,
+        })) || null
+    }
+
+    // Create the question with image paths included
+    const result = await questionsStore.addQuestion({
+      type: formValues.type,
+      question: formValues.question,
+      imagePath: questionImagePath,
+      subTopicId: formValues.subTopicId,
+      gradeLevelId,
+      subjectId,
+      explanation: formValues.explanation || null,
+      answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
+      imageHash,
+      options:
         formValues.type === 'mcq' || formValues.type === 'mrq'
           ? (formValues.options || []).map((opt) => ({
               ...opt,
               imagePath: optionImagePaths[opt.id] ?? null,
             }))
-          : undefined
+          : undefined,
+    })
 
-      // Compute image hash from File objects (no network fetch needed)
-      const imageHash = await computeQuestionImageHash({
-        questionImage: form.questionImage.value.file,
-        optionAImage: form.optionImages.value.a.file,
-        optionBImage: form.optionImages.value.b.file,
-        optionCImage: form.optionImages.value.c.file,
-        optionDImage: form.optionImages.value.d.file,
-      })
-
-      await questionsStore.updateQuestion(questionId, {
-        imagePath: questionImagePath,
-        options: updateOptions,
-        imageHash: imageHash || null,
-      })
+    if (result.error || !result.id) {
+      toast.error(result.error ?? 'Failed to create question')
+      return
     }
 
     toast.success('Question added successfully')

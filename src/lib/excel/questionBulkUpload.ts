@@ -261,6 +261,10 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         continue
       }
 
+      // Upload images BEFORE creating the question so image paths are included
+      // in the initial INSERT (required by DB constraints like mcq_has_two_options)
+      const uploadedImages = await uploadImagesBeforeCreate(questionsStore, q)
+
       // Build question input (including pre-computed image hash for duplicate detection)
       const input: CreateQuestionInput = {
         type: q.type,
@@ -269,6 +273,7 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         subTopicId: subTopic.id, // topic_id column references sub_topics
         question: q.question,
         explanation: q.explanation || undefined,
+        imagePath: uploadedImages.questionImagePath,
         imageHash: q.imageHash, // Pre-computed during validation
       }
 
@@ -276,19 +281,59 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         // MCQ: single correct answer
         const correctIndex = q.correctAnswer.charCodeAt(0) - 65 // A=0, B=1, etc
         input.options = [
-          { id: 'a', text: q.optionA, imagePath: null, isCorrect: correctIndex === 0 },
-          { id: 'b', text: q.optionB, imagePath: null, isCorrect: correctIndex === 1 },
-          { id: 'c', text: q.optionC, imagePath: null, isCorrect: correctIndex === 2 },
-          { id: 'd', text: q.optionD, imagePath: null, isCorrect: correctIndex === 3 },
+          {
+            id: 'a',
+            text: q.optionA,
+            imagePath: uploadedImages.optionImagePaths.a,
+            isCorrect: correctIndex === 0,
+          },
+          {
+            id: 'b',
+            text: q.optionB,
+            imagePath: uploadedImages.optionImagePaths.b,
+            isCorrect: correctIndex === 1,
+          },
+          {
+            id: 'c',
+            text: q.optionC,
+            imagePath: uploadedImages.optionImagePaths.c,
+            isCorrect: correctIndex === 2,
+          },
+          {
+            id: 'd',
+            text: q.optionD,
+            imagePath: uploadedImages.optionImagePaths.d,
+            isCorrect: correctIndex === 3,
+          },
         ]
       } else if (q.type === 'mrq') {
         // MRQ: multiple correct answers (e.g., "A,B" or "A,C,D")
         const correctAnswers = q.correctAnswer.split(',').map((a) => a.trim().toUpperCase())
         input.options = [
-          { id: 'a', text: q.optionA, imagePath: null, isCorrect: correctAnswers.includes('A') },
-          { id: 'b', text: q.optionB, imagePath: null, isCorrect: correctAnswers.includes('B') },
-          { id: 'c', text: q.optionC, imagePath: null, isCorrect: correctAnswers.includes('C') },
-          { id: 'd', text: q.optionD, imagePath: null, isCorrect: correctAnswers.includes('D') },
+          {
+            id: 'a',
+            text: q.optionA,
+            imagePath: uploadedImages.optionImagePaths.a,
+            isCorrect: correctAnswers.includes('A'),
+          },
+          {
+            id: 'b',
+            text: q.optionB,
+            imagePath: uploadedImages.optionImagePaths.b,
+            isCorrect: correctAnswers.includes('B'),
+          },
+          {
+            id: 'c',
+            text: q.optionC,
+            imagePath: uploadedImages.optionImagePaths.c,
+            isCorrect: correctAnswers.includes('C'),
+          },
+          {
+            id: 'd',
+            text: q.optionD,
+            imagePath: uploadedImages.optionImagePaths.d,
+            isCorrect: correctAnswers.includes('D'),
+          },
         ]
       } else {
         // short_answer
@@ -303,9 +348,6 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         continue
       }
 
-      // Upload images if question was created
-      await uploadQuestionImages(questionsStore, result.id, q)
-
       success++
     } catch (error) {
       failed.push({ row: q.row, error: String(error) })
@@ -317,55 +359,49 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
   return { success, failed }
 }
 
-async function uploadQuestionImages(
+interface UploadedImages {
+  questionImagePath: string | null
+  optionImagePaths: Record<'a' | 'b' | 'c' | 'd', string | null>
+}
+
+/**
+ * Upload all images for a question BEFORE creating the DB record.
+ * This ensures image paths are included in the initial INSERT,
+ * satisfying DB constraints (e.g. mcq_has_two_options) for image-only options.
+ */
+async function uploadImagesBeforeCreate(
   store: ReturnType<typeof useQuestionsStore>,
-  questionId: string,
   q: ParsedQuestion,
-): Promise<void> {
+): Promise<UploadedImages> {
+  const result: UploadedImages = {
+    questionImagePath: null,
+    optionImagePaths: { a: null, b: null, c: null, d: null },
+  }
+
   // Upload question image
   if (q.questionImage) {
-    const file = base64ToFile(q.questionImage, `question_${questionId}`)
-    const result = await store.uploadQuestionImage(file, questionId)
-    if (result.path) {
-      // Update the question with the image path
-      await store.updateQuestion(questionId, { imagePath: result.path })
-    }
+    const file = base64ToFile(q.questionImage, `question_bulk`)
+    const uploadResult = await store.uploadQuestionImage(file, 'bulk')
+    result.questionImagePath = uploadResult.path
   }
 
   // Upload option images
-  const optionImages: Array<{
-    optionId: 'a' | 'b' | 'c' | 'd'
-    image: ParsedQuestionImage
-  }> = []
-  if (q.optionAImage) optionImages.push({ optionId: 'a', image: q.optionAImage })
-  if (q.optionBImage) optionImages.push({ optionId: 'b', image: q.optionBImage })
-  if (q.optionCImage) optionImages.push({ optionId: 'c', image: q.optionCImage })
-  if (q.optionDImage) optionImages.push({ optionId: 'd', image: q.optionDImage })
+  const optionEntries: Array<{ key: 'a' | 'b' | 'c' | 'd'; image: ParsedQuestionImage | null }> = [
+    { key: 'a', image: q.optionAImage },
+    { key: 'b', image: q.optionBImage },
+    { key: 'c', image: q.optionCImage },
+    { key: 'd', image: q.optionDImage },
+  ]
 
-  if (optionImages.length > 0) {
-    // Get current question to get existing options
-    const currentQuestion = store.getQuestionById(questionId)
-    if (currentQuestion) {
-      const updatedOptions = [...currentQuestion.options]
-
-      for (const { optionId, image } of optionImages) {
-        const file = base64ToFile(image, `option_${optionId}_${questionId}`)
-        const result = await store.uploadQuestionImage(file, questionId, optionId)
-        if (result.path) {
-          const optionIndex = optionId.charCodeAt(0) - 97 // a=0, b=1, etc
-          if (updatedOptions[optionIndex]) {
-            updatedOptions[optionIndex] = {
-              ...updatedOptions[optionIndex],
-              imagePath: result.path,
-            }
-          }
-        }
-      }
-
-      // Update the question with option image paths
-      await store.updateQuestion(questionId, { options: updatedOptions })
+  for (const { key, image } of optionEntries) {
+    if (image) {
+      const file = base64ToFile(image, `option_${key}_bulk`)
+      const uploadResult = await store.uploadQuestionImage(file, 'bulk', key)
+      result.optionImagePaths[key] = uploadResult.path
     }
   }
+
+  return result
 }
 
 function base64ToFile(image: ParsedQuestionImage, filename: string): File {
