@@ -437,6 +437,7 @@ export const useQuestionsStore = defineStore('questions', () => {
    */
   async function addQuestion(
     input: CreateQuestionInput,
+    options?: { skipRefresh?: boolean },
   ): Promise<{ error: string | null; id?: string }> {
     try {
       const insertData: Database['public']['Tables']['questions']['Insert'] = {
@@ -483,8 +484,10 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       if (insertError) throw insertError
 
-      // Refresh current page to show the new question
-      await fetchQuestionBankPage()
+      // Refresh current page to show the new question (skip during bulk operations)
+      if (!options?.skipRefresh) {
+        await fetchQuestionBankPage()
+      }
 
       return { error: null, id: data.id }
     } catch (err) {

@@ -340,8 +340,8 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         input.answer = q.correctAnswer
       }
 
-      // Create question
-      const result = await questionsStore.addQuestion(input)
+      // Create question (skip page refresh during bulk — one refresh at end)
+      const result = await questionsStore.addQuestion(input, { skipRefresh: true })
       if (result.error || !result.id) {
         failed.push({ row: q.row, error: result.error || 'Unknown error' })
         onProgress?.(i + 1, questions.length)
@@ -354,6 +354,11 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
     }
 
     onProgress?.(i + 1, questions.length)
+  }
+
+  // Single page refresh after all questions are inserted
+  if (success > 0) {
+    await questionsStore.fetchQuestionBankPage()
   }
 
   return { success, failed }
@@ -378,14 +383,19 @@ async function uploadImagesBeforeCreate(
     optionImagePaths: { a: null, b: null, c: null, d: null },
   }
 
-  // Upload question image
+  // Upload all images in parallel
+  const uploads: Promise<void>[] = []
+
   if (q.questionImage) {
-    const file = base64ToFile(q.questionImage, `question_bulk`)
-    const uploadResult = await store.uploadQuestionImage(file, 'bulk')
-    result.questionImagePath = uploadResult.path
+    uploads.push(
+      (async () => {
+        const file = base64ToFile(q.questionImage!, `question_bulk`)
+        const uploadResult = await store.uploadQuestionImage(file, 'bulk')
+        result.questionImagePath = uploadResult.path
+      })(),
+    )
   }
 
-  // Upload option images
   const optionEntries: Array<{ key: 'a' | 'b' | 'c' | 'd'; image: ParsedQuestionImage | null }> = [
     { key: 'a', image: q.optionAImage },
     { key: 'b', image: q.optionBImage },
@@ -395,11 +405,17 @@ async function uploadImagesBeforeCreate(
 
   for (const { key, image } of optionEntries) {
     if (image) {
-      const file = base64ToFile(image, `option_${key}_bulk`)
-      const uploadResult = await store.uploadQuestionImage(file, 'bulk', key)
-      result.optionImagePaths[key] = uploadResult.path
+      uploads.push(
+        (async () => {
+          const file = base64ToFile(image, `option_${key}_bulk`)
+          const uploadResult = await store.uploadQuestionImage(file, 'bulk', key)
+          result.optionImagePaths[key] = uploadResult.path
+        })(),
+      )
     }
   }
+
+  await Promise.all(uploads)
 
   return result
 }
