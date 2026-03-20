@@ -628,14 +628,11 @@ export const useQuestionsStore = defineStore('questions', () => {
     try {
       const fileExt = file.name.split('.').pop()
       const folder = optionId ? `options/${optionId}` : 'questions'
-      const filePath = `${folder}/${questionId}.${fileExt}`
+      const filePath = `${folder}/${crypto.randomUUID()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('question-images')
         .upload(filePath, file, {
-          upsert: true,
-          // High cache-control value (1 year) for better CDN caching
-          // Smart CDN will auto-invalidate when file is updated
           cacheControl: '31536000',
         })
 

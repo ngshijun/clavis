@@ -125,7 +125,7 @@ const handleSave = handleSubmit(async (values) => {
     if (formImageFile.value) {
       const { path, error: uploadError } = await adminPetsStore.uploadPetImage(
         formImageFile.value,
-        props.pet?.id,
+        props.pet?.imagePath,
       )
       if (uploadError) {
         toast.error(uploadError)
@@ -138,7 +138,7 @@ const handleSave = handleSubmit(async (values) => {
     if (formTier2ImageFile.value) {
       const { path, error: uploadError } = await adminPetsStore.uploadPetImage(
         formTier2ImageFile.value,
-        props.pet?.id ? `${props.pet.id}_tier2` : undefined,
+        props.pet?.tier2ImagePath,
       )
       if (uploadError) {
         toast.error(uploadError)
@@ -151,7 +151,7 @@ const handleSave = handleSubmit(async (values) => {
     if (formTier3ImageFile.value) {
       const { path, error: uploadError } = await adminPetsStore.uploadPetImage(
         formTier3ImageFile.value,
-        props.pet?.id ? `${props.pet.id}_tier3` : undefined,
+        props.pet?.tier3ImagePath,
       )
       if (uploadError) {
         toast.error(uploadError)

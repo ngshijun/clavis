@@ -787,21 +787,26 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     file: File,
     type: 'subject' | 'topic' | 'subtopic',
     id: string,
+    oldPath?: string | null,
   ): Promise<{ success: boolean; path: string | null; error: string | null }> {
     try {
       const fileExt = file.name.split('.').pop()
       // For subtopic, store in subtopics folder
       const folder = type === 'subtopic' ? 'subtopics' : `${type}s`
-      const filePath = `${folder}/${id}.${fileExt}`
+      const filePath = `${folder}/${crypto.randomUUID()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('curriculum-images')
         .upload(filePath, file, {
-          upsert: true,
           cacheControl: '31536000', // 1 year cache for CDN
         })
 
       if (uploadError) throw uploadError
+
+      // Clean up old file
+      if (oldPath) {
+        supabase.storage.from('curriculum-images').remove([oldPath])
+      }
 
       return { success: true, path: filePath, error: null }
     } catch (err) {

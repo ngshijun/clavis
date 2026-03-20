@@ -138,22 +138,25 @@ export const useAdminPetsStore = defineStore('adminPets', () => {
   // Upload pet image to storage
   async function uploadPetImage(
     file: File,
-    petId?: string,
+    oldPath?: string | null,
   ): Promise<{ path: string | null; error: string | null }> {
     try {
       const fileExt = file.name.split('.').pop()
-      const fileName = petId ? `${petId}.${fileExt}` : `${Date.now()}.${fileExt}`
-      const filePath = fileName
+      const filePath = `${crypto.randomUUID()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('pet-images')
         .upload(filePath, file, {
-          upsert: true,
-          cacheControl: '31536000', // 1 year cache for CDN
+          cacheControl: '31536000',
         })
 
       if (uploadError) {
         return { path: null, error: handleError(uploadError, 'Failed to upload image.') }
+      }
+
+      // Clean up old file
+      if (oldPath) {
+        supabase.storage.from('pet-images').remove([oldPath])
       }
 
       return { path: filePath, error: null }

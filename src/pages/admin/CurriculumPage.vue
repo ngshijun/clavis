@@ -138,6 +138,7 @@ const editImageTopicId = ref('')
 const editImageSubTopicId = ref('')
 const editImageItemName = ref('')
 const editImageCurrentUrl = ref('')
+const editImageCurrentPath = ref<string | null>(null)
 const editImageHasCustomImage = ref(false)
 
 function openEditImageDialog(
@@ -149,6 +150,7 @@ function openEditImageDialog(
   hasCustomImage: boolean,
   topicId?: string,
   subTopicId?: string,
+  coverImagePath?: string | null,
 ) {
   editImageType.value = type
   editImageGradeLevelId.value = gradeLevelId
@@ -157,6 +159,7 @@ function openEditImageDialog(
   editImageSubTopicId.value = subTopicId ?? ''
   editImageItemName.value = itemName
   editImageCurrentUrl.value = currentImage
+  editImageCurrentPath.value = coverImagePath ?? null
   editImageHasCustomImage.value = hasCustomImage
   showEditImageDialog.value = true
 }
@@ -322,6 +325,9 @@ function openEditNameDialog(
             s.name,
             getImageUrl(s.coverImagePath),
             !!s.coverImagePath,
+            undefined,
+            undefined,
+            s.coverImagePath,
           )
       "
       @delete="(s) => openDeleteDialog('subject', s.name, selectedGradeLevel!.id, s.id)"
@@ -356,6 +362,8 @@ function openEditNameDialog(
             getImageUrl(t.coverImagePath),
             !!t.coverImagePath,
             t.id,
+            undefined,
+            t.coverImagePath,
           )
       "
       @delete="
@@ -396,6 +404,7 @@ function openEditNameDialog(
             !!st.coverImagePath,
             selectedTopic!.id,
             st.id,
+            st.coverImagePath,
           )
       "
       @delete="
@@ -430,6 +439,7 @@ function openEditNameDialog(
       :sub-topic-id="editImageSubTopicId"
       :item-name="editImageItemName"
       :current-image-url="editImageCurrentUrl"
+      :current-image-path="editImageCurrentPath"
       :has-custom-image="editImageHasCustomImage"
     />
 

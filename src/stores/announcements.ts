@@ -396,7 +396,7 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   async function uploadImage(file: File): Promise<{ path: string | null; error: string | null }> {
     try {
       const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}.${fileExt}`
+      const fileName = `${crypto.randomUUID()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('announcement-images')

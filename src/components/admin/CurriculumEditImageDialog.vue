@@ -23,6 +23,7 @@ const props = defineProps<{
   subTopicId: string
   itemName: string
   currentImageUrl: string
+  currentImagePath: string | null
   hasCustomImage: boolean
 }>()
 
@@ -85,6 +86,7 @@ async function handleSave() {
       imageFile.value,
       props.imageType,
       itemId,
+      props.currentImagePath,
     )
 
     if (!uploadResult.success || !uploadResult.path) {
