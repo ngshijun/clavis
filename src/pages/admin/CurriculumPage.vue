@@ -141,26 +141,26 @@ const editImageCurrentUrl = ref('')
 const editImageCurrentPath = ref<string | null>(null)
 const editImageHasCustomImage = ref(false)
 
-function openEditImageDialog(
-  type: 'subject' | 'topic' | 'subtopic',
-  gradeLevelId: string,
-  subjectId: string,
-  itemName: string,
-  currentImage: string,
-  hasCustomImage: boolean,
-  topicId?: string,
-  subTopicId?: string,
-  coverImagePath?: string | null,
-) {
-  editImageType.value = type
-  editImageGradeLevelId.value = gradeLevelId
-  editImageSubjectId.value = subjectId
-  editImageTopicId.value = topicId ?? ''
-  editImageSubTopicId.value = subTopicId ?? ''
-  editImageItemName.value = itemName
-  editImageCurrentUrl.value = currentImage
-  editImageCurrentPath.value = coverImagePath ?? null
-  editImageHasCustomImage.value = hasCustomImage
+function openEditImageDialog(opts: {
+  type: 'subject' | 'topic' | 'subtopic'
+  gradeLevelId: string
+  subjectId: string
+  itemName: string
+  currentImage: string
+  hasCustomImage: boolean
+  topicId?: string
+  subTopicId?: string
+  coverImagePath?: string | null
+}) {
+  editImageType.value = opts.type
+  editImageGradeLevelId.value = opts.gradeLevelId
+  editImageSubjectId.value = opts.subjectId
+  editImageTopicId.value = opts.topicId ?? ''
+  editImageSubTopicId.value = opts.subTopicId ?? ''
+  editImageItemName.value = opts.itemName
+  editImageCurrentUrl.value = opts.currentImage
+  editImageCurrentPath.value = opts.coverImagePath ?? null
+  editImageHasCustomImage.value = opts.hasCustomImage
   showEditImageDialog.value = true
 }
 
@@ -318,17 +318,15 @@ function openEditNameDialog(
       @edit-name="(s) => openEditNameDialog('subject', s.name, selectedGradeLevel!.id, s.id)"
       @edit-image="
         (s) =>
-          openEditImageDialog(
-            'subject',
-            selectedGradeLevel!.id,
-            s.id,
-            s.name,
-            getImageUrl(s.coverImagePath),
-            !!s.coverImagePath,
-            undefined,
-            undefined,
-            s.coverImagePath,
-          )
+          openEditImageDialog({
+            type: 'subject',
+            gradeLevelId: selectedGradeLevel!.id,
+            subjectId: s.id,
+            itemName: s.name,
+            currentImage: getImageUrl(s.coverImagePath),
+            hasCustomImage: !!s.coverImagePath,
+            coverImagePath: s.coverImagePath,
+          })
       "
       @delete="(s) => openDeleteDialog('subject', s.name, selectedGradeLevel!.id, s.id)"
       @add="openAddDialog('subject')"
@@ -354,17 +352,16 @@ function openEditNameDialog(
       "
       @edit-image="
         (t) =>
-          openEditImageDialog(
-            'topic',
-            selectedGradeLevel!.id,
-            selectedSubject!.id,
-            t.name,
-            getImageUrl(t.coverImagePath),
-            !!t.coverImagePath,
-            t.id,
-            undefined,
-            t.coverImagePath,
-          )
+          openEditImageDialog({
+            type: 'topic',
+            gradeLevelId: selectedGradeLevel!.id,
+            subjectId: selectedSubject!.id,
+            itemName: t.name,
+            currentImage: getImageUrl(t.coverImagePath),
+            hasCustomImage: !!t.coverImagePath,
+            topicId: t.id,
+            coverImagePath: t.coverImagePath,
+          })
       "
       @delete="
         (t) => openDeleteDialog('topic', t.name, selectedGradeLevel!.id, selectedSubject!.id, t.id)
@@ -395,17 +392,17 @@ function openEditNameDialog(
       "
       @edit-image="
         (st) =>
-          openEditImageDialog(
-            'subtopic',
-            selectedGradeLevel!.id,
-            selectedSubject!.id,
-            st.name,
-            getImageUrl(st.coverImagePath),
-            !!st.coverImagePath,
-            selectedTopic!.id,
-            st.id,
-            st.coverImagePath,
-          )
+          openEditImageDialog({
+            type: 'subtopic',
+            gradeLevelId: selectedGradeLevel!.id,
+            subjectId: selectedSubject!.id,
+            itemName: st.name,
+            currentImage: getImageUrl(st.coverImagePath),
+            hasCustomImage: !!st.coverImagePath,
+            topicId: selectedTopic!.id,
+            subTopicId: st.id,
+            coverImagePath: st.coverImagePath,
+          })
       "
       @delete="
         (st) =>

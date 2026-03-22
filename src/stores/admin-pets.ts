@@ -154,9 +154,12 @@ export const useAdminPetsStore = defineStore('adminPets', () => {
         return { path: null, error: handleError(uploadError, 'Failed to upload image.') }
       }
 
-      // Clean up old file
+      // Best-effort cleanup of old file (don't block the upload result)
       if (oldPath) {
-        supabase.storage.from('pet-images').remove([oldPath])
+        supabase.storage
+          .from('pet-images')
+          .remove([oldPath])
+          .catch(() => {})
       }
 
       return { path: filePath, error: null }

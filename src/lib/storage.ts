@@ -32,7 +32,7 @@ export function getStorageImageUrl(
     if (transform.height) params.set('h', String(transform.height))
     params.set('q', String(transform.quality ?? 80))
     params.set('fit', transform.resize ?? 'contain')
-    params.set('output', 'webp')
+    params.set('output', 'auto')
     return `https://wsrv.nl/?${params.toString()}`
   }
 

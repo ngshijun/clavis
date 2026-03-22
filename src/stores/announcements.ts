@@ -401,7 +401,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
       const { error: uploadError } = await supabase.storage
         .from('announcement-images')
         .upload(fileName, file, {
-          upsert: true,
           cacheControl: '31536000',
         })
 

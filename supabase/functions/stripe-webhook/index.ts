@@ -158,26 +158,26 @@ function extractInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   return extractSubscriptionId(lineItem?.subscription)
 }
 
-async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  const subscriptionId = extractInvoiceSubscriptionId(invoice)
-
-  if (!subscriptionId) {
-    throw new Error(`No subscription ID found on invoice ${invoice.id}`)
-  }
-
-  // Extract metadata directly from invoice's parent (Clover-era invoices carry subscription metadata)
+/**
+ * Resolve parentId and studentId from an invoice using a 3-tier fallback:
+ * 1. Invoice's parent subscription_details metadata (Clover-era)
+ * 2. Stripe subscription metadata (API call)
+ * 3. Existing child_subscriptions DB record
+ */
+async function resolveInvoiceMetadata(
+  invoice: Stripe.Invoice,
+  subscriptionId: string,
+): Promise<{ parentId: string; studentId: string | null }> {
   const invoiceMetadata = invoice.parent?.subscription_details?.metadata
   let parentId = invoiceMetadata?.supabase_parent_id
   let studentId = invoiceMetadata?.supabase_student_id
 
-  // Fallback: fetch subscription from Stripe for metadata
   if (!parentId || !studentId) {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     parentId = parentId || subscription.metadata.supabase_parent_id
     studentId = studentId || subscription.metadata.supabase_student_id
   }
 
-  // Fallback: look up from existing child_subscriptions record
   if (!parentId || !studentId) {
     const { data: existingSub } = await supabaseAdmin
       .from('child_subscriptions')
@@ -195,6 +195,18 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     throw new Error(`Missing parent_id for invoice ${invoice.id}, subscription ${subscriptionId}`)
   }
 
+  return { parentId, studentId: studentId || null }
+}
+
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  const subscriptionId = extractInvoiceSubscriptionId(invoice)
+
+  if (!subscriptionId) {
+    throw new Error(`No subscription ID found on invoice ${invoice.id}`)
+  }
+
+  const { parentId, studentId } = await resolveInvoiceMetadata(invoice, subscriptionId)
+
   // Get tier from line item's price (Clover-era: pricing.price_details.price)
   const priceId = invoice.lines?.data?.[0]?.pricing?.price_details?.price
   const { data: plan } = await supabaseAdmin
@@ -210,7 +222,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   // Record payment
   const { error } = await supabaseAdmin.from('payment_history').insert({
     parent_id: parentId,
-    student_id: studentId || null,
+    student_id: studentId,
     stripe_invoice_id: invoice.id,
     stripe_subscription_id: subscriptionId,
     amount_cents: invoice.amount_paid,
@@ -237,40 +249,12 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     throw new Error(`No subscription ID on failed payment invoice ${invoice.id}`)
   }
 
-  // Extract metadata directly from invoice's parent (Clover-era)
-  const invoiceMetadata = invoice.parent?.subscription_details?.metadata
-  let parentId = invoiceMetadata?.supabase_parent_id
-  let studentId = invoiceMetadata?.supabase_student_id
-
-  // Fallback: fetch subscription from Stripe for metadata
-  if (!parentId || !studentId) {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-    parentId = parentId || subscription.metadata.supabase_parent_id
-    studentId = studentId || subscription.metadata.supabase_student_id
-  }
-
-  // Fallback: look up from existing child_subscriptions record
-  if (!parentId || !studentId) {
-    const { data: existingSub } = await supabaseAdmin
-      .from('child_subscriptions')
-      .select('parent_id, student_id')
-      .eq('stripe_subscription_id', subscriptionId)
-      .single()
-
-    if (existingSub) {
-      parentId = parentId || existingSub.parent_id
-      studentId = studentId || existingSub.student_id
-    }
-  }
-
-  if (!parentId) {
-    throw new Error(`Missing parent_id for failed payment, invoice ${invoice.id}`)
-  }
+  const { parentId, studentId } = await resolveInvoiceMetadata(invoice, subscriptionId)
 
   // Record failed payment
   const { error } = await supabaseAdmin.from('payment_history').insert({
     parent_id: parentId,
-    student_id: studentId || null,
+    student_id: studentId,
     stripe_invoice_id: invoice.id,
     stripe_subscription_id: subscriptionId,
     amount_cents: invoice.amount_due,

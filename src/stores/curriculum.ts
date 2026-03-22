@@ -803,9 +803,12 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (uploadError) throw uploadError
 
-      // Clean up old file
+      // Best-effort cleanup of old file (don't block the upload result)
       if (oldPath) {
-        supabase.storage.from('curriculum-images').remove([oldPath])
+        supabase.storage
+          .from('curriculum-images')
+          .remove([oldPath])
+          .catch(() => {})
       }
 
       return { success: true, path: filePath, error: null }
