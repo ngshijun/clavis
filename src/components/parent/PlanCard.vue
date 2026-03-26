@@ -74,9 +74,19 @@ function getButtonVariant() {
         <component :is="getTierIcon(plan.id)" class="size-5 text-primary" />
         <CardTitle>{{ plan.name }}</CardTitle>
       </div>
-      <CardDescription>
-        <span class="text-2xl font-bold text-foreground">RM {{ plan.price.toFixed(2) }}</span>
-        <span class="text-muted-foreground">/month</span>
+      <CardDescription as="div">
+        <div v-if="plan.originalPrice" class="mb-1.5 flex items-center gap-2">
+          <span class="text-sm text-muted-foreground line-through decoration-muted-foreground/50">
+            RM {{ plan.originalPrice.toFixed(2) }}
+          </span>
+          <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            Save {{ Math.round((1 - plan.price / plan.originalPrice) * 100) }}%
+          </span>
+        </div>
+        <div>
+          <span class="text-2xl font-bold text-foreground">RM {{ plan.price.toFixed(2) }}</span>
+          <span class="text-muted-foreground">/month</span>
+        </div>
       </CardDescription>
     </CardHeader>
 

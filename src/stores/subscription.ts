@@ -13,6 +13,7 @@ export interface SubscriptionPlan {
   id: SubscriptionTier
   name: string
   price: number // monthly price
+  originalPrice?: number // promotional "was" price (UI only)
   sessionsPerDay: number
   features: string[]
   highlighted?: boolean
@@ -123,10 +124,16 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
       if (fetchError) throw fetchError
 
+      const promoOriginalPrices: Partial<Record<SubscriptionTier, number>> = {
+        plus: 19.99,
+        pro: 39.99,
+      }
+
       plans.value = (data ?? []).map((row: SubscriptionPlanRow) => ({
         id: row.id,
         name: row.name,
         price: row.price_monthly,
+        originalPrice: promoOriginalPrices[row.id],
         sessionsPerDay: row.sessions_per_day,
         features: (row.features as string[]) ?? [],
         highlighted: row.is_highlighted ?? false,

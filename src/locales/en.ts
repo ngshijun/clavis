@@ -156,6 +156,8 @@ export default {
       {
         name: 'Core',
         price: 'Free',
+        originalPrice: '',
+        savePercent: '',
         period: '',
         description: 'Perfect for getting started',
         features: [
@@ -169,6 +171,8 @@ export default {
       {
         name: 'Plus',
         price: 'RM 9.99',
+        originalPrice: 'RM 19.99',
+        savePercent: '50%',
         period: '/month',
         description: 'For dedicated learners',
         features: [
@@ -183,6 +187,8 @@ export default {
       {
         name: 'Pro',
         price: 'RM 19.99',
+        originalPrice: 'RM 39.99',
+        savePercent: '50%',
         period: '/month',
         description: 'For serious students',
         features: [

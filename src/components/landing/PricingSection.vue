@@ -37,6 +37,18 @@ const popularIndex = 2 // Pro plan
             <CardTitle>{{ plan.name }}</CardTitle>
             <CardDescription>{{ plan.description }}</CardDescription>
             <div class="mt-4">
+              <div v-if="plan.originalPrice" class="mb-1.5 flex items-center gap-2">
+                <span
+                  class="text-base text-muted-foreground line-through decoration-muted-foreground/50"
+                >
+                  {{ plan.originalPrice }}
+                </span>
+                <span
+                  class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
+                >
+                  Save {{ plan.savePercent }}
+                </span>
+              </div>
               <span class="text-3xl font-bold">{{ plan.price }}</span>
               <span v-if="plan.period" class="text-muted-foreground">{{ plan.period }}</span>
             </div>

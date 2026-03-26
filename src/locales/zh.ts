@@ -147,6 +147,8 @@ export default {
       {
         name: 'Core',
         price: '免费',
+        originalPrice: '',
+        savePercent: '',
         period: '',
         description: '入门的完美选择',
         features: [
@@ -160,6 +162,8 @@ export default {
       {
         name: 'Plus',
         price: 'RM 9.99',
+        originalPrice: 'RM 19.99',
+        savePercent: '50%',
         period: '/月',
         description: '适合认真学习的学生',
         features: [
@@ -174,6 +178,8 @@ export default {
       {
         name: 'Pro',
         price: 'RM 19.99',
+        originalPrice: 'RM 39.99',
+        savePercent: '50%',
         period: '/月',
         description: '适合用功的学生',
         features: [
