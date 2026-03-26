@@ -30,13 +30,13 @@ An adaptive learning platform for students with gamified practice sessions, pare
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start development server
-npm run dev
+pnpm dev
 
 # Type-check and build for production
-npm run build
+pnpm build
 ```
 
 ## License

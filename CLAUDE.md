@@ -21,11 +21,11 @@ When proposing modifications or refactoring plans:
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server
-npm run build        # vue-tsc --build + vite build (parallel)
-npm run type-check   # vue-tsc --build (NOT --noEmit; see gotchas)
-npm run lint         # eslint . --fix --cache
-npm run format       # prettier --write --experimental-cli src/
+pnpm dev          # Vite dev server
+pnpm build        # vue-tsc --build + vite build (parallel)
+pnpm type-check   # vue-tsc --build (NOT --noEmit; see gotchas)
+pnpm lint         # eslint . --fix --cache
+pnpm format       # prettier --write --experimental-cli src/
 ```
 
 ---
@@ -62,10 +62,10 @@ Use any other relevant MCP tools automatically when they would improve the respo
 ### Migration Workflow
 
 ```bash
-npx supabase migration new <migration-name>   # 1. Create migration
+pnpm supabase migration new <migration-name>   # 1. Create migration
 # 2. Edit the SQL file in supabase/migrations/
-npx supabase db push                           # 3. Apply to database
-npx supabase gen types typescript --linked > src/types/database.types.ts  # 4. Regen types
+pnpm supabase db push                           # 3. Apply to database
+pnpm supabase gen types typescript --linked > src/types/database.types.ts  # 4. Regen types
 ```
 
 Afterwards, check for security and performance issues with supabase MCP.
@@ -96,6 +96,6 @@ FOR SELECT USING (user_id = (SELECT auth.uid()));
 
 ## Gotchas
 
-- `vue-tsc --noEmit` may pass while `vue-tsc --build` fails (different modes). Always use `npm run type-check` (which runs `--build`).
+- `vue-tsc --noEmit` may pass while `vue-tsc --build` fails (different modes). Always use `pnpm type-check` (which runs `--build`).
 - Clean stale build cache: `rm -rf node_modules/.tmp/tsconfig.app.tsbuildinfo`
 - `shadcn-vue init --overwrite` resets `src/lib/utils.ts` and `src/style.css` to defaults — always revert these files as they contain custom functions and theming.
