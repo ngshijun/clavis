@@ -35,9 +35,9 @@ export function getDateRangeStart(filter: DateRangeFilter): Date | null {
     case 'today':
       return new Date(now.getFullYear(), now.getMonth(), now.getDate())
     case 'last7days':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
     case 'last30days':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
     case 'alltime':
     default:
       return null
