@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, toRef } from 'vue'
+import { ref, shallowRef, computed, toRef, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
@@ -7,13 +7,23 @@ import { useAuthStore } from '@/stores/auth'
 import { signupFormSchema } from '@/lib/validations'
 import { usePasswordStrength } from '@/composables/usePasswordStrength'
 import logoSvg from '@/assets/logo.svg'
-import { ArrowLeft, Loader2, CalendarIcon } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, PasswordInput } from '@/components/ui/input'
 import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
+import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabaseClient'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { toast } from 'vue-sonner'
 import { type DateValue, getLocalTimeZone, today } from '@internationalized/date'
 import { createYearRange } from 'reka-ui/date'
@@ -43,6 +53,15 @@ const birthdayYearRange = computed(() => {
   }).reverse()
 })
 
+// Schools
+const schools = ref<{ id: string; name: string }[]>([])
+const schoolPopoverOpen = ref(false)
+
+onMounted(async () => {
+  const { data } = await supabase.from('schools').select('id, name').order('name')
+  if (data) schools.value = data
+})
+
 const { handleSubmit, values, setFieldValue, submitCount } = useForm({
   validationSchema: signupFormSchema,
   initialValues: {
@@ -52,8 +71,19 @@ const { handleSubmit, values, setFieldValue, submitCount } = useForm({
     confirmPassword: '',
     userType: 'student' as 'student' | 'parent',
     dateOfBirth: '',
+    schoolId: '',
   },
 })
+
+watch(
+  () => values.userType,
+  (newType) => {
+    if (newType === 'parent') {
+      setFieldValue('schoolId', '')
+      schoolPopoverOpen.value = false
+    }
+  },
+)
 
 const passwordRef = toRef(() => values.password ?? '')
 const { strength: pwStrength, label: pwLabel, color: pwColor } = usePasswordStrength(passwordRef)
@@ -68,6 +98,7 @@ const onSubmit = handleSubmit(async (formValues) => {
       formValues.name,
       formValues.userType,
       formValues.dateOfBirth || undefined,
+      formValues.schoolId || undefined,
     )
 
     if (result.error) {
@@ -239,6 +270,84 @@ const onSubmit = handleSubmit(async (formValues) => {
                 </Button>
               </div>
               <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
+
+          <VeeField
+            v-if="values.userType === 'student'"
+            v-slot="{ handleChange }"
+            :validate-on-blur="false"
+            :validate-on-change="false"
+            :validate-on-input="false"
+            :validate-on-model-update="submitCount > 0"
+            name="schoolId"
+          >
+            <Field>
+              <FieldLabel>School</FieldLabel>
+              <Popover v-model:open="schoolPopoverOpen">
+                <PopoverTrigger as-child>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    :aria-expanded="schoolPopoverOpen"
+                    class="w-full justify-between font-normal"
+                    :class="{ 'text-muted-foreground': !values.schoolId }"
+                    :disabled="isSubmitting"
+                  >
+                    {{
+                      values.schoolId
+                        ? (schools.find((s) => s.id === values.schoolId)?.name ??
+                          'Select school...')
+                        : 'Select school...'
+                    }}
+                    <ChevronsUpDown class="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-[--reka-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search school..." />
+                    <CommandList>
+                      <CommandEmpty>No school found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          v-for="school in schools"
+                          :key="school.id"
+                          :value="school.name"
+                          @select="
+                            () => {
+                              handleChange(school.id)
+                              setFieldValue('schoolId', school.id)
+                              schoolPopoverOpen = false
+                            }
+                          "
+                        >
+                          {{ school.name }}
+                          <Check
+                            :class="
+                              cn(
+                                'ml-auto size-4',
+                                values.schoolId === school.id ? 'opacity-100' : 'opacity-0',
+                              )
+                            "
+                          />
+                        </CommandItem>
+                        <CommandItem
+                          value="my school is not listed"
+                          @select="
+                            () => {
+                              handleChange('')
+                              setFieldValue('schoolId', '')
+                              schoolPopoverOpen = false
+                            }
+                          "
+                        >
+                          My school is not listed
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </Field>
           </VeeField>
 
