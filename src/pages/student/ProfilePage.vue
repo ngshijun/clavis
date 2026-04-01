@@ -356,16 +356,19 @@ async function handleSchoolChange(schoolId: string | null) {
             </div>
             <Popover v-model:open="schoolPopoverOpen">
               <PopoverTrigger as-child>
-                <Button
-                  variant="outline"
+                <button
                   role="combobox"
                   :aria-expanded="schoolPopoverOpen"
                   :disabled="isSaving"
-                  class="w-auto justify-between gap-2"
+                  :class="
+                    cn(
+                      'border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*=\'text-\'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 h-9',
+                    )
+                  "
                 >
                   {{ currentSchoolName }}
                   <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
-                </Button>
+                </button>
               </PopoverTrigger>
               <PopoverContent class="w-64 p-0" align="end">
                 <Command>
