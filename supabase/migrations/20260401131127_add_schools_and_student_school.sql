@@ -54,6 +54,11 @@ BEGIN
 END;
 $$;
 
--- 6. Grant permissions
+-- 6. Insert sentinel row for "My school is not listed"
+INSERT INTO public.schools (id, name)
+VALUES ('00000000-0000-0000-0000-000000000000', 'My school is not listed')
+ON CONFLICT (name) DO NOTHING;
+
+-- 7. Grant permissions
 GRANT SELECT ON public.schools TO anon, authenticated, service_role;
 GRANT ALL ON FUNCTION public.create_user_profile(UUID, TEXT, TEXT, TEXT, DATE, UUID) TO anon, authenticated, service_role;

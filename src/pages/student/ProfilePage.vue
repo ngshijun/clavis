@@ -44,6 +44,7 @@ import {
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabaseClient'
+import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
 import {
   Command,
   CommandEmpty,
@@ -110,7 +111,9 @@ const schools = ref<{ id: string; name: string }[]>([])
 const schoolPopoverOpen = ref(false)
 
 const currentSchoolName = computed(() => {
-  return authStore.studentProfile?.schoolName ?? 'My school is not listed'
+  if (!authStore.studentProfile?.schoolId) return 'Not set'
+  if (authStore.studentProfile.schoolId === SCHOOL_NOT_LISTED_ID) return 'My school is not listed'
+  return authStore.studentProfile.schoolName ?? 'Not set'
 })
 
 onMounted(async () => {
@@ -126,7 +129,7 @@ onMounted(async () => {
       .select('id, name')
       .order('name')
       .then(({ data }) => {
-        if (data) schools.value = data
+        if (data) schools.value = data.filter((s) => s.id !== SCHOOL_NOT_LISTED_ID)
       }),
   ]).finally(() => {
     isLoadingPlans.value = false
@@ -192,7 +195,7 @@ async function handleLanguageChange(value: unknown) {
   }
 }
 
-async function handleSchoolChange(schoolId: string | null) {
+async function handleSchoolChange(schoolId: string) {
   isSaving.value = true
   try {
     const result = await authStore.updateSchool(schoolId)
@@ -447,14 +450,14 @@ async function handleSchoolChange(schoolId: string | null) {
                             </CommandItem>
                             <CommandItem
                               value="my school is not listed"
-                              @select="() => handleSchoolChange(null)"
+                              @select="() => handleSchoolChange(SCHOOL_NOT_LISTED_ID)"
                             >
                               My school is not listed
                               <Check
                                 :class="
                                   cn(
                                     'ml-auto size-4',
-                                    authStore.studentProfile?.schoolId === null
+                                    authStore.studentProfile?.schoolId === SCHOOL_NOT_LISTED_ID
                                       ? 'opacity-100'
                                       : 'opacity-0',
                                   )

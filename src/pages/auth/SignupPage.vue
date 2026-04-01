@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabaseClient'
+import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
 import {
   Command,
   CommandEmpty,
@@ -56,11 +57,10 @@ const birthdayYearRange = computed(() => {
 // Schools
 const schools = ref<{ id: string; name: string }[]>([])
 const schoolPopoverOpen = ref(false)
-const NOT_LISTED = '__not_listed__'
 
 onMounted(async () => {
   const { data } = await supabase.from('schools').select('id, name').order('name')
-  if (data) schools.value = data
+  if (data) schools.value = data.filter((s) => s.id !== SCHOOL_NOT_LISTED_ID)
 })
 
 const { handleSubmit, values, setFieldValue, submitCount } = useForm({
@@ -99,7 +99,7 @@ const onSubmit = handleSubmit(async (formValues) => {
       formValues.name,
       formValues.userType,
       formValues.dateOfBirth || undefined,
-      formValues.schoolId && formValues.schoolId !== NOT_LISTED ? formValues.schoolId : undefined,
+      formValues.schoolId || undefined,
     )
 
     if (result.error) {
@@ -296,7 +296,7 @@ const onSubmit = handleSubmit(async (formValues) => {
                     :disabled="isSubmitting"
                   >
                     {{
-                      values.schoolId === NOT_LISTED
+                      values.schoolId === SCHOOL_NOT_LISTED_ID
                         ? 'My school is not listed'
                         : values.schoolId
                           ? (schools.find((s) => s.id === values.schoolId)?.name ??
@@ -338,8 +338,8 @@ const onSubmit = handleSubmit(async (formValues) => {
                           value="my school is not listed"
                           @select="
                             () => {
-                              handleChange(NOT_LISTED)
-                              setFieldValue('schoolId', NOT_LISTED)
+                              handleChange(SCHOOL_NOT_LISTED_ID)
+                              setFieldValue('schoolId', SCHOOL_NOT_LISTED_ID)
                               schoolPopoverOpen = false
                             }
                           "
