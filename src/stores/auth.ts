@@ -26,6 +26,8 @@ export interface AuthUser {
     gradeLevelId: string | null
     selectedPetId: string | null
     preferredLanguage: 'en' | 'zh'
+    schoolId: string | null
+    schoolName: string | null
   }
   // Parent-specific fields
   parentProfile?: {
@@ -66,7 +68,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
     if (profile.user_type === 'student') {
       const { data: studentProfile } = await supabase
         .from('student_profiles')
-        .select('*')
+        .select('*, schools(name)')
         .eq('id', userId)
         .single()
 
@@ -78,6 +80,8 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
           gradeLevelId: studentProfile.grade_level_id,
           selectedPetId: studentProfile.selected_pet_id,
           preferredLanguage: (studentProfile.preferred_language as 'en' | 'zh') ?? 'en',
+          schoolId: studentProfile.school_id,
+          schoolName: (studentProfile.schools as { name: string } | null)?.name ?? null,
         }
       }
     } else if (profile.user_type === 'parent') {
@@ -130,6 +134,7 @@ async function ensureProfileExists(user: SupabaseUser): Promise<{ error: string 
     const userType = (userMetadata.user_type as UserType) || 'student'
     const name = (userMetadata.name as string) || 'User'
     const dateOfBirth = userMetadata.date_of_birth as string | undefined
+    const schoolId = userMetadata.school_id as string | undefined
 
     // Create main profile and type-specific profile atomically
     const { error: rpcError } = await supabase.rpc('create_user_profile', {
@@ -138,6 +143,7 @@ async function ensureProfileExists(user: SupabaseUser): Promise<{ error: string 
       p_name: name,
       p_user_type: userType,
       p_date_of_birth: dateOfBirth,
+      p_school_id: schoolId,
     })
 
     if (rpcError) {
@@ -273,6 +279,7 @@ export const useAuthStore = defineStore('auth', () => {
     name: string,
     userTypeParam: 'student' | 'parent',
     dateOfBirth?: string,
+    schoolId?: string,
   ) {
     isLoading.value = true
     try {
@@ -284,6 +291,7 @@ export const useAuthStore = defineStore('auth', () => {
             name,
             user_type: userTypeParam,
             date_of_birth: dateOfBirth,
+            school_id: schoolId,
           },
         },
       })
@@ -664,6 +672,36 @@ export const useAuthStore = defineStore('auth', () => {
     return { error: null }
   }
 
+  async function updateSchool(schoolId: string | null) {
+    if (!user.value || user.value.userType !== 'student' || !user.value.studentProfile) {
+      return { error: 'Not a student' }
+    }
+
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ school_id: schoolId })
+      .eq('id', user.value.id)
+
+    if (error) {
+      return { error: handleError(error, 'Failed to update school.') }
+    }
+
+    user.value.studentProfile.schoolId = schoolId
+
+    if (schoolId) {
+      const { data: school } = await supabase
+        .from('schools')
+        .select('name')
+        .eq('id', schoolId)
+        .single()
+      user.value.studentProfile.schoolName = school?.name ?? null
+    } else {
+      user.value.studentProfile.schoolName = null
+    }
+
+    return { error: null }
+  }
+
   async function updatePreferredLanguage(language: 'en' | 'zh') {
     if (!user.value || user.value.userType !== 'student' || !user.value.studentProfile) {
       return { error: 'Not a student' }
@@ -758,6 +796,7 @@ export const useAuthStore = defineStore('auth', () => {
     uploadAvatar,
     uploadAvatarFromUrl,
     updateGradeLevel,
+    updateSchool,
     updatePreferredLanguage,
     setTourCompleted,
     setSelectedPet,
