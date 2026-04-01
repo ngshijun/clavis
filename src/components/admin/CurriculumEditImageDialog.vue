@@ -80,8 +80,6 @@ async function handleSave() {
   isSaving.value = true
 
   try {
-    const itemId = config.value.getItemId(ids.value)
-
     const uploadResult = await curriculumStore.uploadCurriculumImage(
       imageFile.value,
       props.imageType,
