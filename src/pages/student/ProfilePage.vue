@@ -294,7 +294,9 @@ async function handleSchoolChange(schoolId: string | null) {
                 </div>
                 <div>
                   <p class="text-xs text-muted-foreground">Email Address</p>
-                  <p class="font-medium">{{ authStore.user?.email }}</p>
+                  <p class="flex h-9 items-center text-sm font-medium">
+                    {{ authStore.user?.email }}
+                  </p>
                 </div>
               </div>
 
@@ -303,24 +305,25 @@ async function handleSchoolChange(schoolId: string | null) {
                 <div class="flex size-9 items-center justify-center rounded-full bg-muted">
                   <Cake class="size-4 text-muted-foreground" />
                 </div>
-                <div class="flex-1">
+                <div>
                   <p class="text-xs text-muted-foreground">Birthday</p>
-                  <p class="font-medium">
+                  <button
+                    :class="
+                      cn(
+                        'border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-9 w-fit items-center gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
+                      )
+                    "
+                    :disabled="isSaving"
+                    @click="showEditBirthdayDialog = true"
+                  >
                     <template v-if="formattedBirthday">
                       {{ formattedBirthday }}
-                      <span class="text-muted-foreground">({{ age }} years old)</span>
+                      <span class="text-muted-foreground">({{ age }})</span>
                     </template>
                     <template v-else>Not set</template>
-                  </p>
+                    <Pencil class="size-3.5 opacity-50" />
+                  </button>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  class="size-8"
-                  @click="showEditBirthdayDialog = true"
-                >
-                  <Pencil class="size-4" />
-                </Button>
               </div>
 
               <!-- Date Joined -->
@@ -330,7 +333,9 @@ async function handleSchoolChange(schoolId: string | null) {
                 </div>
                 <div>
                   <p class="text-xs text-muted-foreground">Member Since</p>
-                  <p class="font-medium">{{ formattedDateJoined }}</p>
+                  <p class="flex h-9 items-center text-sm font-medium">
+                    {{ formattedDateJoined }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -353,7 +358,7 @@ async function handleSchoolChange(schoolId: string | null) {
                     :disabled="isSaving || curriculumStore.isLoading"
                     @update:model-value="handleGradeChange"
                   >
-                    <SelectTrigger class="mt-1 w-auto">
+                    <SelectTrigger class="w-auto">
                       <SelectValue placeholder="Select grade" />
                     </SelectTrigger>
                     <SelectContent>
@@ -384,7 +389,7 @@ async function handleSchoolChange(schoolId: string | null) {
                         :disabled="isSaving"
                         :class="
                           cn(
-                            'border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*=\'text-\'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 mt-1 h-9',
+                            'border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*=\'text-\'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 h-9',
                           )
                         "
                       >
@@ -452,7 +457,7 @@ async function handleSchoolChange(schoolId: string | null) {
                     :disabled="isSaving"
                     @update:model-value="handleLanguageChange"
                   >
-                    <SelectTrigger class="mt-1 w-auto">
+                    <SelectTrigger class="w-auto">
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
                     <SelectContent>
