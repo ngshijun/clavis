@@ -361,10 +361,10 @@ async function handleSchoolChange(schoolId: string | null) {
                   role="combobox"
                   :aria-expanded="schoolPopoverOpen"
                   :disabled="isSaving"
-                  class="w-auto justify-between"
+                  class="w-auto justify-between gap-2"
                 >
-                  <span class="sr-only">Change school</span>
-                  <ChevronsUpDown class="size-4 opacity-50" />
+                  {{ currentSchoolName }}
+                  <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent class="w-64 p-0" align="end">
