@@ -41,6 +41,7 @@ const signupFormZod = z
       required_error: 'Please select a user type',
     }),
     dateOfBirth: z.string().optional(),
+    schoolId: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
