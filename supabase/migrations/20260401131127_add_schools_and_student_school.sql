@@ -8,11 +8,11 @@ CREATE TABLE IF NOT EXISTS public.schools (
 -- 2. Enable RLS
 ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 
--- 3. Allow all authenticated users to read schools
-CREATE POLICY "Authenticated users can read schools"
+-- 3. Allow anyone to read schools (needed on signup page before auth)
+CREATE POLICY "Anyone can read schools"
   ON public.schools
   FOR SELECT
-  TO authenticated
+  TO anon, authenticated
   USING (true);
 
 -- 4. Add school_id to student_profiles

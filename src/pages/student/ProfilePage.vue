@@ -41,18 +41,12 @@ import {
   RotateCcw,
   School,
   ChevronsUpDown,
+  Search,
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabaseClient'
 import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { useSchoolSearch } from '@/composables/useSchoolSearch'
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTour } from '@/composables/useTour'
 
@@ -107,7 +101,7 @@ const birthdayYearRange = computed(() => {
   }).reverse()
 })
 
-const schools = ref<{ id: string; name: string }[]>([])
+const { schools, searchTerm: schoolSearchTerm } = useSchoolSearch()
 const schoolPopoverOpen = ref(false)
 
 const currentSchoolName = computed(() => {
@@ -124,13 +118,6 @@ onMounted(async () => {
       subscriptionStatus.value = status
     }),
     subscriptionStore.fetchPlans(),
-    supabase
-      .from('schools')
-      .select('id, name')
-      .order('name')
-      .then(({ data }) => {
-        if (data) schools.value = data.filter((s) => s.id !== SCHOOL_NOT_LISTED_ID)
-      }),
   ]).finally(() => {
     isLoadingPlans.value = false
   })
@@ -426,9 +413,15 @@ async function handleSchoolChange(schoolId: string) {
                     </PopoverTrigger>
                     <PopoverContent class="w-64 p-0" align="start">
                       <Command>
-                        <CommandInput placeholder="Search school" />
+                        <div class="flex h-9 items-center gap-2 border-b px-3">
+                          <Search class="size-4 shrink-0 opacity-50" />
+                          <input
+                            v-model="schoolSearchTerm"
+                            placeholder="Search school"
+                            class="placeholder:text-muted-foreground flex h-10 w-full bg-transparent py-3 text-sm outline-hidden"
+                          />
+                        </div>
                         <CommandList>
-                          <CommandEmpty>No school found.</CommandEmpty>
                           <CommandGroup>
                             <CommandItem
                               v-for="school in schools"

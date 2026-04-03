@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, toRef, onMounted, watch } from 'vue'
+import { ref, shallowRef, computed, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { signupFormSchema } from '@/lib/validations'
 import { usePasswordStrength } from '@/composables/usePasswordStrength'
 import logoSvg from '@/assets/logo.svg'
-import { ArrowLeft, Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, CalendarIcon, Check, ChevronsUpDown, Search } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, PasswordInput } from '@/components/ui/input'
@@ -15,16 +15,9 @@ import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabaseClient'
 import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { useSchoolSearch } from '@/composables/useSchoolSearch'
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { toast } from 'vue-sonner'
 import { type DateValue, getLocalTimeZone, today } from '@internationalized/date'
 import { createYearRange } from 'reka-ui/date'
@@ -55,13 +48,8 @@ const birthdayYearRange = computed(() => {
 })
 
 // Schools
-const schools = ref<{ id: string; name: string }[]>([])
+const { schools, searchTerm: schoolSearchTerm } = useSchoolSearch()
 const schoolPopoverOpen = ref(false)
-
-onMounted(async () => {
-  const { data } = await supabase.from('schools').select('id, name').order('name')
-  if (data) schools.value = data.filter((s) => s.id !== SCHOOL_NOT_LISTED_ID)
-})
 
 const { handleSubmit, values, setFieldValue, submitCount } = useForm({
   validationSchema: signupFormSchema,
@@ -308,9 +296,15 @@ const onSubmit = handleSubmit(async (formValues) => {
                 </PopoverTrigger>
                 <PopoverContent class="w-[--reka-popover-trigger-width] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search school" />
+                    <div class="flex h-9 items-center gap-2 border-b px-3">
+                      <Search class="size-4 shrink-0 opacity-50" />
+                      <input
+                        v-model="schoolSearchTerm"
+                        placeholder="Search school"
+                        class="placeholder:text-muted-foreground flex h-10 w-full bg-transparent py-3 text-sm outline-hidden"
+                      />
+                    </div>
                     <CommandList>
-                      <CommandEmpty>No school found.</CommandEmpty>
                       <CommandGroup>
                         <CommandItem
                           v-for="school in schools"
