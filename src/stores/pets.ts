@@ -197,7 +197,7 @@ export const usePetsStore = defineStore('pets', () => {
     return `${url}${separator}v=${new Date(updatedAt).getTime()}`
   }
 
-  // Get optimized pet image URL (medium size for dialog display)
+  // Alias kept for call-site compatibility (images are pre-optimized at upload time)
   function getOptimizedPetImageUrl(imagePath: string | null, updatedAt?: string | null): string {
     return getPetImageUrl(imagePath, updatedAt)
   }
