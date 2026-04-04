@@ -56,6 +56,7 @@ export function getAvatarUrl(path: string | null): string {
 
 /**
  * Upload a file to Supabase Storage with a random UUID filename.
+ * Images are optimized to WebP by default; pass `optimize: false` to skip.
  * Optionally deletes an old file at `oldPath` (best-effort, non-blocking).
  */
 export async function uploadStorageFile(
@@ -82,6 +83,7 @@ export async function uploadStorageFile(
       .from(bucket)
       .upload(filePath, processedFile, {
         cacheControl: '31536000',
+        contentType: processedFile.type,
       })
 
     if (uploadError) throw uploadError
