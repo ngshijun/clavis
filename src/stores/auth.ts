@@ -6,6 +6,7 @@ import { resetAllStores } from '@/lib/piniaResetPlugin'
 import type { Database } from '@/types/database.types'
 import { handleError } from '@/lib/errors'
 import { XP_PER_LEVEL, computeLevel } from '@/lib/xp'
+import { optimizeImage } from '@/lib/imageOptimizer'
 
 type UserType = Database['public']['Enums']['user_type']
 
@@ -570,12 +571,15 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const oldAvatarPath = user.value.avatarPath
-      const fileExt = file.name.split('.').pop()
+      const optimized = await optimizeImage(file, { maxDimension: 256 })
+      const fileExt = optimized.name.split('.').pop()
       const filePath = `${user.value.id}/${crypto.randomUUID()}.${fileExt}`
 
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, {
-        cacheControl: '31536000', // 1 year cache for CDN
-      })
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, optimized, {
+          cacheControl: '31536000', // 1 year cache for CDN
+        })
 
       if (uploadError) throw uploadError
 
@@ -617,15 +621,20 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       const blob = await response.blob()
-      const contentType = blob.type || 'image/svg+xml'
-      const ext = contentType.includes('svg') ? 'svg' : 'png'
+
+      // SVGs (e.g. DiceBear) skip automatically inside optimizeImage
+      const optimized = await optimizeImage(blob, { maxDimension: 256 })
+      const contentType = optimized.type
+      const ext = contentType.includes('svg') ? 'svg' : 'webp'
       const filePath = `${user.value.id}/${crypto.randomUUID()}.${ext}`
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, blob, {
-        contentType,
-        cacheControl: '31536000', // 1 year cache for CDN
-      })
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, optimized, {
+          contentType,
+          cacheControl: '31536000', // 1 year cache for CDN
+        })
 
       if (uploadError) throw uploadError
 
