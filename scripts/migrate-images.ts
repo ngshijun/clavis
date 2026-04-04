@@ -62,7 +62,7 @@ const BUCKETS: BucketConfig[] = [
     tables: [
       {
         table: 'pets',
-        columns: ['image_path', 'tier_2_image_path', 'tier_3_image_path'],
+        columns: ['image_path', 'tier2_image_path', 'tier3_image_path'],
       },
     ],
   },
@@ -147,6 +147,7 @@ async function migrateFile(
   const { error: upError } = await supabase.storage.from(bucket).upload(newPath, optimized, {
     contentType: 'image/webp',
     cacheControl: '31536000',
+    upsert: true,
   })
 
   if (upError) {
