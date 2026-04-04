@@ -81,37 +81,36 @@ const SKIP_EXTENSIONS = new Set(['.svg', '.gif', '.webp'])
 const BATCH_SIZE = 10
 
 async function optimizeBuffer(buffer: Buffer, maxDimension: number): Promise<Buffer> {
-  const image = sharp(buffer)
-  const metadata = await image.metadata()
-  const width = metadata.width ?? 0
-  const height = metadata.height ?? 0
-
-  let resized = image
-  if (width > maxDimension || height > maxDimension) {
-    resized = image.resize(maxDimension, maxDimension, { fit: 'inside', withoutEnlargement: true })
-  }
-
-  return resized.webp({ quality: 80 }).toBuffer()
+  return sharp(buffer)
+    .resize(maxDimension, maxDimension, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer()
 }
 
 async function listAllFiles(bucket: string): Promise<string[]> {
   const paths: string[] = []
 
   async function listRecursive(folder: string) {
-    const { data, error } = await supabase.storage.from(bucket).list(folder, { limit: 1000 })
-    if (error) {
-      console.error(`  Error listing ${bucket}/${folder}:`, error.message)
-      return
-    }
-    for (const item of data ?? []) {
-      const fullPath = folder ? `${folder}/${item.name}` : item.name
-      if (item.id) {
-        // It's a file
-        paths.push(fullPath)
-      } else {
-        // It's a folder — recurse
-        await listRecursive(fullPath)
+    let offset = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .list(folder, { limit: PAGE_SIZE, offset })
+      if (error) {
+        console.error(`  Error listing ${bucket}/${folder}:`, error.message)
+        return
       }
+      for (const item of data ?? []) {
+        const fullPath = folder ? `${folder}/${item.name}` : item.name
+        if (item.id) {
+          paths.push(fullPath)
+        } else {
+          await listRecursive(fullPath)
+        }
+      }
+      if (!data || data.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
     }
   }
 
@@ -195,14 +194,17 @@ async function migrateBucket(config: BucketConfig): Promise<void> {
       batch.map((f) => migrateFile(config.bucket, f, config.maxDimension)),
     )
 
-    for (const result of results) {
-      if (result) {
-        await updateDbPaths(config.tables, result.oldPath, result.newPath)
-        migrated++
-        console.log(`  Migrated: ${result.oldPath} -> ${result.newPath}`)
-      } else {
-        skipped++
-      }
+    const successful = results.filter(
+      (r): r is { oldPath: string; newPath: string } => r !== null,
+    )
+    skipped += results.length - successful.length
+
+    await Promise.all(
+      successful.map((r) => updateDbPaths(config.tables, r.oldPath, r.newPath)),
+    )
+    for (const r of successful) {
+      migrated++
+      console.log(`  Migrated: ${r.oldPath} -> ${r.newPath}`)
     }
   }
 

@@ -16,8 +16,8 @@ export async function optimizeImage(
   const type = file.type
   const name = file instanceof File ? file.name : 'image'
 
-  // Skip SVG (vector) and GIF (may be animated)
-  if (type === 'image/svg+xml' || type === 'image/gif') {
+  // Skip non-raster formats
+  if (!type.startsWith('image/') || type === 'image/svg+xml' || type === 'image/gif') {
     return file instanceof File ? file : new File([file], name, { type })
   }
 
@@ -44,7 +44,10 @@ export async function optimizeImage(
   // Draw to OffscreenCanvas and convert to WebP
   const canvas = new OffscreenCanvas(width, height)
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Failed to acquire 2D rendering context')
+  if (!ctx) {
+    bitmap.close()
+    throw new Error('Failed to acquire 2D rendering context')
+  }
   ctx.drawImage(bitmap, 0, 0, width, height)
   bitmap.close()
 
