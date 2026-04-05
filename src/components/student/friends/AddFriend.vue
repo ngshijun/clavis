@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { getAvatarUrl } from '@/lib/storage'
 import { getInitials } from '@/lib/utils'
 import { toast } from 'vue-sonner'
-import { Search, Copy, Loader2, UserPlus } from 'lucide-vue-next'
+import { Search, Copy, Loader2, UserPlus, SearchX } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 const friendsStore = useFriendsStore()
@@ -83,39 +83,39 @@ async function copyFriendCode() {
     </p>
 
     <!-- Search results -->
-    <div v-if="isSearching" class="flex justify-center py-4">
-      <Loader2 class="size-5 animate-spin text-muted-foreground" />
+    <div v-if="isSearching" class="flex items-center justify-center py-12">
+      <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
-    <div
-      v-else-if="searchTerm && filteredResults.length === 0"
-      class="py-4 text-center text-sm text-muted-foreground"
-    >
-      No students found
+    <div v-else-if="searchTerm && filteredResults.length === 0" class="py-8 text-center">
+      <SearchX class="mx-auto size-12 text-muted-foreground/50" />
+      <p class="mt-2 text-sm text-muted-foreground">No students found</p>
+      <p class="text-xs text-muted-foreground">Try a different name or friend code</p>
     </div>
 
-    <div
-      v-for="student in filteredResults"
-      v-else
-      :key="student.id"
-      class="flex items-center gap-3 rounded-lg border p-3"
-    >
-      <Avatar class="size-10">
-        <AvatarImage :src="getAvatarUrl(student.avatarPath)" :alt="student.name" />
-        <AvatarFallback>{{ getInitials(student.name) }}</AvatarFallback>
-      </Avatar>
-
-      <p class="flex-1 truncate font-medium">{{ student.name }}</p>
-
-      <Button
-        size="sm"
-        :disabled="friendsStore.isFriendCapReached || sendingTo === student.id"
-        @click="handleSendRequest(student.id, student.name)"
+    <div v-else class="space-y-2">
+      <div
+        v-for="student in filteredResults"
+        :key="student.id"
+        class="flex items-center gap-3 rounded-lg border p-3"
       >
-        <Loader2 v-if="sendingTo === student.id" class="size-4 animate-spin" />
-        <UserPlus v-else class="size-4" />
-        Add
-      </Button>
+        <Avatar class="size-10">
+          <AvatarImage :src="getAvatarUrl(student.avatarPath)" :alt="student.name" />
+          <AvatarFallback>{{ getInitials(student.name) }}</AvatarFallback>
+        </Avatar>
+
+        <p class="flex-1 truncate font-medium">{{ student.name }}</p>
+
+        <Button
+          size="sm"
+          :disabled="friendsStore.isFriendCapReached || sendingTo === student.id"
+          @click="handleSendRequest(student.id, student.name)"
+        >
+          <Loader2 v-if="sendingTo === student.id" class="size-4 animate-spin" />
+          <UserPlus v-else class="size-4" />
+          Add
+        </Button>
+      </div>
     </div>
   </div>
 </template>

@@ -15,8 +15,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl space-y-6 p-4">
-    <h1 class="text-2xl font-bold">Friends</h1>
+  <div class="space-y-6 p-6">
+    <div>
+      <h1 class="text-2xl font-bold">Friends</h1>
+      <p class="text-muted-foreground">Manage your friends and send daily coins</p>
+    </div>
 
     <Tabs default-value="friends">
       <TabsList class="w-full">
