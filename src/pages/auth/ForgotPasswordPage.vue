@@ -4,7 +4,6 @@ import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { z } from 'zod'
-import { toTypedSchema } from '@vee-validate/zod'
 import logoSvg from '@/assets/logo.svg'
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,11 +24,9 @@ const isSubmitting = ref(false)
 const emailSent = ref(false)
 const sentEmail = ref('')
 
-const forgotPasswordSchema = toTypedSchema(
-  z.object({
-    email: z.string().min(1, 'Email is required').email('Please enter a valid email'),
-  }),
-)
+const forgotPasswordSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email'),
+})
 
 const { handleSubmit, submitCount } = useForm({
   validationSchema: forgotPasswordSchema,

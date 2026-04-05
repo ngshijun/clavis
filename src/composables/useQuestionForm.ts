@@ -1,6 +1,5 @@
 import { ref, computed, onMounted } from 'vue'
 import { useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useQuestionsStore, type MCQOption, type Question } from '@/stores/questions'
@@ -21,72 +20,70 @@ const isOptionFilled = (opt: { text: string | null; imagePath: string | null }) 
   (opt.text && opt.text.trim()) || opt.imagePath
 
 // Dynamic validation schema based on question type
-const questionFormSchema = toTypedSchema(
-  z
-    .object({
-      type: z.enum(['mcq', 'mrq', 'short_answer']),
-      gradeLevelId: z.string().min(1, 'Grade level is required'),
-      subjectId: z.string().min(1, 'Subject is required'),
-      topicId: z.string().min(1, 'Topic is required'),
-      subTopicId: z.string().min(1, 'Sub-topic is required'),
-      question: z.string().min(1, 'Question text is required'),
-      explanation: z.string().optional(),
-      answer: z.string().optional(),
-      options: z.array(mcqOptionSchema).optional(),
-    })
-    .superRefine((data, ctx) => {
-      if ((data.type === 'mcq' || data.type === 'mrq') && data.options) {
-        const filledOptions = data.options.filter(isOptionFilled)
-        if (filledOptions.length < 2) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'At least 2 options must have text or an image',
-            path: ['options'],
-          })
-        }
-
-        // Check that options are filled consecutively from the beginning (A, B, C, D order)
-        let foundEmpty = false
-        for (const opt of data.options) {
-          const isFilled = isOptionFilled(opt)
-          if (foundEmpty && isFilled) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: 'Options must be filled consecutively from Option A',
-              path: ['options'],
-            })
-            break
-          }
-          if (!isFilled) {
-            foundEmpty = true
-          }
-        }
-
-        const correctCount = data.options.filter((opt) => opt.isCorrect).length
-        if (data.type === 'mcq' && correctCount !== 1) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'MCQ must have exactly one correct answer',
-            path: ['options'],
-          })
-        }
-        if (data.type === 'mrq' && correctCount < 1) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'MRQ must have at least one correct answer',
-            path: ['options'],
-          })
-        }
-      }
-      if (data.type === 'short_answer' && (!data.answer || !data.answer.trim())) {
+const questionFormSchema = z
+  .object({
+    type: z.enum(['mcq', 'mrq', 'short_answer']),
+    gradeLevelId: z.string().min(1, 'Grade level is required'),
+    subjectId: z.string().min(1, 'Subject is required'),
+    topicId: z.string().min(1, 'Topic is required'),
+    subTopicId: z.string().min(1, 'Sub-topic is required'),
+    question: z.string().min(1, 'Question text is required'),
+    explanation: z.string().optional(),
+    answer: z.string().optional(),
+    options: z.array(mcqOptionSchema).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if ((data.type === 'mcq' || data.type === 'mrq') && data.options) {
+      const filledOptions = data.options.filter(isOptionFilled)
+      if (filledOptions.length < 2) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Answer is required',
-          path: ['answer'],
+          message: 'At least 2 options must have text or an image',
+          path: ['options'],
         })
       }
-    }),
-)
+
+      // Check that options are filled consecutively from the beginning (A, B, C, D order)
+      let foundEmpty = false
+      for (const opt of data.options) {
+        const isFilled = isOptionFilled(opt)
+        if (foundEmpty && isFilled) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Options must be filled consecutively from Option A',
+            path: ['options'],
+          })
+          break
+        }
+        if (!isFilled) {
+          foundEmpty = true
+        }
+      }
+
+      const correctCount = data.options.filter((opt) => opt.isCorrect).length
+      if (data.type === 'mcq' && correctCount !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'MCQ must have exactly one correct answer',
+          path: ['options'],
+        })
+      }
+      if (data.type === 'mrq' && correctCount < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'MRQ must have at least one correct answer',
+          path: ['options'],
+        })
+      }
+    }
+    if (data.type === 'short_answer' && (!data.answer || !data.answer.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Answer is required',
+        path: ['answer'],
+      })
+    }
+  })
 
 export const defaultOptions: MCQOption[] = [
   { id: 'a', text: '', imagePath: null, isCorrect: false },

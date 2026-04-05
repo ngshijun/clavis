@@ -6,7 +6,6 @@ import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { usePasswordStrength } from '@/composables/usePasswordStrength'
 import { z } from 'zod'
-import { toTypedSchema } from '@vee-validate/zod'
 import logoSvg from '@/assets/logo.svg'
 import { Loader2, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,20 +30,18 @@ const isLoading = ref(true)
 const passwordUpdated = ref(false)
 const tokenError = ref<string | null>(null)
 
-const resetPasswordSchema = toTypedSchema(
-  z
-    .object({
-      password: z
-        .string()
-        .min(1, 'Password is required')
-        .min(8, 'Password must be at least 8 characters'),
-      confirmPassword: z.string().min(1, 'Please confirm your password'),
-    })
-    .refine((data) => data.password === data.confirmPassword, {
-      message: 'Passwords do not match',
-      path: ['confirmPassword'],
-    }),
-)
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(1, 'Password is required')
+      .min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
 
 const { handleSubmit, values, submitCount } = useForm({
   validationSchema: resetPasswordSchema,
