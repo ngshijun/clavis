@@ -65,36 +65,33 @@ async function handleRemove() {
         </Badge>
       </CardTitle>
     </CardHeader>
-    <CardContent>
+    <CardContent class="p-0">
       <div v-if="friendsStore.friends.length === 0" class="py-8 text-center">
         <Users class="mx-auto size-12 text-muted-foreground/50" />
         <p class="mt-2 text-sm text-muted-foreground">No friends yet</p>
         <p class="text-xs text-muted-foreground">Add some from the "Add Friend" tab!</p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="divide-y border-t">
         <div
           v-for="friend in friendsStore.friends"
           :key="friend.friendshipId"
-          class="flex items-center gap-3 rounded-lg border p-3"
+          class="flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
+          @click="handleFriendClick(friend)"
         >
-          <button
-            class="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-80"
-            @click="handleFriendClick(friend)"
-          >
-            <Avatar class="size-10">
-              <AvatarImage :src="getAvatarUrl(friend.avatarPath)" :alt="friend.name" />
-              <AvatarFallback>{{ getInitials(friend.name) }}</AvatarFallback>
-            </Avatar>
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">{{ friend.name }}</p>
-              <p class="text-xs text-muted-foreground">
-                Lv.{{ friend.closenessLevel }} {{ friend.closenessLabel }}
-              </p>
-            </div>
-          </button>
+          <Avatar class="size-10">
+            <AvatarImage :src="getAvatarUrl(friend.avatarPath)" :alt="friend.name" />
+            <AvatarFallback>{{ getInitials(friend.name) }}</AvatarFallback>
+          </Avatar>
 
-          <div class="flex gap-2">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ friend.name }}</p>
+            <p class="text-xs text-muted-foreground">
+              Lv.{{ friend.closenessLevel }} {{ friend.closenessLabel }}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2" @click.stop>
             <Button v-if="friend.sentToday" size="sm" variant="secondary" disabled> Sent </Button>
             <Button
               v-else
