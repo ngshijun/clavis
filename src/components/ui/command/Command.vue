@@ -82,6 +82,7 @@ provideCommandContext({
   <ListboxRoot
     data-slot="command"
     v-bind="forwarded"
+    highlight-on-hover
     :class="
       cn(
         'bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md',
