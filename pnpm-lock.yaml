@@ -31,7 +31,7 @@ importers:
         version: 1.6.4(@unovis/ts@1.6.4)(vue@3.5.32(typescript@6.0.2))
       '@vee-validate/zod':
         specifier: ^4.15.1
-        version: 4.15.1(vue@3.5.32(typescript@6.0.2))(zod@4.3.6)
+        version: 4.15.1(vue@3.5.32(typescript@6.0.2))(zod@3.25.76)
       '@vercel/speed-insights':
         specifier: ^2.0.0
         version: 2.0.0(vue-router@5.0.4(@vue/compiler-sfc@3.5.32)(pinia@3.0.4(typescript@6.0.2)(vue@3.5.32(typescript@6.0.2)))(vue@3.5.32(typescript@6.0.2)))(vue@3.5.32(typescript@6.0.2))
@@ -87,8 +87,8 @@ importers:
         specifier: ^2.0.9
         version: 2.0.9
       zod:
-        specifier: ^4.3.6
-        version: 4.3.6
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@plugin-web-update-notification/vite':
         specifier: ^2.1.0
@@ -4120,9 +4120,6 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
-
 snapshots:
 
   '@babel/code-frame@7.29.0':
@@ -5401,11 +5398,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vee-validate/zod@4.15.1(vue@3.5.32(typescript@6.0.2))(zod@4.3.6)':
+  '@vee-validate/zod@4.15.1(vue@3.5.32(typescript@6.0.2))(zod@3.25.76)':
     dependencies:
       type-fest: 4.41.0
       vee-validate: 4.15.1(vue@3.5.32(typescript@6.0.2))
-      zod: 4.3.6
+      zod: 3.25.76
     transitivePeerDependencies:
       - vue
 
@@ -8242,5 +8239,3 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
-
-  zod@4.3.6: {}

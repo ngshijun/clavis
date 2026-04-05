@@ -38,7 +38,8 @@ const signupFormZod = z
     password: passwordSchema,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     userType: z.enum(['student', 'parent'], {
-      error: 'Please select a user type',
+      required_error: 'Please select a user type',
+      invalid_type_error: 'Please select a user type',
     }),
     dateOfBirth: z.string().optional(),
     schoolId: z.string().optional(),
@@ -73,7 +74,8 @@ const questionFeedbackFormZod = z.object({
   category: z.enum(
     ['question_error', 'image_error', 'option_error', 'answer_error', 'explanation_error', 'other'],
     {
-      error: 'Please select an issue type',
+      required_error: 'Please select an issue type',
+      invalid_type_error: 'Please select an issue type',
     },
   ),
   details: z.string().optional(),
@@ -92,7 +94,8 @@ export type AddCurriculumItemFormValues = z.infer<typeof addCurriculumItemFormZo
 const petFormZod = z.object({
   name: requiredStringSchema('Name'),
   rarity: z.enum(['common', 'rare', 'epic', 'legendary'], {
-    error: 'Please select a rarity',
+    required_error: 'Please select a rarity',
+    invalid_type_error: 'Please select a rarity',
   }),
 })
 export const petFormSchema = toTypedSchema(petFormZod)
@@ -103,7 +106,8 @@ const announcementFormZod = z.object({
   title: requiredStringSchema('Title'),
   content: z.string().min(1, 'Content is required'),
   targetAudience: z.enum(['all', 'students_only', 'parents_only'], {
-    error: 'Please select target audience',
+    required_error: 'Please select target audience',
+    invalid_type_error: 'Please select target audience',
   }),
   expiresAt: z.string().optional().nullable(),
   isPinned: z.boolean().default(false),
