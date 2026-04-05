@@ -29,8 +29,6 @@ import { usePetsStore } from '@/stores/pets'
 import AppSidebar from './AppSidebar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
-
-const isDev = import.meta.env.DEV
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
 const petsStore = usePetsStore()
@@ -184,15 +182,6 @@ const greeting = computed(() => {
         <router-view />
       </main>
     </SidebarInset>
-
-    <!-- DEV: Test level up dialog -->
-    <button
-      v-if="isDev"
-      class="fixed bottom-4 right-4 z-[9999] rounded bg-red-500 px-3 py-1 text-xs text-white shadow-lg"
-      @click="authStore.levelUpInfo = { oldLevel: 4, newLevel: 5 }"
-    >
-      Test Level Up
-    </button>
 
     <!-- Level Up Dialog (global, triggers on any XP gain that crosses a level boundary) -->
     <LevelUpDialog />

@@ -7,7 +7,12 @@ import { useThemeStore } from '@/stores/theme'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'vue-sonner'
 import { SpeedInsights } from '@vercel/speed-insights/vue'
+import { defineAsyncComponent } from 'vue'
 import 'vue-sonner/style.css'
+
+const DevToolbox = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('@/components/layout/DevToolbox.vue'))
+  : null
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -66,6 +71,7 @@ watch(
   <router-view />
   <Toaster rich-colors position="top-center" :theme="themeStore.isDark ? 'dark' : 'light'" />
   <SpeedInsights />
+  <DevToolbox v-if="DevToolbox" />
 
   <!-- New version available notification -->
   <Transition
