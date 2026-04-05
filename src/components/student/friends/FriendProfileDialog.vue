@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { watch, computed } from 'vue'
+import { watch, computed, ref } from 'vue'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
+import { supabase } from '@/lib/supabaseClient'
+import { computeLevel } from '@/lib/xp'
 import { rarityConfig } from '@/stores/pets'
 import { CLOSENESS_LABELS, CLOSENESS_THRESHOLDS } from '@/stores/friends'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
@@ -18,7 +20,7 @@ import {
   Heart,
   Trophy,
   Flame,
-  Coins,
+  CirclePoundSterling,
   CalendarHeart,
   Handshake,
 } from 'lucide-vue-next'
@@ -34,9 +36,18 @@ const props = defineProps<{
 const { profile, pet, bestSubjects, weeklyActivity, isLoading, fetchProfile } =
   useStudentProfileDialog()
 
-watch([open, () => props.friend?.friendId], ([isOpen, friendId]) => {
+const friendXp = ref(0)
+const friendLevel = computed(() => computeLevel(friendXp.value))
+
+watch([open, () => props.friend?.friendId], async ([isOpen, friendId]) => {
   if (isOpen && friendId) {
     fetchProfile(friendId)
+    const { data } = await supabase
+      .from('student_profiles')
+      .select('xp')
+      .eq('id', friendId)
+      .single()
+    friendXp.value = data?.xp ?? 0
   }
 })
 
@@ -117,7 +128,7 @@ const xpToNextLevel = computed(() => {
             </div>
             <div class="mt-3 flex items-center gap-4 text-sm">
               <div class="flex items-center gap-1.5">
-                <Coins class="size-4 text-amber-500" />
+                <CirclePoundSterling class="size-4 text-amber-500" />
                 <span v-if="friend.sentToday" class="text-green-600 dark:text-green-400"
                   >Coins sent today</span
                 >
@@ -126,21 +137,21 @@ const xpToNextLevel = computed(() => {
             </div>
           </div>
 
-          <!-- Stats Row -->
+          <!-- Stats Row (matches leaderboard dialog) -->
           <div class="grid grid-cols-3 gap-3">
+            <div class="rounded-lg border bg-muted/30 p-3 text-center">
+              <p class="text-xs text-muted-foreground">Level</p>
+              <p class="text-xl font-bold">{{ friendLevel }}</p>
+            </div>
+            <div class="rounded-lg border bg-muted/30 p-3 text-center">
+              <p class="text-xs text-muted-foreground">XP</p>
+              <p class="text-xl font-bold">{{ friendXp.toLocaleString() }}</p>
+            </div>
             <div class="rounded-lg border bg-muted/30 p-3 text-center">
               <p class="text-xs text-muted-foreground">Coins</p>
               <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
                 {{ profile?.coins.toLocaleString() ?? '-' }}
               </p>
-            </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">Closeness XP</p>
-              <p class="text-xl font-bold">{{ friend.closenessXp }}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">Friend Since</p>
-              <p class="text-sm font-bold">{{ formatDate(friend.friendSince) }}</p>
             </div>
           </div>
 
