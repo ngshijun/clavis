@@ -23,14 +23,13 @@ export const optionalStringSchema = z.string().optional()
 // ==========================================
 
 // Auth forms
-const loginFormZod = z.object({
+export const loginFormSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required'),
 })
-export const loginFormSchema = loginFormZod
-export type LoginFormValues = z.infer<typeof loginFormZod>
+export type LoginFormValues = z.infer<typeof loginFormSchema>
 
-const signupFormZod = z
+export const signupFormSchema = z
   .object({
     name: nameSchema,
     email: emailSchema,
@@ -50,25 +49,22 @@ const signupFormZod = z
     message: 'Please select a school',
     path: ['schoolId'],
   })
-export const signupFormSchema = signupFormZod
-export type SignupFormValues = z.infer<typeof signupFormZod>
+export type SignupFormValues = z.infer<typeof signupFormSchema>
 
 // Invitation forms
-const inviteEmailFormZod = z.object({
+export const inviteEmailFormSchema = z.object({
   email: emailSchema,
 })
-export const inviteEmailFormSchema = inviteEmailFormZod
-export type InviteEmailFormValues = z.infer<typeof inviteEmailFormZod>
+export type InviteEmailFormValues = z.infer<typeof inviteEmailFormSchema>
 
 // Profile forms
-const editNameFormZod = z.object({
+export const editNameFormSchema = z.object({
   name: nameSchema,
 })
-export const editNameFormSchema = editNameFormZod
-export type EditNameFormValues = z.infer<typeof editNameFormZod>
+export type EditNameFormValues = z.infer<typeof editNameFormSchema>
 
 // Question feedback form
-const questionFeedbackFormZod = z.object({
+export const questionFeedbackFormSchema = z.object({
   category: z.enum(
     ['question_error', 'image_error', 'option_error', 'answer_error', 'explanation_error', 'other'],
     {
@@ -77,28 +73,25 @@ const questionFeedbackFormZod = z.object({
   ),
   details: z.string().optional(),
 })
-export const questionFeedbackFormSchema = questionFeedbackFormZod
-export type QuestionFeedbackFormValues = z.infer<typeof questionFeedbackFormZod>
+export type QuestionFeedbackFormValues = z.infer<typeof questionFeedbackFormSchema>
 
 // Curriculum forms
-const addCurriculumItemFormZod = z.object({
+export const addCurriculumItemFormSchema = z.object({
   name: requiredStringSchema('Name'),
 })
-export const addCurriculumItemFormSchema = addCurriculumItemFormZod
-export type AddCurriculumItemFormValues = z.infer<typeof addCurriculumItemFormZod>
+export type AddCurriculumItemFormValues = z.infer<typeof addCurriculumItemFormSchema>
 
 // Pet forms
-const petFormZod = z.object({
+export const petFormSchema = z.object({
   name: requiredStringSchema('Name'),
   rarity: z.enum(['common', 'rare', 'epic', 'legendary'], {
     error: 'Please select a rarity',
   }),
 })
-export const petFormSchema = petFormZod
-export type PetFormValues = z.infer<typeof petFormZod>
+export type PetFormValues = z.infer<typeof petFormSchema>
 
 // Announcement forms
-const announcementFormZod = z.object({
+export const announcementFormSchema = z.object({
   title: requiredStringSchema('Title'),
   content: z.string().min(1, 'Content is required'),
   targetAudience: z.enum(['all', 'students_only', 'parents_only'], {
@@ -107,11 +100,10 @@ const announcementFormZod = z.object({
   expiresAt: z.string().optional().nullable(),
   isPinned: z.boolean().default(false),
 })
-export const announcementFormSchema = announcementFormZod
-export type AnnouncementFormValues = z.infer<typeof announcementFormZod>
+export type AnnouncementFormValues = z.infer<typeof announcementFormSchema>
 
 // Contact form
-const contactFormZod = z.object({
+export const contactFormSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   subject: requiredStringSchema('Subject').max(200, 'Subject must be 200 characters or less'),
@@ -121,10 +113,8 @@ const contactFormZod = z.object({
     .max(5000, 'Message must be 5000 characters or less')
     .trim(),
 })
-export const contactFormSchema = contactFormZod
-export type ContactFormValues = z.infer<typeof contactFormZod>
+export type ContactFormValues = z.infer<typeof contactFormSchema>
 
 // Contact form (in-app, authenticated — name/email from user profile)
-const contactMessageZod = contactFormZod.pick({ subject: true, message: true })
-export const contactMessageSchema = contactMessageZod
-export type ContactMessageValues = z.infer<typeof contactMessageZod>
+export const contactMessageSchema = contactFormSchema.pick({ subject: true, message: true })
+export type ContactMessageValues = z.infer<typeof contactMessageSchema>
