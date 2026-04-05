@@ -56,16 +56,16 @@ const emit = defineEmits<{
       </CardTitle>
       <CardDescription>{{ receivedDescription }}</CardDescription>
     </CardHeader>
-    <CardContent>
+    <CardContent class="p-0">
       <div v-if="receivedInvitations.length === 0" class="py-8 text-center">
         <Mail class="mx-auto size-12 text-muted-foreground/50" />
         <p class="mt-2 text-sm text-muted-foreground">No pending invitations</p>
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="divide-y border-t">
         <div
           v-for="invitation in receivedInvitations"
           :key="invitation.id"
-          class="rounded-lg border p-4"
+          class="px-6 py-4 transition-colors hover:bg-muted/50"
         >
           <div class="flex items-start justify-between">
             <div>
@@ -115,16 +115,16 @@ const emit = defineEmits<{
       </CardTitle>
       <CardDescription>{{ sentDescription }}</CardDescription>
     </CardHeader>
-    <CardContent>
+    <CardContent class="p-0">
       <div v-if="sentInvitations.length === 0" class="py-8 text-center">
         <Send class="mx-auto size-12 text-muted-foreground/50" />
         <p class="mt-2 text-sm text-muted-foreground">No pending invitations</p>
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="divide-y border-t">
         <div
           v-for="invitation in sentInvitations"
           :key="invitation.id"
-          class="rounded-lg border p-4"
+          class="px-6 py-4 transition-colors hover:bg-muted/50"
         >
           <div class="flex items-start justify-between">
             <div>

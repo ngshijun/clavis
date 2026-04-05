@@ -153,17 +153,17 @@ async function handleRemoveParent(parentId: string) {
           </CardTitle>
           <CardDescription>Parents who can view your progress</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent class="p-0">
           <div v-if="parentLinkStore.linkedParents.length === 0" class="py-8 text-center">
             <Users class="mx-auto size-12 text-muted-foreground/50" />
             <p class="mt-2 text-sm text-muted-foreground">No linked parents yet</p>
             <p class="text-xs text-muted-foreground">Invite a parent to get started</p>
           </div>
-          <div v-else class="space-y-3">
+          <div v-else class="divide-y border-t">
             <div
               v-for="parent in parentLinkStore.linkedParents"
               :key="parent.id"
-              class="flex items-center gap-3 rounded-lg border p-3"
+              class="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
             >
               <Avatar>
                 <AvatarFallback>{{ getInitials(parent.name) }}</AvatarFallback>
