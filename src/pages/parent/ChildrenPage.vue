@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import InviteDialog from '@/components/shared/InviteDialog.vue'
 import InvitationCards from '@/components/shared/InvitationCards.vue'
+import ChildProfileDialog from '@/components/parent/ChildProfileDialog.vue'
+import type { LinkedChild } from '@/stores/child-link'
 import { Users, Trash2, Loader2 } from 'lucide-vue-next'
 import fireGif from '@/assets/icons/fire.gif'
 import { toast } from 'vue-sonner'
@@ -28,6 +30,14 @@ import { formatRelativeDate } from '@/lib/date'
 
 const childLinkStore = useChildLinkStore()
 const subscriptionStore = useSubscriptionStore()
+
+const showChildDialog = ref(false)
+const selectedChild = ref<LinkedChild | null>(null)
+
+function handleChildClick(child: LinkedChild) {
+  selectedChild.value = child
+  showChildDialog.value = true
+}
 
 function hasActivePaidSubscription(childId: string): boolean {
   const sub = subscriptionStore.getChildSubscription(childId)
@@ -158,7 +168,8 @@ async function handleRemoveChild(childId: string) {
             <div
               v-for="child in childLinkStore.linkedChildren"
               :key="child.id"
-              class="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
+              class="flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
+              @click="handleChildClick(child)"
             >
               <Avatar class="size-10">
                 <AvatarImage :src="getAvatarUrl(child.avatarPath)" :alt="child.name" />
@@ -199,7 +210,7 @@ async function handleRemoveChild(childId: string) {
                   </p>
                 </div>
               </div>
-              <AlertDialog>
+              <AlertDialog @click.stop>
                 <AlertDialogTrigger as-child>
                   <Button
                     variant="ghost"
@@ -258,5 +269,7 @@ async function handleRemoveChild(childId: string) {
         @cancel="handleCancelInvitation"
       />
     </template>
+
+    <ChildProfileDialog v-model:open="showChildDialog" :child="selectedChild" />
   </div>
 </template>
