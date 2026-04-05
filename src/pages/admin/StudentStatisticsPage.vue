@@ -190,7 +190,7 @@ const totalPets = computed(() => petsStore.allPets.length)
 
     <!-- Tabbed Sections -->
     <Tabs v-if="student" default-value="info">
-      <TabsList>
+      <TabsList class="w-full">
         <TabsTrigger value="info">
           <User class="mr-1.5 size-4" />
           Student Info

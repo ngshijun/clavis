@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useFriendsStore } from '@/stores/friends'
@@ -46,7 +46,6 @@ async function handleCancel(friendshipId: string) {
           <Mail class="size-5" />
           Received Requests
         </CardTitle>
-        <CardDescription>Friend requests from other students</CardDescription>
       </CardHeader>
       <CardContent class="p-0">
         <div v-if="friendsStore.receivedRequests.length === 0" class="py-8 text-center">
@@ -103,7 +102,6 @@ async function handleCancel(friendshipId: string) {
           <Send class="size-5" />
           Sent Requests
         </CardTitle>
-        <CardDescription>Friend requests you've sent</CardDescription>
       </CardHeader>
       <CardContent class="p-0">
         <div v-if="friendsStore.sentRequests.length === 0" class="py-8 text-center">

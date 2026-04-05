@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useParentLinkStore } from '@/stores/parent-link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -151,7 +151,6 @@ async function handleRemoveParent(parentId: string) {
             <Users class="size-5" />
             Linked Parents
           </CardTitle>
-          <CardDescription>Parents who can view your progress</CardDescription>
         </CardHeader>
         <CardContent class="p-0">
           <div v-if="parentLinkStore.linkedParents.length === 0" class="py-8 text-center">
@@ -224,9 +223,7 @@ async function handleRemoveParent(parentId: string) {
         :sent-invitations="parentLinkStore.sentInvitations"
         :processing-id="processingInvitationId"
         received-title="Invitations from Parents"
-        received-description="Parents who want to link with you"
         sent-title="Sent Invitations"
-        sent-description="Invitations you've sent to parents"
         :get-display-name="(inv) => inv.parentName || inv.parentEmail"
         :get-display-email="(inv) => inv.parentEmail"
         :get-sent-email="(inv) => inv.parentEmail"

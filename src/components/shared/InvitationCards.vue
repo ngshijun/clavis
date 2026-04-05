@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ParentStudentInvitation } from '@/lib/invitations'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -23,9 +23,7 @@ const props = withDefaults(
     sentInvitations: ParentStudentInvitation[]
     processingId: string | null
     receivedTitle: string
-    receivedDescription: string
     sentTitle: string
-    sentDescription: string
     getDisplayName: (inv: ParentStudentInvitation) => string
     getDisplayEmail: (inv: ParentStudentInvitation) => string
     getSentEmail: (inv: ParentStudentInvitation) => string
@@ -54,7 +52,6 @@ const emit = defineEmits<{
           {{ receivedInvitations.length }}
         </Badge>
       </CardTitle>
-      <CardDescription>{{ receivedDescription }}</CardDescription>
     </CardHeader>
     <CardContent class="p-0">
       <div v-if="receivedInvitations.length === 0" class="py-8 text-center">
@@ -113,7 +110,6 @@ const emit = defineEmits<{
           {{ sentInvitations.length }}
         </Badge>
       </CardTitle>
-      <CardDescription>{{ sentDescription }}</CardDescription>
     </CardHeader>
     <CardContent class="p-0">
       <div v-if="sentInvitations.length === 0" class="py-8 text-center">

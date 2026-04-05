@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useChildLinkStore } from '@/stores/child-link'
 import { getAvatarUrl } from '@/lib/storage'
 import { useSubscriptionStore } from '@/stores/subscription'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -145,7 +145,6 @@ async function handleRemoveChild(childId: string) {
             <Users class="size-5" />
             Linked Children
           </CardTitle>
-          <CardDescription>Children whose progress you can view</CardDescription>
         </CardHeader>
         <CardContent class="p-0">
           <div v-if="childLinkStore.linkedChildren.length === 0" class="py-8 text-center">
@@ -220,9 +219,7 @@ async function handleRemoveChild(childId: string) {
         :sent-invitations="childLinkStore.sentInvitations"
         :processing-id="actionInProgress"
         received-title="Invitations from Children"
-        received-description="Children who want to link with you"
         sent-title="Sent Invitations"
-        sent-description="Invitations you've sent to children"
         :get-display-name="(inv) => inv.studentName || inv.studentEmail"
         :get-display-email="(inv) => inv.studentEmail"
         :get-sent-email="(inv) => inv.studentEmail"
