@@ -18,10 +18,20 @@ jobs:
       - name: Start Supabase local development setup
         run: supabase db start
 
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Verify generated types are checked in
         run: |
           supabase gen types typescript --local > src/types/database.types.ts
-          if ! git diff --ignore-space-at-eol --exit-code --quiet src/types/database.types.ts; then
+          npx prettier --write src/types/database.types.ts
+          if ! git diff --exit-code --quiet src/types/database.types.ts; then
             echo "Detected uncommitted changes to database types. See diff below:"
             git diff src/types/database.types.ts
             exit 1
