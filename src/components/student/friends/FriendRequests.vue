@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useFriendsStore } from '@/stores/friends'
 import { getAvatarUrl } from '@/lib/storage'
 import { getInitials } from '@/lib/utils'
 import { toast } from 'vue-sonner'
-import { Check, X, Loader2, Inbox } from 'lucide-vue-next'
+import { Check, X, Loader2, Mail, Send } from 'lucide-vue-next'
 
 const friendsStore = useFriendsStore()
 const respondingTo = ref<string | null>(null)
@@ -39,20 +40,24 @@ async function handleCancel(friendshipId: string) {
 
 <template>
   <div class="space-y-6 pt-4">
-    <div
-      v-if="friendsStore.receivedRequests.length === 0 && friendsStore.sentRequests.length === 0"
-      class="py-8 text-center"
-    >
-      <Inbox class="mx-auto size-12 text-muted-foreground/50" />
-      <p class="mt-2 text-sm text-muted-foreground">No friend requests</p>
-      <p class="text-xs text-muted-foreground">Requests you send or receive will appear here</p>
-    </div>
-
-    <template v-else>
-      <!-- Received requests -->
-      <div v-if="friendsStore.receivedRequests.length > 0">
-        <h3 class="mb-3 text-sm font-medium">Received</h3>
-        <div class="space-y-2">
+    <!-- Received requests -->
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Mail class="size-5" />
+          Received Requests
+        </CardTitle>
+        <CardDescription>Friend requests from other students</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div v-if="friendsStore.receivedRequests.length === 0" class="py-8 text-center">
+          <Mail class="mx-auto size-12 text-muted-foreground/50" />
+          <p class="mt-2 text-sm text-muted-foreground">No pending requests</p>
+          <p class="text-xs text-muted-foreground">
+            When someone sends you a friend request, it will appear here
+          </p>
+        </div>
+        <div v-else class="space-y-2">
           <div
             v-for="req in friendsStore.receivedRequests"
             :key="req.friendshipId"
@@ -89,12 +94,27 @@ async function handleCancel(friendshipId: string) {
             </div>
           </div>
         </div>
-      </div>
+      </CardContent>
+    </Card>
 
-      <!-- Sent requests -->
-      <div v-if="friendsStore.sentRequests.length > 0">
-        <h3 class="mb-3 text-sm font-medium">Sent</h3>
-        <div class="space-y-2">
+    <!-- Sent requests -->
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Send class="size-5" />
+          Sent Requests
+        </CardTitle>
+        <CardDescription>Friend requests you've sent</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div v-if="friendsStore.sentRequests.length === 0" class="py-8 text-center">
+          <Send class="mx-auto size-12 text-muted-foreground/50" />
+          <p class="mt-2 text-sm text-muted-foreground">No sent requests</p>
+          <p class="text-xs text-muted-foreground">
+            Requests you send will appear here until accepted
+          </p>
+        </div>
+        <div v-else class="space-y-2">
           <div
             v-for="req in friendsStore.sentRequests"
             :key="req.friendshipId"
@@ -120,7 +140,7 @@ async function handleCancel(friendshipId: string) {
             </Button>
           </div>
         </div>
-      </div>
-    </template>
+      </CardContent>
+    </Card>
   </div>
 </template>
