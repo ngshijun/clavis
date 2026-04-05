@@ -9,11 +9,26 @@ import { getAvatarUrl } from '@/lib/storage'
 import { getInitials } from '@/lib/utils'
 import { toast } from 'vue-sonner'
 import { Coins, UserMinus, Loader2, Users } from 'lucide-vue-next'
+import type { LeaderboardEntry } from '@/components/student/LeaderboardTable.vue'
+import StudentProfileDialog from '@/components/student/StudentProfileDialog.vue'
 import RemoveFriendDialog from './RemoveFriendDialog.vue'
 
 const friendsStore = useFriendsStore()
 const sendingTo = ref<string | null>(null)
 const removingFriend = ref<{ friendshipId: string; name: string } | null>(null)
+const showProfileDialog = ref(false)
+const selectedStudent = ref<(LeaderboardEntry & Record<string, unknown>) | null>(null)
+
+function handleFriendClick(friend: (typeof friendsStore.friends)[number]) {
+  selectedStudent.value = {
+    id: friend.friendId,
+    name: friend.name,
+    avatarPath: friend.avatarPath,
+    gradeLevelName: null,
+    rank: 0,
+  }
+  showProfileDialog.value = true
+}
 
 async function handleSendCoins(friendshipId: string, friendName: string) {
   sendingTo.value = friendshipId
@@ -69,17 +84,21 @@ async function handleRemove() {
           :key="friend.friendshipId"
           class="flex items-center gap-3 rounded-lg border p-3"
         >
-          <Avatar class="size-10">
-            <AvatarImage :src="getAvatarUrl(friend.avatarPath)" :alt="friend.name" />
-            <AvatarFallback>{{ getInitials(friend.name) }}</AvatarFallback>
-          </Avatar>
-
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">{{ friend.name }}</p>
-            <p class="text-xs text-muted-foreground">
-              Lv.{{ friend.closenessLevel }} {{ friend.closenessLabel }}
-            </p>
-          </div>
+          <button
+            class="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-80"
+            @click="handleFriendClick(friend)"
+          >
+            <Avatar class="size-10">
+              <AvatarImage :src="getAvatarUrl(friend.avatarPath)" :alt="friend.name" />
+              <AvatarFallback>{{ getInitials(friend.name) }}</AvatarFallback>
+            </Avatar>
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ friend.name }}</p>
+              <p class="text-xs text-muted-foreground">
+                Lv.{{ friend.closenessLevel }} {{ friend.closenessLabel }}
+              </p>
+            </div>
+          </button>
 
           <div class="flex gap-2">
             <Button v-if="friend.sentToday" size="sm" variant="secondary" disabled> Sent </Button>
@@ -106,6 +125,12 @@ async function handleRemove() {
       </div>
     </CardContent>
   </Card>
+
+  <StudentProfileDialog
+    v-model:open="showProfileDialog"
+    :student="selectedStudent"
+    active-tab="all-time"
+  />
 
   <RemoveFriendDialog
     :open="removingFriend !== null"

@@ -76,7 +76,7 @@ const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak 
               <DialogTitle class="truncate text-xl">{{ student.name }}</DialogTitle>
               <div class="mt-1 flex items-center gap-2">
                 <Badge variant="outline">{{ student.gradeLevelName ?? 'N/A' }}</Badge>
-                <Badge variant="secondary" class="gap-1">
+                <Badge v-if="student.rank" variant="secondary" class="gap-1">
                   <Trophy class="size-3" />
                   Rank {{ student.rank }}
                 </Badge>
