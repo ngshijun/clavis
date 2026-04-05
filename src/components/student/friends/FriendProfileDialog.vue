@@ -12,7 +12,7 @@ import { CLOSENESS_LABELS, CLOSENESS_THRESHOLDS } from '@/stores/friends'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
 import { getInitials, getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
 import { getAvatarUrl } from '@/lib/storage'
-import { formatDate } from '@/lib/date'
+import { formatDate, formatRelativeDate } from '@/lib/date'
 import {
   Loader2,
   Star,
@@ -20,7 +20,6 @@ import {
   Heart,
   Trophy,
   Flame,
-  CirclePoundSterling,
   CalendarHeart,
   Handshake,
 } from 'lucide-vue-next'
@@ -96,6 +95,9 @@ const xpToNextLevel = computed(() => {
                   <CalendarHeart class="size-3" />
                   Friends since {{ formatDate(friend.friendSince) }}
                 </Badge>
+                <Badge variant="secondary" class="gap-1">
+                  Active {{ formatRelativeDate(friend.lastActive) }}
+                </Badge>
               </div>
             </div>
           </div>
@@ -122,19 +124,26 @@ const xpToNextLevel = computed(() => {
             <div class="mt-3">
               <Progress :model-value="closenessProgress" class="h-2" />
               <p v-if="nextLevelLabel" class="mt-1 text-xs text-muted-foreground">
-                {{ xpToNextLevel }} XP to {{ nextLevelLabel }}
+                Send coins to each other for {{ xpToNextLevel }} more days to reach
+                {{ nextLevelLabel }}
               </p>
               <p v-else class="mt-1 text-xs text-muted-foreground">Max level reached!</p>
             </div>
-            <div class="mt-3 flex items-center gap-4 text-sm">
-              <div class="flex items-center gap-1.5">
-                <CirclePoundSterling class="size-4 text-amber-500" />
-                <span v-if="friend.sentToday" class="text-green-600 dark:text-green-400"
-                  >Coins sent today</span
-                >
-                <span v-else class="text-muted-foreground">Coins not sent yet</span>
-              </div>
-            </div>
+            <p class="mt-3 text-sm">
+              <span
+                v-if="friend.sentToday && friend.receivedToday"
+                class="font-medium text-green-600 dark:text-green-400"
+              >
+                You both sent coins today — streak grows!
+              </span>
+              <span v-else-if="friend.sentToday" class="text-muted-foreground">
+                You sent coins — waiting for {{ friend.name }}
+              </span>
+              <span v-else-if="friend.receivedToday" class="text-muted-foreground">
+                {{ friend.name }} sent coins — send back to grow your streak!
+              </span>
+              <span v-else class="text-muted-foreground"> Neither of you sent coins today </span>
+            </p>
           </div>
 
           <!-- Stats Row (matches leaderboard dialog) -->

@@ -8,6 +8,7 @@ export const FRIEND_CAP = 30
 
 type FriendshipProfile = {
   id: string
+  updated_at: string | null
   profiles: { name: string; avatar_path: string | null }
 }
 
@@ -31,7 +32,9 @@ export interface Friend {
   closenessLevel: number
   closenessLabel: string
   friendSince: string
+  lastActive: string | null
   sentToday: boolean
+  receivedToday: boolean
 }
 
 export interface FriendRequest {
@@ -83,10 +86,12 @@ export const useFriendsStore = defineStore('friends', () => {
             responded_at,
             requester:student_profiles!friendships_requester_id_fkey(
               id,
+              updated_at,
               profiles!inner(name, avatar_path)
             ),
             recipient:student_profiles!friendships_recipient_id_fkey(
               id,
+              updated_at,
               profiles!inner(name, avatar_path)
             )
           `,
@@ -95,15 +100,23 @@ export const useFriendsStore = defineStore('friends', () => {
           .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`),
         supabase
           .from('daily_coin_gifts')
-          .select('friendship_id')
-          .eq('sender_id', userId)
+          .select('friendship_id, sender_id')
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .eq('sent_date', new Date().toISOString().split('T')[0]),
       ])
 
       if (friendshipsResult.error) throw friendshipsResult.error
       if (giftsResult.error) throw giftsResult.error
 
-      const sentGiftSet = new Set(giftsResult.data?.map((g) => g.friendship_id) ?? [])
+      const sentGiftSet = new Set<string>()
+      const receivedGiftSet = new Set<string>()
+      for (const g of giftsResult.data ?? []) {
+        if (g.sender_id === userId) {
+          sentGiftSet.add(g.friendship_id)
+        } else {
+          receivedGiftSet.add(g.friendship_id)
+        }
+      }
 
       friends.value = (friendshipsResult.data ?? []).map((row) => {
         const other = getOtherProfile(row, userId)
@@ -116,7 +129,9 @@ export const useFriendsStore = defineStore('friends', () => {
           closenessLevel: row.closeness_level,
           closenessLabel: CLOSENESS_LABELS[row.closeness_level] ?? 'New Friend',
           friendSince: row.responded_at ?? row.created_at,
+          lastActive: other.updated_at,
           sentToday: sentGiftSet.has(row.id),
+          receivedToday: receivedGiftSet.has(row.id),
         }
       })
 

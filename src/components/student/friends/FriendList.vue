@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFriendsStore, FRIEND_CAP } from '@/stores/friends'
 import { getAvatarUrl } from '@/lib/storage'
+import { formatRelativeDate } from '@/lib/date'
 import { getInitials } from '@/lib/utils'
 import { toast } from 'vue-sonner'
-import { Coins, UserMinus, Loader2, Users } from 'lucide-vue-next'
+import { CirclePoundSterling, UserMinus, Loader2, Users } from 'lucide-vue-next'
+import heartGif from '@/assets/icons/heart.gif'
 import type { Friend } from '@/stores/friends'
 import FriendProfileDialog from './FriendProfileDialog.vue'
 import RemoveFriendDialog from './RemoveFriendDialog.vue'
@@ -87,12 +89,43 @@ async function handleRemove() {
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ friend.name }}</p>
             <p class="text-xs text-muted-foreground">
-              Lv.{{ friend.closenessLevel }} {{ friend.closenessLabel }}
+              {{ friend.closenessLabel }}
             </p>
           </div>
 
+          <div class="flex items-start gap-6">
+            <div class="w-14 text-center">
+              <p class="text-xs text-muted-foreground">Closeness</p>
+              <p class="flex h-6 items-center justify-center gap-1 font-semibold">
+                <img
+                  v-if="friend.closenessXp > 0"
+                  :src="heartGif"
+                  alt="heart"
+                  loading="lazy"
+                  class="size-4"
+                />
+                {{ friend.closenessXp }}
+              </p>
+            </div>
+            <div class="w-14 text-center">
+              <p class="text-xs text-muted-foreground">Friendship</p>
+              <p class="flex h-6 items-center justify-center font-semibold">
+                Lv.{{ friend.closenessLevel }}
+              </p>
+            </div>
+            <div class="w-20 text-center">
+              <p class="text-xs text-muted-foreground">Last Active</p>
+              <p class="flex h-6 items-center justify-center font-semibold">
+                {{ formatRelativeDate(friend.lastActive) }}
+              </p>
+            </div>
+          </div>
+
           <div class="flex items-center gap-2" @click.stop>
-            <Button v-if="friend.sentToday" size="sm" variant="secondary" disabled> Sent </Button>
+            <Button v-if="friend.sentToday" size="sm" variant="secondary" disabled>
+              <CirclePoundSterling class="size-4" />
+              Sent
+            </Button>
             <Button
               v-else
               size="sm"
@@ -100,7 +133,7 @@ async function handleRemove() {
               @click="handleSendCoins(friend.friendshipId, friend.name)"
             >
               <Loader2 v-if="sendingTo === friend.friendshipId" class="size-4 animate-spin" />
-              <Coins v-else class="size-4" />
+              <CirclePoundSterling v-else class="size-4" />
               Send
             </Button>
 

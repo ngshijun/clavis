@@ -400,6 +400,8 @@ SELECT cron.schedule(
   $$SELECT decay_closeness_xp()$$
 );
 
--- Index for fetchFriends gift query: WHERE sender_id = ? AND sent_date = ?
+-- Indexes for fetchFriends gift query: WHERE (sender_id = ? OR receiver_id = ?) AND sent_date = ?
 CREATE INDEX idx_daily_gifts_sender_date
   ON daily_coin_gifts (sender_id, sent_date);
+CREATE INDEX idx_daily_gifts_receiver_date
+  ON daily_coin_gifts (receiver_id, sent_date);
