@@ -62,7 +62,7 @@ watch(
           v-if="announcement.imagePath"
           :src="announcementsStore.getOptimizedImageUrl(announcement.imagePath)"
           alt="Announcement image"
-          class="w-full rounded-lg object-cover max-h-64"
+          class="w-full rounded-lg object-contain"
         />
 
         <!-- Content -->
