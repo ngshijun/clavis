@@ -148,7 +148,7 @@ const statusIcon = computed(() => {
                   :src="getBadgeIconUrl(props.badge.icon_path)"
                   :alt="badgeStrings.name"
                   class="size-full select-none object-cover text-transparent"
-                  :class="isUnlocked ? 'animate-bounce-slow' : 'opacity-50 grayscale'"
+                  :class="{ 'opacity-50 grayscale': !isUnlocked }"
                 />
               </div>
               <div v-if="isTierGated" class="absolute inset-0 flex items-center justify-center">
