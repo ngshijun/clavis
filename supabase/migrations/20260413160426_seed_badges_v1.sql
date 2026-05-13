@@ -1,7 +1,7 @@
 -- ============================================================================
 -- v1 Badge Catalog Seed
 -- Spec: docs/superpowers/specs/2026-04-13-achievements-badges-design.md
--- Distribution: 5 Bronze / 6 Silver / 7 Gold / 6 Platinum / 6 Diamond / 5 Master / 5 Grandmaster (40 total)
+-- Distribution: 5 Bronze / 6 Silver / 7 Gold / 5 Platinum / 6 Diamond / 5 Master / 5 Grandmaster (39 total)
 -- All badges are core (no tier-gating). Grandmaster thresholds target ~1 year on Pro subscription.
 -- ============================================================================
 
@@ -34,11 +34,10 @@ values
   ('steady_hand',       'total_days_practiced',     '{"threshold":60}',   'gold',   80, 'steady_hand.webp',       'core'),
   ('meticulous',        'perfect_sessions_count',   '{"threshold":75}',   'gold',   80, 'meticulous.webp',        'core'),
 
-  -- Platinum (6)
+  -- Platinum (5)
   ('serious_student',   'total_sessions_completed', '{"threshold":250}',  'platinum', 175, 'serious_student.webp',   'core'),
   ('centurion',         'total_days_practiced',     '{"threshold":100}',  'platinum', 175, 'centurion.webp',         'core'),
   ('xp_titan',          'total_xp_earned',          '{"threshold":75000}','platinum', 175, 'xp_titan.webp',          'core'),
-  ('math_proficient',   'subject_accuracy_threshold','{"subject_id":"any","min_percentage":70,"min_questions":50}', 'platinum', 175, 'math_proficient.webp', 'core'),
   ('immaculate',        'perfect_sessions_count',   '{"threshold":200}',  'platinum', 175, 'immaculate.webp',        'core'),
   ('iron_streak',       'max_streak_ever',          '{"threshold":60}',   'platinum', 175, 'iron_streak.webp',       'core'),
 
@@ -77,7 +76,7 @@ begin
       'first_steps','first_week','spark','perfectionist','xp_novice',
       'getting_started','first_month','hot_streak','xp_adept','flawless','pet_collector',
       'dedicated_learner','unstoppable','pet_enthusiast','evolved','xp_expert','steady_hand','meticulous',
-      'serious_student','centurion','xp_titan','math_proficient','immaculate','iron_streak',
+      'serious_student','centurion','xp_titan','immaculate','iron_streak',
       'devoted_scholar','legendary_streak','legendary_tamer','xp_sage','seasoned','pristine',
       'xp_legend','summit_streak','lifelong_learner','stalwart','sublime',
       'eternal_scholar','grand_perfectionist','xp_immortal','yearling','eternal_flame'

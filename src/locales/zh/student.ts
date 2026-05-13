@@ -302,10 +302,6 @@ export default {
     pristine: { name: '无暇璧玉', description: '完成 500 个完美练习' },
     sublime: { name: '臻于完美', description: '完成 1,500 个完美练习' },
     grand_perfectionist: { name: '宗师完美主义', description: '完成 3,000 个完美练习' },
-    math_proficient: {
-      name: '数学精通',
-      description: '在 50 道以上的数学题中达成 70% 正确率',
-    },
     pet_collector: { name: '宠物收藏家', description: '拥有 5 种不同宠物' },
     pet_enthusiast: { name: '宠物达人', description: '拥有 15 种不同宠物' },
     pet_menagerie: { name: '万宠殿堂', description: '拥有 30 种不同宠物' },

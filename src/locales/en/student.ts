@@ -317,10 +317,6 @@ export default {
       name: 'Grand Perfectionist',
       description: 'Complete 3,000 perfect sessions',
     },
-    math_proficient: {
-      name: 'Math Proficient',
-      description: 'Achieve 70% accuracy across 50+ math questions',
-    },
     pet_collector: { name: 'Pet Collector', description: 'Own 5 different pets' },
     pet_enthusiast: { name: 'Pet Enthusiast', description: 'Own 15 different pets' },
     pet_menagerie: { name: 'Pet Menagerie', description: 'Own 30 different pets' },
