@@ -15,6 +15,7 @@ const props = defineProps<{
   badge: Badge
   unlocked: boolean
   unlockedAt?: string | null
+  seenAt?: string | null
   progress?: BadgeProgress | null
 }>()
 
@@ -49,6 +50,10 @@ const state = computed<BadgeCardState>(() => {
   return 'locked'
 })
 
+// True when the badge is unlocked but the student hasn't acknowledged it yet
+// (no seen_at timestamp). Cleared when they open the detail dialog.
+const isNew = computed(() => props.unlocked && !props.seenAt)
+
 const cfg = computed(() => tierConfig[props.badge.tier])
 
 const requiredTierLabel = computed(() => {
@@ -81,31 +86,41 @@ const badgeStrings = computed(() => {
     :aria-label="badgeStrings.name"
     @click="$emit('select', badge)"
   >
-    <!-- Circle -->
-    <div
-      :class="[
-        'relative size-32 overflow-hidden rounded-full border-2 transition-shadow',
-        state === 'unlocked'
-          ? [cfg.bgColor, cfg.borderColor, 'group-hover:shadow-lg', cfg.hoverShadow]
-          : 'border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-muted',
-      ]"
-    >
-      <img
-        :src="getBadgeIconUrl(badge.icon_path)"
-        :alt="badgeStrings.name"
-        loading="lazy"
-        class="size-full select-none object-cover text-transparent"
-        :class="{ 'opacity-50 grayscale': state !== 'unlocked' }"
-      />
-
-      <!-- Tier-gated overlay -->
+    <!-- Circle (wrapper carries the NEW ribbon so it isn't clipped) -->
+    <div class="relative">
       <div
-        v-if="state === 'tier-gated'"
-        class="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-background/85"
+        :class="[
+          'relative size-32 overflow-hidden rounded-full border-2 transition-shadow',
+          state === 'unlocked'
+            ? [cfg.bgColor, cfg.borderColor, 'group-hover:shadow-lg', cfg.hoverShadow]
+            : 'border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-muted',
+        ]"
       >
-        <Lock class="size-5 text-muted-foreground" />
-        <p class="text-[10px] font-medium leading-tight">{{ requiredTierLabel }}</p>
+        <img
+          :src="getBadgeIconUrl(badge.icon_path)"
+          :alt="badgeStrings.name"
+          loading="lazy"
+          class="size-full select-none object-cover text-transparent"
+          :class="{ 'opacity-50 grayscale': state !== 'unlocked' }"
+        />
+
+        <!-- Tier-gated overlay -->
+        <div
+          v-if="state === 'tier-gated'"
+          class="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-background/85"
+        >
+          <Lock class="size-5 text-muted-foreground" />
+          <p class="text-[10px] font-medium leading-tight">{{ requiredTierLabel }}</p>
+        </div>
       </div>
+
+      <!-- NEW ribbon — unlocked but not yet acknowledged -->
+      <span
+        v-if="isNew"
+        class="absolute -right-1 -top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow"
+      >
+        {{ t.student.achievements.newBadge }}
+      </span>
     </div>
 
     <!-- Name -->

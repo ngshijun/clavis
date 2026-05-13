@@ -261,6 +261,7 @@ export default {
     title: 'Achievements',
     subtitle: 'Track your badges and see what you can earn next',
     badgesEarned: 'Badges earned',
+    newBadge: 'New',
     tierSections: {
       bronze: 'Bronze',
       silver: 'Silver',

@@ -208,6 +208,29 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
+  /**
+   * Mark a single unlocked badge as seen. Used when the student opens
+   * the badge detail dialog — gives per-badge dismissal so the unread
+   * count only drops as each new badge is reviewed.
+   */
+  async function markBadgeSeen(badgeId: string): Promise<void> {
+    if (!authStore.user) return
+    const record = unlocked.value.find((u) => u.badge_id === badgeId && u.seen_at === null)
+    if (!record) return // already seen or not unlocked — no-op
+
+    const now = new Date().toISOString()
+    const { error: updateError } = await supabase
+      .from('student_badges')
+      .update({ seen_at: now })
+      .eq('student_id', authStore.user.id)
+      .eq('badge_id', badgeId)
+      .is('seen_at', null)
+
+    if (!updateError) {
+      record.seen_at = now
+    }
+  }
+
   async function markAllSeen(): Promise<void> {
     if (!authStore.user) return
     const unread = unlocked.value.filter((u) => u.seen_at === null)
@@ -300,6 +323,7 @@ export const useBadgesStore = defineStore('badges', () => {
     closestUnlockable,
     loadAll,
     markAllSeen,
+    markBadgeSeen,
     handleNewlyUnlocked,
     setFeaturedBadges,
     refreshProgress,

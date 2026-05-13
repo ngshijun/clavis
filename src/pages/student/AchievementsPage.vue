@@ -17,7 +17,8 @@ onMounted(async () => {
   } else {
     await badgesStore.refreshProgress()
   }
-  await badgesStore.markAllSeen()
+  // Per-badge dismissal: seen state flips when the student opens each
+  // badge's detail dialog (see BadgeGridByTier.openDetail).
 })
 </script>
 

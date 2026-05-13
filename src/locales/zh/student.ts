@@ -252,6 +252,7 @@ export default {
     title: '成就',
     subtitle: '追踪你的徽章，查看下一个能解锁的目标',
     badgesEarned: '已获得徽章',
+    newBadge: '新',
     tierSections: {
       bronze: '青铜',
       silver: '白银',

@@ -22,6 +22,8 @@ const showDetailDialog = ref(false)
 function openDetail(badge: BadgeRow) {
   selectedBadge.value = badge
   showDetailDialog.value = true
+  // Fire-and-forget: clears the unread state for this badge if it was new.
+  void badgesStore.markBadgeSeen(badge.id)
 }
 
 const tierIcons: Record<BadgeTier, Component> = {
@@ -39,6 +41,12 @@ const unlockedIdSet = computed(() => new Set(badgesStore.unlocked.map((u) => u.b
 const unlockedAtMap = computed(() => {
   const m = new Map<string, string>()
   for (const u of badgesStore.unlocked) m.set(u.badge_id, u.unlocked_at)
+  return m
+})
+
+const seenAtMap = computed(() => {
+  const m = new Map<string, string | null>()
+  for (const u of badgesStore.unlocked) m.set(u.badge_id, u.seen_at)
   return m
 })
 
@@ -103,6 +111,7 @@ function unlockedCountFor(tier: BadgeTier): number {
               :badge="badge"
               :unlocked="unlockedIdSet.has(badge.id)"
               :unlocked-at="unlockedAtMap.get(badge.id) ?? null"
+              :seen-at="seenAtMap.get(badge.id) ?? null"
               :progress="progressMap.get(badge.id) ?? null"
               @select="openDetail"
             />
