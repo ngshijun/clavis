@@ -299,7 +299,7 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
-  function reset(): void {
+  function $reset(): void {
     catalog.value = []
     unlocked.value = []
     progress.value = []
@@ -327,6 +327,6 @@ export const useBadgesStore = defineStore('badges', () => {
     handleNewlyUnlocked,
     setFeaturedBadges,
     refreshProgress,
-    reset,
+    $reset,
   }
 })
