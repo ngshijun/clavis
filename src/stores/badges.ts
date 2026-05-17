@@ -179,7 +179,13 @@ export const useBadgesStore = defineStore('badges', () => {
 
     try {
       const [catalogRes, unlockedRes, progressRes, featuredRes] = await Promise.all([
-        supabase.from('badges').select('*').eq('is_active', true).order('created_at'),
+        supabase
+          .from('badges')
+          .select('*')
+          .eq('is_active', true)
+          .order('tier')
+          .order('display_order')
+          .order('created_at'),
         supabase.from('student_badges').select('*').eq('student_id', authStore.user.id),
         supabase.rpc('get_student_badge_progress', {
           p_student_id: authStore.user.id,

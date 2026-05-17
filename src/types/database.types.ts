@@ -134,6 +134,7 @@ export type Database = {
         Row: {
           coin_reward: number
           created_at: string
+          display_order: number
           icon_path: string
           id: string
           is_active: boolean
@@ -146,6 +147,7 @@ export type Database = {
         Insert: {
           coin_reward?: number
           created_at?: string
+          display_order?: number
           icon_path: string
           id?: string
           is_active?: boolean
@@ -158,6 +160,7 @@ export type Database = {
         Update: {
           coin_reward?: number
           created_at?: string
+          display_order?: number
           icon_path?: string
           id?: string
           is_active?: boolean
@@ -1669,6 +1672,7 @@ export type Database = {
         Returns: {
           coin_reward: number
           created_at: string
+          display_order: number
           icon_path: string
           id: string
           is_active: boolean
