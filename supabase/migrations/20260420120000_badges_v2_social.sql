@@ -502,24 +502,24 @@ update public.badges
   where slug = 'evolved';
 
 -- Insert 16 new badges.
-insert into public.badges (slug, trigger_type, trigger_params, tier, coin_reward, icon_path, required_tier, display_order)
+insert into public.badges (slug, trigger_type, trigger_params, tier, coin_reward, icon_path, required_tier)
 values
-  ('pet_menagerie',      'unique_pets_owned',              '{"threshold":30}', 'platinum', 175, 'pet_menagerie.webp',      'core',  8),
-  ('ascended',           'pet_max_tier_reached',           '{"threshold":3}',  'silver',    35, 'ascended.webp',           'core',  8),
-  ('apex_keeper',        'pet_max_tier_reached',           '{"threshold":7}',  'gold',      80, 'apex_keeper.webp',        'core',  9),
-  ('pantheon',           'pet_max_tier_reached',           '{"threshold":15}', 'platinum', 175, 'pantheon.webp',           'core',  9),
-  ('family_bond',        'parent_linked',                  '{}',               'bronze',    15, 'family_bond.webp',        'core',  1),
-  ('supporter',          'subscription_tier_reached',      '{"min_tier":"plus"}',  'gold',      80, 'supporter.webp',          'core',  1),
-  ('patron',             'subscription_tier_reached',      '{"min_tier":"pro"}',   'platinum', 175, 'patron.webp',             'core',  1),
-  ('first_friend',       'total_friends',                  '{"threshold":1}',  'bronze',    15, 'first_friend.webp',       'core',  7),
-  ('social_circle',      'total_friends',                  '{"threshold":5}',  'silver',    35, 'social_circle.webp',      'core',  1),
-  ('popular',            'total_friends',                  '{"threshold":15}', 'gold',      80, 'popular.webp',            'core',  7),
-  ('networker',          'total_friends',                  '{"threshold":30}', 'platinum', 175, 'networker.webp',          'core',  7),
-  ('new_bond',           'friend_closeness_level_reached', '{"min_level":1,"threshold":1}', 'bronze',    15, 'new_bond.webp',           'core',  8),
-  ('close_friend',       'friend_closeness_level_reached', '{"min_level":3,"threshold":1}', 'silver',    35, 'close_friend.webp',       'core',  9),
-  ('kindred_spirits',    'friend_closeness_level_reached', '{"min_level":5,"threshold":1}', 'gold',      80, 'kindred_spirits.webp',    'core', 10),
-  ('bonded_trio',        'friend_closeness_level_reached', '{"min_level":5,"threshold":3}', 'platinum', 175, 'bonded_trio.webp',        'core', 10),
-  ('soulmates',          'friend_closeness_level_reached', '{"min_level":5,"threshold":5}', 'diamond',  400, 'soulmates.webp',          'core',  7);
+  ('pet_menagerie',      'unique_pets_owned',              '{"threshold":30}', 'platinum', 175, 'pet_menagerie.webp',      'core'),
+  ('ascended',           'pet_max_tier_reached',           '{"threshold":3}',  'silver',    35, 'ascended.webp',           'core'),
+  ('apex_keeper',        'pet_max_tier_reached',           '{"threshold":7}',  'gold',      80, 'apex_keeper.webp',        'core'),
+  ('pantheon',           'pet_max_tier_reached',           '{"threshold":15}', 'platinum', 175, 'pantheon.webp',           'core'),
+  ('family_bond',        'parent_linked',                  '{}',               'bronze',    15, 'family_bond.webp',        'core'),
+  ('supporter',          'subscription_tier_reached',      '{"min_tier":"plus"}',  'gold',      80, 'supporter.webp',          'core'),
+  ('patron',             'subscription_tier_reached',      '{"min_tier":"pro"}',   'platinum', 175, 'patron.webp',             'core'),
+  ('first_friend',       'total_friends',                  '{"threshold":1}',  'bronze',    15, 'first_friend.webp',       'core'),
+  ('social_circle',      'total_friends',                  '{"threshold":5}',  'silver',    35, 'social_circle.webp',      'core'),
+  ('popular',            'total_friends',                  '{"threshold":15}', 'gold',      80, 'popular.webp',            'core'),
+  ('networker',          'total_friends',                  '{"threshold":30}', 'platinum', 175, 'networker.webp',          'core'),
+  ('new_bond',           'friend_closeness_level_reached', '{"min_level":1,"threshold":1}', 'bronze',    15, 'new_bond.webp',           'core'),
+  ('close_friend',       'friend_closeness_level_reached', '{"min_level":3,"threshold":1}', 'silver',    35, 'close_friend.webp',       'core'),
+  ('kindred_spirits',    'friend_closeness_level_reached', '{"min_level":5,"threshold":1}', 'gold',      80, 'kindred_spirits.webp',    'core'),
+  ('bonded_trio',        'friend_closeness_level_reached', '{"min_level":5,"threshold":3}', 'platinum', 175, 'bonded_trio.webp',        'core'),
+  ('soulmates',          'friend_closeness_level_reached', '{"min_level":5,"threshold":5}', 'diamond',  400, 'soulmates.webp',          'core');
 
 -- 5. Retroactive backfill ---------------------------------------------------
 
