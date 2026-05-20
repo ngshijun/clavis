@@ -307,7 +307,7 @@ export default {
     pet_enthusiast: { name: '宠物达人', description: '拥有 15 种不同宠物' },
     pet_menagerie: { name: '万宠殿堂', description: '拥有 30 种不同宠物' },
     evolved: { name: '进化完成', description: '将宠物进化至最高阶段' },
-    ascended: { name: '飞升之路', description: '将 3 只宠物进化至最高阶段' },
+    ascended: { name: '飞跃之路', description: '将 3 只宠物进化至最高阶段' },
     apex_keeper: { name: '巅峰守护者', description: '将 7 只宠物进化至最高阶段' },
     pantheon: { name: '众神殿', description: '将 15 只宠物进化至最高阶段' },
     legendary_tamer: { name: '传奇驯宠师', description: '拥有一只传说级宠物' },
@@ -318,11 +318,11 @@ export default {
     social_circle: { name: '朋友圈', description: '拥有 5 位好友' },
     popular: { name: '人气之星', description: '拥有 15 位好友' },
     networker: { name: '交际达人', description: '拥有 30 位好友' },
-    new_bond: { name: '初结良缘', description: '与一位好友的友谊等级达到 1 级' },
+    new_bond: { name: '初结良友', description: '与一位好友的友谊等级达到 1 级' },
     close_friend: { name: '亲密好友', description: '与一位好友的友谊等级达到 3 级' },
     kindred_spirits: { name: '心灵相通', description: '与一位好友达到最高友谊等级' },
     bonded_trio: { name: '三人同心', description: '与 3 位好友达到最高友谊等级' },
-    soulmates: { name: '灵魂伴侣', description: '与 5 位好友达到最高友谊等级' },
+    soulmates: { name: '灵魂搭档', description: '与 5 位好友达到最高友谊等级' },
   },
 
   badgeUnlockDialog: {
