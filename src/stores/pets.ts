@@ -52,6 +52,10 @@ export const rarityConfig: Record<
     borderColor: string
     textColor: string
     chance: number
+    hoverShadow: string
+    glowBg: string
+    gradientFrom: string
+    gradientTo: string
   }
 > = {
   common: {
@@ -61,6 +65,10 @@ export const rarityConfig: Record<
     borderColor: 'border-green-300 dark:border-green-800',
     textColor: 'text-green-800 dark:text-green-200',
     chance: 60,
+    hoverShadow: 'hover:shadow-green-500/30',
+    glowBg: 'bg-green-400/40 dark:bg-green-600/40',
+    gradientFrom: 'from-green-200/60 dark:from-green-900/60',
+    gradientTo: 'to-green-50/30 dark:to-green-950/30',
   },
   rare: {
     label: 'Rare',
@@ -69,6 +77,10 @@ export const rarityConfig: Record<
     borderColor: 'border-blue-300 dark:border-blue-800',
     textColor: 'text-blue-800 dark:text-blue-200',
     chance: 30,
+    hoverShadow: 'hover:shadow-blue-500/30',
+    glowBg: 'bg-blue-400/40 dark:bg-blue-600/40',
+    gradientFrom: 'from-blue-200/60 dark:from-blue-900/60',
+    gradientTo: 'to-blue-50/30 dark:to-blue-950/30',
   },
   epic: {
     label: 'Epic',
@@ -77,6 +89,10 @@ export const rarityConfig: Record<
     borderColor: 'border-purple-300 dark:border-purple-800',
     textColor: 'text-purple-800 dark:text-purple-200',
     chance: 9,
+    hoverShadow: 'hover:shadow-purple-500/30',
+    glowBg: 'bg-purple-400/40 dark:bg-purple-600/40',
+    gradientFrom: 'from-purple-200/60 dark:from-purple-900/60',
+    gradientTo: 'to-purple-50/30 dark:to-purple-950/30',
   },
   legendary: {
     label: 'Legendary',
@@ -85,12 +101,25 @@ export const rarityConfig: Record<
     borderColor: 'border-yellow-300 dark:border-yellow-800',
     textColor: 'text-yellow-800 dark:text-yellow-200',
     chance: 1,
+    hoverShadow: 'hover:shadow-yellow-500/30',
+    glowBg: 'bg-yellow-400/40 dark:bg-yellow-600/40',
+    gradientFrom: 'from-yellow-200/60 dark:from-yellow-900/60',
+    gradientTo: 'to-yellow-50/30 dark:to-yellow-950/30',
   },
 }
 
 /** Returns the locale-aware display label for a pet rarity. */
 export function getRarityLabel(rarity: PetRarity): string {
   return useLanguageStore().t.shared.petTiers[rarity]
+}
+
+type BadgeRow = Database['public']['Tables']['badges']['Row']
+type RpcResponseWithBadges<T> = T & { newly_unlocked_badges?: BadgeRow[] }
+
+async function enqueueIfPresent(badges: BadgeRow[] | undefined) {
+  if (!badges || badges.length === 0) return
+  const { useBadgesStore } = await import('@/stores/badges')
+  useBadgesStore().handleNewlyUnlocked(badges)
 }
 
 export const usePetsStore = defineStore('pets', () => {
@@ -418,13 +447,13 @@ export const usePetsStore = defineStore('pets', () => {
         return { error: handleError(rpcError, 'failedFeedPet') }
       }
 
-      const result = data as {
+      const result = data as RpcResponseWithBadges<{
         success: boolean
         error?: string
         food_fed?: number
         required_food?: number
         can_evolve?: boolean
-      }
+      }>
 
       if (!result.success) {
         return { error: result.error ?? errorMessages().failedFeedPet }
@@ -443,6 +472,8 @@ export const usePetsStore = defineStore('pets', () => {
 
       // Refresh auth store to get updated food count
       await authStore.refreshProfile()
+
+      await enqueueIfPresent(result.newly_unlocked_badges)
 
       return {
         error: null,
@@ -475,12 +506,12 @@ export const usePetsStore = defineStore('pets', () => {
         return { error: handleError(rpcError, 'failedEvolvePet') }
       }
 
-      const result = data as {
+      const result = data as RpcResponseWithBadges<{
         success: boolean
         error?: string
         new_tier?: number
         pet_id?: string
-      }
+      }>
 
       if (!result.success) {
         return { error: result.error ?? errorMessages().failedEvolvePet }
@@ -497,6 +528,8 @@ export const usePetsStore = defineStore('pets', () => {
         console.error('Local state update failed after evolving, re-fetching:', err)
         await fetchOwnedPets()
       }
+
+      await enqueueIfPresent(result.newly_unlocked_badges)
 
       return {
         error: null,
@@ -558,13 +591,13 @@ export const usePetsStore = defineStore('pets', () => {
         return { error: handleError(rpcError, 'failedCombinePets') }
       }
 
-      const result = data as {
+      const result = data as RpcResponseWithBadges<{
         success: boolean
         error?: string
         upgraded?: boolean
         result_pet_id?: string
         result_rarity?: PetRarity
-      }
+      }>
 
       if (!result.success) {
         return { error: result.error ?? errorMessages().failedCombinePets }
@@ -572,6 +605,8 @@ export const usePetsStore = defineStore('pets', () => {
 
       // Refresh owned pets to reflect changes
       await fetchOwnedPets()
+
+      await enqueueIfPresent(result.newly_unlocked_badges)
 
       return {
         error: null,
@@ -585,27 +620,31 @@ export const usePetsStore = defineStore('pets', () => {
     }
   }
 
-  // Gacha single pull (server-side RPC)
+  // Gacha single pull (server-side RPC with badge hook)
   async function gachaPull(): Promise<{ petId: string | null; error: string | null }> {
     try {
-      const { data: petId, error: rpcError } = await supabase.rpc('gacha_pull')
+      const { data, error: rpcError } = await supabase.rpc('gacha_pull')
       if (rpcError) {
         return { petId: null, error: handleError(rpcError, 'pullFailed') }
       }
-      return { petId: petId ?? null, error: null }
+      const result = data as RpcResponseWithBadges<{ pet_id?: string }>
+      await enqueueIfPresent(result?.newly_unlocked_badges)
+      return { petId: result?.pet_id ?? null, error: null }
     } catch (err) {
       return { petId: null, error: handleError(err, 'pullFailed') }
     }
   }
 
-  // Gacha multi pull (10x, server-side RPC)
+  // Gacha multi pull (10x, server-side RPC with badge hook)
   async function gachaMultiPull(): Promise<{ petIds: string[] | null; error: string | null }> {
     try {
-      const { data: petIds, error: rpcError } = await supabase.rpc('gacha_multi_pull')
+      const { data, error: rpcError } = await supabase.rpc('gacha_multi_pull')
       if (rpcError) {
         return { petIds: null, error: handleError(rpcError, 'pullFailed') }
       }
-      return { petIds: petIds ?? null, error: null }
+      const result = data as RpcResponseWithBadges<{ pet_ids?: string[] }>
+      await enqueueIfPresent(result?.newly_unlocked_badges)
+      return { petIds: result?.pet_ids ?? null, error: null }
     } catch (err) {
       return { petIds: null, error: handleError(err, 'pullFailed') }
     }

@@ -6,10 +6,26 @@ import type { Database } from '@/types/database.types'
 import { useLanguageStore } from '@/stores/language'
 
 type PetRarity = Database['public']['Enums']['pet_rarity']
+type BadgeTier = Database['public']['Enums']['badge_tier']
+type BadgeTriggerType = Database['public']['Enums']['badge_trigger_type']
+
+export interface FeaturedBadgeData {
+  id: string
+  slug: string
+  tier: BadgeTier
+  icon_path: string
+  coin_reward: number
+  trigger_type: BadgeTriggerType
+}
 
 export interface StudentProfileData {
   coins: number
   memberSince: string | null
+  badgesEarned: number
+  totalBadges: number
+  petsCollected: number
+  totalPets: number
+  lastActive: string | null
 }
 
 export interface StudentPetData {
@@ -41,6 +57,7 @@ export function useStudentProfileDialog() {
   const pet = ref<StudentPetData | null>(null)
   const bestSubjects = ref<SubjectStats[]>([])
   const weeklyActivity = ref<WeekDay[]>([])
+  const featuredBadges = ref<FeaturedBadgeData[]>([])
   const isLoading = ref(false)
 
   async function fetchProfile(studentId: string) {
@@ -49,6 +66,7 @@ export function useStudentProfileDialog() {
     pet.value = null
     bestSubjects.value = []
     weeklyActivity.value = []
+    featuredBadges.value = []
 
     try {
       const { data, error } = await supabase.rpc('get_student_profile_for_dialog', {
@@ -58,7 +76,7 @@ export function useStudentProfileDialog() {
       if (error) throw error
       if (!data) return
 
-      const result = data as {
+      const result = data as unknown as {
         coins: number
         member_since: string | null
         pet: {
@@ -75,12 +93,23 @@ export function useStudentProfileDialog() {
           average_score: number
         }[]
         weekly_activity_dates: string[]
+        featured_badges?: FeaturedBadgeData[]
+        badges_earned?: number
+        total_badges?: number
+        pets_collected?: number
+        total_pets?: number
+        last_active?: string | null
       }
 
       // Profile
       profile.value = {
         coins: result.coins,
         memberSince: result.member_since,
+        badgesEarned: result.badges_earned ?? 0,
+        totalBadges: result.total_badges ?? 0,
+        petsCollected: result.pets_collected ?? 0,
+        totalPets: result.total_pets ?? 0,
+        lastActive: result.last_active ?? null,
       }
 
       // Pet
@@ -138,6 +167,8 @@ export function useStudentProfileDialog() {
           isFuture: i > todayIndex,
         }
       })
+
+      featuredBadges.value = result.featured_badges ?? []
     } catch (err) {
       console.error('Failed to fetch student profile:', err)
     } finally {
@@ -150,6 +181,7 @@ export function useStudentProfileDialog() {
     pet,
     bestSubjects,
     weeklyActivity,
+    featuredBadges,
     isLoading,
     fetchProfile,
   }

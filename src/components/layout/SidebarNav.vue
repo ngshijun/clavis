@@ -13,6 +13,7 @@ import { useAnnouncementsStore } from '@/stores/announcements'
 import { useLeaderboardStore } from '@/stores/leaderboard'
 import { useFriendsStore } from '@/stores/friends'
 import { useFeedbackStore } from '@/stores/feedback'
+import { useBadgesStore } from '@/stores/badges'
 import { useAuthStore } from '@/stores/auth'
 import { useT } from '@/composables/useT'
 import type { NavItem } from '@/types'
@@ -33,6 +34,7 @@ const announcementsStore = useAnnouncementsStore()
 const leaderboardStore = useLeaderboardStore()
 const friendsStore = useFriendsStore()
 const feedbackStore = useFeedbackStore()
+const badgesStore = useBadgesStore()
 const authStore = useAuthStore()
 const t = useT()
 
@@ -56,6 +58,7 @@ const pathToNavKey: Record<string, string> = {
   '/student/friends': 'friends',
   '/student/my-pet': 'myPet',
   '/student/collections': 'collections',
+  '/student/achievements': 'achievements',
   '/parent/dashboard': 'dashboard',
   '/parent/announcements': 'announcements',
   '/parent/children': 'children',
@@ -74,6 +77,9 @@ function getNavTitle(item: NavItem): string {
 }
 
 function shouldShowBadge(item: NavItem): boolean {
+  if (item.path.includes('achievements') && badgesStore.unreadCount > 0) {
+    return true
+  }
   if (
     item.path.includes('announcements') &&
     authStore.userType !== 'admin' &&
@@ -94,6 +100,9 @@ function shouldShowBadge(item: NavItem): boolean {
 }
 
 function getBadgeText(item: NavItem): string {
+  if (item.path.includes('achievements')) {
+    return badgesStore.unreadCount > 9 ? '9+' : String(badgesStore.unreadCount)
+  }
   if (item.path.includes('announcements')) {
     return announcementsStore.unreadCount > 9 ? '9+' : String(announcementsStore.unreadCount)
   }

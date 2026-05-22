@@ -88,6 +88,10 @@ export default {
     practiceHistoryTitle: '练习记录',
     practiceHistoryDesc: '查看孩子过往的练习记录和成绩',
     noSessions: '所选筛选条件下暂无练习记录。',
+    badgesSection: {
+      title: '已获得徽章',
+      thisWeek: (count: number) => `本周新增 ${count} 枚`,
+    },
   },
 
   subscription: {

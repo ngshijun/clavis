@@ -22,6 +22,13 @@ export function getAvatarUrl(path: string | null): string {
 }
 
 /**
+ * Get public URL for a badge icon from its storage path.
+ */
+export function getBadgeIconUrl(path: string | null): string {
+  return getStorageImageUrl('badges', path)
+}
+
+/**
  * Upload a file to Supabase Storage with a random UUID filename.
  * Images are optimized to WebP by default; pass `optimize: false` to skip.
  * Optionally deletes an old file at `oldPath` (best-effort, non-blocking).

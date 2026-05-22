@@ -60,6 +60,7 @@ export const useChildStatisticsStore = defineStore('childStatistics', () => {
   const authStore = useAuthStore()
 
   const childrenStatistics = ref<ChildStatistics[]>([])
+  const childBadgeSummaries = ref<Record<string, { lifetime: number; this_week: number }>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -110,7 +111,18 @@ export const useChildStatisticsStore = defineStore('childStatistics', () => {
     error.value = null
 
     try {
-      const sessions = await fetchSessionSummaries(childId)
+      const [sessions, badgeSummaryRes] = await Promise.all([
+        fetchSessionSummaries(childId),
+        supabase.rpc('get_child_badge_summary', { p_child_id: childId }),
+      ])
+
+      if (badgeSummaryRes.data && badgeSummaryRes.data.length > 0) {
+        const row = badgeSummaryRes.data[0]
+        childBadgeSummaries.value = {
+          ...childBadgeSummaries.value,
+          [childId]: { lifetime: row.lifetime, this_week: row.this_week },
+        }
+      }
 
       // Update or add this child's statistics
       const existingIndex = childrenStatistics.value.findIndex((s) => s.childId === childId)
@@ -421,6 +433,7 @@ export const useChildStatisticsStore = defineStore('childStatistics', () => {
   return {
     // State
     childrenStatistics,
+    childBadgeSummaries,
     isLoading,
     error,
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { watch, computed } from 'vue'
+import { useCelebrationQueue } from '@/composables/useCelebrationQueue'
 import { useT } from '@/composables/useT'
 import {
   Dialog,
@@ -13,51 +13,55 @@ import { Button } from '@/components/ui/button'
 import { Star, Share2, Link } from 'lucide-vue-next'
 import { useShare } from '@/composables/useShare'
 
-const authStore = useAuthStore()
+const celebrationQueue = useCelebrationQueue()
 const t = useT()
 const { share, copyLink } = useShare()
 
+// Only render when the current celebration is a level-up
+const currentLevelUp = computed(() =>
+  celebrationQueue.current.value?.type === 'levelUp' ? celebrationQueue.current.value : null,
+)
+
+const isOpen = computed(() => currentLevelUp.value !== null)
+
 function getShareText() {
-  if (!authStore.levelUpInfo) return ''
-  return t.value.shared.layout.levelUpDialog.shareText(authStore.levelUpInfo.newLevel)
+  if (!currentLevelUp.value) return ''
+  return t.value.shared.layout.levelUpDialog.shareText(currentLevelUp.value.newLevel)
 }
 
 function shareLevel() {
-  if (!authStore.levelUpInfo) return
+  if (!currentLevelUp.value) return
   share({ title: t.value.shared.layout.levelUpDialog.shareTitle, text: getShareText() })
 }
 
 function copyLevelLink() {
-  if (!authStore.levelUpInfo) return
+  if (!currentLevelUp.value) return
   copyLink(getShareText())
 }
 
-// Fire confetti when level-up is detected
-watch(
-  () => authStore.levelUpInfo,
-  async (info) => {
-    if (info) {
-      const { default: confetti } = await import('canvas-confetti')
-      const duration = 1500
-      const end = Date.now() + duration
-      const frame = () => {
-        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } })
-        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } })
-        if (Date.now() < end) requestAnimationFrame(frame)
-      }
-      frame()
+// Fire confetti when a level-up appears at the head of the queue
+watch(currentLevelUp, async (info) => {
+  if (info) {
+    const { default: confetti } = await import('canvas-confetti')
+    const duration = 1500
+    const end = Date.now() + duration
+    const frame = () => {
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } })
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } })
+      if (Date.now() < end) requestAnimationFrame(frame)
     }
-  },
-)
+    frame()
+  }
+})
 
 function dismiss() {
-  authStore.clearLevelUp()
+  celebrationQueue.dismiss()
 }
 </script>
 
 <template>
   <Dialog
-    :open="!!authStore.levelUpInfo"
+    :open="isOpen"
     @update:open="
       (v: boolean) => {
         if (!v) dismiss()
@@ -74,11 +78,11 @@ function dismiss() {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="authStore.levelUpInfo" class="space-y-4 py-2">
+      <div v-if="currentLevelUp" class="space-y-4 py-2">
         <div class="flex flex-col items-center gap-2">
           <Star class="size-12 text-yellow-500" />
           <p class="text-4xl font-bold">
-            {{ t.shared.layout.levelUpDialog.levelReached(authStore.levelUpInfo.newLevel) }}
+            {{ t.shared.layout.levelUpDialog.levelReached(currentLevelUp.newLevel) }}
           </p>
           <p class="text-sm text-muted-foreground">
             {{ t.shared.layout.levelUpDialog.keepPracticing }}

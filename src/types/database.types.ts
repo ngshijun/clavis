@@ -130,6 +130,48 @@ export type Database = {
           },
         ]
       }
+      badges: {
+        Row: {
+          coin_reward: number
+          created_at: string
+          display_order: number
+          icon_path: string
+          id: string
+          is_active: boolean
+          required_tier: Database['public']['Enums']['subscription_tier']
+          slug: string
+          tier: Database['public']['Enums']['badge_tier']
+          trigger_params: Json
+          trigger_type: Database['public']['Enums']['badge_trigger_type']
+        }
+        Insert: {
+          coin_reward?: number
+          created_at?: string
+          display_order?: number
+          icon_path: string
+          id?: string
+          is_active?: boolean
+          required_tier?: Database['public']['Enums']['subscription_tier']
+          slug: string
+          tier: Database['public']['Enums']['badge_tier']
+          trigger_params?: Json
+          trigger_type: Database['public']['Enums']['badge_trigger_type']
+        }
+        Update: {
+          coin_reward?: number
+          created_at?: string
+          display_order?: number
+          icon_path?: string
+          id?: string
+          is_active?: boolean
+          required_tier?: Database['public']['Enums']['subscription_tier']
+          slug?: string
+          tier?: Database['public']['Enums']['badge_tier']
+          trigger_params?: Json
+          trigger_type?: Database['public']['Enums']['badge_trigger_type']
+        }
+        Relationships: []
+      }
       child_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -1146,15 +1188,53 @@ export type Database = {
           },
         ]
       }
+      student_badges: {
+        Row: {
+          badge_id: string
+          seen_at: string | null
+          student_id: string
+          unlocked_at: string
+        }
+        Insert: {
+          badge_id: string
+          seen_at?: string | null
+          student_id: string
+          unlocked_at?: string
+        }
+        Update: {
+          badge_id?: string
+          seen_at?: string | null
+          student_id?: string
+          unlocked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'student_badges_badge_id_fkey'
+            columns: ['badge_id']
+            isOneToOne: false
+            referencedRelation: 'badges'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'student_badges_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'student_profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       student_profiles: {
         Row: {
           coins: number | null
           created_at: string | null
           current_streak: number
+          featured_badges: string[]
           food: number | null
           friend_code: string
           grade_level_id: string | null
           id: string
+          max_streak: number
           preferred_language: string
           school_id: string | null
           selected_pet_id: string | null
@@ -1166,10 +1246,12 @@ export type Database = {
           coins?: number | null
           created_at?: string | null
           current_streak?: number
+          featured_badges?: string[]
           food?: number | null
           friend_code?: string
           grade_level_id?: string | null
           id: string
+          max_streak?: number
           preferred_language?: string
           school_id?: string | null
           selected_pet_id?: string | null
@@ -1181,10 +1263,12 @@ export type Database = {
           coins?: number | null
           created_at?: string | null
           current_streak?: number
+          featured_badges?: string[]
           food?: number | null
           friend_code?: string
           grade_level_id?: string | null
           id?: string
+          max_streak?: number
           preferred_language?: string
           school_id?: string | null
           selected_pet_id?: string | null
@@ -1575,9 +1659,43 @@ export type Database = {
           student_name: string
         }[]
       }
+      backfill_badge_for_all_eligible: {
+        Args: { p_badge_id: string }
+        Returns: number
+      }
       calculate_display_streak: {
         Args: { p_student_id: string }
         Returns: number
+      }
+      check_and_award_badges: {
+        Args: { p_student_id: string }
+        Returns: {
+          coin_reward: number
+          created_at: string
+          display_order: number
+          icon_path: string
+          id: string
+          is_active: boolean
+          required_tier: Database['public']['Enums']['subscription_tier']
+          slug: string
+          tier: Database['public']['Enums']['badge_tier']
+          trigger_params: Json
+          trigger_type: Database['public']['Enums']['badge_trigger_type']
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'badges'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      check_trigger_eligibility: {
+        Args: {
+          p_params: Json
+          p_student_id: string
+          p_trigger_type: Database['public']['Enums']['badge_trigger_type']
+        }
+        Returns: boolean
       }
       combine_pets: {
         Args: { p_owned_pet_ids: string[]; p_student_id: string }
@@ -1627,9 +1745,16 @@ export type Database = {
         }
         Returns: Json
       }
-      gacha_multi_pull: { Args: never; Returns: string[] }
-      gacha_pull: { Args: never; Returns: string }
+      gacha_multi_pull: { Args: never; Returns: Json }
+      gacha_pull: { Args: never; Returns: Json }
       generate_friend_code: { Args: never; Returns: string }
+      get_child_badge_summary: {
+        Args: { p_child_id: string }
+        Returns: {
+          lifetime: number
+          this_week: number
+        }[]
+      }
       get_question_statistics: {
         Args: never
         Returns: {
@@ -1638,6 +1763,15 @@ export type Database = {
           correct_count: number
           correctness_rate: number
           question_id: string
+        }[]
+      }
+      get_student_badge_progress: {
+        Args: { p_student_id: string }
+        Returns: {
+          badge_id: string
+          current_value: number
+          progress_pct: number
+          target_value: number
         }[]
       }
       get_student_profile_for_dialog: {
@@ -1656,7 +1790,7 @@ export type Database = {
           p_reward: number
           p_student_id: string
         }
-        Returns: undefined
+        Returns: Json
       }
       refresh_question_statistics: { Args: never; Returns: undefined }
       remove_friend: { Args: { p_friendship_id: string }; Returns: undefined }
@@ -1666,10 +1800,28 @@ export type Database = {
       }
       send_daily_coins: { Args: { p_friendship_id: string }; Returns: Json }
       send_friend_request: { Args: { p_target_id: string }; Returns: string }
+      set_featured_badges: { Args: { p_badges: string[] }; Returns: string[] }
       update_student_streak: { Args: { p_student_id: string }; Returns: number }
     }
     Enums: {
       announcement_audience: 'all' | 'students_only' | 'parents_only'
+      badge_tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master' | 'grandmaster'
+      badge_trigger_type:
+        | 'total_sessions_completed'
+        | 'total_xp_earned'
+        | 'total_questions_answered'
+        | 'total_days_practiced'
+        | 'current_streak'
+        | 'max_streak_ever'
+        | 'perfect_sessions_count'
+        | 'subject_accuracy_threshold'
+        | 'unique_pets_owned'
+        | 'pet_max_tier_reached'
+        | 'pets_of_rarity_count'
+        | 'parent_linked'
+        | 'subscription_tier_reached'
+        | 'total_friends'
+        | 'friend_closeness_level_reached'
       feedback_category:
         | 'question_error'
         | 'image_error'
@@ -1813,6 +1965,24 @@ export const Constants = {
   public: {
     Enums: {
       announcement_audience: ['all', 'students_only', 'parents_only'],
+      badge_tier: ['bronze', 'silver', 'gold', 'platinum', 'diamond', 'master', 'grandmaster'],
+      badge_trigger_type: [
+        'total_sessions_completed',
+        'total_xp_earned',
+        'total_questions_answered',
+        'total_days_practiced',
+        'current_streak',
+        'max_streak_ever',
+        'perfect_sessions_count',
+        'subject_accuracy_threshold',
+        'unique_pets_owned',
+        'pet_max_tier_reached',
+        'pets_of_rarity_count',
+        'parent_linked',
+        'subscription_tier_reached',
+        'total_friends',
+        'friend_closeness_level_reached',
+      ],
       feedback_category: [
         'question_error',
         'image_error',

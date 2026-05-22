@@ -34,6 +34,7 @@ import LanguageToggle from './LanguageToggle.vue'
 import PreferencesDialog from './PreferencesDialog.vue'
 import { useLanguageStore } from '@/stores/language'
 const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
+const BadgeUnlockDialog = defineAsyncComponent(() => import('./BadgeUnlockDialog.vue'))
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
 const petsStore = usePetsStore()
@@ -214,6 +215,7 @@ const greeting = computed(() => {
 
     <!-- Level Up Dialog (global, triggers on any XP gain that crosses a level boundary) -->
     <LevelUpDialog />
+    <BadgeUnlockDialog />
 
     <!-- Preferences Dialog (shown once per device before any onboarding) -->
     <PreferencesDialog :open="showPreferencesDialog" @confirm="handlePreferencesConfirmed" />

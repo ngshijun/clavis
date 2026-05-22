@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { computeLevel } from '@/lib/xp'
 import { rarityConfig, getRarityLabel } from '@/stores/pets'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
+import FeaturedBadgesRow from '@/components/student/FeaturedBadgesRow.vue'
 import { getInitials, getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
 import { getAvatarUrl } from '@/lib/storage'
 import { formatDate, formatRelativeDate } from '@/lib/date'
@@ -20,6 +21,7 @@ import {
   Mail,
   CalendarHeart,
   GraduationCap,
+  Award,
 } from 'lucide-vue-next'
 import fireGif from '@/assets/icons/fire.gif'
 import type { LinkedChild } from '@/stores/child-link'
@@ -33,7 +35,7 @@ const props = defineProps<{
   child: LinkedChild | null
 }>()
 
-const { profile, pet, bestSubjects, weeklyActivity, isLoading, fetchProfile } =
+const { profile, pet, bestSubjects, weeklyActivity, featuredBadges, isLoading, fetchProfile } =
   useStudentProfileDialog()
 
 const childXp = ref(0)
@@ -90,21 +92,70 @@ watch([open, () => props.child?.id], async ([isOpen, childId]) => {
         </div>
 
         <div v-else class="space-y-4">
-          <!-- Stats Row -->
-          <div class="grid grid-cols-3 gap-3">
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.childProfileDialog.level }}</p>
-              <p class="text-xl font-bold">{{ childLevel }}</p>
+          <!-- Featured Badges + Stats Row -->
+          <div class="grid grid-cols-3 gap-4">
+            <div
+              class="flex flex-col justify-center rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 dark:border-amber-900/50 dark:from-amber-950/30 dark:to-yellow-950/30"
+            >
+              <div class="mb-3 flex items-center justify-between">
+                <p class="text-xs font-medium text-muted-foreground">
+                  {{ t.shared.childProfileDialog.featuredBadges }}
+                </p>
+                <Award class="size-4 text-muted-foreground" />
+              </div>
+              <FeaturedBadgesRow :badges="featuredBadges" :show-label="false" />
             </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.childProfileDialog.xp }}</p>
-              <p class="text-xl font-bold">{{ childXp.toLocaleString() }}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.childProfileDialog.coins }}</p>
-              <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
-                {{ profile?.coins.toLocaleString() ?? '-' }}
-              </p>
+            <div class="col-span-2 grid grid-cols-3 gap-3">
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.childProfileDialog.level }}
+                </p>
+                <p class="text-xl font-bold">{{ childLevel }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.childProfileDialog.xp }}</p>
+                <p class="text-xl font-bold">{{ childXp.toLocaleString() }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.childProfileDialog.coins }}
+                </p>
+                <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
+                  {{ profile?.coins.toLocaleString() ?? '-' }}
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.childProfileDialog.badges }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{ profile?.badgesEarned ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalBadges ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.childProfileDialog.pets }}</p>
+                <p class="text-xl font-bold">
+                  {{ profile?.petsCollected ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalPets ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.childProfileDialog.lastActive }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{
+                    profile?.lastActive
+                      ? formatRelativeDate(profile.lastActive, t.shared.relativeDate)
+                      : '-'
+                  }}
+                </p>
+              </div>
             </div>
           </div>
 

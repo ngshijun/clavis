@@ -27,7 +27,8 @@
     "format": "prettier --write --experimental-cli src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:stripe": "tsx scripts/test-stripe.ts"
+    "test:stripe": "tsx scripts/test-stripe.ts",
+    "badges:check": "tsx scripts/badges-check.ts"
   },
   "dependencies": {
     "@internationalized/date": "^3.11.0",

@@ -4,6 +4,9 @@ import { useAuthStore } from '@/stores/auth'
 import { usePracticeStore, type StudentSubscriptionStatus } from '@/stores/practice'
 import { useSubscriptionStore } from '@/stores/subscription'
 import { useCurriculumStore } from '@/stores/curriculum'
+import { useBadgesStore } from '@/stores/badges'
+import FeaturedBadgesRow from '@/components/student/FeaturedBadgesRow.vue'
+import BadgePickerDialog from '@/components/student/BadgePickerDialog.vue'
 import { useProfileEditor } from '@/composables/useProfileEditor'
 import { useT } from '@/composables/useT'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,6 +59,7 @@ const authStore = useAuthStore()
 const practiceStore = usePracticeStore()
 const subscriptionStore = useSubscriptionStore()
 const curriculumStore = useCurriculumStore()
+const badgesStore = useBadgesStore()
 const t = useT()
 const languageStore = useLanguageStore()
 const {
@@ -90,6 +94,7 @@ function getTierIcon(tier: string) {
 // Dialog states
 const showAvatarDialog = ref(false)
 const showEditNameDialog = ref(false)
+const showBadgePicker = ref(false)
 
 // Birthday calendar popover
 const birthdayPopoverOpen = ref(false)
@@ -122,6 +127,7 @@ onMounted(async () => {
       subscriptionStatus.value = status
     }),
     subscriptionStore.fetchPlans(),
+    badgesStore.hasLoaded ? Promise.resolve() : badgesStore.loadAll(),
   ]).finally(() => {
     isLoadingPlans.value = false
   })
@@ -219,46 +225,57 @@ async function handleSchoolChange(schoolId: string) {
     <div class="grid gap-6 lg:grid-cols-[1fr_3fr]">
       <!-- Profile Card -->
       <Card>
-        <CardHeader class="text-center">
-          <div class="relative mx-auto">
-            <Avatar class="size-24">
-              <AvatarImage :src="userAvatarUrl" :alt="authStore.user?.name ?? ''" />
-              <AvatarFallback class="text-2xl">{{ userInitials }}</AvatarFallback>
-            </Avatar>
-            <Button
-              size="icon"
-              variant="secondary"
-              class="absolute -bottom-1 -right-1 size-8 rounded-full"
-              @click="showAvatarDialog = true"
-            >
-              <Camera class="size-4" />
-            </Button>
+        <CardContent class="flex flex-1 flex-col justify-between gap-6">
+          <!-- Avatar + identity + level/coins in one row -->
+          <div class="flex items-center gap-4">
+            <div class="relative shrink-0">
+              <Avatar class="size-20">
+                <AvatarImage :src="userAvatarUrl" :alt="authStore.user?.name ?? ''" />
+                <AvatarFallback class="text-xl">{{ userInitials }}</AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon"
+                variant="secondary"
+                class="absolute -bottom-1 -right-1 size-7 rounded-full"
+                @click="showAvatarDialog = true"
+              >
+                <Camera class="size-3.5" />
+              </Button>
+            </div>
+
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <div class="flex min-w-0 items-center gap-1">
+                <p class="truncate text-base font-semibold">{{ authStore.user?.name }}</p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="size-6 shrink-0"
+                  @click="showEditNameDialog = true"
+                >
+                  <Pencil class="size-3" />
+                </Button>
+              </div>
+              <p class="truncate text-xs text-muted-foreground">{{ authStore.user?.email }}</p>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" class="text-xs">
+                  <Trophy class="mr-1 size-3" />
+                  {{ t.student.profile.levelBadge(authStore.currentLevel) }}
+                </Badge>
+                <Badge variant="outline" class="text-xs">
+                  <CirclePoundSterling class="mr-1 size-3 text-amber-600 dark:text-amber-400" />
+                  {{ t.student.profile.coinsBadge(authStore.studentProfile?.coins ?? 0) }}
+                </Badge>
+              </div>
+            </div>
           </div>
-          <CardTitle class="mt-4 flex min-w-0 items-center justify-center gap-2">
-            <span class="min-w-0 truncate">{{ authStore.user?.name }}</span>
-            <Button
-              size="icon"
-              variant="ghost"
-              class="size-6 shrink-0"
-              @click="showEditNameDialog = true"
-            >
-              <Pencil class="size-3" />
-            </Button>
-          </CardTitle>
-          <CardDescription class="truncate">{{ authStore.user?.email }}</CardDescription>
-        </CardHeader>
-        <CardContent class="space-y-4">
-          <!-- Level Badge -->
-          <div class="flex items-center justify-center gap-2">
-            <Badge variant="secondary" class="text-sm">
-              <Trophy class="mr-1 size-3" />
-              {{ t.student.profile.levelBadge(authStore.currentLevel) }}
-            </Badge>
-            <Badge variant="outline" class="text-sm">
-              <CirclePoundSterling class="mr-1 size-3 text-amber-600 dark:text-amber-400" />
-              {{ t.student.profile.coinsBadge(authStore.studentProfile?.coins ?? 0) }}
-            </Badge>
-          </div>
+
+          <!-- Featured Badges -->
+          <FeaturedBadgesRow
+            :badges="badgesStore.featuredBadges"
+            editable
+            @edit="showBadgePicker = true"
+            @select-badge="showBadgePicker = true"
+          />
 
           <!-- XP Progress -->
           <div class="space-y-2">
@@ -604,5 +621,7 @@ async function handleSchoolChange(schoolId: string) {
       :is-saving="isSaving"
       @save="handleNameSave"
     />
+
+    <BadgePickerDialog v-model:open="showBadgePicker" />
   </div>
 </template>

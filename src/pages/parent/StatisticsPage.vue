@@ -229,6 +229,10 @@ function handleRowClick(row: ChildPracticeSession) {
         :total-sessions="totalSessions"
         :total-study-time="totalStudyTime"
         :sub-topics-practiced="subTopicsPracticed"
+        :badges-lifetime="childStatisticsStore.childBadgeSummaries[selectedChildId]?.lifetime ?? 0"
+        :badges-this-week="
+          childStatisticsStore.childBadgeSummaries[selectedChildId]?.this_week ?? 0
+        "
       />
 
       <!-- Practice History Table -->

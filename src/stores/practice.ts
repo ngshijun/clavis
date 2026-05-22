@@ -5,6 +5,7 @@ import { useQuestionsStore, type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
 import { useLanguageStore } from './language'
+import type { Database } from '@/types/database.types'
 import { handleError, errorMessages } from '@/lib/errors'
 import { computeScorePercent, mapAnswerRow } from '@/lib/questionHelpers'
 import {
@@ -430,7 +431,12 @@ export const usePracticeStore = defineStore('practice', () => {
         }
       }
 
-      const result = rewards as { xp_earned: number; coins_earned: number; correct_count: number }
+      const result = rewards as {
+        xp_earned: number
+        coins_earned: number
+        correct_count: number
+        newly_unlocked_badges?: Array<Database['public']['Tables']['badges']['Row']>
+      }
 
       // Update local session state with server-calculated values
       currentSession.value.completedAt = new Date().toISOString()
@@ -441,6 +447,13 @@ export const usePracticeStore = defineStore('practice', () => {
       currentSession.value.correctAnswers = result.correct_count
       currentSession.value.xpEarned = result.xp_earned
       currentSession.value.coinsEarned = result.coins_earned
+
+      // Hand off newly-unlocked badges to the badges store + celebration queue
+      if (result.newly_unlocked_badges && result.newly_unlocked_badges.length > 0) {
+        const { useBadgesStore } = await import('@/stores/badges')
+        const badgesStore = useBadgesStore()
+        badgesStore.handleNewlyUnlocked(result.newly_unlocked_badges)
+      }
 
       // Update the corresponding entry in history store
       const historyStore = usePracticeHistoryStore()

@@ -31,6 +31,7 @@ export interface AuthUser {
     schoolId: string | null
     schoolName: string | null
     friendCode: string
+    subscriptionTier: Database['public']['Enums']['subscription_tier']
   }
   // Parent-specific fields
   parentProfile?: {
@@ -86,6 +87,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
           schoolId: studentProfile.school_id,
           schoolName: (studentProfile.schools as { name: string } | null)?.name ?? null,
           friendCode: studentProfile.friend_code,
+          subscriptionTier: studentProfile.subscription_tier,
         }
       }
     } else if (profile.user_type === 'parent') {
@@ -183,13 +185,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
     return null
   })
-
-  // Level-up tracking: set when refreshProfile() detects a level increase
-  const levelUpInfo = ref<{ oldLevel: number; newLevel: number } | null>(null)
-
-  function clearLevelUp() {
-    levelUpInfo.value = null
-  }
 
   const currentLevel = computed(() => {
     if (!studentProfile.value) return 1
@@ -510,10 +505,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (profile) {
       user.value = profile
 
-      // Detect level-up after profile refresh
+      // Detect level-up after profile refresh and enqueue for celebration
       const newLevel = currentLevel.value
       if (newLevel > oldLevel) {
-        levelUpInfo.value = { oldLevel, newLevel }
+        const { useCelebrationQueue } = await import('@/composables/useCelebrationQueue')
+        useCelebrationQueue().enqueue([{ type: 'levelUp', oldLevel, newLevel }])
       }
     }
   }
@@ -795,9 +791,6 @@ export const useAuthStore = defineStore('auth', () => {
     currentLevelXp,
     xpToNextLevel,
     xpProgress,
-    levelUpInfo,
-    clearLevelUp,
-
     // Actions
     initialize,
     signUp,

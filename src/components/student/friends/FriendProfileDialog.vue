@@ -10,10 +10,20 @@ import { computeLevel } from '@/lib/xp'
 import { rarityConfig, getRarityLabel } from '@/stores/pets'
 import { CLOSENESS_LABELS, CLOSENESS_THRESHOLDS } from '@/stores/friends'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
+import FeaturedBadgesRow from '@/components/student/FeaturedBadgesRow.vue'
 import { getInitials, getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
 import { getAvatarUrl } from '@/lib/storage'
 import { formatDate, formatRelativeDate } from '@/lib/date'
-import { Loader2, Star, PawPrint, Trophy, Flame, CalendarHeart, Handshake } from 'lucide-vue-next'
+import {
+  Loader2,
+  Star,
+  PawPrint,
+  Trophy,
+  Flame,
+  CalendarHeart,
+  Handshake,
+  Award,
+} from 'lucide-vue-next'
 import fireGif from '@/assets/icons/fire.gif'
 import type { Friend } from '@/stores/friends'
 import { useT } from '@/composables/useT'
@@ -26,7 +36,7 @@ const props = defineProps<{
   friend: Friend | null
 }>()
 
-const { profile, pet, bestSubjects, weeklyActivity, isLoading, fetchProfile } =
+const { profile, pet, bestSubjects, weeklyActivity, featuredBadges, isLoading, fetchProfile } =
   useStudentProfileDialog()
 
 const friendXp = ref(0)
@@ -89,13 +99,6 @@ const xpToNextLevel = computed(() => {
                   <CalendarHeart class="size-3" />
                   {{ t.shared.friendProfileDialog.friendsSince(formatDate(friend.friendSince)) }}
                 </Badge>
-                <Badge variant="secondary" class="gap-1">
-                  {{
-                    t.shared.friendProfileDialog.active(
-                      formatRelativeDate(friend.lastActive, t.shared.relativeDate),
-                    )
-                  }}
-                </Badge>
               </div>
             </div>
           </div>
@@ -149,21 +152,70 @@ const xpToNextLevel = computed(() => {
             </p>
           </div>
 
-          <!-- Stats Row (matches leaderboard dialog) -->
-          <div class="grid grid-cols-3 gap-3">
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.level }}</p>
-              <p class="text-xl font-bold">{{ friendLevel }}</p>
+          <!-- Featured Badges + Stats Row -->
+          <div class="grid grid-cols-3 gap-4">
+            <div
+              class="flex flex-col justify-center rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 dark:border-amber-900/50 dark:from-amber-950/30 dark:to-yellow-950/30"
+            >
+              <div class="mb-3 flex items-center justify-between">
+                <p class="text-xs font-medium text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.featuredBadges }}
+                </p>
+                <Award class="size-4 text-muted-foreground" />
+              </div>
+              <FeaturedBadgesRow :badges="featuredBadges" :show-label="false" />
             </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.xp }}</p>
-              <p class="text-xl font-bold">{{ friendXp.toLocaleString() }}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.coins }}</p>
-              <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
-                {{ profile?.coins.toLocaleString() ?? '-' }}
-              </p>
+            <div class="col-span-2 grid grid-cols-3 gap-3">
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.level }}
+                </p>
+                <p class="text-xl font-bold">{{ friendLevel }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.xp }}</p>
+                <p class="text-xl font-bold">{{ friendXp.toLocaleString() }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.coins }}
+                </p>
+                <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
+                  {{ profile?.coins.toLocaleString() ?? '-' }}
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.badges }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{ profile?.badgesEarned ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalBadges ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.pets }}</p>
+                <p class="text-xl font-bold">
+                  {{ profile?.petsCollected ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalPets ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.lastActive }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{
+                    profile?.lastActive
+                      ? formatRelativeDate(profile.lastActive, t.shared.relativeDate)
+                      : '-'
+                  }}
+                </p>
+              </div>
             </div>
           </div>
 
