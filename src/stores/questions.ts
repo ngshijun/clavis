@@ -210,19 +210,19 @@ export const useQuestionsStore = defineStore('questions', () => {
   const ALL_VALUE = '__all__'
 
   /**
-   * Resolve current question bank filters to an array of sub_topic IDs
-   * using the already-loaded curriculum hierarchy.
-   * Returns null if no filters are applied (fetch all questions).
+   * Resolve a selected name-path to the exact set of sub_topic IDs by walking
+   * the curriculum hierarchy. A level set to `undefined` means "ALL" (no
+   * constraint at that level). Crucially, a child name only matches WITHIN
+   * branches whose selected ancestors also match — so a sub-topic/topic/subject
+   * name shared across different parents (e.g. "Addition" under multiple topics,
+   * or "Math" under P1 and P2) is NOT conflated across unrelated branches.
    */
-  function resolveSubTopicIds(): string[] | null {
-    const f = questionBankFilters.value
-    const gradeLevel = f.gradeLevel !== ALL_VALUE ? f.gradeLevel : undefined
-    const subject = f.subject !== ALL_VALUE ? f.subject : undefined
-    const topic = f.topic !== ALL_VALUE ? f.topic : undefined
-    const subTopic = f.subTopic !== ALL_VALUE ? f.subTopic : undefined
-
-    if (!gradeLevel && !subject && !topic && !subTopic) return null
-
+  function resolveSubTopicIdsForPath(
+    gradeLevel: string | undefined,
+    subject: string | undefined,
+    topic: string | undefined,
+    subTopic: string | undefined,
+  ): string[] {
     const ids: string[] = []
     for (const gl of curriculumStore.gradeLevels) {
       if (gradeLevel && gl.name !== gradeLevel) continue
@@ -238,6 +238,23 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
     }
     return ids
+  }
+
+  /**
+   * Resolve current question bank filters to an array of sub_topic IDs
+   * using the already-loaded curriculum hierarchy.
+   * Returns null if no filters are applied (fetch all questions).
+   */
+  function resolveSubTopicIds(): string[] | null {
+    const f = questionBankFilters.value
+    const gradeLevel = f.gradeLevel !== ALL_VALUE ? f.gradeLevel : undefined
+    const subject = f.subject !== ALL_VALUE ? f.subject : undefined
+    const topic = f.topic !== ALL_VALUE ? f.topic : undefined
+    const subTopic = f.subTopic !== ALL_VALUE ? f.subTopic : undefined
+
+    if (!gradeLevel && !subject && !topic && !subTopic) return null
+
+    return resolveSubTopicIdsForPath(gradeLevel, subject, topic, subTopic)
   }
 
   /** Escape SQL LIKE wildcards so user input is matched literally */
@@ -638,6 +655,7 @@ export const useQuestionsStore = defineStore('questions', () => {
    * Uses batch pagination to avoid the default 1000-row limit.
    */
   async function fetchQuestionStatistics(): Promise<void> {
+    error.value = null
     try {
       const BATCH_SIZE = 1000
       const allRows: NonNullable<
@@ -667,7 +685,7 @@ export const useQuestionsStore = defineStore('questions', () => {
           averageTimeSeconds: row.avg_time_seconds ?? 0,
         }))
     } catch (err) {
-      console.error('Error fetching question statistics:', err)
+      error.value = handleError(err, 'failedFetchStatistics')
     }
   }
 
@@ -759,19 +777,33 @@ export const useQuestionsStore = defineStore('questions', () => {
     return [...new Set(subTopics)]
   }
 
+  /**
+   * Build the set of sub_topic IDs matching a selected name-path, scoped
+   * hierarchically. Returns null when no level is constrained (match all).
+   * Filtering by sub_topic ID (rather than independent name equality at each
+   * level) prevents questions from same-named branches under different parents
+   * from being conflated — each question's subTopicId belongs to exactly one
+   * branch.
+   */
+  function resolveFilterSubTopicIdSet(
+    gradeLevelName?: string,
+    subjectName?: string,
+    topicName?: string,
+    subTopicName?: string,
+  ): Set<string> | null {
+    if (!gradeLevelName && !subjectName && !topicName && !subTopicName) return null
+    return new Set(resolveSubTopicIdsForPath(gradeLevelName, subjectName, topicName, subTopicName))
+  }
+
   function getFilteredQuestions(
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
     subTopicName?: string,
   ): Question[] {
-    return questions.value.filter(
-      (q) =>
-        (!gradeLevelName || q.gradeLevelName === gradeLevelName) &&
-        (!subjectName || q.subjectName === subjectName) &&
-        (!topicName || q.topicName === topicName) &&
-        (!subTopicName || q.subTopicName === subTopicName),
-    )
+    const idSet = resolveFilterSubTopicIdSet(gradeLevelName, subjectName, topicName, subTopicName)
+    if (idSet === null) return questions.value
+    return questions.value.filter((q) => idSet.has(q.subTopicId))
   }
 
   function getFilteredQuestionsWithStats(
@@ -780,13 +812,9 @@ export const useQuestionsStore = defineStore('questions', () => {
     topicName?: string,
     subTopicName?: string,
   ): QuestionWithStats[] {
-    return questionsWithStats.value.filter(
-      (q) =>
-        (!gradeLevelName || q.gradeLevelName === gradeLevelName) &&
-        (!subjectName || q.subjectName === subjectName) &&
-        (!topicName || q.topicName === topicName) &&
-        (!subTopicName || q.subTopicName === subTopicName),
-    )
+    const idSet = resolveFilterSubTopicIdSet(gradeLevelName, subjectName, topicName, subTopicName)
+    if (idSet === null) return questionsWithStats.value
+    return questionsWithStats.value.filter((q) => idSet.has(q.subTopicId))
   }
 
   // ============================================
@@ -845,6 +873,10 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   function $reset() {
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer)
+      searchDebounceTimer = null
+    }
     questions.value = []
     serverQuestions.value = []
     serverTotalCount.value = 0

@@ -2,7 +2,7 @@ import '@supabase/functions-js/edge-runtime.d.ts'
 import { stripe, corsHeaders, errorResponse } from '../_shared/stripe.ts'
 import { supabaseAdmin } from '../_shared/supabase-admin.ts'
 import { resolveSubscriptionChange, extractPeriodDates } from '../_shared/sync-helpers.ts'
-import { getAuthenticatedUser, verifyParentStudentLink } from '../_shared/auth.ts'
+import { getAuthenticatedUser, verifyParent, verifyParentStudentLink } from '../_shared/auth.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -11,6 +11,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await getAuthenticatedUser(req)
+    await verifyParent(user.id)
 
     const { studentId, newPriceId } = await req.json()
 

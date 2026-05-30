@@ -1,6 +1,8 @@
-import { ref, watch } from 'vue'
+import { ref, watch, onScopeDispose } from 'vue'
+import { toast } from 'vue-sonner'
 import { supabase } from '@/lib/supabaseClient'
 import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
+import { handleError } from '@/lib/errors'
 
 type School = { id: string; name: string }
 
@@ -36,9 +38,14 @@ export function useSchoolSearch() {
         builder = builder.ilike('name', `%${query}%`)
       }
 
-      const { data } = await builder
+      const { data, error } = await builder
       // Discard stale responses
       if (version !== currentVersion) return
+      if (error) {
+        // Surface the failure instead of collapsing it into a silent empty list.
+        toast.error(handleError(error, 'dbGeneric'))
+        return
+      }
       schools.value = data ?? []
 
       // Cache the initial (no-query) results
@@ -69,6 +76,11 @@ export function useSchoolSearch() {
     }
 
     debounceTimer = setTimeout(() => fetchSchools(value.trim()), DEBOUNCE_MS)
+  })
+
+  // Cancel any pending debounce so it can't fire against an orphaned scope after unmount
+  onScopeDispose(() => {
+    if (debounceTimer) clearTimeout(debounceTimer)
   })
 
   return { schools, searchTerm, isSearching }

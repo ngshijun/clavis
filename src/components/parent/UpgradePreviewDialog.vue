@@ -13,6 +13,7 @@ import {
 import { Loader2 } from 'lucide-vue-next'
 import { formatLongDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
+import { tierRank } from '@/lib/tierConfig'
 
 const t = useT()
 
@@ -39,12 +40,10 @@ const emit = defineEmits<{
 }>()
 
 function getActionLabel() {
-  const tierOrder: SubscriptionTier[] = ['core', 'plus', 'pro']
-  const planIndex = props.pendingTier ? tierOrder.indexOf(props.pendingTier) : -1
-  const currentIndex = tierOrder.indexOf(props.currentTier)
-
   if (props.pendingTier === 'core') return t.value.shared.upgradePreviewDialog.downgrade
-  return planIndex > currentIndex
+
+  const planIndex = props.pendingTier ? tierRank(props.pendingTier) : -1
+  return planIndex > tierRank(props.currentTier)
     ? t.value.shared.upgradePreviewDialog.upgrade
     : t.value.shared.upgradePreviewDialog.downgrade
 }

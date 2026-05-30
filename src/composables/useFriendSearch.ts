@@ -9,14 +9,28 @@ export interface FriendSearchResult {
   friendCode: string
 }
 
-type StudentSearchResult = {
+/**
+ * Shape returned by the search_student_by_friend_code RPC.
+ * SECURITY DEFINER; returns at most one exact-match row (excluding the caller).
+ */
+interface FriendCodeSearchRow {
   id: string
+  name: string
+  avatar_path: string | null
+}
+
+/**
+ * Shape returned by the search_students_by_name RPC.
+ * SECURITY DEFINER; partial-name match, public-safe columns only, capped at 20.
+ */
+interface NameSearchRow {
+  id: string
+  name: string
+  avatar_path: string | null
   friend_code: string
-  profiles: { name: string; avatar_path: string | null }
 }
 
 const DEBOUNCE_MS = 300
-const SEARCH_LIMIT = 10
 const FRIEND_CODE_PATTERN = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i
 
 export function useFriendSearch() {
@@ -37,40 +51,43 @@ export function useFriendSearch() {
 
     isSearching.value = true
     try {
-      const isFriendCode = FRIEND_CODE_PATTERN.test(query)
-
-      let data: StudentSearchResult[] | null = null
-
-      if (isFriendCode) {
-        const { data: codeResults, error } = await supabase
-          .from('student_profiles')
-          .select('id, friend_code, profiles!inner(name, avatar_path)')
-          .eq('friend_code', query.toUpperCase())
-          .neq('id', userId)
-          .limit(1)
-
+      // Direct student_profiles reads are blocked by the restricted SELECT policy, so
+      // both branches go through SECURITY DEFINER RPCs that return only public-safe
+      // columns (never coins/xp/tier). A friend-code-shaped query does an exact lookup;
+      // anything else is treated as a partial-name search.
+      // types regen pending (migration 20260530000002): the new RPC names are not yet
+      // in database.types.ts, so the typed rpc() overload rejects them — cast per RPC.
+      if (FRIEND_CODE_PATTERN.test(query)) {
+        const code = query.toUpperCase()
+        const rpc = supabase.rpc as unknown as (
+          fn: 'search_student_by_friend_code',
+          args: { p_code: string },
+        ) => PromiseLike<{ data: FriendCodeSearchRow[] | null; error: unknown }>
+        const { data, error } = await rpc('search_student_by_friend_code', { p_code: code })
         if (error) throw error
-        data = codeResults as unknown as StudentSearchResult[]
+        if (version !== currentVersion) return
+        // Exact friend-code match, so the searched code applies to every row.
+        results.value = (data ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          avatarPath: row.avatar_path,
+          friendCode: code,
+        }))
       } else {
-        const { data: nameResults, error } = await supabase
-          .from('student_profiles')
-          .select('id, friend_code, profiles!inner(name, avatar_path)')
-          .neq('id', userId)
-          .ilike('profiles.name', `%${query}%`)
-          .limit(SEARCH_LIMIT)
-
+        const rpc = supabase.rpc as unknown as (
+          fn: 'search_students_by_name',
+          args: { p_query: string },
+        ) => PromiseLike<{ data: NameSearchRow[] | null; error: unknown }>
+        const { data, error } = await rpc('search_students_by_name', { p_query: query })
         if (error) throw error
-        data = nameResults as unknown as StudentSearchResult[]
+        if (version !== currentVersion) return
+        results.value = (data ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          avatarPath: row.avatar_path,
+          friendCode: row.friend_code,
+        }))
       }
-
-      if (version !== currentVersion) return
-
-      results.value = (data ?? []).map((row) => ({
-        id: row.id,
-        name: row.profiles.name,
-        avatarPath: row.profiles.avatar_path,
-        friendCode: row.friend_code,
-      }))
     } catch {
       if (version === currentVersion) results.value = []
     } finally {

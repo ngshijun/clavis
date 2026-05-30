@@ -5,7 +5,7 @@ import { computeScorePercent } from '@/lib/questionHelpers'
 import { useRouter } from 'vue-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Trophy } from 'lucide-vue-next'
-import { getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
+import BestSubjectsList from '@/components/shared/BestSubjectsList.vue'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -81,46 +81,11 @@ function goToHistory() {
       <Trophy class="size-4 text-muted-foreground" />
     </CardHeader>
     <CardContent>
-      <div class="space-y-3">
-        <div v-for="index in 3" :key="index" class="flex items-center gap-2">
-          <span class="text-lg leading-none">{{ MEDAL_EMOJIS[index - 1] }}</span>
-          <template v-if="topSubjects[index - 1]">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-baseline justify-between gap-2">
-                <p class="truncate text-sm font-medium">
-                  {{ topSubjects[index - 1]!.gradeLevelName }} ·
-                  {{ topSubjects[index - 1]!.subjectName }}
-                </p>
-                <span
-                  class="shrink-0 text-sm font-bold"
-                  :class="getScoreTextColor(topSubjects[index - 1]!.averageScore)"
-                >
-                  {{ t.shared.bestSubjectCard.averageLabel(topSubjects[index - 1]!.averageScore) }}
-                </span>
-              </div>
-              <div
-                class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
-              >
-                <div
-                  class="h-full rounded-full transition-all"
-                  :class="getScoreBarColor(topSubjects[index - 1]!.averageScore)"
-                  :style="{ width: `${topSubjects[index - 1]!.averageScore}%` }"
-                />
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm text-muted-foreground/60">
-                {{ t.shared.bestSubjectCard.practiceMore }}
-              </p>
-              <div
-                class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
-              />
-            </div>
-          </template>
-        </div>
-      </div>
+      <BestSubjectsList
+        :subjects="topSubjects"
+        :empty-label="t.shared.bestSubjectCard.practiceMore"
+        :format-score="t.shared.bestSubjectCard.averageLabel"
+      />
     </CardContent>
   </Card>
 </template>

@@ -2,6 +2,7 @@ import type { ParsedQuestion, ParsedQuestionImage } from './questionExcel'
 import { useQuestionsStore, type CreateQuestionInput } from '@/stores/questions'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { computeQuestionImageHash } from '@/lib/imageHash'
+import { supabase } from '@/lib/supabaseClient'
 
 // ============================================
 // TYPES
@@ -67,6 +68,54 @@ function getQuestionKey(
 }
 
 /**
+ * Build the dedup lookup map of existing questions keyed by question text +
+ * hierarchy names + image hash, mapping to the existing question id.
+ *
+ * Selects only the columns the dedup key needs (question, topic_id, image_hash)
+ * and resolves hierarchy names from the already-loaded curriculum store, rather
+ * than fetching '*' and hydrating full Question objects.
+ */
+async function buildExistingQuestionMap(
+  curriculumStore: ReturnType<typeof useCurriculumStore>,
+): Promise<Map<string, string>> {
+  const existingMap = new Map<string, string>()
+  const BATCH_SIZE = 1000
+  let from = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id, question, topic_id, image_hash')
+      .range(from, from + BATCH_SIZE - 1)
+
+    if (error) throw error
+
+    const rows = data ?? []
+    for (const row of rows) {
+      // topic_id references sub_topics; resolve the full hierarchy for names.
+      const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.topic_id)
+      if (!hierarchy) continue
+
+      const key = getQuestionKey(
+        row.question,
+        hierarchy.gradeLevel.name,
+        hierarchy.subject.name,
+        hierarchy.topic.name,
+        hierarchy.subTopic.name,
+        row.image_hash,
+      )
+      existingMap.set(key, row.id)
+    }
+
+    hasMore = rows.length === BATCH_SIZE
+    from += BATCH_SIZE
+  }
+
+  return existingMap
+}
+
+/**
  * Check if a parsed question has any images
  */
 function hasImages(q: ParsedQuestion): boolean {
@@ -91,30 +140,17 @@ async function computeParsedQuestionHash(q: ParsedQuestion): Promise<string> {
 // ============================================
 
 export async function validateQuestions(parsed: ParsedQuestion[]): Promise<UploadValidationResult> {
-  const questionsStore = useQuestionsStore()
   const curriculumStore = useCurriculumStore()
 
-  // Ensure curriculum and questions are loaded
+  // Ensure curriculum is loaded (needed to resolve topic_id -> hierarchy names)
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
-  await questionsStore.fetchQuestions()
 
-  const existingQuestions = questionsStore.questions
-
-  // Build lookup map for existing questions (including image hash for questions with images)
-  const existingMap = new Map<string, string>()
-  for (const q of existingQuestions) {
-    const key = getQuestionKey(
-      q.question,
-      q.gradeLevelName,
-      q.subjectName,
-      q.topicName,
-      q.subTopicName,
-      q.imageHash, // Include image hash in key
-    )
-    existingMap.set(key, q.id)
-  }
+  // Build the existing-question dedup map from a lightweight server query that
+  // selects only the columns the dedup key needs, instead of hydrating every
+  // row into a full Question via fetchQuestions() (which selects '*').
+  const existingMap = await buildExistingQuestionMap(curriculumStore)
 
   // Pre-compute image hashes for all parsed questions with images
   const parsedHashes = new Map<number, string>()
@@ -183,7 +219,21 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
       continue
     }
 
-    // Check for duplicates in database
+    // Create validated question with image hash
+    const validatedQuestion: ValidatedQuestion = { ...q, imageHash }
+
+    // Track within-file duplicates BEFORE the DB-duplicate check so repeated
+    // rows are consolidated into the within-file report even when they also
+    // exist in the DB (otherwise each occurrence is reported as a DB duplicate
+    // and the within-file repetition is never surfaced).
+    if (seenInFile.has(key)) {
+      seenInFile.get(key)!.rows.push(q.row)
+      continue
+    }
+    seenInFile.set(key, { rows: [q.row], firstQuestion: validatedQuestion })
+
+    // First occurrence of this key: report as DB duplicate if it already
+    // exists, otherwise accept it as valid.
     const existingId = existingMap.get(key)
     if (existingId) {
       duplicates.push({
@@ -194,16 +244,7 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
       continue
     }
 
-    // Create validated question with image hash
-    const validatedQuestion: ValidatedQuestion = { ...q, imageHash }
-
-    // Track within-file duplicates
-    if (seenInFile.has(key)) {
-      seenInFile.get(key)!.rows.push(q.row)
-    } else {
-      seenInFile.set(key, { rows: [q.row], firstQuestion: validatedQuestion })
-      valid.push(validatedQuestion) // Only add first occurrence to valid
-    }
+    valid.push(validatedQuestion) // Only add first occurrence to valid
   }
 
   // Extract within-file duplicates (where there's more than one row with same key)
@@ -240,6 +281,8 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
   const failed: Array<{ row: number; error: string }> = []
 
   for (const [i, q] of questions.entries()) {
+    // Track uploaded image paths outside the try so the catch can clean them up.
+    let uploadedImages: UploadedImages | null = null
     try {
       // Resolve curriculum IDs: grade_level -> subject -> topic -> sub_topic
       const gradeLevel = curriculumStore.gradeLevels.find(
@@ -263,7 +306,7 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
 
       // Upload images BEFORE creating the question so image paths are included
       // in the initial INSERT (required by DB constraints like mcq_has_two_options)
-      const uploadedImages = await uploadImagesBeforeCreate(questionsStore, q)
+      uploadedImages = await uploadImagesBeforeCreate(questionsStore, q)
 
       // Build question input (including pre-computed image hash for duplicate detection)
       const input: CreateQuestionInput = {
@@ -343,6 +386,8 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
       // Create question (skip page refresh during bulk — one refresh at end)
       const result = await questionsStore.addQuestion(input, { skipRefresh: true })
       if (result.error || !result.id) {
+        // INSERT failed — remove the already-uploaded images so storage is not orphaned.
+        await cleanupUploadedImages(questionsStore, uploadedImages)
         failed.push({ row: q.row, error: result.error || 'Unknown error' })
         onProgress?.(i + 1, questions.length)
         continue
@@ -350,6 +395,8 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
 
       success++
     } catch (error) {
+      // Unexpected failure after upload — best-effort remove orphaned images.
+      await cleanupUploadedImages(questionsStore, uploadedImages)
       failed.push({ row: q.row, error: String(error) })
     }
 
@@ -418,6 +465,35 @@ async function uploadImagesBeforeCreate(
   await Promise.all(uploads)
 
   return result
+}
+
+/**
+ * Best-effort removal of images uploaded for a question whose INSERT failed,
+ * so the question-images bucket is not left with orphaned files.
+ */
+async function cleanupUploadedImages(
+  store: ReturnType<typeof useQuestionsStore>,
+  uploaded: UploadedImages | null,
+): Promise<void> {
+  if (!uploaded) return
+
+  const paths = [
+    uploaded.questionImagePath,
+    uploaded.optionImagePaths.a,
+    uploaded.optionImagePaths.b,
+    uploaded.optionImagePaths.c,
+    uploaded.optionImagePaths.d,
+  ].filter((p): p is string => !!p)
+
+  await Promise.all(
+    paths.map(async (path) => {
+      try {
+        await store.deleteQuestionImage(path)
+      } catch (error) {
+        console.error(`Failed to clean up orphaned image ${path}:`, error)
+      }
+    }),
+  )
 }
 
 function base64ToFile(image: ParsedQuestionImage, filename: string): File {

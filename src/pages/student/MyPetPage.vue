@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePetsStore, rarityConfig, getRarityLabel } from '@/stores/pets'
@@ -30,6 +30,17 @@ const FOOD_PRICE = 50
 
 const { showBubble: showConversationBubble, currentMessage, triggerMessage } = usePetConversation()
 const anim = usePetAnimation()
+
+// Tracked so the evolution-end timeout can be cancelled on unmount, preventing
+// it from firing against the disposed usePetAnimation refs after navigation.
+let evolveResetTimeout: number | null = null
+
+onUnmounted(() => {
+  if (evolveResetTimeout !== null) {
+    clearTimeout(evolveResetTimeout)
+    evolveResetTimeout = null
+  }
+})
 
 // Evolution progress
 const evolutionProgress = computed(() => {
@@ -104,9 +115,11 @@ async function evolvePet() {
     toast.success(t.value.student.myPet.toastEvolveSuccess(result.newTier))
   }
 
-  await petsStore.fetchOwnedPets()
+  // evolvePet() already updates ownedPet.tier/foodFed locally on success (and
+  // re-fetches in its own catch fallback), so no extra fetch is needed here.
 
-  setTimeout(() => {
+  evolveResetTimeout = window.setTimeout(() => {
+    evolveResetTimeout = null
     anim.endEvolve()
   }, 1500)
 }

@@ -5,25 +5,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-import { rarityConfig, getRarityLabel } from '@/stores/pets'
 import { useAuthStore } from '@/stores/auth'
 import { useFriendsStore, FRIEND_CAP } from '@/stores/friends'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
-import { getInitials, getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
+import ProfilePetCard from '@/components/shared/ProfilePetCard.vue'
+import BestSubjectsList from '@/components/shared/BestSubjectsList.vue'
+import WeeklyActivityStrip from '@/components/shared/WeeklyActivityStrip.vue'
+import { getInitials } from '@/lib/utils'
 import { getAvatarUrl } from '@/lib/storage'
 import { formatDate } from '@/lib/date'
-import {
-  Loader2,
-  Star,
-  PawPrint,
-  Trophy,
-  Flame,
-  UserPlus,
-  UserCheck,
-  Clock,
-  Check,
-} from 'lucide-vue-next'
-import fireGif from '@/assets/icons/fire.gif'
+import { Loader2, Trophy, Flame, UserPlus, UserCheck, Clock, Check } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LeaderboardEntry } from '@/components/student/LeaderboardTable.vue'
 import { useT } from '@/composables/useT'
@@ -32,8 +23,17 @@ const t = useT()
 
 const open = defineModel<boolean>('open', { default: false })
 
+// Covers both LeaderboardStudent (all-time) and WeeklyLeaderboardStudent (weekly)
+// entry shapes passed by LeaderboardPage; fields absent on one variant are optional.
+interface ProfileDialogEntry extends LeaderboardEntry {
+  level?: number
+  xp?: number
+  weeklyXp?: number
+  currentStreak?: number
+}
+
 const props = defineProps<{
-  student: (LeaderboardEntry & Record<string, unknown>) | null
+  student: ProfileDialogEntry | null
   activeTab: 'all-time' | 'weekly'
 }>()
 
@@ -104,20 +104,12 @@ async function handleAcceptRequest() {
   }
 }
 
-// Computed helpers to avoid `as Record<string, unknown>` casts in template
-// (prettier's HTML parser chokes on angle brackets in type assertions)
-const studentRecord = computed(() => props.student as Record<string, unknown> | null)
-
-const studentLevel = computed(() => (studentRecord.value?.level as number) ?? '-')
+const studentLevel = computed(() => props.student?.level ?? '-')
 
 const studentXpDisplay = computed(() => {
-  if (props.activeTab === 'weekly') {
-    return (studentRecord.value?.weeklyXp as number)?.toLocaleString() ?? '-'
-  }
-  return (studentRecord.value?.xp as number)?.toLocaleString() ?? '-'
+  const xp = props.activeTab === 'weekly' ? props.student?.weeklyXp : props.student?.xp
+  return xp?.toLocaleString() ?? '-'
 })
-
-const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak as number) ?? 0)
 </script>
 
 <template>
@@ -215,66 +207,10 @@ const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak 
           <!-- Dashboard-style grid: Pet (1col, 2rows) | Best Subjects / Weekly Activity -->
           <div class="grid grid-cols-3 grid-rows-2 gap-4">
             <!-- Pet (left column, spans 2 rows) -->
-            <div
-              v-if="pet"
-              class="row-span-2 flex min-h-[24rem] flex-col overflow-hidden rounded-lg border"
-            >
-              <!-- Pet Display Area -->
-              <div
-                class="relative flex flex-1 items-center justify-center overflow-hidden px-6"
-                :class="rarityConfig[pet.rarity].bgColor"
-              >
-                <!-- Decorative background circles -->
-                <div
-                  class="absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 lg:size-56"
-                  :class="rarityConfig[pet.rarity].borderColor"
-                  style="border-width: 3px; border-style: dashed"
-                />
-                <div
-                  class="absolute left-1/2 top-1/2 size-36 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-10 lg:size-44"
-                  :class="rarityConfig[pet.rarity].borderColor"
-                  style="border-width: 2px; border-style: dotted"
-                />
-                <img
-                  :src="pet.imageUrl"
-                  :alt="pet.name"
-                  class="animate-bounce-slow relative z-10 h-full max-h-64 w-auto object-contain drop-shadow-lg"
-                />
-              </div>
-              <!-- Pet Info -->
-              <div class="flex items-center gap-3 px-5 py-3">
-                <PawPrint class="size-5 text-purple-500" />
-                <div>
-                  <p class="text-sm font-semibold">{{ pet.name }}</p>
-                  <div class="flex items-center gap-1.5">
-                    <Badge
-                      variant="outline"
-                      :class="rarityConfig[pet.rarity].color"
-                      class="text-xs"
-                    >
-                      {{ getRarityLabel(pet.rarity) }}
-                    </Badge>
-                    <Badge variant="secondary" class="text-xs">
-                      <Star class="mr-0.5 size-2.5" />
-                      T{{ pet.tier }}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div
-              v-else
-              class="row-span-2 flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed"
-            >
-              <div
-                class="flex size-24 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/50"
-              >
-                <PawPrint class="size-12 text-purple-400" />
-              </div>
-              <p class="text-lg font-semibold text-muted-foreground">
-                {{ t.shared.studentProfileDialog.noPetSelected }}
-              </p>
-            </div>
+            <ProfilePetCard
+              :pet="pet"
+              :no-pet-label="t.shared.studentProfileDialog.noPetSelected"
+            />
 
             <!-- Best Subjects (top right, spans 2 cols) -->
             <div
@@ -286,46 +222,10 @@ const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak 
                 </p>
                 <Trophy class="size-4 text-muted-foreground" />
               </div>
-              <div class="space-y-2">
-                <div v-for="index in 3" :key="index" class="flex items-center gap-2">
-                  <span class="text-lg leading-none">{{ MEDAL_EMOJIS[index - 1] }}</span>
-                  <template v-if="bestSubjects[index - 1]">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-baseline justify-between gap-2">
-                        <p class="truncate text-sm font-medium">
-                          {{ bestSubjects[index - 1]!.gradeLevelName }} ·
-                          {{ bestSubjects[index - 1]!.subjectName }}
-                        </p>
-                        <span
-                          class="shrink-0 text-sm font-bold"
-                          :class="getScoreTextColor(bestSubjects[index - 1]!.averageScore)"
-                        >
-                          {{ bestSubjects[index - 1]!.averageScore }}%
-                        </span>
-                      </div>
-                      <div
-                        class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
-                      >
-                        <div
-                          class="h-full rounded-full transition-all"
-                          :class="getScoreBarColor(bestSubjects[index - 1]!.averageScore)"
-                          :style="{ width: `${bestSubjects[index - 1]!.averageScore}%` }"
-                        />
-                      </div>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm text-muted-foreground/60">
-                        {{ t.shared.studentProfileDialog.notYetUnlocked }}
-                      </p>
-                      <div
-                        class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
-                      />
-                    </div>
-                  </template>
-                </div>
-              </div>
+              <BestSubjectsList
+                :subjects="bestSubjects"
+                :empty-label="t.shared.studentProfileDialog.notYetUnlocked"
+              />
             </div>
 
             <!-- Streak + Weekly Activity (bottom right, spans 2 cols) -->
@@ -338,53 +238,11 @@ const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak 
                 </p>
                 <Flame class="size-4 text-muted-foreground" />
               </div>
-              <div class="flex items-center gap-3">
-                <div class="flex size-14 items-center justify-center">
-                  <img v-if="studentCurrentStreak > 0" :src="fireGif" alt="fire" class="size-10" />
-                  <span v-else class="text-4xl">&#x1F4A4;</span>
-                </div>
-                <div>
-                  <p class="text-2xl font-bold">
-                    {{ studentCurrentStreak }}
-                    <span class="text-sm font-normal text-muted-foreground">{{
-                      t.shared.studentProfileDialog.days
-                    }}</span>
-                  </p>
-                </div>
-              </div>
-              <!-- Weekly Activity Dots -->
-              <div
-                v-if="weeklyActivity.length > 0"
-                class="mt-4 flex items-center justify-between gap-1"
-              >
-                <div
-                  v-for="(day, i) in weeklyActivity"
-                  :key="i"
-                  class="flex flex-1 flex-col items-center gap-1"
-                >
-                  <div
-                    class="size-5 rounded-full border"
-                    :class="[
-                      day.active
-                        ? 'border-orange-400 bg-orange-400 dark:border-orange-500 dark:bg-orange-500'
-                        : day.isFuture
-                          ? 'border-dashed border-gray-300 dark:border-gray-700'
-                          : 'border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-muted',
-                      day.isToday && !day.active ? 'border-orange-300 dark:border-orange-700' : '',
-                    ]"
-                  />
-                  <span
-                    class="text-[10px] leading-none"
-                    :class="
-                      day.isToday
-                        ? 'font-bold text-orange-600 dark:text-orange-400'
-                        : 'text-muted-foreground'
-                    "
-                  >
-                    {{ day.label }}
-                  </span>
-                </div>
-              </div>
+              <WeeklyActivityStrip
+                :current-streak="profile?.currentStreak ?? 0"
+                :weekly-activity="weeklyActivity"
+                :days-label="t.shared.studentProfileDialog.days"
+              />
             </div>
           </div>
 

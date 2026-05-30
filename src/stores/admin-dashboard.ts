@@ -68,6 +68,32 @@ export interface DashboardStats {
   practiceSessionsToday: number
 }
 
+// Explicit shapes for PostgREST server-side aggregation responses. PostgREST
+// returns aggregate columns under the alias declared in the select(); the
+// aliases below are pinned to the names used in the queries (e.g. `sum`, `count`)
+// so a select-shape drift breaks here at the single cast site rather than
+// silently reading undefined.
+interface UserTypeCountRow {
+  user_type: string
+  count: number
+}
+interface RevenueByCurrencyRow {
+  currency: string
+  sum: number | null
+}
+interface RevenueSumRow {
+  sum: number | null
+}
+interface TierCountRow {
+  subscription_tier: string
+  count: number
+}
+
+// Stripe invoice billing_reason values that represent a genuine new/changed
+// paid subscription (vs. 'subscription_cycle' recurring renewals). Stored in
+// payment_history.metadata.billing_reason by the stripe-webhook function.
+const UPGRADE_BILLING_REASONS = ['subscription_create', 'subscription_update'] as const
+
 export const useAdminDashboardStore = defineStore('adminDashboard', () => {
   const stats = ref<DashboardStats>({
     revenue: {
@@ -162,9 +188,11 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         tierDistributionResult,
       ] = await Promise.all([
         // Total users by type (server-side aggregation)
-        supabase.from('profiles').select('user_type, user_type.count()'),
+        supabase.from('profiles').select('user_type, count:user_type.count()'),
 
-        // Active students today (rows in daily_statuses with date = today)
+        // Active students today = students who opened the app today. A daily_statuses
+        // row is auto-created on first dashboard load (has_practiced may be false), so
+        // counting all of today's rows intentionally measures app opens, not practice.
         supabase
           .from('daily_statuses')
           .select('id', { count: 'exact', head: true })
@@ -180,20 +208,20 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         // Total revenue (server-side sum, grouped by currency)
         supabase
           .from('payment_history')
-          .select('currency, amount_cents.sum()')
+          .select('currency, sum:amount_cents.sum()')
           .eq('status', 'succeeded'),
 
         // Current month revenue (server-side sum)
         supabase
           .from('payment_history')
-          .select('amount_cents.sum()')
+          .select('sum:amount_cents.sum()')
           .eq('status', 'succeeded')
           .gte('created_at', currentMonthStart),
 
         // Previous month revenue (server-side sum)
         supabase
           .from('payment_history')
-          .select('amount_cents.sum()')
+          .select('sum:amount_cents.sum()')
           .eq('status', 'succeeded')
           .gte('created_at', previousMonth.start)
           .lte('created_at', previousMonth.end),
@@ -220,7 +248,9 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           return { data: rows, error: null }
         })(),
 
-        // Monthly upgrades by tier for last 12 months (batch fetch to avoid 1000-row cap)
+        // Monthly upgrades by tier for last 12 months (batch fetch to avoid 1000-row cap).
+        // Filtered to genuine upgrade events (subscription_create/subscription_update)
+        // so recurring renewals ('subscription_cycle') are not double-counted as upgrades.
         (async () => {
           const BATCH = 1000
           const rows: { tier: string | null; created_at: string | null }[] = []
@@ -232,6 +262,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
               .select('tier, created_at')
               .eq('status', 'succeeded')
               .in('tier', ['plus', 'pro'])
+              .in('metadata->>billing_reason', UPGRADE_BILLING_REASONS as unknown as string[])
               .gte('created_at', last12MonthsStart)
               .order('created_at', { ascending: true })
               .range(from, from + BATCH - 1)
@@ -244,7 +275,9 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         })(),
 
         // Subscription tier distribution (server-side aggregation)
-        supabase.from('student_profiles').select('subscription_tier, subscription_tier.count()'),
+        supabase
+          .from('student_profiles')
+          .select('subscription_tier, count:subscription_tier.count()'),
       ])
 
       // Check for errors
@@ -256,7 +289,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
 
       // Process users (server-side grouped counts)
       if (usersResult.data) {
-        const rows = usersResult.data as unknown as { user_type: string; count: number }[]
+        const rows = usersResult.data as unknown as UserTypeCountRow[]
         let total = 0
         for (const row of rows) {
           total += row.count
@@ -275,19 +308,19 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
 
       // Process revenue (server-side sums)
       if (totalRevenueResult.data) {
-        const rows = totalRevenueResult.data as unknown as { currency: string; sum: number }[]
+        const rows = totalRevenueResult.data as unknown as RevenueByCurrencyRow[]
         const firstRow = rows[0]
         stats.value.revenue.total = (firstRow?.sum ?? 0) / 100
         stats.value.revenue.currency = firstRow?.currency?.toUpperCase() || 'MYR'
       }
 
       if (currentMonthRevenueResult.data) {
-        const rows = currentMonthRevenueResult.data as unknown as { sum: number }[]
+        const rows = currentMonthRevenueResult.data as unknown as RevenueSumRow[]
         stats.value.revenue.currentMonth = (rows[0]?.sum ?? 0) / 100
       }
 
       if (previousMonthRevenueResult.data) {
-        const rows = previousMonthRevenueResult.data as unknown as { sum: number }[]
+        const rows = previousMonthRevenueResult.data as unknown as RevenueSumRow[]
         stats.value.revenue.previousMonth = (rows[0]?.sum ?? 0) / 100
       }
 
@@ -295,7 +328,8 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
       const current = stats.value.revenue.currentMonth
       const previous = stats.value.revenue.previousMonth
       if (previous === 0) {
-        stats.value.revenue.change = current > 0 ? '+100%' : '0%'
+        // Growth from zero is undefined/infinite, not 100% — label it distinctly.
+        stats.value.revenue.change = current > 0 ? 'New' : '0%'
       } else {
         const change = ((current - previous) / previous) * 100
         const sign = change >= 0 ? '+' : ''
@@ -356,10 +390,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
           plus: 'Plus',
           pro: 'Pro',
         }
-        const rows = tierDistributionResult.data as unknown as {
-          subscription_tier: string
-          count: number
-        }[]
+        const rows = tierDistributionResult.data as unknown as TierCountRow[]
         const tierCounts = new Map<string, number>()
         for (const row of rows) {
           if (row.subscription_tier) {

@@ -4,6 +4,7 @@ interface SessionWithStats {
   status: 'completed' | 'in_progress'
   score: number | null
   durationSeconds: number | null
+  gradeLevelName: string
   subjectName: string
   topicName: string
   subTopicName: string
@@ -30,7 +31,7 @@ export function useStatisticsSummary<T extends SessionWithStats>(
   const subTopicsPracticed = computed(() => {
     const subTopicSet = new Set<string>()
     for (const s of completedSessions.value) {
-      subTopicSet.add(`${s.subjectName}-${s.topicName}-${s.subTopicName}`)
+      subTopicSet.add(`${s.gradeLevelName}::${s.subjectName}::${s.topicName}::${s.subTopicName}`)
     }
     return subTopicSet.size
   })

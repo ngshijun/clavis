@@ -14,19 +14,26 @@ import type Stripe from 'stripe'
  *
  * ## Idempotency model
  *
- * Stripe delivers webhooks at-least-once. To prevent duplicate processing:
+ * Stripe delivers webhooks at-least-once. To prevent duplicate processing we
+ * CLAIM the event before running its handler, rather than committing after:
  *
- * 1. After a handler completes successfully, we insert `event.id` into
- *    `processed_webhook_events` (COMMIT pattern). Next time Stripe retries
- *    the same `event.id` — whether via automatic retry or Dashboard "Resend" —
- *    we see the row and skip.
+ * 1. We `insert` `event.id` into `processed_webhook_events` BEFORE dispatching.
+ *    The table's PK on `event_id` makes this an atomic claim — if a concurrent
+ *    delivery (or a prior delivery) already claimed it, the insert raises a
+ *    unique violation (23505) and we skip without re-running the handler.
  *
- * 2. If the handler throws, we don't insert. Stripe retries; on the next
- *    delivery we run the handler again from scratch.
+ * 2. If the handler then throws, we RELEASE the claim (delete the row) so
+ *    Stripe's retry re-runs the handler from scratch on the next delivery.
  *
- * 3. Domain handlers are designed to be naturally idempotent via state-based
- *    upserts (keyed on `stripe_subscription_id` / `stripe_invoice_id`), so
- *    running them twice is data-safe.
+ * 3. Claiming first (not committing after) closes the window where a handler
+ *    succeeds but the commit insert fails/is killed: previously the event would
+ *    never be recorded and Stripe's retry would re-run side effects. Now the
+ *    only way an event re-runs is if we explicitly released it after a throw.
+ *
+ * 4. Domain handlers are additionally designed to be naturally idempotent via
+ *    state-based upserts (keyed on `stripe_subscription_id` / `stripe_invoice_id`)
+ *    and commutative metadata merges (refund/dispute keyed on `refund_charge_id`
+ *    / `dispute_id`), so a release-then-retry is data-safe regardless of order.
  *
  * Per Stripe's official best practices (docs.stripe.com/webhooks/best-practices):
  * > "You can guard against duplicated event receipts by logging the event IDs
@@ -45,32 +52,42 @@ import type Stripe from 'stripe'
  * what the handler will do — state is overwritten, not merged.
  */
 
-async function isEventProcessed(eventId: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from('processed_webhook_events')
-    .select('event_id')
-    .eq('event_id', eventId)
-    .maybeSingle()
-  if (error) {
-    console.error('Error checking processed event:', error)
-    throw error
-  }
-  return data !== null
-}
-
-async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
+/**
+ * Atomically claim an event for processing by inserting its ID. The PK on
+ * `event_id` makes this the dedup gate: a successful insert means we own the
+ * event; a 23505 unique violation means another delivery already claimed it
+ * (concurrently or previously) and we must skip.
+ *
+ * Returns `true` if we claimed it (caller should run the handler), `false` if
+ * it was already claimed (caller should skip).
+ */
+async function claimEvent(eventId: string, eventType: string): Promise<boolean> {
   const { error } = await supabaseAdmin
     .from('processed_webhook_events')
     .insert({ event_id: eventId, event_type: eventType })
   if (error) {
-    // Race: another concurrent delivery committed first. Safe — both ran
-    // idempotent handlers. Log and move on.
     if (error.code === '23505') {
-      console.log(`Event ${eventId} already committed by concurrent delivery`)
-      return
+      return false
     }
-    console.error('Error marking event processed:', error)
+    console.error('Error claiming event:', error)
     throw error
+  }
+  return true
+}
+
+/**
+ * Release a previously-claimed event after its handler threw, so Stripe's
+ * retry can re-run the handler. Best-effort: a failed release just means the
+ * event stays claimed and the retry is skipped (handler side effects were
+ * partial), which is logged for manual replay.
+ */
+async function releaseEvent(eventId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('processed_webhook_events')
+    .delete()
+    .eq('event_id', eventId)
+  if (error) {
+    console.error(`Failed to release event ${eventId} after handler error:`, error)
   }
 }
 
@@ -87,56 +104,59 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Webhook event: ${event.type}, ID: ${event.id}`)
 
-    // Fast-path retry dedup — skip if we already committed this event
-    if (await isEventProcessed(event.id)) {
+    // Atomically claim the event BEFORE running its handler. A failed claim
+    // (23505) means another delivery already processed/claimed it — skip.
+    if (!(await claimEvent(event.id, event.type))) {
       console.log(`Event ${event.id} already processed, skipping`)
       return new Response(JSON.stringify({ received: true }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Dispatch to domain handler
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
-        break
+    // Dispatch to domain handler. If it throws, release the claim so Stripe's
+    // retry can re-run the (idempotent) handler from scratch.
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
+          break
 
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdate(event.data.object as Stripe.Subscription)
-        break
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdate(event.data.object as Stripe.Subscription)
+          break
 
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
-        break
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+          break
 
-      case 'invoice.paid':
-        await handleInvoicePaid(event.data.object as Stripe.Invoice)
-        break
+        case 'invoice.paid':
+          await handleInvoicePaid(event.data.object as Stripe.Invoice)
+          break
 
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice)
-        break
+        case 'invoice.payment_failed':
+          await handlePaymentFailed(event.data.object as Stripe.Invoice)
+          break
 
-      case 'charge.refunded':
-        await handleChargeRefunded(event.data.object as Stripe.Charge)
-        break
+        case 'charge.refunded':
+          await handleChargeRefunded(event.data.object as Stripe.Charge)
+          break
 
-      case 'charge.dispute.created':
-        await handleDisputeCreated(event.data.object as Stripe.Dispute)
-        break
+        case 'charge.dispute.created':
+          await handleDisputeCreated(event.data.object as Stripe.Dispute)
+          break
 
-      case 'charge.dispute.closed':
-        await handleDisputeClosed(event.data.object as Stripe.Dispute)
-        break
+        case 'charge.dispute.closed':
+          await handleDisputeClosed(event.data.object as Stripe.Dispute)
+          break
 
-      default:
-        console.log(`Unhandled event type: ${event.type}`)
+        default:
+          console.log(`Unhandled event type: ${event.type}`)
+      }
+    } catch (handlerError) {
+      await releaseEvent(event.id)
+      throw handlerError
     }
-
-    // Commit the event as processed AFTER the handler succeeds.
-    // If the handler threw, we never get here — Stripe will retry.
-    await markEventProcessed(event.id, event.type)
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { 'Content-Type': 'application/json' },
@@ -211,15 +231,28 @@ async function resolveDisputeInvoiceId(dispute: Stripe.Dispute): Promise<string 
 }
 
 /**
- * Read the existing metadata for a payment_history row, merge in new fields,
- * and write status + merged metadata back. Callers supply the status string
- * and metadata extras; everything else (lookup, merge, error handling) is
- * identical across refund/dispute-created/dispute-closed handlers.
+ * Read the existing metadata for a payment_history row, merge in new fields
+ * under a stable, idempotent key, and write status + merged metadata back.
+ *
+ * Re-delivery safety: Stripe delivers at-least-once and may re-deliver
+ * different events (refund, dispute opened, dispute closed) out of order. A
+ * blind top-level spread merge is order-sensitive — a re-delivered older event
+ * could clobber a newer one's keys. Instead each caller writes its payload
+ * under a deterministic `mergeKey` (refund → `refund_charge_id`, dispute →
+ * `dispute_id`), so re-applying the same event is a no-op overwrite of its own
+ * sub-object and applying events in any order converges to the same metadata.
+ *
+ * `status` reflects the latest applied event; for the refund/dispute lifecycle
+ * the terminal status is itself idempotent (a re-delivered "dispute created"
+ * after "dispute closed" only re-writes the `disputes[id]` sub-object — handle
+ * status ordering at the call site if needed).
  */
 async function patchPaymentHistoryByInvoice(
   invoiceId: string,
   status: string,
-  metadataExtras: Record<string, unknown>,
+  mergeBucket: string,
+  mergeKey: string,
+  payload: Record<string, unknown>,
   context: string,
 ): Promise<void> {
   const { data: existing, error: selectError } = await supabaseAdmin
@@ -237,11 +270,23 @@ async function patchPaymentHistoryByInvoice(
   }
 
   const previousMetadata = (existing.metadata ?? {}) as Record<string, unknown>
+  const previousBucket = (previousMetadata[mergeBucket] ?? {}) as Record<string, unknown>
+
+  // Merge this event's payload under its stable id key. Re-delivery overwrites
+  // the SAME sub-object (commutative); distinct events land in distinct keys.
+  const nextMetadata = {
+    ...previousMetadata,
+    [mergeBucket]: {
+      ...previousBucket,
+      [mergeKey]: payload,
+    },
+  }
+
   const { error } = await supabaseAdmin
     .from('payment_history')
     .update({
       status,
-      metadata: { ...previousMetadata, ...metadataExtras },
+      metadata: nextMetadata,
     })
     .eq('id', existing.id)
 
@@ -366,6 +411,8 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   await patchPaymentHistoryByInvoice(
     invoiceId,
     status,
+    'refunds',
+    charge.id,
     { refunded_amount_cents: charge.amount_refunded, refund_charge_id: charge.id },
     'refund',
   )
@@ -387,7 +434,9 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
   await patchPaymentHistoryByInvoice(
     invoiceId,
     'disputed',
-    { dispute_id: dispute.id, dispute_reason: dispute.reason },
+    'disputes',
+    dispute.id,
+    { dispute_id: dispute.id, dispute_reason: dispute.reason, dispute_status: dispute.status },
     'dispute',
   )
   console.log(`Dispute recorded for invoice ${invoiceId} (${dispute.reason})`)
@@ -415,10 +464,16 @@ async function handleDisputeClosed(dispute: Stripe.Dispute) {
   const invoiceId = await resolveDisputeInvoiceId(dispute)
   if (!invoiceId) return
 
+  // Merge into the same `disputes[dispute.id]` sub-object the created handler
+  // wrote, keyed on dispute.id so re-delivery is commutative. Carry dispute_id
+  // forward so the sub-object stays self-describing even if "closed" is
+  // delivered/replayed before "created".
   await patchPaymentHistoryByInvoice(
     invoiceId,
     nextStatus,
-    { dispute_status: dispute.status },
+    'disputes',
+    dispute.id,
+    { dispute_id: dispute.id, dispute_reason: dispute.reason, dispute_status: dispute.status },
     'dispute close',
   )
   console.log(`Dispute ${dispute.id} closed → ${nextStatus}`)

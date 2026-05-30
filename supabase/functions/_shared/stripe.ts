@@ -7,7 +7,14 @@ export const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 
 export const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 
-const allowedOrigin = Deno.env.get('APP_URL') ?? ''
+// APP_URL is required for both CORS allowed-origin and redirect URL construction.
+// Fail fast at module load if it is unset, instead of degrading to an empty
+// allowed-origin string that produces opaque browser CORS failures across the
+// subscription UI.
+const allowedOrigin = Deno.env.get('APP_URL')
+if (!allowedOrigin) {
+  throw new Error('Missing required env APP_URL')
+}
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,

@@ -361,16 +361,23 @@ const router = createRouter({
         },
       ],
     },
-    // Catch-all route for 404
+    // Catch-all route for unknown paths: route authenticated users to their
+    // role dashboard (no login flash / extra hop) and guests to login.
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/login',
+      redirect: () => {
+        const authStore = useAuthStore()
+        if (authStore.isAuthenticated) {
+          return getDashboardPath(authStore.userType)
+        }
+        return '/login'
+      },
     },
   ],
 })
 
 // Navigation guard
-function getDashboardPath(userType: UserType | null): string {
+export function getDashboardPath(userType: UserType | null): string {
   if (userType === 'admin') return '/admin/dashboard'
   if (userType === 'parent') return '/parent/dashboard'
   return '/student/dashboard'

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { getMYTDayBoundsISO } from '@/lib/date'
 import { useAuthStore } from './auth'
 import type { Database } from '@/types/database.types'
+import { canViewDetailedResults as tierCanViewDetailedResults } from '@/lib/tierConfig'
 
 type SubscriptionTier = Database['public']['Enums']['subscription_tier']
 
@@ -131,7 +132,7 @@ export const useStudentSubscriptionStore = defineStore('studentSubscription', ()
       const tier = (profileResult.data?.subscription_tier as SubscriptionTier) ?? 'core'
       const isLinkedToParent = (linksResult.data?.length ?? 0) > 0
       const sessionsPerDay = getSessionsPerDayForTier(tier)
-      const canViewDetailedResults = tier === 'plus' || tier === 'pro' || tier === 'max'
+      const canViewDetailedResults = tierCanViewDetailedResults(tier)
 
       const status: StudentSubscriptionStatus = {
         isLinkedToParent,

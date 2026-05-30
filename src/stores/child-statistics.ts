@@ -18,6 +18,7 @@ import type {
   PracticeSessionFull,
 } from '@/types/session'
 import { assembleSessionFull } from '@/lib/questionHelpers'
+import { canViewDetailedResults as tierCanViewDetailedResults } from '@/lib/tierConfig'
 
 export type { DateRangeFilter, QuestionOption, PracticeAnswer, SessionQuestion }
 export type ChildPracticeSession = PracticeSessionSummary
@@ -176,7 +177,7 @@ export const useChildStatisticsStore = defineStore('childStatistics', () => {
         .maybeSingle()
 
       const tier = (profileData?.subscription_tier as SubscriptionTier) ?? 'core'
-      const canViewDetailedResults = tier === 'plus' || tier === 'pro' || tier === 'max'
+      const canViewDetailedResults = tierCanViewDetailedResults(tier)
 
       const status: ChildSubscriptionStatus = { tier, canViewDetailedResults }
       subscriptionStatusCache.value.set(childId, { status, lastFetched: Date.now() })

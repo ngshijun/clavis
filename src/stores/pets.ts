@@ -93,6 +93,17 @@ export function getRarityLabel(rarity: PetRarity): string {
   return useLanguageStore().t.shared.petTiers[rarity]
 }
 
+/**
+ * Single source of truth for rarity accent colors as raw hex values
+ * (for use outside Tailwind class contexts, e.g. inline SVG/canvas/styles).
+ */
+export const rarityHexColors: Record<PetRarity, string> = {
+  common: '#22C55E',
+  rare: '#3B82F6',
+  epic: '#A855F7',
+  legendary: '#F59E0B',
+}
+
 export const usePetsStore = defineStore('pets', () => {
   const authStore = useAuthStore()
 
@@ -203,11 +214,6 @@ export const usePetsStore = defineStore('pets', () => {
     return `${url}${separator}v=${new Date(updatedAt).getTime()}`
   }
 
-  // Alias kept for call-site compatibility (images are pre-optimized at upload time)
-  function getOptimizedPetImageUrl(imagePath: string | null, updatedAt?: string | null): string {
-    return getPetImageUrl(imagePath, updatedAt)
-  }
-
   // Get pet image URL based on tier
   function getPetImageUrlForTier(pet: Pet, tier: number): string {
     let imagePath: string | null = pet.imagePath
@@ -219,16 +225,9 @@ export const usePetsStore = defineStore('pets', () => {
     return getPetImageUrl(imagePath, pet.updatedAt)
   }
 
-  // Get optimized pet image URL based on tier (for dialog display)
-  function getOptimizedPetImageUrlForTier(pet: Pet, tier: number): string {
-    let imagePath: string | null = pet.imagePath
-    if (tier === 2 && pet.tier2ImagePath) {
-      imagePath = pet.tier2ImagePath
-    } else if (tier === 3 && pet.tier3ImagePath) {
-      imagePath = pet.tier3ImagePath
-    }
-    return getOptimizedPetImageUrl(imagePath, pet.updatedAt)
-  }
+  // Thin aliases kept for call-site compatibility (images are pre-optimized at upload time)
+  const getOptimizedPetImageUrl = getPetImageUrl
+  const getOptimizedPetImageUrlForTier = getPetImageUrlForTier
 
   // Get evolution progress for an owned pet
   function getEvolutionProgress(ownedPet: OwnedPet): {

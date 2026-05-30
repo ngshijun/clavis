@@ -7,7 +7,7 @@ import {
   type StudentPracticeSessionFull,
 } from '@/stores/admin-student-stats'
 import { parseSimpleMarkdown } from '@/lib/utils'
-import { computeScorePercent } from '@/lib/questionHelpers'
+import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,22 +30,11 @@ const student = computed(() => adminStudentsStore.getStudentById(studentId.value
 const session = ref<StudentPracticeSessionFull | null>(null)
 const isLoading = ref(true)
 
-const summary = computed(() => {
-  if (!session.value) return null
-  const totalQuestions = session.value.questions.length || session.value.totalQuestions
-  const correctAnswers = session.value.answers.filter((a) => a.isCorrect).length
-  const score = computeScorePercent(correctAnswers, totalQuestions)
-
-  const durationSeconds = session.value.durationSeconds ?? 0
-
-  return {
-    totalQuestions,
-    correctAnswers,
-    incorrectAnswers: totalQuestions - correctAnswers,
-    score,
-    durationSeconds,
-  }
-})
+// buildSessionSummary reads only questions.length / answers[].isCorrect; the full session's
+// richer questions[] is structurally a superset, so cast to the helper's minimal shape.
+const summary = computed(() =>
+  session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
+)
 
 onMounted(async () => {
   // Ensure students are loaded first
