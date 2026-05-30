@@ -9,27 +9,6 @@ export interface FriendSearchResult {
   friendCode: string
 }
 
-/**
- * Shape returned by the search_student_by_friend_code RPC.
- * SECURITY DEFINER; returns at most one exact-match row (excluding the caller).
- */
-interface FriendCodeSearchRow {
-  id: string
-  name: string
-  avatar_path: string | null
-}
-
-/**
- * Shape returned by the search_students_by_name RPC.
- * SECURITY DEFINER; partial-name match, public-safe columns only, capped at 20.
- */
-interface NameSearchRow {
-  id: string
-  name: string
-  avatar_path: string | null
-  friend_code: string
-}
-
 const DEBOUNCE_MS = 300
 const FRIEND_CODE_PATTERN = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i
 
@@ -55,15 +34,11 @@ export function useFriendSearch() {
       // both branches go through SECURITY DEFINER RPCs that return only public-safe
       // columns (never coins/xp/tier). A friend-code-shaped query does an exact lookup;
       // anything else is treated as a partial-name search.
-      // types regen pending (migration 20260530000002): the new RPC names are not yet
-      // in database.types.ts, so the typed rpc() overload rejects them — cast per RPC.
       if (FRIEND_CODE_PATTERN.test(query)) {
         const code = query.toUpperCase()
-        const rpc = supabase.rpc as unknown as (
-          fn: 'search_student_by_friend_code',
-          args: { p_code: string },
-        ) => PromiseLike<{ data: FriendCodeSearchRow[] | null; error: unknown }>
-        const { data, error } = await rpc('search_student_by_friend_code', { p_code: code })
+        const { data, error } = await supabase.rpc('search_student_by_friend_code', {
+          p_code: code,
+        })
         if (error) throw error
         if (version !== currentVersion) return
         // Exact friend-code match, so the searched code applies to every row.
@@ -74,11 +49,7 @@ export function useFriendSearch() {
           friendCode: code,
         }))
       } else {
-        const rpc = supabase.rpc as unknown as (
-          fn: 'search_students_by_name',
-          args: { p_query: string },
-        ) => PromiseLike<{ data: NameSearchRow[] | null; error: unknown }>
-        const { data, error } = await rpc('search_students_by_name', { p_query: query })
+        const { data, error } = await supabase.rpc('search_students_by_name', { p_query: query })
         if (error) throw error
         if (version !== currentVersion) return
         results.value = (data ?? []).map((row) => ({

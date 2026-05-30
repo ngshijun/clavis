@@ -86,8 +86,9 @@ export function useStudentProfileDialog() {
       if (error) throw error
       if (!data) return
 
-      // types regen pending: migration 20260530000003 adds xp + current_streak to the
-      // get_student_profile_for_dialog payload (alongside the badges/extra-stats fields).
+      // get_student_profile_for_dialog returns jsonb (opaque Json in the generated
+      // types), so the payload shape is asserted here. Migration 20260530000003 added
+      // xp + current_streak alongside the badges / extra-stats fields.
       const result = data as unknown as {
         coins: number
         xp: number
