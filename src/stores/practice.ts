@@ -5,6 +5,7 @@ import { useQuestionsStore, type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
 import { useLanguageStore } from './language'
+import type { Database } from '@/types/database.types'
 import { handleError, errorMessages } from '@/lib/errors'
 import { computeScorePercent, mapAnswerRow } from '@/lib/questionHelpers'
 import {
@@ -413,6 +414,7 @@ export const usePracticeStore = defineStore('practice', () => {
     xp_earned: number
     coins_earned: number
     correct_count: number
+    newly_unlocked_badges?: Array<Database['public']['Tables']['badges']['Row']>
   }
 
   /**
@@ -437,6 +439,10 @@ export const usePracticeStore = defineStore('practice', () => {
       xp_earned: r.xp_earned,
       coins_earned: r.coins_earned,
       correct_count: r.correct_count,
+      // Pass through (not strictly validated): optional celebration payload.
+      newly_unlocked_badges: Array.isArray(r.newly_unlocked_badges)
+        ? (r.newly_unlocked_badges as Array<Database['public']['Tables']['badges']['Row']>)
+        : undefined,
     }
   }
 
@@ -466,9 +472,10 @@ export const usePracticeStore = defineStore('practice', () => {
         }
       }
 
-      // complete_practice_session returns a jsonb payload; validate the three
-      // numeric fields before trusting them so a null/misshaped result surfaces
-      // as a handled error instead of writing undefined into the reward UI.
+      // complete_practice_session returns a jsonb payload; validate the numeric
+      // fields before trusting them so a null/misshaped result surfaces as a
+      // handled error instead of writing undefined into the reward UI. Newly
+      // unlocked badges are passed through for the celebration queue.
       const result = parseCompletionRewards(rewards)
       if (!result) {
         return { session: null, error: errorMessages().failedCompleteSession }
@@ -483,6 +490,13 @@ export const usePracticeStore = defineStore('practice', () => {
       currentSession.value.correctAnswers = result.correct_count
       currentSession.value.xpEarned = result.xp_earned
       currentSession.value.coinsEarned = result.coins_earned
+
+      // Hand off newly-unlocked badges to the badges store + celebration queue
+      if (result.newly_unlocked_badges && result.newly_unlocked_badges.length > 0) {
+        const { useBadgesStore } = await import('@/stores/badges')
+        const badgesStore = useBadgesStore()
+        badgesStore.handleNewlyUnlocked(result.newly_unlocked_badges)
+      }
 
       // Update the corresponding entry in history store
       const historyStore = usePracticeHistoryStore()

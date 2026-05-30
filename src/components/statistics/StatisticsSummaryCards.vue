@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatStudyTime } from '@/lib/date'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Target, BookOpen, Clock, Layers } from 'lucide-vue-next'
+import { Target, BookOpen, Clock, Layers, Award } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -11,11 +11,13 @@ defineProps<{
   totalSessions: number
   totalStudyTime: number
   subTopicsPracticed: number
+  badgesLifetime?: number
+  badgesThisWeek?: number
 }>()
 </script>
 
 <template>
-  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
     <Card>
       <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle class="text-sm font-medium">{{
@@ -61,6 +63,21 @@ defineProps<{
       </CardHeader>
       <CardContent>
         <div class="text-3xl font-bold">{{ subTopicsPracticed }}</div>
+      </CardContent>
+    </Card>
+
+    <Card v-if="badgesLifetime !== undefined">
+      <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle class="text-sm font-medium">{{
+          t.parent.statistics.badgesSection.title
+        }}</CardTitle>
+        <Award class="size-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div class="text-3xl font-bold">{{ badgesLifetime }}</div>
+        <p class="text-xs text-muted-foreground">
+          {{ t.parent.statistics.badgesSection.thisWeek(badgesThisWeek ?? 0) }}
+        </p>
       </CardContent>
     </Card>
   </div>

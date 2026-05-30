@@ -8,6 +8,7 @@ import {
   Users,
   UsersRound,
   Trophy,
+  Award,
   FolderHeart,
   Baby,
   PieChart,
@@ -40,6 +41,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Friends', path: '/student/friends', icon: UsersRound },
     { title: 'My Pet', path: '/student/my-pet', icon: PawPrint },
     { title: 'Collections', path: '/student/collections', icon: FolderHeart },
+    { title: 'Achievements', path: '/student/achievements', icon: Award },
   ],
   parent: [
     { title: 'Dashboard', path: '/parent/dashboard', icon: LayoutDashboard },

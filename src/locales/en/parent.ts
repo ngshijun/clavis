@@ -92,6 +92,10 @@ export default {
     practiceHistoryTitle: 'Practice History',
     practiceHistoryDesc: "View your child's past practice sessions and scores",
     noSessions: 'No practice sessions found for the selected filters.',
+    badgesSection: {
+      title: 'Badges earned',
+      thisWeek: (count: number) => `${count} this week`,
+    },
   },
 
   subscription: {

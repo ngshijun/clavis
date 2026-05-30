@@ -184,7 +184,7 @@ export const useStudentDashboardStore = defineStore('studentDashboard', () => {
 
     try {
       // Record spin and credit coins atomically using RPC function
-      const { error: rpcError } = await supabase.rpc('record_spin_reward', {
+      const { data, error: rpcError } = await supabase.rpc('record_spin_reward', {
         p_daily_status_id: todayStatus.value.id,
         p_student_id: studentId,
         p_reward: reward,
@@ -200,6 +200,16 @@ export const useStudentDashboardStore = defineStore('studentDashboard', () => {
 
       // Refresh auth store to get updated coins from database
       await authStore.refreshProfile()
+
+      // Hand off any newly-unlocked badges. v1 has no triggers that fire on
+      // spin, but the hook is wired for future additions.
+      const result = data as {
+        newly_unlocked_badges?: Database['public']['Tables']['badges']['Row'][]
+      } | null
+      if (result?.newly_unlocked_badges && result.newly_unlocked_badges.length > 0) {
+        const { useBadgesStore } = await import('@/stores/badges')
+        useBadgesStore().handleNewlyUnlocked(result.newly_unlocked_badges)
+      }
 
       return { error: null }
     } catch (err) {

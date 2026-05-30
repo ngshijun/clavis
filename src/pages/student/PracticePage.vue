@@ -10,7 +10,7 @@ import {
 } from '@/stores/practice'
 import { usePracticeProgress } from '@/composables/usePracticeProgress'
 import { useT } from '@/composables/useT'
-import { Loader2, Clock, CircleCheck, GraduationCap } from 'lucide-vue-next'
+import { Loader2, Clock, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,14 +22,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'vue-sonner'
@@ -147,6 +139,14 @@ function selectSubTopic(subTopicId: string) {
   showConfirmDialog.value = true
 }
 
+function goBack() {
+  if (selectedTopic.value) {
+    practiceStore.setPracticeTopic(null)
+  } else if (selectedSubject.value) {
+    practiceStore.resetPracticeNavigation()
+  }
+}
+
 async function confirmStartSession() {
   if (!pendingSubTopicId.value) return
 
@@ -180,7 +180,14 @@ async function confirmStartSession() {
     <!-- Header -->
     <div class="mb-6 flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold">{{ t.student.practice.title }}</h1>
+        <!-- Back button — labelled with the level we're returning to -->
+        <Button v-if="selectedSubject" variant="ghost" size="sm" class="mb-2 -ml-2" @click="goBack">
+          <ArrowLeft class="mr-2 size-4" />
+          {{ selectedTopic ? selectedSubject.name : studentGradeLevelName }}
+        </Button>
+        <h1 class="text-2xl font-bold">
+          {{ selectedTopic?.name ?? selectedSubject?.name ?? t.student.practice.title }}
+        </h1>
         <p class="text-muted-foreground">
           {{
             selectedTopic
@@ -190,36 +197,6 @@ async function confirmStartSession() {
                 : t.student.practice.subtitleSubject
           }}
         </p>
-        <!-- Breadcrumb Navigation -->
-        <Breadcrumb class="mt-4">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink v-if="selectedSubject" as-child>
-                <button @click="practiceStore.resetPracticeNavigation()">
-                  {{ studentGradeLevelName }}
-                </button>
-              </BreadcrumbLink>
-              <BreadcrumbPage v-else>{{ studentGradeLevelName }}</BreadcrumbPage>
-            </BreadcrumbItem>
-            <template v-if="selectedSubject">
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink v-if="selectedTopic" as-child>
-                  <button @click="practiceStore.setPracticeTopic(null)">
-                    {{ selectedSubject.name }}
-                  </button>
-                </BreadcrumbLink>
-                <BreadcrumbPage v-else>{{ selectedSubject.name }}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </template>
-            <template v-if="selectedTopic">
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{{ selectedTopic.name }}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </template>
-          </BreadcrumbList>
-        </Breadcrumb>
       </div>
       <!-- Session Counter -->
       <div

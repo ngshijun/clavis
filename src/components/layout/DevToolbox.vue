@@ -2,11 +2,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useCelebrationQueue } from '@/composables/useCelebrationQueue'
 import { Button } from '@/components/ui/button'
 import { Wrench } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
+const celebrationQueue = useCelebrationQueue()
 const router = useRouter()
 const isOpen = ref(false)
 const isSigningIn = ref(false)
@@ -36,7 +38,7 @@ async function signInAs(email: string) {
 }
 
 function testLevelUp() {
-  authStore.levelUpInfo = { oldLevel: 4, newLevel: 5 }
+  celebrationQueue.enqueue([{ type: 'levelUp', oldLevel: 4, newLevel: 5 }])
 }
 </script>
 

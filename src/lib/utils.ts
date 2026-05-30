@@ -85,5 +85,8 @@ export function parseSimpleMarkdown(text: string): string {
   // Convert *italic* to <em> (but not inside **)
   result = result.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>')
 
+  // Convert __underline__ to <u> (uses _ boundaries to avoid greedy matches)
+  result = result.replace(/(?<!_)__([^_]+?)__(?!_)/g, '<u>$1</u>')
+
   return result
 }

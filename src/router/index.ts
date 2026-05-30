@@ -50,8 +50,17 @@ function studentRouteGuard() {
     import('@/stores/announcements'),
     import('@/stores/leaderboard'),
     import('@/stores/friends'),
+    import('@/stores/badges'),
   ]).then(
-    ([curriculumMod, petsMod, parentLinkMod, announcementsMod, leaderboardMod, friendsMod]) => {
+    ([
+      curriculumMod,
+      petsMod,
+      parentLinkMod,
+      announcementsMod,
+      leaderboardMod,
+      friendsMod,
+      badgesMod,
+    ]) => {
       const curriculumStore = curriculumMod.useCurriculumStore()
       const petsStore = petsMod.usePetsStore()
       const parentLinkStore = parentLinkMod.useParentLinkStore()
@@ -83,6 +92,11 @@ function studentRouteGuard() {
       }
       if (!friendsStore.hasFetchedRequests) {
         friendsStore.fetchRequests()
+      }
+
+      const badgesStore = badgesMod.useBadgesStore()
+      if (!badgesStore.hasLoaded && !badgesStore.isLoading) {
+        badgesStore.loadAll()
       }
     },
   )
@@ -294,6 +308,11 @@ const router = createRouter({
           path: 'collections',
           name: 'student-collections',
           component: () => import('@/pages/student/CollectionsPage.vue'),
+        },
+        {
+          path: 'achievements',
+          name: 'student-achievements',
+          component: () => import('@/pages/student/AchievementsPage.vue'),
         },
         {
           path: 'gacha',

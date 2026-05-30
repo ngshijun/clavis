@@ -6,15 +6,24 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
 import { computeLevel } from '@/lib/xp'
+import { rarityConfig, getRarityLabel } from '@/stores/pets'
 import { CLOSENESS_LABELS, CLOSENESS_THRESHOLDS } from '@/stores/friends'
 import { useStudentProfileDialog } from '@/composables/useStudentProfileDialog'
-import ProfilePetCard from '@/components/shared/ProfilePetCard.vue'
-import BestSubjectsList from '@/components/shared/BestSubjectsList.vue'
-import WeeklyActivityStrip from '@/components/shared/WeeklyActivityStrip.vue'
-import { getInitials } from '@/lib/utils'
+import FeaturedBadgesRow from '@/components/student/FeaturedBadgesRow.vue'
+import { getInitials, getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
 import { getAvatarUrl } from '@/lib/storage'
 import { formatDate, formatRelativeDate } from '@/lib/date'
-import { Loader2, Trophy, Flame, CalendarHeart, Handshake } from 'lucide-vue-next'
+import {
+  Loader2,
+  Star,
+  PawPrint,
+  Trophy,
+  Flame,
+  CalendarHeart,
+  Handshake,
+  Award,
+} from 'lucide-vue-next'
+import fireGif from '@/assets/icons/fire.gif'
 import type { Friend } from '@/stores/friends'
 import { useT } from '@/composables/useT'
 
@@ -26,10 +35,13 @@ const props = defineProps<{
   friend: Friend | null
 }>()
 
-const { profile, pet, bestSubjects, weeklyActivity, isLoading, fetchProfile } =
+const { profile, pet, bestSubjects, weeklyActivity, featuredBadges, isLoading, fetchProfile } =
   useStudentProfileDialog()
 
-const friendLevel = computed(() => computeLevel(profile.value?.xp ?? 0))
+// xp comes from the get_student_profile_for_dialog RPC (a friend's student_profiles
+// row is not directly readable under the restricted SELECT policy, migration 0002).
+const friendXp = computed(() => profile.value?.xp ?? 0)
+const friendLevel = computed(() => computeLevel(friendXp.value))
 
 watch([open, () => props.friend?.friendId], ([isOpen, friendId]) => {
   if (isOpen && friendId) {
@@ -81,13 +93,6 @@ const xpToNextLevel = computed(() => {
                 <Badge variant="secondary" class="gap-1">
                   <CalendarHeart class="size-3" />
                   {{ t.shared.friendProfileDialog.friendsSince(formatDate(friend.friendSince)) }}
-                </Badge>
-                <Badge variant="secondary" class="gap-1">
-                  {{
-                    t.shared.friendProfileDialog.active(
-                      formatRelativeDate(friend.lastActive, t.shared.relativeDate),
-                    )
-                  }}
                 </Badge>
               </div>
             </div>
@@ -142,28 +147,133 @@ const xpToNextLevel = computed(() => {
             </p>
           </div>
 
-          <!-- Stats Row (matches leaderboard dialog) -->
-          <div class="grid grid-cols-3 gap-3">
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.level }}</p>
-              <p class="text-xl font-bold">{{ friendLevel }}</p>
+          <!-- Featured Badges + Stats Row -->
+          <div class="grid grid-cols-3 gap-4">
+            <div
+              class="flex flex-col justify-center rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 dark:border-amber-900/50 dark:from-amber-950/30 dark:to-yellow-950/30"
+            >
+              <div class="mb-3 flex items-center justify-between">
+                <p class="text-xs font-medium text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.featuredBadges }}
+                </p>
+                <Award class="size-4 text-muted-foreground" />
+              </div>
+              <FeaturedBadgesRow :badges="featuredBadges" :show-label="false" />
             </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.xp }}</p>
-              <p class="text-xl font-bold">{{ (profile?.xp ?? 0).toLocaleString() }}</p>
-            </div>
-            <div class="rounded-lg border bg-muted/30 p-3 text-center">
-              <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.coins }}</p>
-              <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
-                {{ profile?.coins.toLocaleString() ?? '-' }}
-              </p>
+            <div class="col-span-2 grid grid-cols-3 gap-3">
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.level }}
+                </p>
+                <p class="text-xl font-bold">{{ friendLevel }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.xp }}</p>
+                <p class="text-xl font-bold">{{ friendXp.toLocaleString() }}</p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.coins }}
+                </p>
+                <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
+                  {{ profile?.coins.toLocaleString() ?? '-' }}
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.badges }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{ profile?.badgesEarned ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalBadges ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">{{ t.shared.friendProfileDialog.pets }}</p>
+                <p class="text-xl font-bold">
+                  {{ profile?.petsCollected ?? 0 }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ profile?.totalPets ?? 0 }}</span
+                  >
+                </p>
+              </div>
+              <div class="rounded-lg border bg-muted/30 p-3 text-center">
+                <p class="text-xs text-muted-foreground">
+                  {{ t.shared.friendProfileDialog.lastActive }}
+                </p>
+                <p class="text-xl font-bold">
+                  {{
+                    profile?.lastActive
+                      ? formatRelativeDate(profile.lastActive, t.shared.relativeDate)
+                      : '-'
+                  }}
+                </p>
+              </div>
             </div>
           </div>
 
           <!-- Dashboard-style grid: Pet (1col, 2rows) | Best Subjects / Weekly Activity -->
           <div class="grid grid-cols-3 grid-rows-2 gap-4">
             <!-- Pet (left column, spans 2 rows) -->
-            <ProfilePetCard :pet="pet" :no-pet-label="t.shared.friendProfileDialog.noPetSelected" />
+            <div
+              v-if="pet"
+              class="row-span-2 flex min-h-[24rem] flex-col overflow-hidden rounded-lg border"
+            >
+              <div
+                class="relative flex flex-1 items-center justify-center overflow-hidden px-6"
+                :class="rarityConfig[pet.rarity].bgColor"
+              >
+                <div
+                  class="absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 lg:size-56"
+                  :class="rarityConfig[pet.rarity].borderColor"
+                  style="border-width: 3px; border-style: dashed"
+                />
+                <div
+                  class="absolute left-1/2 top-1/2 size-36 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-10 lg:size-44"
+                  :class="rarityConfig[pet.rarity].borderColor"
+                  style="border-width: 2px; border-style: dotted"
+                />
+                <img
+                  :src="pet.imageUrl"
+                  :alt="pet.name"
+                  class="animate-bounce-slow relative z-10 h-full max-h-64 w-auto object-contain drop-shadow-lg"
+                />
+              </div>
+              <div class="flex items-center gap-3 px-5 py-3">
+                <PawPrint class="size-5 text-purple-500" />
+                <div>
+                  <p class="text-sm font-semibold">{{ pet.name }}</p>
+                  <div class="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      :class="rarityConfig[pet.rarity].color"
+                      class="text-xs"
+                    >
+                      {{ getRarityLabel(pet.rarity) }}
+                    </Badge>
+                    <Badge variant="secondary" class="text-xs">
+                      <Star class="mr-0.5 size-2.5" />
+                      T{{ pet.tier }}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="row-span-2 flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed"
+            >
+              <div
+                class="flex size-24 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/50"
+              >
+                <PawPrint class="size-12 text-purple-400" />
+              </div>
+              <p class="text-lg font-semibold text-muted-foreground">
+                {{ t.shared.friendProfileDialog.noPetSelected }}
+              </p>
+            </div>
 
             <!-- Best Subjects (top right, spans 2 cols) -->
             <div
@@ -175,10 +285,46 @@ const xpToNextLevel = computed(() => {
                 </p>
                 <Trophy class="size-4 text-muted-foreground" />
               </div>
-              <BestSubjectsList
-                :subjects="bestSubjects"
-                :empty-label="t.shared.friendProfileDialog.notYetUnlocked"
-              />
+              <div class="space-y-2">
+                <div v-for="index in 3" :key="index" class="flex items-center gap-2">
+                  <span class="text-lg leading-none">{{ MEDAL_EMOJIS[index - 1] }}</span>
+                  <template v-if="bestSubjects[index - 1]">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-baseline justify-between gap-2">
+                        <p class="truncate text-sm font-medium">
+                          {{ bestSubjects[index - 1]!.gradeLevelName }} ·
+                          {{ bestSubjects[index - 1]!.subjectName }}
+                        </p>
+                        <span
+                          class="shrink-0 text-sm font-bold"
+                          :class="getScoreTextColor(bestSubjects[index - 1]!.averageScore)"
+                        >
+                          {{ bestSubjects[index - 1]!.averageScore }}%
+                        </span>
+                      </div>
+                      <div
+                        class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
+                      >
+                        <div
+                          class="h-full rounded-full transition-all"
+                          :class="getScoreBarColor(bestSubjects[index - 1]!.averageScore)"
+                          :style="{ width: `${bestSubjects[index - 1]!.averageScore}%` }"
+                        />
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm text-muted-foreground/60">
+                        {{ t.shared.friendProfileDialog.notYetUnlocked }}
+                      </p>
+                      <div
+                        class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/30"
+                      />
+                    </div>
+                  </template>
+                </div>
+              </div>
             </div>
 
             <!-- Streak + Weekly Activity (bottom right, spans 2 cols) -->
@@ -191,11 +337,57 @@ const xpToNextLevel = computed(() => {
                 </p>
                 <Flame class="size-4 text-muted-foreground" />
               </div>
-              <WeeklyActivityStrip
-                :current-streak="profile?.currentStreak ?? 0"
-                :weekly-activity="weeklyActivity"
-                :days-label="t.shared.studentProfileDialog.days"
-              />
+              <div class="flex items-center gap-3">
+                <div class="flex size-14 items-center justify-center">
+                  <img
+                    v-if="weeklyActivity.some((d) => d.active)"
+                    :src="fireGif"
+                    alt="fire"
+                    class="size-10"
+                  />
+                  <span v-else class="text-4xl">&#x1F4A4;</span>
+                </div>
+                <div>
+                  <p class="text-2xl font-bold">
+                    {{ weeklyActivity.filter((d) => d.active).length }}
+                    <span class="text-sm font-normal text-muted-foreground">{{
+                      t.shared.friendProfileDialog.daysThisWeek
+                    }}</span>
+                  </p>
+                </div>
+              </div>
+              <div
+                v-if="weeklyActivity.length > 0"
+                class="mt-4 flex items-center justify-between gap-1"
+              >
+                <div
+                  v-for="(day, i) in weeklyActivity"
+                  :key="i"
+                  class="flex flex-1 flex-col items-center gap-1"
+                >
+                  <div
+                    class="size-5 rounded-full border"
+                    :class="[
+                      day.active
+                        ? 'border-orange-400 bg-orange-400 dark:border-orange-500 dark:bg-orange-500'
+                        : day.isFuture
+                          ? 'border-dashed border-gray-300 dark:border-gray-700'
+                          : 'border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-muted',
+                      day.isToday && !day.active ? 'border-orange-300 dark:border-orange-700' : '',
+                    ]"
+                  />
+                  <span
+                    class="text-[10px] leading-none"
+                    :class="
+                      day.isToday
+                        ? 'font-bold text-orange-600 dark:text-orange-400'
+                        : 'text-muted-foreground'
+                    "
+                  >
+                    {{ day.label }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

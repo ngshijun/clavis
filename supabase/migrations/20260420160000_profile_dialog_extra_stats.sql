@@ -1,24 +1,18 @@
--- ============================================================
--- Add xp + current_streak to get_student_profile_for_dialog
+-- ============================================================================
+-- Extend get_student_profile_for_dialog with extra stats
 --
--- Dialogs previously queried student_profiles directly for xp/current_streak.
--- Under the restricted student_profiles SELECT policy (20260530000002) that
--- direct read is no longer permitted for arbitrary students (e.g. a friend),
--- so these two fields are added to the SECURITY DEFINER RPC's JSON payload.
---
--- IMPORTANT: this body is the badges-era version from
--- 20260420160000_profile_dialog_extra_stats.sql (featured_badges + extra
--- stats), with ONLY xp + current_streak added. It must NOT revert to the
--- pre-badges body, or featured_badges / badges_earned / pets stats would be
--- silently dropped from the payload.
--- ============================================================
+-- Adds three fields used by the profile dialogs (Student/Friend/Child):
+--   - badges_earned:  count of student_badges rows
+--   - total_badges:   count of active badges (so client can render "X / Y")
+--   - pets_collected: count of distinct owned_pets.pet_id
+--   - last_active:    student_profiles.updated_at (same source as friend /
+--                     child-link stores use for "active ... ago" display)
+-- ============================================================================
 
 create or replace function public.get_student_profile_for_dialog(p_student_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare
   v_coins integer;
-  v_xp integer;
-  v_current_streak integer;
   v_member_since timestamptz;
   v_selected_pet_id uuid;
   v_pet jsonb := null;
@@ -34,10 +28,8 @@ declare
   v_today date;
   v_monday date;
 begin
-  select sp.coins, sp.xp, sp.current_streak, sp.selected_pet_id,
-         sp.featured_badges, sp.updated_at, pr.created_at
-  into v_coins, v_xp, v_current_streak, v_selected_pet_id,
-       v_featured_ids, v_last_active, v_member_since
+  select sp.coins, sp.selected_pet_id, sp.featured_badges, sp.updated_at, pr.created_at
+  into v_coins, v_selected_pet_id, v_featured_ids, v_last_active, v_member_since
   from public.student_profiles sp
   join public.profiles pr on pr.id = sp.id
   where sp.id = p_student_id;
@@ -123,8 +115,6 @@ begin
 
   return jsonb_build_object(
     'coins', coalesce(v_coins, 0),
-    'xp', coalesce(v_xp, 0),
-    'current_streak', coalesce(v_current_streak, 0),
     'member_since', v_member_since,
     'pet', v_pet,
     'best_subjects', v_best_subjects,
@@ -137,5 +127,3 @@ begin
     'last_active', v_last_active
   );
 end $$;
-
-alter function public.get_student_profile_for_dialog(uuid) owner to postgres;
