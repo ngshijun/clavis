@@ -30,7 +30,6 @@ export const usePracticeStore = defineStore('practice', () => {
   const currentSession = ref<PracticeSession | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  const aiSummaryStatus = ref<'idle' | 'generating' | 'generated' | 'failed'>('idle')
 
   const subscription = useStudentSubscriptionStore()
 
@@ -329,12 +328,16 @@ export const usePracticeStore = defineStore('practice', () => {
         return { answer: null, error: handleError(insertError, 'failedSubmitAnswer') }
       }
 
+      // is_correct is now server-graded by trg_grade_practice_answer; the row
+      // returned by .select() carries the authoritative value (the optimistic
+      // local `isCorrect` above is advisory only). Use the persisted value for
+      // any score-affecting UI so the counter cannot diverge from the server.
       const answer = mapAnswerRow(answerData)
       currentSession.value.answers.push(answer)
 
       // Update local counts for UI
       currentSession.value.answerCount++
-      if (isCorrect) {
+      if (answer.isCorrect) {
         currentSession.value.correctAnswers++
       }
 
@@ -346,6 +349,23 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /**
+   * Persist the current question index (best-effort).
+   * The index is already updated in memory by the caller; this write keeps the
+   * DB in sync so a resumed session lands on the right question. A failure here
+   * must not break navigation, so the error is logged rather than thrown.
+   */
+  async function persistQuestionIndex(sessionId: string, index: number): Promise<void> {
+    const { error: updateError } = await supabase
+      .from('practice_sessions')
+      .update({ current_question_index: index })
+      .eq('id', sessionId)
+
+    if (updateError) {
+      console.error('Failed to persist current_question_index:', updateError)
+    }
+  }
+
+  /**
    * Move to the next question
    */
   async function nextQuestion(): Promise<boolean> {
@@ -353,13 +373,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
     if (currentSession.value.currentQuestionIndex < currentSession.value.totalQuestions - 1) {
       currentSession.value.currentQuestionIndex++
-
-      // Update in database
-      await supabase
-        .from('practice_sessions')
-        .update({ current_question_index: currentSession.value.currentQuestionIndex })
-        .eq('id', currentSession.value.id)
-
+      await persistQuestionIndex(currentSession.value.id, currentSession.value.currentQuestionIndex)
       return true
     }
     return false
@@ -373,13 +387,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
     if (currentSession.value.currentQuestionIndex > 0) {
       currentSession.value.currentQuestionIndex--
-
-      // Update in database
-      await supabase
-        .from('practice_sessions')
-        .update({ current_question_index: currentSession.value.currentQuestionIndex })
-        .eq('id', currentSession.value.id)
-
+      await persistQuestionIndex(currentSession.value.id, currentSession.value.currentQuestionIndex)
       return true
     }
     return false
@@ -393,16 +401,49 @@ export const usePracticeStore = defineStore('practice', () => {
 
     if (index >= 0 && index < currentSession.value.totalQuestions) {
       currentSession.value.currentQuestionIndex = index
-
-      // Update in database
-      await supabase
-        .from('practice_sessions')
-        .update({ current_question_index: index })
-        .eq('id', currentSession.value.id)
-
+      await persistQuestionIndex(currentSession.value.id, index)
       return true
     }
     return false
+  }
+
+  /**
+   * Shape of the jsonb payload returned by the complete_practice_session RPC.
+   */
+  interface CompletionRewards {
+    xp_earned: number
+    coins_earned: number
+    correct_count: number
+    newly_unlocked_badges?: Array<Database['public']['Tables']['badges']['Row']>
+  }
+
+  /**
+   * Validate the complete_practice_session RPC payload. Returns the parsed
+   * rewards only when all three fields are present and finite, else null so the
+   * caller can surface a handled error instead of writing undefined into the UI.
+   */
+  function parseCompletionRewards(rewards: unknown): CompletionRewards | null {
+    if (typeof rewards !== 'object' || rewards === null) return null
+    const r = rewards as Record<string, unknown>
+    if (
+      typeof r.xp_earned !== 'number' ||
+      !Number.isFinite(r.xp_earned) ||
+      typeof r.coins_earned !== 'number' ||
+      !Number.isFinite(r.coins_earned) ||
+      typeof r.correct_count !== 'number' ||
+      !Number.isFinite(r.correct_count)
+    ) {
+      return null
+    }
+    return {
+      xp_earned: r.xp_earned,
+      coins_earned: r.coins_earned,
+      correct_count: r.correct_count,
+      // Pass through (not strictly validated): optional celebration payload.
+      newly_unlocked_badges: Array.isArray(r.newly_unlocked_badges)
+        ? (r.newly_unlocked_badges as Array<Database['public']['Tables']['badges']['Row']>)
+        : undefined,
+    }
   }
 
   /**
@@ -431,11 +472,13 @@ export const usePracticeStore = defineStore('practice', () => {
         }
       }
 
-      const result = rewards as {
-        xp_earned: number
-        coins_earned: number
-        correct_count: number
-        newly_unlocked_badges?: Array<Database['public']['Tables']['badges']['Row']>
+      // complete_practice_session returns a jsonb payload; validate the numeric
+      // fields before trusting them so a null/misshaped result surfaces as a
+      // handled error instead of writing undefined into the reward UI. Newly
+      // unlocked badges are passed through for the celebration queue.
+      const result = parseCompletionRewards(rewards)
+      if (!result) {
+        return { session: null, error: errorMessages().failedCompleteSession }
       }
 
       // Update local session state with server-calculated values
@@ -478,7 +521,8 @@ export const usePracticeStore = defineStore('practice', () => {
 
   /**
    * Generate AI summary for a session (Pro tier and above).
-   * Called non-blocking after session completion.
+   * Called non-blocking after session completion; failures are swallowed since
+   * SessionResultPage offers an explicit retry and tracks its own UI status.
    */
   async function generateAiSummary(sessionId: string): Promise<void> {
     try {
@@ -487,20 +531,16 @@ export const usePracticeStore = defineStore('practice', () => {
         return
       }
 
-      aiSummaryStatus.value = 'generating'
       const { summary, error: summaryError } = await generateSessionSummary(sessionId)
-
       if (summaryError || !summary) {
-        aiSummaryStatus.value = 'failed'
         return
       }
 
       if (currentSession.value?.id === sessionId) {
         currentSession.value.aiSummary = summary
       }
-      aiSummaryStatus.value = 'generated'
     } catch {
-      aiSummaryStatus.value = 'failed'
+      // Non-blocking auto-generation; the page handles user-initiated retries.
     }
   }
 
@@ -609,8 +649,17 @@ export const usePracticeStore = defineStore('practice', () => {
       }
 
       const countMap = new Map<string, number>()
-      for (const row of (data ?? []) as unknown as { topic_id: string; count: number }[]) {
-        countMap.set(row.topic_id, row.count)
+      // PostgREST aggregate (topic_id, question_id.count()) is not represented
+      // in database.types.ts; validate the shape per-row instead of trusting it.
+      const rows = (data ?? []) as unknown as Array<Record<string, unknown>>
+      for (const row of rows) {
+        const topicId = row.topic_id
+        const count = row.count
+        if (typeof topicId !== 'string' || typeof count !== 'number') {
+          console.error('Unexpected sub-topic progress aggregate row shape:', row)
+          continue
+        }
+        countMap.set(topicId, count)
       }
 
       subTopicProgress.value = countMap
@@ -631,7 +680,6 @@ export const usePracticeStore = defineStore('practice', () => {
     currentSession.value = null
     isLoading.value = false
     error.value = null
-    aiSummaryStatus.value = 'idle'
     subscription.$reset()
     subTopicProgress.value = new Map()
     resetPracticeNavigation()
@@ -663,7 +711,6 @@ export const usePracticeStore = defineStore('practice', () => {
     currentSession,
     isLoading,
     error,
-    aiSummaryStatus,
     isSessionActive,
     currentQuestion,
     currentQuestionNumber,

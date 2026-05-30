@@ -205,21 +205,18 @@ export function formatRelativeDate(
   const date = new Date(dateString)
   const now = new Date()
 
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+  // Anchor the Today/Yesterday boundary to the MYT calendar (UTC+8), consistent
+  // with the rest of the app, rather than the browser's local timezone.
+  const dateMYT = toMYTDateString(date)
+  const todayMYT = toMYTDateString(now)
 
-  if (isToday) return labels?.today ?? 'Today'
+  if (dateMYT === todayMYT) return labels?.today ?? 'Today'
 
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
+  const yesterdayUTC = mytDateToUTCDate(todayMYT)
+  yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1)
+  const yesterdayMYT = utcDateToString(yesterdayUTC)
 
-  if (isYesterday) return labels?.yesterday ?? 'Yesterday'
+  if (dateMYT === yesterdayMYT) return labels?.yesterday ?? 'Yesterday'
 
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))

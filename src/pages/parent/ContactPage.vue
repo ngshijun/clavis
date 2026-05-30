@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useT } from '@/composables/useT'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscription'
-import { useChildLinkStore } from '@/stores/child-link'
 import { supabase } from '@/lib/supabaseClient'
 import { contactMessageSchema } from '@/lib/validations'
 import { Loader2, Send } from 'lucide-vue-next'
@@ -17,26 +16,12 @@ import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
-const childLinkStore = useChildLinkStore()
 
 const isSubmitting = ref(false)
 const t = useT()
 
-// Ensure subscription data is loaded for priority flag (guard is non-blocking)
-onMounted(async () => {
-  if (childLinkStore.linkedChildren.length === 0 && !childLinkStore.isLoading) {
-    await childLinkStore.fetchLinkedChildren()
-  }
-  if (
-    childLinkStore.linkedChildren.length > 0 &&
-    subscriptionStore.childSubscriptions.length === 0 &&
-    !subscriptionStore.isLoading
-  ) {
-    const childIds = childLinkStore.linkedChildren.map((c) => c.id)
-    subscriptionStore.fetchChildrenSubscriptions(childIds)
-  }
-})
-
+// Children + their subscriptions are preloaded by parentRouteGuard (src/router/index.ts);
+// this computed reads the resulting state reactively for the priority flag.
 const isPriority = computed(() =>
   subscriptionStore.childSubscriptions.some((sub) => sub.tier !== 'core'),
 )

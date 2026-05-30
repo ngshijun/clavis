@@ -83,7 +83,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
           food: studentProfile.food ?? 0,
           gradeLevelId: studentProfile.grade_level_id,
           selectedPetId: studentProfile.selected_pet_id,
-          preferredLanguage: (studentProfile.preferred_language as 'en' | 'zh') ?? 'en',
+          preferredLanguage: studentProfile.preferred_language === 'zh' ? 'zh' : 'en',
           schoolId: studentProfile.school_id,
           schoolName: (studentProfile.schools as { name: string } | null)?.name ?? null,
           friendCode: studentProfile.friend_code,
@@ -167,9 +167,37 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const isLoading = ref(false)
   const isInitialized = ref(false)
+  // Set when a deferred (session-restore / USER_UPDATED) profile load fails,
+  // so the failure is recoverable/visible instead of silently leaving user null.
+  const profileLoadError = ref(false)
 
   // Store auth listener unsubscribe function to prevent memory leaks
   let authListenerUnsubscribe: (() => void) | null = null
+
+  // In-flight memoization so concurrent initialize() calls share one boot run
+  let initPromise: Promise<void> | null = null
+
+  // Monotonic token: every profile load increments this; only the latest write wins,
+  // so out-of-order resolution of concurrent loads (e.g. initialize() vs a deferred
+  // SIGNED_IN handler) cannot seat stale data.
+  let profileLoadSeq = 0
+
+  /**
+   * Funnel every user.value write through a single loader guarded by a monotonic
+   * request id. Stale (superseded) results are discarded.
+   * Returns false if the profile load failed (so callers can surface an error).
+   */
+  async function loadUserProfile(userId: string): Promise<boolean> {
+    const seq = ++profileLoadSeq
+    const profile = await fetchUserProfile(userId)
+    // Ignore if a newer load started after this one
+    if (seq !== profileLoadSeq) return profile !== null
+    if (profile) {
+      user.value = profile
+      return true
+    }
+    return false
+  }
 
   const isAuthenticated = computed(() => user.value !== null)
   const userType = computed<UserType | null>(() => user.value?.userType ?? null)
@@ -204,11 +232,21 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   /**
-   * Initialize auth state by checking for existing session
+   * Initialize auth state by checking for existing session.
+   * Memoized: concurrent callers share one in-flight boot run, so the body
+   * (including the onAuthStateChange subscribe) never double-runs.
    */
-  async function initialize() {
-    if (isInitialized.value) return
+  function initialize(): Promise<void> {
+    if (isInitialized.value) return Promise.resolve()
+    if (initPromise) return initPromise
 
+    initPromise = runInitialize().finally(() => {
+      initPromise = null
+    })
+    return initPromise
+  }
+
+  async function runInitialize(): Promise<void> {
     isLoading.value = true
     try {
       const {
@@ -218,11 +256,8 @@ export const useAuthStore = defineStore('auth', () => {
       if (session?.user) {
         // Ensure profile exists
         await ensureProfileExists(session.user)
-        // Fetch the user profile
-        const profile = await fetchUserProfile(session.user.id)
-        if (profile) {
-          user.value = profile
-        }
+        // Fetch the user profile through the sequenced loader
+        await loadUserProfile(session.user.id)
       }
     } catch (err) {
       console.error('Error initializing auth:', err)
@@ -244,23 +279,23 @@ export const useAuthStore = defineStore('auth', () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        // Defer Supabase calls to avoid deadlock
+        const signedInUser = session.user
+        // Defer Supabase calls to avoid deadlock. loadUserProfile's monotonic
+        // request id discards this result if a later load (e.g. from initialize()
+        // or refreshProfile()) has already superseded it — preventing stale clobber.
         setTimeout(async () => {
-          await ensureProfileExists(session.user)
-          const profile = await fetchUserProfile(session.user.id)
-          if (profile) {
-            user.value = profile
-          }
+          await ensureProfileExists(signedInUser)
+          const ok = await loadUserProfile(signedInUser.id)
+          profileLoadError.value = !ok
         }, 0)
       } else if (event === 'SIGNED_OUT') {
         user.value = null
       } else if (event === 'USER_UPDATED' && session?.user) {
+        const updatedUser = session.user
         // Defer Supabase calls to avoid deadlock
         setTimeout(async () => {
-          const profile = await fetchUserProfile(session.user.id)
-          if (profile) {
-            user.value = profile
-          }
+          const ok = await loadUserProfile(updatedUser.id)
+          profileLoadError.value = !ok
         }, 0)
       }
     })
@@ -342,11 +377,8 @@ export const useAuthStore = defineStore('auth', () => {
       if (data.user) {
         // Ensure profile exists on first login
         await ensureProfileExists(data.user)
-        // Fetch the user profile
-        const profile = await fetchUserProfile(data.user.id)
-        if (profile) {
-          user.value = profile
-        }
+        // Fetch the user profile through the sequenced loader
+        await loadUserProfile(data.user.id)
       }
 
       return { user: data.user, session: data.session, error: null }
@@ -501,10 +533,8 @@ export const useAuthStore = defineStore('auth', () => {
 
     const oldLevel = currentLevel.value
 
-    const profile = await fetchUserProfile(user.value.id)
-    if (profile) {
-      user.value = profile
-
+    const ok = await loadUserProfile(user.value.id)
+    if (ok) {
       // Detect level-up after profile refresh and enqueue for celebration
       const newLevel = currentLevel.value
       if (newLevel > oldLevel) {
@@ -779,6 +809,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isLoading,
     isInitialized,
+    profileLoadError,
 
     // Computed
     isAuthenticated,

@@ -50,12 +50,44 @@ export interface FriendRequest {
   createdAt: string
 }
 
+function parseFriendshipProfile(value: unknown): FriendshipProfile {
+  // Supabase may return an embedded to-one relation as an object or a
+  // single-element array depending on the inferred shape; normalize both.
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (candidate && typeof candidate === 'object' && 'id' in candidate && 'profiles' in candidate) {
+    const { id, updated_at, profiles } = candidate as {
+      id: unknown
+      updated_at?: unknown
+      profiles: unknown
+    }
+    const profile = Array.isArray(profiles) ? profiles[0] : profiles
+    if (
+      typeof id === 'string' &&
+      profile &&
+      typeof profile === 'object' &&
+      'name' in profile &&
+      typeof (profile as { name: unknown }).name === 'string'
+    ) {
+      const { name, avatar_path } = profile as { name: string; avatar_path: unknown }
+      return {
+        id,
+        updated_at: typeof updated_at === 'string' ? updated_at : null,
+        profiles: {
+          name,
+          avatar_path: typeof avatar_path === 'string' ? avatar_path : null,
+        },
+      }
+    }
+  }
+  throw new Error('Unexpected friendship profile shape')
+}
+
 function getOtherProfile(
   row: { requester_id: string; recipient_id: string; requester: unknown; recipient: unknown },
   userId: string,
 ): FriendshipProfile {
   const isRequester = row.requester_id === userId
-  return (isRequester ? row.recipient : row.requester) as unknown as FriendshipProfile
+  return parseFriendshipProfile(isRequester ? row.recipient : row.requester)
 }
 
 export const useFriendsStore = defineStore('friends', () => {

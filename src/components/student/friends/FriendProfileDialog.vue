@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { watch, computed, ref } from 'vue'
+import { watch, computed } from 'vue'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
-import { supabase } from '@/lib/supabaseClient'
 import { computeLevel } from '@/lib/xp'
 import { rarityConfig, getRarityLabel } from '@/stores/pets'
 import { CLOSENESS_LABELS, CLOSENESS_THRESHOLDS } from '@/stores/friends'
@@ -39,18 +38,14 @@ const props = defineProps<{
 const { profile, pet, bestSubjects, weeklyActivity, featuredBadges, isLoading, fetchProfile } =
   useStudentProfileDialog()
 
-const friendXp = ref(0)
+// xp comes from the get_student_profile_for_dialog RPC (a friend's student_profiles
+// row is not directly readable under the restricted SELECT policy, migration 0002).
+const friendXp = computed(() => profile.value?.xp ?? 0)
 const friendLevel = computed(() => computeLevel(friendXp.value))
 
-watch([open, () => props.friend?.friendId], async ([isOpen, friendId]) => {
+watch([open, () => props.friend?.friendId], ([isOpen, friendId]) => {
   if (isOpen && friendId) {
     fetchProfile(friendId)
-    const { data } = await supabase
-      .from('student_profiles')
-      .select('xp')
-      .eq('id', friendId)
-      .single()
-    friendXp.value = data?.xp ?? 0
   }
 })
 

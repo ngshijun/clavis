@@ -20,6 +20,8 @@ export interface FeaturedBadgeData {
 
 export interface StudentProfileData {
   coins: number
+  xp: number
+  currentStreak: number
   memberSince: string | null
   badgesEarned: number
   totalBadges: number
@@ -60,7 +62,12 @@ export function useStudentProfileDialog() {
   const featuredBadges = ref<FeaturedBadgeData[]>([])
   const isLoading = ref(false)
 
+  // Request token: guards against out-of-order resolution when fetchProfile is
+  // invoked twice in quick succession with different studentIds (same shared refs).
+  let seq = 0
+
   async function fetchProfile(studentId: string) {
+    const version = ++seq
     isLoading.value = true
     profile.value = null
     pet.value = null
@@ -73,11 +80,19 @@ export function useStudentProfileDialog() {
         p_student_id: studentId,
       })
 
+      // Bail if a newer fetch superseded this one while awaiting.
+      if (version !== seq) return
+
       if (error) throw error
       if (!data) return
 
+      // get_student_profile_for_dialog returns jsonb (opaque Json in the generated
+      // types), so the payload shape is asserted here. Migration 20260530000003 added
+      // xp + current_streak alongside the badges / extra-stats fields.
       const result = data as unknown as {
         coins: number
+        xp: number
+        current_streak: number
         member_since: string | null
         pet: {
           name: string
@@ -104,6 +119,8 @@ export function useStudentProfileDialog() {
       // Profile
       profile.value = {
         coins: result.coins,
+        xp: result.xp ?? 0,
+        currentStreak: result.current_streak ?? 0,
         memberSince: result.member_since,
         badgesEarned: result.badges_earned ?? 0,
         totalBadges: result.total_badges ?? 0,
@@ -170,9 +187,9 @@ export function useStudentProfileDialog() {
 
       featuredBadges.value = result.featured_badges ?? []
     } catch (err) {
-      console.error('Failed to fetch student profile:', err)
+      if (version === seq) console.error('Failed to fetch student profile:', err)
     } finally {
-      isLoading.value = false
+      if (version === seq) isLoading.value = false
     }
   }
 

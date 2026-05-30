@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSeoMeta } from '@unhead/vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
+import { getDashboardPath } from '@/router'
 import { loginFormSchema } from '@/lib/validations'
 import { useT } from '@/composables/useT'
 import logoSvg from '@/assets/logo.svg'
@@ -96,17 +97,8 @@ const onSubmit = handleSubmit(async (values) => {
 
     if (result.user) {
       toast.success(t.value.auth.login.welcomeBack)
-      // Redirect based on user type
-      const userType = authStore.userType
-      if (userType === 'admin') {
-        router.push('/admin/dashboard')
-      } else if (userType === 'student') {
-        router.push('/student/dashboard')
-      } else if (userType === 'parent') {
-        router.push('/parent/dashboard')
-      } else {
-        router.push('/login')
-      }
+      // Reuse the router's single role->path mapping to avoid drift
+      router.push(getDashboardPath(authStore.userType))
     }
   } catch {
     toast.error(t.value.auth.login.unexpectedError)

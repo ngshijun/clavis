@@ -208,12 +208,28 @@ async function syncWithIds(
     .eq('stripe_price_id', priceId)
     .single()
 
-  const tier = plan?.id || 'core'
-  if (!plan) {
-    console.warn(`No plan found for price ${priceId} — defaulting to 'core'. Check subscription_plans table.`)
-  }
   // Keep access during 'past_due' as a grace period while Stripe retries payment
   const isActive = ['active', 'trialing', 'past_due'].includes(subscription.status)
+
+  // The price drifted out of subscription_plans (renamed price, env/account
+  // mismatch, or a new Stripe plan not yet seeded). For a live/paying
+  // subscription this is the entitlement source of truth, so we must NOT
+  // silently downgrade a paying customer to 'core' while Stripe keeps charging
+  // the higher amount. Fail instead so the webhook handler throws and Stripe
+  // retries / surfaces it for investigation. (Cancellations flow through
+  // syncSubscriptionDeletion, not this path.)
+  if (!plan && isActive) {
+    console.error(
+      `No plan found for price ${priceId} on active subscription ${subscription.id} (student ${studentId}). ` +
+        `Refusing to downgrade to 'core'. Check subscription_plans table.`,
+    )
+    return {
+      success: false,
+      error: `Unresolved Stripe price ${priceId} for active subscription ${subscription.id}`,
+    }
+  }
+
+  const tier = plan?.id || 'core'
 
   // Extract period dates from expanded latest_invoice (Clover API)
   const { periodStart, periodEnd } = extractPeriodDates(subscription)

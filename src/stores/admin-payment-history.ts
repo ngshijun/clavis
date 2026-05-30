@@ -7,6 +7,18 @@ import type { Database } from '@/types/database.types'
 
 type SubscriptionTier = Database['public']['Enums']['subscription_tier']
 
+/**
+ * Extract a profile `name` from a Supabase embedded relation. The relation
+ * may arrive as an object ({ name }) or, depending on the inferred cardinality,
+ * a single-element array — validate the shape instead of an unchecked cast.
+ */
+function extractProfileName(relation: unknown): string | null {
+  const profile = Array.isArray(relation) ? relation[0] : relation
+  if (typeof profile !== 'object' || profile === null) return null
+  const name = (profile as { name?: unknown }).name
+  return typeof name === 'string' ? name : null
+}
+
 export interface AdminPaymentEntry {
   id: string
   createdAt: string | null
@@ -90,9 +102,6 @@ export const useAdminPaymentHistoryStore = defineStore('adminPaymentHistory', ()
       }
 
       payments.value = allRows.map((row) => {
-        const student = row.student as { name: string | null } | null
-        const parent = row.parent as { name: string | null } | null
-
         return {
           id: row.id,
           createdAt: row.created_at,
@@ -101,9 +110,9 @@ export const useAdminPaymentHistoryStore = defineStore('adminPaymentHistory', ()
           tier: row.tier,
           status: row.status,
           description: row.description,
-          studentName: student?.name ?? null,
+          studentName: extractProfileName(row.student),
           studentId: row.student_id,
-          parentName: parent?.name ?? null,
+          parentName: extractProfileName(row.parent),
         }
       })
 

@@ -8,7 +8,7 @@ import type { StudentSubscriptionStatus } from '@/stores/student-subscription'
 import { useStudentDashboardStore } from '@/stores/student-dashboard'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
-import { computeScorePercent } from '@/lib/questionHelpers'
+import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,21 +40,11 @@ const subscriptionRequired = ref(false)
 const aiSummaryStatus = ref<'idle' | 'loading' | 'success' | 'failed'>('idle')
 const isCurrentSession = ref(false)
 
-const summary = computed(() => {
-  if (!session.value) return null
-  const totalQuestions = session.value.questions.length || session.value.totalQuestions
-  const correctAnswers = session.value.answers.filter((a) => a.isCorrect).length
-  const score = computeScorePercent(correctAnswers, totalQuestions)
-  const durationSeconds = session.value.durationSeconds ?? 0
-
-  return {
-    totalQuestions,
-    correctAnswers,
-    incorrectAnswers: totalQuestions - correctAnswers,
-    score,
-    durationSeconds,
-  }
-})
+// buildSessionSummary reads only questions.length / answers[].isCorrect; PracticeSession's
+// richer questions[] is structurally a superset, so cast to the helper's minimal shape.
+const summary = computed(() =>
+  session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
+)
 
 onMounted(async () => {
   const [subStatus, result] = await Promise.all([

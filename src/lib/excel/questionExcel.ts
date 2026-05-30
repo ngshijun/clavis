@@ -577,7 +577,7 @@ export async function exportQuestionsToExcel(
   const imagePaths = new Set<string>()
   for (const q of questions) {
     if (q.imagePath) imagePaths.add(q.imagePath)
-    if (q.type === 'mcq' && q.options) {
+    if ((q.type === 'mcq' || q.type === 'mrq') && q.options) {
       for (const opt of q.options) {
         if (opt.imagePath) imagePaths.add(opt.imagePath)
       }
@@ -688,14 +688,17 @@ export async function exportQuestionsToExcel(
       )
     }
 
-    // MCQ options
-    if (q.type === 'mcq' && q.options) {
+    // MCQ / MRQ options
+    if ((q.type === 'mcq' || q.type === 'mrq') && q.options) {
       const optionConfigs = [
         { textCol: COLUMNS.OPTION_A, imageCol: COLUMNS.OPTION_A_IMAGE, index: 0 },
         { textCol: COLUMNS.OPTION_B, imageCol: COLUMNS.OPTION_B_IMAGE, index: 1 },
         { textCol: COLUMNS.OPTION_C, imageCol: COLUMNS.OPTION_C_IMAGE, index: 2 },
         { textCol: COLUMNS.OPTION_D, imageCol: COLUMNS.OPTION_D_IMAGE, index: 3 },
       ]
+
+      // Collect correct-answer letters; MCQ has one, MRQ may have several.
+      const correctLetters: string[] = []
 
       for (const config of optionConfigs) {
         const opt = q.options[config.index]
@@ -712,10 +715,14 @@ export async function exportQuestionsToExcel(
             )
           }
           if (opt.isCorrect) {
-            row.getCell(COLUMNS.CORRECT_ANSWER).value = String.fromCharCode(65 + config.index) // A, B, C, D
+            correctLetters.push(String.fromCharCode(65 + config.index)) // A, B, C, D
           }
         }
       }
+
+      // MRQ stores correctness in option_*_is_correct (q.answer is null), so the
+      // correct-answer cell must be derived from the collected option letters.
+      row.getCell(COLUMNS.CORRECT_ANSWER).value = correctLetters.join(',')
     } else {
       // Short answer
       row.getCell(COLUMNS.CORRECT_ANSWER).value = q.answer || ''
@@ -785,10 +792,10 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
   }
 
   // Build image map by row and column position
-  const imageMap = buildImageMap(workbook, worksheet)
+  const { imageMap, errors: imageMapErrors } = buildImageMap(workbook, worksheet)
 
   const questions: ParsedQuestion[] = []
-  const errors: ParseError[] = []
+  const errors: ParseError[] = [...imageMapErrors]
 
   // Image column indices (0-based for image map)
   const imageColumns = {
@@ -1022,7 +1029,14 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
 }
 
 function isCellDate(cell: ExcelJS.Cell): boolean {
-  return cell.value instanceof Date
+  const value = cell.value
+  if (value instanceof Date) return true
+  // A formula whose computed result is a Date means Excel auto-converted a
+  // fraction (e.g. "2/5") inside the formula — flag it as the fraction guard.
+  if (value !== null && typeof value === 'object' && 'result' in value) {
+    return value.result instanceof Date
+  }
+  return false
 }
 
 function getCellValue(cell: ExcelJS.Cell): string {
@@ -1036,7 +1050,9 @@ function getCellValue(cell: ExcelJS.Cell): string {
     return String(value.text || '').trim()
   }
   if (typeof value === 'object' && 'result' in value) {
-    // Formula
+    // Formula — a Date-valued result means Excel auto-converted text (e.g. "2/5")
+    // inside the formula; treat it like a top-level Date so the fraction guard fires.
+    if (value.result instanceof Date) return ''
     return String(value.result || '').trim()
   }
   return String(value).trim()
@@ -1045,8 +1061,9 @@ function getCellValue(cell: ExcelJS.Cell): string {
 function buildImageMap(
   workbook: ExcelJS.Workbook,
   worksheet: ExcelJS.Worksheet,
-): Map<string, ParsedQuestionImage> {
+): { imageMap: Map<string, ParsedQuestionImage>; errors: ParseError[] } {
   const imageMap = new Map<string, ParsedQuestionImage>()
+  const errors: ParseError[] = []
 
   try {
     const images = worksheet.getImages()
@@ -1084,9 +1101,15 @@ function buildImageMap(
     }
   } catch (error) {
     console.error('Error building image map:', error)
+    errors.push({
+      row: 0,
+      column: 'G/I/K/M/O',
+      message:
+        'Some embedded images could not be read; affected questions may be missing images. Re-check and re-insert images before uploading.',
+    })
   }
 
-  return imageMap
+  return { imageMap, errors }
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {

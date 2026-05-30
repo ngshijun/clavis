@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Check, Sparkles, Zap, CreditCard, Loader2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useT } from '@/composables/useT'
+import { tierRank } from '@/lib/tierConfig'
 
 const t = useT()
 
@@ -59,11 +60,7 @@ function getButtonText() {
 
   if (props.plan.id === 'core') return t.value.shared.planCard.downgrade
 
-  const tierOrder: SubscriptionTier[] = ['core', 'plus', 'pro']
-  const planIndex = tierOrder.indexOf(props.plan.id)
-  const currentIndex = tierOrder.indexOf(props.currentTier)
-
-  return planIndex > currentIndex
+  return tierRank(props.plan.id) > tierRank(props.currentTier)
     ? t.value.shared.planCard.upgrade
     : t.value.shared.planCard.downgrade
 }

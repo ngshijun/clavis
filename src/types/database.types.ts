@@ -1798,6 +1798,23 @@ export type Database = {
         Args: { p_accept: boolean; p_friendship_id: string }
         Returns: undefined
       }
+      search_student_by_friend_code: {
+        Args: { p_code: string }
+        Returns: {
+          avatar_path: string
+          id: string
+          name: string
+        }[]
+      }
+      search_students_by_name: {
+        Args: { p_query: string }
+        Returns: {
+          avatar_path: string
+          friend_code: string
+          id: string
+          name: string
+        }[]
+      }
       send_daily_coins: { Args: { p_friendship_id: string }; Returns: Json }
       send_friend_request: { Args: { p_target_id: string }; Returns: string }
       set_featured_badges: { Args: { p_badges: string[] }; Returns: string[] }

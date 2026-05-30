@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePetsStore, rarityConfig, getRarityLabel, type PetRarity } from '@/stores/pets'
+import { usePetsStore, rarityConfig, getRarityLabel, rarityHexColors } from '@/stores/pets'
 import { useGachaPull, SINGLE_PULL_COST, MULTI_PULL_COST } from '@/composables/useGachaPull'
 import { useT } from '@/composables/useT'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,14 +33,6 @@ const t = useT()
 const rarityOrder: (keyof typeof rarityConfig)[] = ['legendary', 'epic', 'rare', 'common']
 
 const currentCoins = computed(() => authStore.studentProfile?.coins ?? 0)
-
-// Capsule colors for drop rates display
-const rarityColors: Record<PetRarity, string> = {
-  common: '#22C55E',
-  rare: '#3B82F6',
-  epic: '#A855F7',
-  legendary: '#F59E0B',
-}
 
 const {
   isRolling,
@@ -257,7 +249,10 @@ onMounted(async () => {
                 :class="[rarityConfig[rarity].borderColor]"
               >
                 <div class="flex items-center gap-2">
-                  <div class="size-4 rounded-full" :style="{ background: rarityColors[rarity] }" />
+                  <div
+                    class="size-4 rounded-full"
+                    :style="{ background: rarityHexColors[rarity] }"
+                  />
                   <span class="text-sm font-medium" :class="rarityConfig[rarity].color">
                     {{ getRarityLabel(rarity) }}
                   </span>

@@ -37,6 +37,8 @@ const textAnswer = ref('')
 const showExitDialog = ref(false)
 const showFeedbackDialog = ref(false)
 const isResuming = ref(false)
+const isSubmitting = ref(false)
+const isFinishing = ref(false)
 const pendingNavigation = ref<string | null>(null)
 
 // Time tracking for current question
@@ -139,20 +141,32 @@ const isImageOnlyOptions = computed(() => {
 
 async function submitAnswer() {
   if (!currentQuestion.value) return
+  // In-flight guard: prevents a second insert (e.g. double-tap on a different
+  // MCQ option) firing before isAnswered flips, which would violate the
+  // UNIQUE(session_id, question_id) constraint on practice_answers.
+  if (isSubmitting.value) return
 
   // Calculate time spent on this question in seconds
   const timeSpentSeconds = Math.round((Date.now() - questionStartTime.value) / 1000)
 
-  if (currentQuestion.value.type === 'mcq' || currentQuestion.value.type === 'mrq') {
-    if (selectedOptionIds.value.size === 0) return
-    await practiceStore.submitAnswer(
-      Array.from(selectedOptionIds.value),
-      undefined,
-      timeSpentSeconds,
-    )
-  } else {
-    if (!textAnswer.value.trim()) return
-    await practiceStore.submitAnswer(undefined, textAnswer.value.trim(), timeSpentSeconds)
+  isSubmitting.value = true
+  try {
+    if (currentQuestion.value.type === 'mcq' || currentQuestion.value.type === 'mrq') {
+      if (selectedOptionIds.value.size === 0) return
+      const { error } = await practiceStore.submitAnswer(
+        Array.from(selectedOptionIds.value),
+        undefined,
+        timeSpentSeconds,
+      )
+      if (error) {
+        toast.error(error)
+      }
+    } else {
+      if (!textAnswer.value.trim()) return
+      await practiceStore.submitAnswer(undefined, textAnswer.value.trim(), timeSpentSeconds)
+    }
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -164,17 +178,30 @@ async function nextQuestion() {
 }
 
 async function finishQuiz() {
-  const result = await practiceStore.completeSession()
-  if (result.session) {
-    toast.success(t.value.student.practiceQuiz.toastCompleted)
-    router.replace(`/student/session/${result.session.id}`)
-  } else if (result.error) {
-    toast.error(t.value.student.practiceQuiz.toastCompleteFailed)
+  // Re-entrancy guard: a second click before the first completion resolves
+  // would fire a duplicate complete_practice_session RPC, which raises
+  // 'Session already completed' and surfaces as a spurious failure toast.
+  if (isFinishing.value) return
+
+  isFinishing.value = true
+  try {
+    const result = await practiceStore.completeSession()
+    if (result.session) {
+      clearShuffleCache()
+      toast.success(t.value.student.practiceQuiz.toastCompleted)
+      router.replace(`/student/session/${result.session.id}`)
+    } else if (result.error) {
+      toast.error(t.value.student.practiceQuiz.toastCompleteFailed)
+    }
+  } finally {
+    isFinishing.value = false
   }
 }
 
 function exitQuiz() {
   practiceStore.endSession()
+  // Free shuffled-option cache so it stays bounded to the current session.
+  clearShuffleCache()
   // Navigate to pending destination or default to practice page
   const destination = pendingNavigation.value ?? '/student/practice'
   pendingNavigation.value = null
@@ -365,7 +392,11 @@ onBeforeRouteLeave((to) => {
                   <ChevronRight class="ml-2 size-4" />
                 </Button>
 
-                <Button v-else-if="allQuestionsAnswered" @click="finishQuiz">
+                <Button
+                  v-else-if="allQuestionsAnswered"
+                  :disabled="isFinishing"
+                  @click="finishQuiz"
+                >
                   {{ t.student.practiceQuiz.finishQuiz }}
                 </Button>
 

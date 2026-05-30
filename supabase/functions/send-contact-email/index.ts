@@ -1,14 +1,70 @@
 import '@supabase/functions-js/edge-runtime.d.ts'
+import { getAuthenticatedUser } from '../_shared/auth.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 const FROM_EMAIL = 'Clavis <noreply@clavis.com.my>'
 const TO_EMAIL = 'support@clavis.com.my'
 
+// Restrict CORS to the app origin (no wildcard). Both the landing page and the
+// in-app form are served from APP_URL, so a single allowed origin covers both.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_URL') ?? '',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function errorResponse(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+// Cloudflare Turnstile secret for verifying the public (landing) path.
+// When unset, the landing path is rejected outright rather than left as an open relay.
+const TURNSTILE_SECRET_KEY = Deno.env.get('TURNSTILE_SECRET_KEY')
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+
+// Best-effort per-IP rate limiting (in-memory, per edge instance). Limits abusive
+// bursts of submissions from a single source without requiring a DB round-trip.
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 3
+const rateLimitHits = new Map<string, number[]>()
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  const recent = (rateLimitHits.get(ip) ?? []).filter((ts) => ts > windowStart)
+  recent.push(now)
+  rateLimitHits.set(ip, recent)
+  return recent.length > RATE_LIMIT_MAX
+}
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return req.headers.get('x-real-ip') ?? 'unknown'
+}
+
+/** Verify a Cloudflare Turnstile token against the siteverify endpoint. */
+async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
+  if (!TURNSTILE_SECRET_KEY) return false
+  try {
+    const res = await fetch(TURNSTILE_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        secret: TURNSTILE_SECRET_KEY,
+        response: token,
+        remoteip: ip,
+      }),
+    })
+    const data = (await res.json()) as { success?: boolean }
+    return data.success === true
+  } catch (err) {
+    console.error('Turnstile verification error:', err)
+    return false
+  }
+}
 
 interface ContactBody {
   name: string
@@ -17,6 +73,7 @@ interface ContactBody {
   message: string
   source?: 'landing' | 'app'
   priority?: boolean
+  turnstileToken?: string
 }
 
 function validateBody(
@@ -38,7 +95,7 @@ function validateBody(
   if (typeof message !== 'string' || message.trim().length === 0 || message.length > 5000)
     return { valid: false, error: 'Invalid message' }
 
-  const { source, priority } = body as Record<string, unknown>
+  const { source, priority, turnstileToken } = body as Record<string, unknown>
 
   return {
     valid: true,
@@ -49,6 +106,7 @@ function validateBody(
       message: message.trim(),
       source: source === 'app' ? 'app' : 'landing',
       priority: priority === true,
+      turnstileToken: typeof turnstileToken === 'string' ? turnstileToken : undefined,
     },
   }
 }
@@ -359,7 +417,17 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  if (req.method !== 'POST') {
+    return errorResponse('Method not allowed', 405)
+  }
+
   try {
+    // Per-IP rate limit (abuse control) before any work or outbound email.
+    const clientIp = getClientIp(req)
+    if (isRateLimited(clientIp)) {
+      return errorResponse('Too many requests. Please try again later.', 429)
+    }
+
     const rawBody = await req.json()
     const validation = validateBody(rawBody)
     if (!validation.valid) {
@@ -369,7 +437,27 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const { name, email, subject, message, source, priority } = validation.data
+    const { name, email, subject, message, source, priority, turnstileToken } = validation.data
+
+    // Abuse-control gate. The in-app path requires an authenticated user and uses
+    // their verified email. The public landing path is protected primarily by the
+    // per-IP rate limit above; a Cloudflare Turnstile token is verified WHEN PRESENT
+    // (and rejected if invalid), but is not yet mandatory because the landing form
+    // does not render the widget. To fully close the open-relay vector, add the
+    // Turnstile widget to ContactSection.vue + VITE_TURNSTILE_SITE_KEY, set
+    // TURNSTILE_SECRET_KEY here, then make a token required for source==='landing'.
+    let recipientEmail = email
+    if (source === 'app') {
+      const user = await getAuthenticatedUser(req)
+      if (user.email) {
+        recipientEmail = user.email
+      }
+    } else if (turnstileToken) {
+      const verified = await verifyTurnstile(turnstileToken, clientIp)
+      if (!verified) {
+        return errorResponse('Verification failed', 403)
+      }
+    }
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -380,9 +468,9 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [TO_EMAIL],
-        reply_to: email,
+        reply_to: recipientEmail,
         subject: `[${name}] ${subject}`,
-        html: buildAdminEmail(name, email, subject, message, source, priority),
+        html: buildAdminEmail(name, recipientEmail, subject, message, source, priority),
       }),
     })
 
@@ -397,7 +485,10 @@ Deno.serve(async (req: Request) => {
 
     const data = await res.json()
 
-    // Send confirmation email to the user (non-blocking, don't fail if this errors)
+    // Send confirmation email to the verified recipient (non-blocking).
+    // `recipientEmail` is either the authenticated user's verified email (app path)
+    // or a CAPTCHA-gated submitted email (landing path) — never an arbitrary,
+    // unverified address, so this is no longer an open relay.
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -406,7 +497,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
-        to: [email],
+        to: [recipientEmail],
         subject: `We've received your message — ${subject}`,
         html: buildConfirmationEmail(name, subject, message),
       }),
@@ -417,6 +508,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
+    // getAuthenticatedUser throws a Response (e.g. 401) — propagate it as-is.
+    if (error instanceof Response) return error
     console.error('send-contact-email error:', error)
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,

@@ -141,45 +141,53 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       Object.values(form.optionImages.value).some((o) => o.removed)
 
     if (imagesChanged) {
-      const imageHash = await computeQuestionImageHash({
-        questionImage: form.questionImage.value.file
-          ? form.questionImage.value.file
-          : form.questionImage.value.removed
-            ? null
-            : questionImagePath
-              ? questionsStore.getQuestionImageUrl(questionImagePath)
-              : null,
-        optionAImage: form.optionImages.value.a.file
-          ? form.optionImages.value.a.file
-          : form.optionImages.value.a.removed
-            ? null
-            : optionImagePaths.a
-              ? questionsStore.getQuestionImageUrl(optionImagePaths.a)
-              : null,
-        optionBImage: form.optionImages.value.b.file
-          ? form.optionImages.value.b.file
-          : form.optionImages.value.b.removed
-            ? null
-            : optionImagePaths.b
-              ? questionsStore.getQuestionImageUrl(optionImagePaths.b)
-              : null,
-        optionCImage: form.optionImages.value.c.file
-          ? form.optionImages.value.c.file
-          : form.optionImages.value.c.removed
-            ? null
-            : optionImagePaths.c
-              ? questionsStore.getQuestionImageUrl(optionImagePaths.c)
-              : null,
-        optionDImage: form.optionImages.value.d.file
-          ? form.optionImages.value.d.file
-          : form.optionImages.value.d.removed
-            ? null
-            : optionImagePaths.d
-              ? questionsStore.getQuestionImageUrl(optionImagePaths.d)
-              : null,
-      })
+      // The question itself was already persisted above. The image-hash recompute is a
+      // best-effort follow-up used only for duplicate detection: if hashing fails (e.g. a
+      // transient fetch error while re-hashing an unchanged image's storage URL), swallow it
+      // so the otherwise-successful edit is not rolled back. The hash can be recomputed later.
+      try {
+        const imageHash = await computeQuestionImageHash({
+          questionImage: form.questionImage.value.file
+            ? form.questionImage.value.file
+            : form.questionImage.value.removed
+              ? null
+              : questionImagePath
+                ? questionsStore.getQuestionImageUrl(questionImagePath)
+                : null,
+          optionAImage: form.optionImages.value.a.file
+            ? form.optionImages.value.a.file
+            : form.optionImages.value.a.removed
+              ? null
+              : optionImagePaths.a
+                ? questionsStore.getQuestionImageUrl(optionImagePaths.a)
+                : null,
+          optionBImage: form.optionImages.value.b.file
+            ? form.optionImages.value.b.file
+            : form.optionImages.value.b.removed
+              ? null
+              : optionImagePaths.b
+                ? questionsStore.getQuestionImageUrl(optionImagePaths.b)
+                : null,
+          optionCImage: form.optionImages.value.c.file
+            ? form.optionImages.value.c.file
+            : form.optionImages.value.c.removed
+              ? null
+              : optionImagePaths.c
+                ? questionsStore.getQuestionImageUrl(optionImagePaths.c)
+                : null,
+          optionDImage: form.optionImages.value.d.file
+            ? form.optionImages.value.d.file
+            : form.optionImages.value.d.removed
+              ? null
+              : optionImagePaths.d
+                ? questionsStore.getQuestionImageUrl(optionImagePaths.d)
+                : null,
+        })
 
-      await questionsStore.updateQuestion(questionId, { imageHash: imageHash || null })
+        await questionsStore.updateQuestion(questionId, { imageHash: imageHash || null })
+      } catch (hashError) {
+        console.error('Failed to recompute question image hash:', hashError)
+      }
     }
 
     toast.success(t.value.shared.questionEditDialog.toastUpdated)
