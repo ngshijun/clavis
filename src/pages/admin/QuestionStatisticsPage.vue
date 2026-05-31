@@ -26,6 +26,9 @@ const questionsStore = useQuestionsStore()
 // Fetch statistics on mount
 onMounted(async () => {
   await questionsStore.fetchQuestionStatistics()
+  if (questionsStore.error) {
+    toast.error(questionsStore.error)
+  }
 })
 
 // Refresh statistics state

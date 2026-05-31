@@ -333,6 +333,7 @@ onBeforeRouteLeave((to) => {
               :is-answered="isAnswered"
               :answered-option-ids="answeredOptionIds"
               :is-image-only="isImageOnlyOptions"
+              :disabled="isSubmitting"
               @select="handleOptionClick"
             />
 

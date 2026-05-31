@@ -9,6 +9,8 @@ import {
 } from '@/stores/child-statistics'
 import { useChildLinkStore } from '@/stores/child-link'
 import { parseSimpleMarkdown } from '@/lib/utils'
+import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
+import { canViewAiSummary } from '@/lib/tierConfig'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,21 +35,14 @@ const error = ref<string | null>(null)
 const subscriptionRequired = ref(false)
 const childSubscription = ref<ChildSubscriptionStatus | null>(null)
 
-const summary = computed(() => {
-  if (!session.value) return null
-  const totalQuestions = session.value.totalQuestions
-  const correctAnswers = session.value.correctAnswers
-  const score = session.value.score
-  const durationSeconds = session.value.durationSeconds ?? 0
+const summary = computed(() =>
+  session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
+)
 
-  return {
-    totalQuestions,
-    correctAnswers,
-    incorrectAnswers: totalQuestions - correctAnswers,
-    score,
-    durationSeconds,
-  }
-})
+// AI summary entitlement (Pro and above) — single source of truth in tierConfig.
+const canSeeAiSummary = computed(() =>
+  childSubscription.value ? canViewAiSummary(childSubscription.value.tier) : false,
+)
 
 onMounted(async () => {
   // Ensure children are loaded for name display (guard is non-blocking)
@@ -120,7 +115,7 @@ function goBack() {
             </CardHeader>
             <CardContent>
               <div
-                v-if="childSubscription?.tier !== 'pro' && childSubscription?.tier !== 'max'"
+                v-if="!canSeeAiSummary"
                 class="flex items-center gap-3 text-sm text-muted-foreground"
               >
                 <Crown class="size-5 text-amber-500" />

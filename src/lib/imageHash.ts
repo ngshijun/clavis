@@ -46,9 +46,19 @@ export async function hashBase64(base64: string): Promise<string> {
  * Fetch image from URL and compute its hash
  */
 export async function hashImageUrl(url: string): Promise<string> {
-  const response = await fetch(url)
-  const buffer = await response.arrayBuffer()
-  return hashArrayBuffer(buffer)
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Failed to fetch image (${response.status})`)
+    const buffer = await response.arrayBuffer()
+    return hashArrayBuffer(buffer)
+  } catch {
+    // The image content is unreachable (transient fetch error, expired signed URL, etc.).
+    // Fall back to a stable hash of the URL string so one bad image degrades duplicate
+    // detection gracefully (the same path still collides with itself) instead of rejecting
+    // the whole Promise.all in computeQuestionImageHash and discarding every image's hash.
+    const encoder = new TextEncoder()
+    return hashArrayBuffer(encoder.encode(url).buffer as ArrayBuffer)
+  }
 }
 
 /**

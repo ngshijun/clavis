@@ -4,8 +4,8 @@ import { useT } from '@/composables/useT'
 import { useRouter } from 'vue-router'
 import { useChildStatisticsStore, type ChildPracticeSession } from '@/stores/child-statistics'
 import { useChildLinkStore } from '@/stores/child-link'
-import { resolveFilterValue, createPracticeHistoryColumns } from '@/lib/statisticsColumns'
-import { useStatisticsSummary } from '@/composables/useStatisticsSummary'
+import { createPracticeHistoryColumns } from '@/lib/statisticsColumns'
+import { useStatisticsPage } from '@/composables/useStatisticsPage'
 import StatisticsFilterBar from '@/components/statistics/StatisticsFilterBar.vue'
 import StatisticsSummaryCards from '@/components/statistics/StatisticsSummaryCards.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +28,6 @@ const t = useT()
 const languageStore = useLanguageStore()
 
 const SELECTED_CHILD_KEY = 'parent_selected_child_id'
-const hideInProgress = ref(false)
 
 // Get initial child ID from localStorage or default to first child
 function getInitialChildId(): string {
@@ -70,83 +69,19 @@ watch(selectedChildId, async (newChildId) => {
   }
 })
 
-// Convert ALL_VALUE sentinel to undefined for store filter calls
-const gradeLevelFilter = computed(() =>
-  resolveFilterValue(childStatisticsStore.statisticsFilters.gradeLevel),
-)
-const subjectFilter = computed(() =>
-  resolveFilterValue(childStatisticsStore.statisticsFilters.subject),
-)
-const topicFilter = computed(() => resolveFilterValue(childStatisticsStore.statisticsFilters.topic))
-const subTopicFilter = computed(() =>
-  resolveFilterValue(childStatisticsStore.statisticsFilters.subTopic),
-)
-
-// Get available filter options
-const availableGradeLevels = computed(() => {
-  if (!selectedChildId.value) return []
-  return childStatisticsStore.getGradeLevels(selectedChildId.value)
-})
-const availableSubjects = computed(() => {
-  if (!selectedChildId.value) return []
-  return childStatisticsStore.getSubjects(selectedChildId.value, gradeLevelFilter.value)
-})
-const availableTopics = computed(() => {
-  if (!selectedChildId.value) return []
-  return childStatisticsStore.getTopics(
-    selectedChildId.value,
-    gradeLevelFilter.value,
-    subjectFilter.value,
-  )
-})
-const availableSubTopics = computed(() => {
-  if (!selectedChildId.value) return []
-  return childStatisticsStore.getSubTopics(
-    selectedChildId.value,
-    gradeLevelFilter.value,
-    subjectFilter.value,
-    topicFilter.value,
-  )
-})
-
-// Get filtered sessions
-const filteredSessions = computed(() => {
-  if (!selectedChildId.value) return []
-  return childStatisticsStore.getFilteredSessions(
-    selectedChildId.value,
-    gradeLevelFilter.value,
-    subjectFilter.value,
-    topicFilter.value,
-    subTopicFilter.value,
-    childStatisticsStore.statisticsFilters.dateRange,
-  )
-})
-
-// Statistics computed values (only from completed sessions)
-const { averageScore, totalSessions, totalStudyTime, subTopicsPracticed } =
-  useStatisticsSummary(filteredSessions)
-
-// Get recent sessions for table
-const recentSessions = computed(() => {
-  return [...filteredSessions.value].sort((a, b) => {
-    const aCompleted = !!a.completedAt
-    const bCompleted = !!b.completedAt
-    if (!aCompleted && bCompleted) return -1
-    if (aCompleted && !bCompleted) return 1
-    if (!aCompleted && !bCompleted) {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    }
-    return new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime()
-  })
-})
-
-// Table data with optional in-progress filtering
-const displayedSessions = computed(() => {
-  if (hideInProgress.value) {
-    return recentSessions.value.filter((s) => s.status === 'completed')
-  }
-  return recentSessions.value
-})
+// Filter/sort orchestration shared with the admin student-statistics page.
+const {
+  hideInProgress,
+  availableGradeLevels,
+  availableSubjects,
+  availableTopics,
+  availableSubTopics,
+  displayedSessions,
+  averageScore,
+  totalSessions,
+  totalStudyTime,
+  subTopicsPracticed,
+} = useStatisticsPage(childStatisticsStore, selectedChildId)
 
 const columns = computed(() => createPracticeHistoryColumns<ChildPracticeSession>())
 

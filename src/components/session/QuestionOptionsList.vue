@@ -15,6 +15,7 @@ defineProps<{
   isAnswered: boolean
   answeredOptionIds: string[]
   isImageOnly: boolean
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -43,8 +44,9 @@ const questionsStore = useQuestionsStore()
         'text-left': !isImageOnly,
         'border-primary bg-primary/5': selectedOptionIds.has(option.id) && !isAnswered,
         'hover:border-primary/50 hover:bg-muted/50':
-          !isAnswered && !selectedOptionIds.has(option.id),
-        'cursor-not-allowed': isAnswered,
+          !isAnswered && !disabled && !selectedOptionIds.has(option.id),
+        'cursor-not-allowed': isAnswered || disabled,
+        'opacity-60': disabled && !isAnswered,
         'border-green-500 bg-green-50 dark:bg-green-950/20':
           isAnswered &&
           option.isCorrect &&
@@ -54,7 +56,7 @@ const questionsStore = useQuestionsStore()
           ((answeredOptionIds.includes(option.id) && !option.isCorrect) ||
             (questionType === 'mrq' && option.isCorrect && !answeredOptionIds.includes(option.id))),
       }"
-      :disabled="isAnswered"
+      :disabled="isAnswered || disabled"
       @click="emit('select', option.id)"
     >
       <!-- Image-only layout: vertical with centered content -->

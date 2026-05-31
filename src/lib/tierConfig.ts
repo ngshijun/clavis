@@ -36,13 +36,13 @@ export const tierOrder: readonly SubscriptionTier[] = ['core', 'plus', 'pro', 'm
 export interface TierFeatures {
   /** Detailed per-question session results (Plus and above). */
   canViewDetailedResults: boolean
-  /** AI-generated session summary (Plus and above). */
+  /** AI-generated session summary (Pro and above). */
   canViewAiSummary: boolean
 }
 
 export const TIER_FEATURES: Record<SubscriptionTier, TierFeatures> = {
   core: { canViewDetailedResults: false, canViewAiSummary: false },
-  plus: { canViewDetailedResults: true, canViewAiSummary: true },
+  plus: { canViewDetailedResults: true, canViewAiSummary: false },
   pro: { canViewDetailedResults: true, canViewAiSummary: true },
   max: { canViewDetailedResults: true, canViewAiSummary: true },
 }

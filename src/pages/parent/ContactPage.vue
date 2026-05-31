@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useT } from '@/composables/useT'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscription'
-import { supabase } from '@/lib/supabaseClient'
+import { useContact } from '@/composables/useContact'
 import { contactMessageSchema } from '@/lib/validations'
 import { Loader2, Send } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,8 @@ import { toast } from 'vue-sonner'
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
 
-const isSubmitting = ref(false)
 const t = useT()
+const { isSubmitting, sendContactMessage } = useContact()
 
 // Children + their subscriptions are preloaded by parentRouteGuard (src/router/index.ts);
 // this computed reads the resulting state reactively for the priority flag.
@@ -35,25 +35,19 @@ const { handleSubmit, resetForm, submitCount } = useForm({
 })
 
 const onSubmit = handleSubmit(async (formValues) => {
-  isSubmitting.value = true
-  try {
-    const { error } = await supabase.functions.invoke('send-contact-email', {
-      body: {
-        name: authStore.user?.name ?? '',
-        email: authStore.user?.email ?? '',
-        ...formValues,
-        source: 'app',
-        priority: isPriority.value,
-      },
-    })
-    if (error) throw error
-    toast.success(t.value.parent.contact.toastSuccess)
-    resetForm()
-  } catch {
+  const { error } = await sendContactMessage({
+    name: authStore.user?.name ?? '',
+    email: authStore.user?.email ?? '',
+    ...formValues,
+    source: 'app',
+    priority: isPriority.value,
+  })
+  if (error) {
     toast.error(t.value.parent.contact.toastError)
-  } finally {
-    isSubmitting.value = false
+    return
   }
+  toast.success(t.value.parent.contact.toastSuccess)
+  resetForm()
 })
 </script>
 
