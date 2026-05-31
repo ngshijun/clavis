@@ -1778,6 +1778,13 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: Json
       }
+      get_subtopic_answered_counts: {
+        Args: never
+        Returns: {
+          answered_count: number
+          topic_id: string
+        }[]
+      }
       get_tier_from_stripe_price: {
         Args: { p_price_id: string }
         Returns: Database['public']['Enums']['subscription_tier']

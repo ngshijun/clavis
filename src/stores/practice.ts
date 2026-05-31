@@ -642,14 +642,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!authStore.user) return
 
     try {
-      // types regen pending (migration 20260531000000): get_subtopic_answered_counts
-      // is not yet in database.types.ts, so the typed rpc() overload rejects it — cast
-      // here until the migration is applied and `supabase gen types` is rerun.
-      const rpc = supabase.rpc as unknown as (fn: 'get_subtopic_answered_counts') => PromiseLike<{
-        data: Array<{ topic_id: string; answered_count: number }> | null
-        error: unknown
-      }>
-      const { data, error: fetchError } = await rpc('get_subtopic_answered_counts')
+      const { data, error: fetchError } = await supabase.rpc('get_subtopic_answered_counts')
 
       if (fetchError) {
         console.error('Error fetching sub-topic progress:', fetchError)
@@ -658,7 +651,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
       const countMap = new Map<string, number>()
       for (const row of data ?? []) {
-        countMap.set(row.topic_id, Number(row.answered_count))
+        countMap.set(row.topic_id, row.answered_count)
       }
       subTopicProgress.value = countMap
     } catch (err) {
