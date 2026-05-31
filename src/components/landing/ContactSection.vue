@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { storeToRefs } from 'pinia'
 import { useLanguageStore } from '@/stores/language'
-import { supabase } from '@/lib/supabaseClient'
+import { useContact } from '@/composables/useContact'
 import { contactFormSchema } from '@/lib/validations'
 import { Loader2, Send } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -14,8 +14,8 @@ import { toast } from 'vue-sonner'
 
 const { t } = storeToRefs(useLanguageStore())
 
-const isSubmitting = ref(false)
 const honeypot = ref('')
+const { isSubmitting, sendContactMessage } = useContact()
 
 const { handleSubmit, resetForm, submitCount } = useForm({
   validationSchema: contactFormSchema,
@@ -25,19 +25,13 @@ const { handleSubmit, resetForm, submitCount } = useForm({
 const onSubmit = handleSubmit(async (formValues) => {
   if (honeypot.value) return // bot detected
 
-  isSubmitting.value = true
-  try {
-    const { error } = await supabase.functions.invoke('send-contact-email', {
-      body: { ...formValues, source: 'landing' },
-    })
-    if (error) throw error
-    toast.success(t.value.landing.contact.successMessage)
-    resetForm()
-  } catch {
+  const { error } = await sendContactMessage({ ...formValues, source: 'landing' })
+  if (error) {
     toast.error(t.value.landing.contact.errorMessage)
-  } finally {
-    isSubmitting.value = false
+    return
   }
+  toast.success(t.value.landing.contact.successMessage)
+  resetForm()
 })
 </script>
 

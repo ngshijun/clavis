@@ -9,6 +9,7 @@ import { useStudentDashboardStore } from '@/stores/student-dashboard'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
+import { canViewAiSummary } from '@/lib/tierConfig'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,6 +47,11 @@ const summary = computed(() =>
   session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
 )
 
+// AI summary entitlement (Pro and above) — single source of truth in tierConfig.
+const canGenerateAiSummary = computed(() =>
+  subscriptionStatus.value ? canViewAiSummary(subscriptionStatus.value.tier) : false,
+)
+
 onMounted(async () => {
   const [subStatus, result] = await Promise.all([
     practiceStore.getStudentSubscriptionStatus(),
@@ -65,7 +71,7 @@ onMounted(async () => {
 
     if (result.session.aiSummary) {
       aiSummaryStatus.value = 'success'
-    } else if ((subStatus.tier === 'pro' || subStatus.tier === 'max') && isCurrentSession.value) {
+    } else if (canViewAiSummary(subStatus.tier) && isCurrentSession.value) {
       generateAiSummary()
     }
   } else {
@@ -158,11 +164,7 @@ async function generateAiSummary() {
                   {{ t.student.sessionResult.aiSummaryTitle }}
                 </div>
                 <Button
-                  v-if="
-                    (subscriptionStatus?.tier === 'pro' || subscriptionStatus?.tier === 'max') &&
-                    !session.aiSummary &&
-                    aiSummaryStatus !== 'loading'
-                  "
+                  v-if="canGenerateAiSummary && !session.aiSummary && aiSummaryStatus !== 'loading'"
                   variant="outline"
                   size="sm"
                   class="h-7 text-xs"

@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
           },
         ],
         mode: 'subscription',
-        success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}&student_id=${studentId}`,
         cancel_url: cancelUrl,
         subscription_data: {
           metadata: {

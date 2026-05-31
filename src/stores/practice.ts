@@ -8,6 +8,7 @@ import { useLanguageStore } from './language'
 import type { Database } from '@/types/database.types'
 import { handleError, errorMessages } from '@/lib/errors'
 import { computeScorePercent, mapAnswerRow } from '@/lib/questionHelpers'
+import { canViewAiSummary } from '@/lib/tierConfig'
 import {
   useStudentSubscriptionStore,
   type StudentSubscriptionStatus,
@@ -527,7 +528,7 @@ export const usePracticeStore = defineStore('practice', () => {
   async function generateAiSummary(sessionId: string): Promise<void> {
     try {
       const subscriptionStatus = await subscription.getStudentSubscriptionStatus()
-      if (subscriptionStatus.tier !== 'pro' && subscriptionStatus.tier !== 'max') {
+      if (!canViewAiSummary(subscriptionStatus.tier)) {
         return
       }
 
@@ -631,17 +632,24 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /**
-   * Fetch unique questions answered per sub-topic for the current student
-   * Uses server-side aggregation to avoid the default 1000-row limit
+   * Fetch the number of DISTINCT answered questions per sub-topic for the
+   * current student. Counts from practice_answers (rows written only when a
+   * question is actually answered) — NOT student_question_progress, whose rows
+   * are inserted at session creation and overstated completion. Server-side
+   * aggregation avoids the default 1000-row limit.
    */
   async function fetchSubTopicProgress(): Promise<void> {
     if (!authStore.user) return
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('student_question_progress')
-        .select('topic_id, question_id.count()')
-        .eq('student_id', authStore.user.id)
+      // types regen pending (migration 20260531000000): get_subtopic_answered_counts
+      // is not yet in database.types.ts, so the typed rpc() overload rejects it — cast
+      // here until the migration is applied and `supabase gen types` is rerun.
+      const rpc = supabase.rpc as unknown as (fn: 'get_subtopic_answered_counts') => PromiseLike<{
+        data: Array<{ topic_id: string; answered_count: number }> | null
+        error: unknown
+      }>
+      const { data, error: fetchError } = await rpc('get_subtopic_answered_counts')
 
       if (fetchError) {
         console.error('Error fetching sub-topic progress:', fetchError)
@@ -649,19 +657,9 @@ export const usePracticeStore = defineStore('practice', () => {
       }
 
       const countMap = new Map<string, number>()
-      // PostgREST aggregate (topic_id, question_id.count()) is not represented
-      // in database.types.ts; validate the shape per-row instead of trusting it.
-      const rows = (data ?? []) as unknown as Array<Record<string, unknown>>
-      for (const row of rows) {
-        const topicId = row.topic_id
-        const count = row.count
-        if (typeof topicId !== 'string' || typeof count !== 'number') {
-          console.error('Unexpected sub-topic progress aggregate row shape:', row)
-          continue
-        }
-        countMap.set(topicId, count)
+      for (const row of data ?? []) {
+        countMap.set(row.topic_id, Number(row.answered_count))
       }
-
       subTopicProgress.value = countMap
     } catch (err) {
       console.error('Error fetching sub-topic progress:', err)

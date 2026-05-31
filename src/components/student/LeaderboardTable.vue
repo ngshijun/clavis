@@ -15,6 +15,12 @@ export interface LeaderboardEntry {
   avatarPath: string | null
   gradeLevelName: string | null
   rank: number
+  // Optional stat fields carried through to StudentProfileDialog; the table itself
+  // never renders them. All-time rows supply `xp`, weekly rows supply `weeklyXp`.
+  xp?: number
+  weeklyXp?: number
+  level?: number
+  currentStreak?: number
 }
 
 defineProps<{
