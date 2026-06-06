@@ -82,10 +82,10 @@ function dismissRewardDialog() {
 
 // Student profile dialog
 const showProfileDialog = ref(false)
-const selectedStudent = ref<(LeaderboardEntry & Record<string, unknown>) | null>(null)
+const selectedStudent = ref<LeaderboardEntry | null>(null)
 
 function handleRowClick(entry: LeaderboardEntry) {
-  selectedStudent.value = entry as LeaderboardEntry & Record<string, unknown>
+  selectedStudent.value = entry
   showProfileDialog.value = true
 }
 

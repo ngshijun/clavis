@@ -55,7 +55,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   const announcements = ref<Announcement[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  const unreadCount = ref(0)
 
   // Admin AnnouncementsPage state (persisted across navigation)
   const adminAnnouncementsFilters = ref({
@@ -70,6 +69,10 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
 
   // Computed
   const unreadAnnouncements = computed(() => announcements.value.filter((a) => !a.isRead))
+
+  // Single source of truth: derived from the fetched list (admins always read every
+  // row as isRead=true, so this is 0 for them without a special case).
+  const unreadCount = computed(() => unreadAnnouncements.value.length)
 
   const latestAnnouncements = computed(() => announcements.value.slice(0, 5))
 
@@ -116,13 +119,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
         isRead: authStore.userType === 'admin' ? true : readAnnouncementIds.has(a.id),
       }))
 
-      // Calculate unread count from fetched data (more reliable than RPC on first login)
-      if (authStore.userType === 'admin') {
-        unreadCount.value = 0
-      } else {
-        unreadCount.value = announcements.value.filter((a) => !a.isRead).length
-      }
-
       return { error: null }
     } catch (err) {
       const message = handleError(err, 'failedFetchAnnouncements')
@@ -130,23 +126,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
       return { error: message }
     } finally {
       isLoading.value = false
-    }
-  }
-
-  // Fetch unread count
-  async function fetchUnreadCount(): Promise<void> {
-    if (authStore.userType === 'admin') {
-      unreadCount.value = 0
-      return
-    }
-
-    try {
-      const { data, error: rpcError } = await supabase.rpc('get_unread_announcement_count')
-      if (!rpcError && data !== null) {
-        unreadCount.value = data
-      }
-    } catch (err) {
-      console.error('Failed to fetch unread announcement count:', err)
     }
   }
 
@@ -173,14 +152,9 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
         throw insertError
       }
 
-      // Update local state
+      // Update local state (unreadCount is derived from isRead)
       if (announcement) {
         announcement.isRead = true
-      }
-
-      // Decrement unread count
-      if (unreadCount.value > 0) {
-        unreadCount.value--
       }
 
       return { error: null }
@@ -213,11 +187,10 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
 
       if (insertError) throw insertError
 
-      // Update local state
+      // Update local state (unreadCount is derived from isRead)
       announcements.value.forEach((a) => {
         a.isRead = true
       })
-      unreadCount.value = 0
 
       return { error: null }
     } catch (err) {
@@ -414,7 +387,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     announcements.value = []
     isLoading.value = false
     error.value = null
-    unreadCount.value = 0
     adminAnnouncementsFilters.value = { search: '' }
     announcementsPagination.value = { pageIndex: 0, pageSize: 5 }
   }
@@ -441,7 +413,6 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
 
     // Actions
     fetchAnnouncements,
-    fetchUnreadCount,
     markAsRead,
     markAllAsRead,
     getImageUrl,

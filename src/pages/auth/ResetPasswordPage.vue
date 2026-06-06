@@ -83,11 +83,8 @@ onMounted(async () => {
     if (!session) {
       tokenError.value = t.value.auth.resetPassword.invalidLinkError
       isValidToken.value = false
-    } else if (session) {
-      isValidToken.value = true
     } else {
-      tokenError.value = t.value.auth.resetPassword.invalidLinkError
-      isValidToken.value = false
+      isValidToken.value = true
     }
   } catch (err) {
     console.error('Failed to verify reset token:', err)

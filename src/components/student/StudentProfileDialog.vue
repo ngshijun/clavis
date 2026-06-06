@@ -35,7 +35,7 @@ const t = useT()
 const open = defineModel<boolean>('open', { default: false })
 
 const props = defineProps<{
-  student: (LeaderboardEntry & Record<string, unknown>) | null
+  student: LeaderboardEntry | null
   activeTab: 'all-time' | 'weekly'
 }>()
 
@@ -106,20 +106,16 @@ async function handleAcceptRequest() {
   }
 }
 
-// Computed helpers to avoid `as Record<string, unknown>` casts in template
-// (prettier's HTML parser chokes on angle brackets in type assertions)
-const studentRecord = computed(() => props.student as Record<string, unknown> | null)
-
-const studentLevel = computed(() => (studentRecord.value?.level as number) ?? '-')
+// Stat fields arrive on the leaderboard entry (typed via LeaderboardEntry's optional
+// xp/weeklyXp/level/currentStreak); the profile RPC drives everything else.
+const studentLevel = computed(() => props.student?.level ?? '-')
 
 const studentXpDisplay = computed(() => {
-  if (props.activeTab === 'weekly') {
-    return (studentRecord.value?.weeklyXp as number)?.toLocaleString() ?? '-'
-  }
-  return (studentRecord.value?.xp as number)?.toLocaleString() ?? '-'
+  const xp = props.activeTab === 'weekly' ? props.student?.weeklyXp : props.student?.xp
+  return xp?.toLocaleString() ?? '-'
 })
 
-const studentCurrentStreak = computed(() => (studentRecord.value?.currentStreak as number) ?? 0)
+const studentCurrentStreak = computed(() => props.student?.currentStreak ?? 0)
 </script>
 
 <template>

@@ -89,7 +89,7 @@ const historyData = computed<HistoryRow[]>(() => {
     const isCompleted = !!session.completedAt
     const correctAnswers = session.correctAnswers
     const totalQuestions = session.totalQuestions
-    const score = isCompleted ? computeScorePercent(correctAnswers, totalQuestions) || null : null
+    const score = isCompleted ? computeScorePercent(correctAnswers, totalQuestions) : null
     const durationSeconds = isCompleted ? session.durationSeconds : null
 
     return {

@@ -6,7 +6,7 @@ import {
   extractPeriodDates,
   extractStripeId,
 } from '../_shared/sync-helpers.ts'
-import { getAuthenticatedUser, verifyParentStudentLink } from '../_shared/auth.ts'
+import { getAuthenticatedUser, verifyParent, verifyParentStudentLink } from '../_shared/auth.ts'
 
 /**
  * Sync Subscription Edge Function
@@ -24,6 +24,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await getAuthenticatedUser(req)
+    await verifyParent(user.id)
 
     const { studentId, sessionId } = await req.json()
 

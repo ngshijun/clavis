@@ -6,6 +6,8 @@
  * all share the same grade→subject→topic→subtopic cascading filter pattern.
  */
 
+import { toMYTDateString, mytDateToUTCDate, utcDateToString } from '@/lib/date'
+
 export type DateRangeFilter = 'today' | 'last7days' | 'last30days' | 'alltime'
 
 /** Minimum fields required for filtering and available-options extraction */
@@ -26,22 +28,33 @@ export interface SessionFilterParams {
 }
 
 /**
- * Returns the start date for a given date range filter.
- * Returns null for 'alltime' (no filtering).
+ * Returns the inclusive start of a date range filter as an MYT calendar date
+ * string (YYYY-MM-DD). Returns null for 'alltime' (no filtering).
+ *
+ * Boundaries are anchored to the MYT (UTC+8) calendar — consistent with the
+ * rest of the app (daily statuses, streaks, leaderboard) — rather than the
+ * browser's local timezone. Day arithmetic is performed on the MYT calendar.
  */
-export function getDateRangeStart(filter: DateRangeFilter): Date | null {
-  const now = new Date()
+export function getDateRangeStart(filter: DateRangeFilter): string | null {
+  const todayMYT = toMYTDateString()
   switch (filter) {
     case 'today':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      return todayMYT
     case 'last7days':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+      return subtractMYTDays(todayMYT, 6)
     case 'last30days':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+      return subtractMYTDays(todayMYT, 29)
     case 'alltime':
     default:
       return null
   }
+}
+
+/** Subtracts `days` from an MYT calendar date string, returning a YYYY-MM-DD string. */
+function subtractMYTDays(mytDateStr: string, days: number): string {
+  const date = mytDateToUTCDate(mytDateStr)
+  date.setUTCDate(date.getUTCDate() - days)
+  return utcDateToString(date)
 }
 
 /**
@@ -59,10 +72,11 @@ export function filterSessions<T extends FilterableSession>(
     if (filters.subjectName && s.subjectName !== filters.subjectName) return false
     if (filters.topicName && s.topicName !== filters.topicName) return false
     if (filters.subTopicName && s.subTopicName !== filters.subTopicName) return false
-    // Date filter applies to completedAt; in-progress sessions always shown
+    // Date filter applies to completedAt; in-progress sessions always shown.
+    // Compare MYT calendar dates (string compare is valid for YYYY-MM-DD).
     if (dateRangeStart && s.completedAt) {
-      const sessionDate = new Date(s.completedAt)
-      if (sessionDate < dateRangeStart) return false
+      const sessionDateMYT = toMYTDateString(new Date(s.completedAt))
+      if (sessionDateMYT < dateRangeStart) return false
     }
     return true
   })

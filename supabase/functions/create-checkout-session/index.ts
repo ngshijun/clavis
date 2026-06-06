@@ -90,7 +90,16 @@ Deno.serve(async (req: Request) => {
         .eq('id', user.id)
     }
 
-    // Check for existing active Stripe subscription for this student
+    // Check for existing active Stripe subscription for this student.
+    //
+    // The local child_subscriptions row is written by the subscription.created
+    // webhook, which lags Checkout completion. Consulting only the DB lets a
+    // parent complete one checkout and start a second before the webhook lands,
+    // producing two live Stripe subscriptions for the same student (the DB
+    // upserts onConflict 'student_id' so only one row survives, orphaning the
+    // other Stripe subscription). Authoritatively re-verify against Stripe:
+    // list this customer's non-terminal subscriptions and reject if any already
+    // belongs to this student (matched via subscription metadata).
     const { data: existingSubscription } = await supabaseAdmin
       .from('child_subscriptions')
       .select('stripe_subscription_id, tier')
@@ -99,6 +108,34 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (existingSubscription?.stripe_subscription_id) {
+      return errorResponse('Student already has an active subscription. Use modify subscription instead.', 400)
+    }
+
+    // A Stripe subscription is "non-terminal" (i.e. still consuming a checkout
+    // slot for this student) in any of these statuses. 'canceled' / 'incomplete_expired'
+    // are terminal and don't block a fresh checkout.
+    const NON_TERMINAL_STATUSES = new Set([
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+      'incomplete',
+      'paused',
+    ])
+
+    const stripeSubscriptions = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: 'all',
+      limit: 100,
+    })
+
+    const studentHasLiveStripeSub = stripeSubscriptions.data.some(
+      (sub) =>
+        sub.metadata?.supabase_student_id === studentId &&
+        NON_TERMINAL_STATUSES.has(sub.status),
+    )
+
+    if (studentHasLiveStripeSub) {
       return errorResponse('Student already has an active subscription. Use modify subscription instead.', 400)
     }
 
@@ -126,7 +163,7 @@ Deno.serve(async (req: Request) => {
           },
         ],
         mode: 'subscription',
-        success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}&student_id=${studentId}`,
         cancel_url: cancelUrl,
         subscription_data: {
           metadata: {

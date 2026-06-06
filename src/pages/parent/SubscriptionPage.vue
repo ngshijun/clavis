@@ -62,9 +62,24 @@ const pendingPlan = computed(() =>
 
 // Handle checkout redirect on mount
 onMounted(async () => {
+  // Ensure plans are loaded before rendering plan/price details. The route
+  // guard fetches these fire-and-forget; on a hard reload it may not have
+  // resolved yet, leaving currentPlan undefined and the Current Subscription
+  // card hidden. Awaiting here makes rendering deterministic.
+  await subscriptionStore.fetchPlans()
+
   // Ensure children are loaded (guard is non-blocking)
   if (childLinkStore.linkedChildren.length === 0 && !childLinkStore.isLoading) {
     await childLinkStore.fetchLinkedChildren()
+  }
+
+  // Ensure subscriptions are loaded for the linked children. The route guard
+  // fetches these fire-and-forget; awaiting here guarantees the page never
+  // renders a paying child as a fabricated Core default during a fetch gap.
+  if (childLinkStore.linkedChildren.length > 0) {
+    await subscriptionStore.fetchChildrenSubscriptions(
+      childLinkStore.linkedChildren.map((c) => c.id),
+    )
   }
 
   // Restore saved selection or select first child
@@ -83,8 +98,14 @@ onMounted(async () => {
   const isSuccess = urlParams.get('success') === 'true'
   const isCanceled = urlParams.get('canceled') === 'true'
 
-  if (isSuccess && sessionId && selectedChildId.value) {
-    const { error } = await subscriptionStore.syncSubscription(selectedChildId.value, sessionId)
+  // Prefer the student id round-tripped through the success URL by the edge
+  // function over the locally-selected child: the parent may have switched
+  // the selector (or it may be empty) after starting checkout. Fall back to
+  // the current selection when the URL does not carry one.
+  const checkoutChildId = urlParams.get('student_id') || selectedChildId.value
+
+  if (isSuccess && sessionId && checkoutChildId) {
+    const { error } = await subscriptionStore.syncSubscription(checkoutChildId, sessionId)
 
     if (!error) {
       toast.success(t.value.parent.subscription.toastActivated, {
@@ -97,11 +118,15 @@ onMounted(async () => {
         description: error || t.value.parent.subscription.toastSyncIssueDesc,
       })
     }
-    window.history.replaceState({}, '', window.location.pathname)
   } else if (isCanceled) {
     toast.error(t.value.parent.subscription.toastCheckoutCancelled, {
       description: t.value.parent.subscription.toastCheckoutCancelledDesc,
     })
+  }
+
+  // Always strip checkout query params so a refresh does not re-trigger the
+  // redirect handler, regardless of which branch (or none) ran above.
+  if (isSuccess || isCanceled) {
     window.history.replaceState({}, '', window.location.pathname)
   }
 })
@@ -119,11 +144,17 @@ const selectedChild = computed(() => {
 
 const currentSubscription = computed(() => {
   if (!selectedChildId.value) return null
+  // Until a real fetch has landed, getChildSubscription fabricates a Core
+  // default — do not surface that as the child's actual tier, or a paying
+  // child could be shown as free Core with an "Upgrade" CTA that starts a
+  // second checkout. The loading state covers the gap.
+  if (!subscriptionStore.hasFetchedSubscriptions) return null
   return subscriptionStore.getChildSubscription(selectedChildId.value)
 })
 
 const currentPlan = computed(() => {
   if (!selectedChildId.value) return null
+  if (!subscriptionStore.hasFetchedSubscriptions) return null
   return subscriptionStore.getChildPlan(selectedChildId.value)
 })
 
@@ -294,8 +325,12 @@ async function handleOpenPortal() {
   }
 }
 
-function getStatusBadge(subscription: ReturnType<typeof subscriptionStore.getChildSubscription>) {
-  if (!subscription.stripe) return null
+// Status badge derived from the selected child's subscription. A computed
+// (not a method) so the three template bindings share one evaluation and the
+// type narrows naturally via v-if instead of non-null assertions.
+const statusBadge = computed(() => {
+  const subscription = currentSubscription.value
+  if (!subscription?.stripe) return null
 
   // cancel_at_period_end and scheduledChange are both "heading to a lower
   // tier at period end" from the user's perspective — show the same
@@ -314,7 +349,7 @@ function getStatusBadge(subscription: ReturnType<typeof subscriptionStore.getChi
   }
 
   return null
-}
+})
 </script>
 
 <template>
@@ -343,7 +378,8 @@ function getStatusBadge(subscription: ReturnType<typeof subscriptionStore.getChi
       v-if="
         subscriptionStore.isLoading ||
         subscriptionStore.isProcessingPayment ||
-        childLinkStore.isLoading
+        childLinkStore.isLoading ||
+        (childLinkStore.linkedChildren.length > 0 && !subscriptionStore.hasFetchedSubscriptions)
       "
       class="flex items-center justify-center py-16"
     >
@@ -404,9 +440,9 @@ function getStatusBadge(subscription: ReturnType<typeof subscriptionStore.getChi
                 <div class="flex items-center gap-2">
                   <span class="text-2xl font-bold">{{ currentPlan.name }}</span>
                   <!-- Status badges -->
-                  <template v-if="getStatusBadge(currentSubscription)">
-                    <Badge :variant="getStatusBadge(currentSubscription)!.variant">
-                      {{ getStatusBadge(currentSubscription)!.text }}
+                  <template v-if="statusBadge">
+                    <Badge :variant="statusBadge.variant">
+                      {{ statusBadge.text }}
                     </Badge>
                   </template>
                   <template v-else>

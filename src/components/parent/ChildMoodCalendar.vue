@@ -18,6 +18,11 @@ const calendarRef = ref<InstanceType<typeof StatusCalendar> | null>(null)
 const dailyStatuses = ref<ChildDailyStatus[]>([])
 const isLoading = ref(false)
 
+// Monotonic token: only the most recent fetch is allowed to commit its result,
+// preventing an earlier (e.g. previous child's) request that resolves late from
+// overwriting the current view.
+let fetchToken = 0
+
 const statusMap = computed(() => {
   const map = new Map<string, StatusEntry>()
   for (const status of dailyStatuses.value) {
@@ -29,8 +34,11 @@ const statusMap = computed(() => {
 async function fetchStatuses(year?: number, month?: number) {
   const y = year ?? calendarRef.value?.currentYear ?? new Date().getFullYear()
   const m = month ?? calendarRef.value?.currentMonth ?? new Date().getMonth() + 1
+  const token = ++fetchToken
   isLoading.value = true
   const { statuses } = await childStatisticsStore.fetchChildDailyStatuses(props.childId, y, m)
+  // Discard stale responses (a newer fetch superseded this one)
+  if (token !== fetchToken) return
   dailyStatuses.value = statuses
   isLoading.value = false
 }

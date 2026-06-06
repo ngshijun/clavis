@@ -70,6 +70,27 @@ export interface ChildSubscription {
   scheduledChange?: ScheduledChange
 }
 
+/** Narrow an unknown (Json column) value to a string[] of feature labels. */
+function toFeatureList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+/**
+ * Validate the preview-upgrade edge function response into an UpgradePreview.
+ * Returns null when the payload is missing the required shape so callers can
+ * surface an error instead of consuming an unchecked cast.
+ */
+function parseUpgradePreview(data: unknown): UpgradePreview | null {
+  if (typeof data !== 'object' || data === null) return null
+  const obj = data as Record<string, unknown>
+  if (typeof obj.isUpgrade !== 'boolean') return null
+  if (typeof obj.currentPlan !== 'object' || obj.currentPlan === null) return null
+  if (typeof obj.newPlan !== 'object' || obj.newPlan === null) return null
+  // Shape validated above; the edge function owns the full contract.
+  return data as UpgradePreview
+}
+
 // Cache TTL constants
 const PLANS_CACHE_TTL = 10 * 60 * 1000 // 10 minutes - plans rarely change
 const SUBSCRIPTIONS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes - subscriptions may change more often
@@ -89,6 +110,12 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   // Cache timestamps for staleness tracking
   const plansLastFetched = ref<number | null>(null)
   const subscriptionsLastFetched = ref<number | null>(null)
+
+  // Whether a successful children-subscriptions fetch has ever populated the
+  // store. Distinguishes "confirmed Core (DB row genuinely absent)" from
+  // "unknown (fetch hasn't landed / failed)" so the UI can avoid asserting a
+  // paying child is a free Core user during a fetch gap.
+  const subscriptionsFetched = ref(false)
 
   /**
    * Check if plans cache is still valid
@@ -134,7 +161,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         price: row.price_monthly,
         originalPrice: promoOriginalPrices[row.id],
         sessionsPerDay: row.sessions_per_day,
-        features: (row.features as string[]) ?? [],
+        features: toFeatureList(row.features),
         highlighted: row.is_highlighted ?? false,
         stripePriceId: row.stripe_price_id ?? undefined,
       }))
@@ -164,6 +191,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
     if (ids.length === 0) {
       childSubscriptions.value = []
+      subscriptionsFetched.value = true
       return { error: null }
     }
 
@@ -231,6 +259,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       })
 
       subscriptionsLastFetched.value = Date.now()
+      subscriptionsFetched.value = true
       return { error: null }
     } catch (err) {
       console.error('Error fetching children subscriptions:', err)
@@ -401,7 +430,11 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       if (invokeError) throw invokeError
       if (data.error) throw new Error(data.error)
 
-      return { preview: data as UpgradePreview, error: null }
+      const preview = parseUpgradePreview(data)
+      if (!preview) {
+        return { preview: null, error: errorMessages().failedPreviewUpgrade }
+      }
+      return { preview, error: null }
     } catch (err) {
       const message = handleError(err, 'failedPreviewUpgrade')
       return { preview: null, error: message }
@@ -588,10 +621,17 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     return childSubscriptions.value.some((sub) => sub.stripe?.stripeSubscriptionId)
   })
 
+  // True once a children-subscriptions fetch has successfully populated the
+  // store. The UI should treat a fabricated Core default as authoritative only
+  // when this is true; otherwise the tier is unknown (fetch pending/failed).
+  const hasFetchedSubscriptions = computed(() => subscriptionsFetched.value)
+
   // Reset user-specific state (call on logout)
   // Note: plans is shared data and doesn't need reset
   function $reset() {
     childSubscriptions.value = []
+    subscriptionsFetched.value = false
+    subscriptionsLastFetched.value = null
     isLoading.value = false
     error.value = null
     isProcessingPayment.value = false
@@ -616,6 +656,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     // Computed
     totalMonthlyCost,
     hasAnyStripeSubscription,
+    hasFetchedSubscriptions,
 
     // Actions
     fetchPlans,

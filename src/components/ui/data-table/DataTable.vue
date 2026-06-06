@@ -135,10 +135,16 @@ const table = useVueTable({
   globalFilterFn: 'includesString',
 })
 
-// Watch for search value changes from parent
-if (props.searchColumn) {
-  table.getColumn(props.searchColumn)?.setFilterValue(props.searchValue ?? '')
-}
+// Watch for search value changes from parent and reactively re-apply the column filter
+watch(
+  () => [props.searchColumn, props.searchValue],
+  () => {
+    if (props.searchColumn) {
+      table.getColumn(props.searchColumn)?.setFilterValue(props.searchValue ?? '')
+    }
+  },
+  { immediate: true },
+)
 
 defineExpose({ table })
 </script>

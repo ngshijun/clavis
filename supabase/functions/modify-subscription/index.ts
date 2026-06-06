@@ -8,7 +8,7 @@ import {
   extractStripeId,
 } from '../_shared/sync-helpers.ts'
 import Stripe from 'stripe'
-import { getAuthenticatedUser, verifyParentStudentLink } from '../_shared/auth.ts'
+import { getAuthenticatedUser, verifyParent, verifyParentStudentLink } from '../_shared/auth.ts'
 
 /**
  * Convert a Stripe SDK error into a structured JSON response the UI can act
@@ -59,6 +59,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await getAuthenticatedUser(req)
+    await verifyParent(user.id)
 
     const { studentId, newPriceId } = await req.json()
 

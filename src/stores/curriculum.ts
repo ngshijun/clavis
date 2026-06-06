@@ -255,7 +255,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     name: string,
   ): Promise<{ success: boolean; error: string | null; id?: string }> {
     try {
-      // Get max display order
       const maxOrder = Math.max(0, ...gradeLevels.value.map((g) => g.displayOrder))
 
       const { data, error: insertError } = await supabase
@@ -357,7 +356,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         return { success: false, error: errorMessages().gradeLevelNotFound }
       }
 
-      // Get max display order for this grade level
       const maxOrder = Math.max(0, ...gradeLevel.subjects.map((s) => s.displayOrder))
 
       const { data, error: insertError } = await supabase
@@ -489,7 +487,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         return { success: false, error: errorMessages().subjectNotFound }
       }
 
-      // Get max display order for this subject
       const maxOrder = Math.max(0, ...subject.topics.map((t) => t.displayOrder))
 
       const { data, error: insertError } = await supabase
@@ -631,7 +628,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         return { success: false, error: errorMessages().topicNotFound }
       }
 
-      // Get max display order for this topic
       const maxOrder = Math.max(0, ...topic.subTopics.map((st) => st.displayOrder))
 
       const { data, error: insertError } = await supabase

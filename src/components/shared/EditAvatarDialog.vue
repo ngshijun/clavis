@@ -59,6 +59,9 @@ function handleFileSelect(event: Event) {
     avatarPreviewUrl.value = e.target?.result as string
   }
   reader.readAsDataURL(file)
+
+  // Clear the input value so picking the exact same file again still fires @change
+  target.value = ''
 }
 
 function generateRandom() {

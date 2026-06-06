@@ -330,16 +330,17 @@ describe('scenario: new checkout → sync subscription to database', () => {
     expect(upserts[0].onConflict).toBe('student_id')
   })
 
-  it('defaults tier to "core" with a warning when no plan matches the price', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('refuses to downgrade an active subscription to "core" when no plan matches the price', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client, upserts } = makeMockSupabase({ selectPlan: null })
     const sub = makeSubscription({ priceId: 'price_unknown' })
 
-    await syncSubscriptionToDatabase(sub, client)
+    const result = await syncSubscriptionToDatabase(sub, client)
 
-    expect(upserts[0].values.tier).toBe('core')
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No plan found'))
-    warnSpy.mockRestore()
+    expect(result.success).toBe(false)
+    expect(upserts).toHaveLength(0)
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No plan found'))
+    errorSpy.mockRestore()
   })
 
   it('treats past_due as active (grace period while Stripe retries)', async () => {

@@ -52,6 +52,8 @@ export async function optimizeImage(
   bitmap.close()
 
   const blob = await canvas.convertToBlob({ type: 'image/webp', quality })
-  const webpName = name.replace(/\.[^.]+$/, '.webp')
+  // Strip any existing extension (none for extension-less blobs) then append .webp
+  // so the name always matches the image/webp type.
+  const webpName = name.replace(/\.[^.]+$/, '') + '.webp'
   return new File([blob], webpName, { type: 'image/webp' })
 }

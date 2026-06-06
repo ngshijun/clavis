@@ -74,16 +74,34 @@ export function useInvitations(role: InvitationRole, hooks?: InvitationHooks) {
     }
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('parent_student_invitations')
-        .select('*')
-        .or(`${ownIdCol}.eq.${authStore.user.id},${ownEmailCol}.eq.${authStore.user.email}`)
-        .in('status', ['pending'])
-        .order('created_at', { ascending: false })
+      // Run two .eq() queries and merge rather than a string-built .or(): the email
+      // value would otherwise be interpolated raw into PostgREST's .or() filter grammar,
+      // where commas/parentheses are structural delimiters and would corrupt the filter.
+      const [byId, byEmail] = await Promise.all([
+        supabase
+          .from('parent_student_invitations')
+          .select('*')
+          .eq(ownIdCol, authStore.user.id)
+          .in('status', ['pending'])
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('parent_student_invitations')
+          .select('*')
+          .eq(ownEmailCol, authStore.user.email)
+          .in('status', ['pending'])
+          .order('created_at', { ascending: false }),
+      ])
 
-      if (fetchError) throw fetchError
+      if (byId.error) throw byId.error
+      if (byEmail.error) throw byEmail.error
 
-      invitations.value = await mapInvitationRows(data ?? [])
+      // Merge and de-duplicate by row id (a row can match both id and email)
+      const merged = new Map<string, NonNullable<typeof byId.data>[number]>()
+      for (const row of [...(byId.data ?? []), ...(byEmail.data ?? [])]) {
+        merged.set(row.id, row)
+      }
+
+      invitations.value = await mapInvitationRows([...merged.values()])
 
       return { error: null }
     } catch (err) {
@@ -154,7 +172,16 @@ export function useInvitations(role: InvitationRole, hooks?: InvitationHooks) {
         .select()
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        // The local cache scan above is only a UX shortcut; the partial unique
+        // constraint on (parent_id, student_id) WHERE status = 'pending' is the real
+        // guard. A duplicate pending row surfaces as a unique_violation (23505) — map
+        // it to the friendly "already pending" message rather than the generic one.
+        if (insertError.code === '23505') {
+          return { error: errorMessages().invitationAlreadyPending }
+        }
+        throw insertError
+      }
 
       const invitation: ParentStudentInvitation = {
         id: data.id,

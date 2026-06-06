@@ -64,6 +64,28 @@ function ensureSidebarOpen() {
 
 let tourInstance: ReturnType<typeof import('driver.js').driver> | null = null
 
+/**
+ * Active router.afterEach removers registered by step callbacks. Tracked at module
+ * scope so destroyTour() can flush every pending guard — otherwise guards whose target
+ * route is never reached (e.g. the tour times out or unmounts mid-step) stay registered
+ * on the global router forever, accumulating one per abandoned tour attempt.
+ */
+const activeGuardRemovers = new Set<() => void>()
+
+/**
+ * Register a router.afterEach remover for later flushing, returning a wrapper that
+ * removes the guard and clears it from the tracking set exactly once.
+ */
+function trackGuard(removeGuard: () => void): () => void {
+  const remover = () => {
+    if (!activeGuardRemovers.has(remover)) return
+    activeGuardRemovers.delete(remover)
+    removeGuard()
+  }
+  activeGuardRemovers.add(remover)
+  return remover
+}
+
 /** Whether the first-pet tour is currently running (module-level so any consumer can check) */
 export const isFirstPetTourActive = ref(false)
 
@@ -72,6 +94,9 @@ function destroyTour() {
     tourInstance.destroy()
     tourInstance = null
   }
+  // Flush every pending navigation guard so none keep firing on the global router.
+  for (const remove of [...activeGuardRemovers]) remove()
+  activeGuardRemovers.clear()
   isFirstPetTourActive.value = false
 }
 
@@ -128,28 +153,32 @@ export function useFirstPetTour() {
         // Step 1: User clicks Collections sidebar link → navigates to Collections page
         onCollectionsStepReady: () => {
           ensureSidebarOpen()
-          const removeGuard = router.afterEach(async (to) => {
-            if (to.path === '/student/collections') {
-              removeGuard()
-              safeStep(async () => {
-                await waitForElement('[data-tour="unlock-new-pets"]')
-                tourInstance?.moveNext()
-              })
-            }
-          })
+          const removeGuard = trackGuard(
+            router.afterEach(async (to) => {
+              if (to.path === '/student/collections') {
+                removeGuard()
+                safeStep(async () => {
+                  await waitForElement('[data-tour="unlock-new-pets"]')
+                  tourInstance?.moveNext()
+                })
+              }
+            }),
+          )
         },
 
         // Step 2: User clicks "Unlock New Pets" → navigates to Gacha page
         onUnlockPetsStepReady: () => {
-          const removeGuard = router.afterEach(async (to) => {
-            if (to.path === '/student/gacha') {
-              removeGuard()
-              safeStep(async () => {
-                await waitForElement('[data-tour="gacha-single-pull"]')
-                tourInstance?.moveNext()
-              })
-            }
-          })
+          const removeGuard = trackGuard(
+            router.afterEach(async (to) => {
+              if (to.path === '/student/gacha') {
+                removeGuard()
+                safeStep(async () => {
+                  await waitForElement('[data-tour="gacha-single-pull"]')
+                  tourInstance?.moveNext()
+                })
+              }
+            }),
+          )
         },
 
         // Step 3: User clicks the pull button → animation → result dialog appears
@@ -188,34 +217,36 @@ export function useFirstPetTour() {
         // Step 6: User clicks Collections sidebar link → back to Collections page
         onBackToCollectionsStepReady: () => {
           ensureSidebarOpen()
-          const removeGuard = router.afterEach(async (to) => {
-            if (to.path === '/student/collections') {
-              removeGuard()
-              safeStep(async () => {
-                const card = (await waitForElement('[data-tour="first-pet-card"]')) as HTMLElement
-                // Disable transition so layout changes are instant (transition-all
-                // would animate align-self change, causing driver.js to read the
-                // bounding box mid-animation).
-                card.style.transition = 'none'
-                card.style.alignSelf = 'start'
-                // Wait for the pet image to load so aspect-square has final dimensions
-                const img = card.querySelector('img')
-                if (img && !img.complete) {
-                  await new Promise<void>((r) => {
-                    img.addEventListener('load', () => r(), { once: true })
-                    img.addEventListener('error', () => r(), { once: true })
-                  })
-                }
-                // Force layout recalculation, then wait two frames for it to settle
-                card.getBoundingClientRect()
-                await new Promise<void>((r) =>
-                  requestAnimationFrame(() => requestAnimationFrame(() => r())),
-                )
-                card.scrollIntoView({ block: 'center' })
-                tourInstance?.moveNext()
-              })
-            }
-          })
+          const removeGuard = trackGuard(
+            router.afterEach(async (to) => {
+              if (to.path === '/student/collections') {
+                removeGuard()
+                safeStep(async () => {
+                  const card = (await waitForElement('[data-tour="first-pet-card"]')) as HTMLElement
+                  // Disable transition so layout changes are instant (transition-all
+                  // would animate align-self change, causing driver.js to read the
+                  // bounding box mid-animation).
+                  card.style.transition = 'none'
+                  card.style.alignSelf = 'start'
+                  // Wait for the pet image to load so aspect-square has final dimensions
+                  const img = card.querySelector('img')
+                  if (img && !img.complete) {
+                    await new Promise<void>((r) => {
+                      img.addEventListener('load', () => r(), { once: true })
+                      img.addEventListener('error', () => r(), { once: true })
+                    })
+                  }
+                  // Force layout recalculation, then wait two frames for it to settle
+                  card.getBoundingClientRect()
+                  await new Promise<void>((r) =>
+                    requestAnimationFrame(() => requestAnimationFrame(() => r())),
+                  )
+                  card.scrollIntoView({ block: 'center' })
+                  tourInstance?.moveNext()
+                })
+              }
+            }),
+          )
         },
 
         // Step 7: User clicks Cloud Bunny card → PetDetailDialog opens
@@ -266,15 +297,17 @@ export function useFirstPetTour() {
             usePracticeHistoryStore().fetchSessionHistory(),
           )
 
-          const removeGuard = router.afterEach(async (to) => {
-            if (to.path === '/student/dashboard') {
-              removeGuard()
-              safeStep(async () => {
-                await waitForElement('[data-tour="dashboard-pet"]')
-                tourInstance?.moveNext()
-              })
-            }
-          })
+          const removeGuard = trackGuard(
+            router.afterEach(async (to) => {
+              if (to.path === '/student/dashboard') {
+                removeGuard()
+                safeStep(async () => {
+                  await waitForElement('[data-tour="dashboard-pet"]')
+                  tourInstance?.moveNext()
+                })
+              }
+            }),
+          )
         },
 
         // Step 11: "Got it!" button — destroy the tour

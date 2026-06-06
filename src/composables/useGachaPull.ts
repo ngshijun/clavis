@@ -1,18 +1,11 @@
 import { ref, onScopeDispose } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePetsStore, type Pet, type PetRarity } from '@/stores/pets'
+import { usePetsStore, rarityHexColors, type Pet } from '@/stores/pets'
 import { toast } from 'vue-sonner'
 import { useLanguageStore } from '@/stores/language'
 
 export const SINGLE_PULL_COST = 100
 export const MULTI_PULL_COST = 900 // 10 pulls for price of 9
-
-const rarityColors: Record<PetRarity, string> = {
-  common: '#22C55E',
-  rare: '#3B82F6',
-  epic: '#A855F7',
-  legendary: '#F59E0B',
-}
 
 /**
  * Composable for gacha pull mechanics — handles single/multi pull logic,
@@ -49,11 +42,23 @@ export function useGachaPull() {
     return petsStore.allPets.find((p) => p.id === petId)
   }
 
+  /**
+   * Look up a pulled pet, refetching the catalog once if it isn't found in the
+   * local cache (e.g. allPets hadn't finished loading when the pull resolved).
+   */
+  async function resolvePulledPet(petId: string): Promise<Pet | undefined> {
+    const cached = getPetById(petId)
+    if (cached) return cached
+    await petsStore.fetchAllPets()
+    return getPetById(petId)
+  }
+
   function isPetNew(petId: string): boolean {
     return !petsStore.ownedPets.some((p) => p.petId === petId)
   }
 
   async function singlePull() {
+    if (isRolling.value) return
     if ((authStore.studentProfile?.coins ?? 0) < SINGLE_PULL_COST) return
 
     isRolling.value = true
@@ -68,15 +73,18 @@ export function useGachaPull() {
       return
     }
 
-    const pet = getPetById(petId)
+    const pet = await resolvePulledPet(petId)
     if (!pet) {
+      // Pull succeeded server-side (coins spent, pet granted) but the catalog
+      // entry is unavailable even after a refetch. Refresh local state and
+      // surface a non-silent notice instead of failing silently.
+      await Promise.all([authStore.refreshProfile(), petsStore.fetchOwnedPets()])
       isRolling.value = false
-      await authStore.refreshProfile()
-      await petsStore.fetchOwnedPets()
+      toast.error(languageStore.t.shared.toasts.pullFailed)
       return
     }
 
-    capsuleColor.value = rarityColors[pet.rarity]
+    capsuleColor.value = rarityHexColors[pet.rarity]
     newPetIds.value = new Set(isPetNew(pet.id) ? [pet.id] : [])
 
     safeTimeout(async () => {
@@ -101,15 +109,17 @@ export function useGachaPull() {
       return
     }
 
-    const pet = getPetById(petId)
+    const pet = await resolvePulledPet(petId)
     if (!pet) {
+      // Draw succeeded server-side but the catalog entry is unavailable even
+      // after a refetch. Refresh local state and surface a non-silent notice.
+      await Promise.all([authStore.refreshProfile(), petsStore.fetchOwnedPets()])
       isRolling.value = false
-      await authStore.refreshProfile()
-      await petsStore.fetchOwnedPets()
+      toast.error(languageStore.t.shared.toasts.pullFailed)
       return
     }
 
-    capsuleColor.value = rarityColors[pet.rarity]
+    capsuleColor.value = rarityHexColors[pet.rarity]
     newPetIds.value = new Set([pet.id])
 
     safeTimeout(async () => {
@@ -121,6 +131,7 @@ export function useGachaPull() {
   }
 
   async function multiPull() {
+    if (isRolling.value) return
     if ((authStore.studentProfile?.coins ?? 0) < MULTI_PULL_COST) return
 
     isRolling.value = true
@@ -145,6 +156,11 @@ export function useGachaPull() {
     }
     newPetIds.value = newIds
 
+    // Refetch the catalog once if any pulled pet is missing from the cache so
+    // the freshly-granted pets can still be displayed.
+    if (petIds.some((id) => !getPetById(id))) {
+      await petsStore.fetchAllPets()
+    }
     const pets = petIds.map((id) => getPetById(id)).filter((p): p is Pet => p !== undefined)
 
     safeTimeout(async () => {

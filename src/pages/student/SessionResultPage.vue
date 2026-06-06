@@ -8,7 +8,8 @@ import type { StudentSubscriptionStatus } from '@/stores/student-subscription'
 import { useStudentDashboardStore } from '@/stores/student-dashboard'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
-import { computeScorePercent } from '@/lib/questionHelpers'
+import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
+import { canViewAiSummary } from '@/lib/tierConfig'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,21 +41,16 @@ const subscriptionRequired = ref(false)
 const aiSummaryStatus = ref<'idle' | 'loading' | 'success' | 'failed'>('idle')
 const isCurrentSession = ref(false)
 
-const summary = computed(() => {
-  if (!session.value) return null
-  const totalQuestions = session.value.questions.length || session.value.totalQuestions
-  const correctAnswers = session.value.answers.filter((a) => a.isCorrect).length
-  const score = computeScorePercent(correctAnswers, totalQuestions)
-  const durationSeconds = session.value.durationSeconds ?? 0
+// buildSessionSummary reads only questions.length / answers[].isCorrect; PracticeSession's
+// richer questions[] is structurally a superset, so cast to the helper's minimal shape.
+const summary = computed(() =>
+  session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
+)
 
-  return {
-    totalQuestions,
-    correctAnswers,
-    incorrectAnswers: totalQuestions - correctAnswers,
-    score,
-    durationSeconds,
-  }
-})
+// AI summary entitlement (Pro and above) — single source of truth in tierConfig.
+const canGenerateAiSummary = computed(() =>
+  subscriptionStatus.value ? canViewAiSummary(subscriptionStatus.value.tier) : false,
+)
 
 onMounted(async () => {
   const [subStatus, result] = await Promise.all([
@@ -75,7 +71,7 @@ onMounted(async () => {
 
     if (result.session.aiSummary) {
       aiSummaryStatus.value = 'success'
-    } else if ((subStatus.tier === 'pro' || subStatus.tier === 'max') && isCurrentSession.value) {
+    } else if (canViewAiSummary(subStatus.tier) && isCurrentSession.value) {
       generateAiSummary()
     }
   } else {
@@ -168,11 +164,7 @@ async function generateAiSummary() {
                   {{ t.student.sessionResult.aiSummaryTitle }}
                 </div>
                 <Button
-                  v-if="
-                    (subscriptionStatus?.tier === 'pro' || subscriptionStatus?.tier === 'max') &&
-                    !session.aiSummary &&
-                    aiSummaryStatus !== 'loading'
-                  "
+                  v-if="canGenerateAiSummary && !session.aiSummary && aiSummaryStatus !== 'loading'"
                   variant="outline"
                   size="sm"
                   class="h-7 text-xs"
