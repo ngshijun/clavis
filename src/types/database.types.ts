@@ -1755,6 +1755,30 @@ export type Database = {
           this_week: number
         }[]
       }
+      get_friend_requests: {
+        Args: never
+        Returns: {
+          avatar_path: string
+          created_at: string
+          direction: string
+          friendship_id: string
+          name: string
+          student_id: string
+        }[]
+      }
+      get_friends: {
+        Args: never
+        Returns: {
+          avatar_path: string
+          closeness_level: number
+          closeness_xp: number
+          friend_id: string
+          friend_since: string
+          friendship_id: string
+          last_active: string
+          name: string
+        }[]
+      }
       get_question_statistics: {
         Args: never
         Returns: {

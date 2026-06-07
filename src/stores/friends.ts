@@ -7,12 +7,6 @@ import { toMYTDateString } from '@/lib/date'
 
 export const FRIEND_CAP = 30
 
-type FriendshipProfile = {
-  id: string
-  updated_at: string | null
-  profiles: { name: string; avatar_path: string | null }
-}
-
 export const CLOSENESS_THRESHOLDS = [0, 5, 15, 35, 70, 120] as const
 
 export const CLOSENESS_LABELS: Record<number, string> = {
@@ -50,46 +44,6 @@ export interface FriendRequest {
   createdAt: string
 }
 
-function parseFriendshipProfile(value: unknown): FriendshipProfile {
-  // Supabase may return an embedded to-one relation as an object or a
-  // single-element array depending on the inferred shape; normalize both.
-  const candidate = Array.isArray(value) ? value[0] : value
-  if (candidate && typeof candidate === 'object' && 'id' in candidate && 'profiles' in candidate) {
-    const { id, updated_at, profiles } = candidate as {
-      id: unknown
-      updated_at?: unknown
-      profiles: unknown
-    }
-    const profile = Array.isArray(profiles) ? profiles[0] : profiles
-    if (
-      typeof id === 'string' &&
-      profile &&
-      typeof profile === 'object' &&
-      'name' in profile &&
-      typeof (profile as { name: unknown }).name === 'string'
-    ) {
-      const { name, avatar_path } = profile as { name: string; avatar_path: unknown }
-      return {
-        id,
-        updated_at: typeof updated_at === 'string' ? updated_at : null,
-        profiles: {
-          name,
-          avatar_path: typeof avatar_path === 'string' ? avatar_path : null,
-        },
-      }
-    }
-  }
-  throw new Error('Unexpected friendship profile shape')
-}
-
-function getOtherProfile(
-  row: { requester_id: string; recipient_id: string; requester: unknown; recipient: unknown },
-  userId: string,
-): FriendshipProfile {
-  const isRequester = row.requester_id === userId
-  return parseFriendshipProfile(isRequester ? row.recipient : row.requester)
-}
-
 export const useFriendsStore = defineStore('friends', () => {
   const authStore = useAuthStore()
 
@@ -112,31 +66,7 @@ export const useFriendsStore = defineStore('friends', () => {
       isLoading.value = true
 
       const [friendshipsResult, giftsResult] = await Promise.all([
-        supabase
-          .from('friendships')
-          .select(
-            `
-            id,
-            requester_id,
-            recipient_id,
-            closeness_xp,
-            closeness_level,
-            created_at,
-            responded_at,
-            requester:student_profiles!friendships_requester_id_fkey(
-              id,
-              updated_at,
-              profiles!inner(name, avatar_path)
-            ),
-            recipient:student_profiles!friendships_recipient_id_fkey(
-              id,
-              updated_at,
-              profiles!inner(name, avatar_path)
-            )
-          `,
-          )
-          .eq('status', 'accepted')
-          .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`),
+        supabase.rpc('get_friends'),
         supabase
           .from('daily_coin_gifts')
           .select('friendship_id, sender_id')
@@ -157,22 +87,19 @@ export const useFriendsStore = defineStore('friends', () => {
         }
       }
 
-      friends.value = (friendshipsResult.data ?? []).map((row) => {
-        const other = getOtherProfile(row, userId)
-        return {
-          friendshipId: row.id,
-          friendId: other.id,
-          name: other.profiles.name,
-          avatarPath: other.profiles.avatar_path,
-          closenessXp: row.closeness_xp,
-          closenessLevel: row.closeness_level,
-          closenessLabel: getClosenessLabel(row.closeness_level),
-          friendSince: row.responded_at ?? row.created_at,
-          lastActive: other.updated_at,
-          sentToday: sentGiftSet.has(row.id),
-          receivedToday: receivedGiftSet.has(row.id),
-        }
-      })
+      friends.value = (friendshipsResult.data ?? []).map((row) => ({
+        friendshipId: row.friendship_id,
+        friendId: row.friend_id,
+        name: row.name,
+        avatarPath: row.avatar_path,
+        closenessXp: row.closeness_xp,
+        closenessLevel: row.closeness_level,
+        closenessLabel: getClosenessLabel(row.closeness_level),
+        friendSince: row.friend_since,
+        lastActive: row.last_active,
+        sentToday: sentGiftSet.has(row.friendship_id),
+        receivedToday: receivedGiftSet.has(row.friendship_id),
+      }))
       hasFetchedFriends.value = true
 
       return { error: null }
@@ -188,27 +115,7 @@ export const useFriendsStore = defineStore('friends', () => {
     if (!userId) return { error: errorMessages().notAuthenticated }
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('friendships')
-        .select(
-          `
-          id,
-          requester_id,
-          recipient_id,
-          created_at,
-          requester:student_profiles!friendships_requester_id_fkey(
-            id,
-            profiles!inner(name, avatar_path)
-          ),
-          recipient:student_profiles!friendships_recipient_id_fkey(
-            id,
-            profiles!inner(name, avatar_path)
-          )
-        `,
-        )
-        .eq('status', 'pending')
-        .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-        .order('created_at', { ascending: false })
+      const { data, error: fetchError } = await supabase.rpc('get_friend_requests')
 
       if (fetchError) throw fetchError
 
@@ -216,16 +123,15 @@ export const useFriendsStore = defineStore('friends', () => {
       sentRequests.value = []
 
       for (const row of data ?? []) {
-        const other = getOtherProfile(row, userId)
         const request: FriendRequest = {
-          friendshipId: row.id,
-          studentId: other.id,
-          name: other.profiles.name,
-          avatarPath: other.profiles.avatar_path,
+          friendshipId: row.friendship_id,
+          studentId: row.student_id,
+          name: row.name,
+          avatarPath: row.avatar_path,
           createdAt: row.created_at,
         }
 
-        if (row.requester_id === userId) {
+        if (row.direction === 'sent') {
           sentRequests.value.push(request)
         } else {
           receivedRequests.value.push(request)
