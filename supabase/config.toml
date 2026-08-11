@@ -7,31 +7,7 @@
 [functions.generate-session-summary]
 verify_jwt = false
 
-[functions.create-checkout-session]
-verify_jwt = false
-
-[functions.create-portal-session]
-verify_jwt = false
-
-[functions.sync-subscription]
-verify_jwt = false
-
-[functions.modify-subscription]
-verify_jwt = false
-
-[functions.cancel-subscription]
-verify_jwt = false
-
-[functions.preview-upgrade]
-verify_jwt = false
-
 [functions.send-contact-email]
-verify_jwt = false
-
-[functions.stripe-webhook]
-verify_jwt = false
-
-[functions.keep-current-plan]
 verify_jwt = false
 
 # Storage Buckets
@@ -50,11 +26,6 @@ allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "ima
 public = true
 file_size_limit = "5MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
-
-[storage.buckets."pet-images"]
-public = true
-file_size_limit = "5MiB"
-allowed_mime_types = ["image/png", "image/webp"]
 
 [storage.buckets."curriculum-images"]
 public = true

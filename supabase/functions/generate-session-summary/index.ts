@@ -1,5 +1,5 @@
 import '@supabase/functions-js/edge-runtime.d.ts'
-import { corsHeaders, errorResponse } from '../_shared/stripe.ts'
+import { corsHeaders, errorResponse } from '../_shared/http.ts'
 import { supabaseAdmin } from '../_shared/supabase-admin.ts'
 import { getAuthenticatedUser } from '../_shared/auth.ts'
 
@@ -100,18 +100,12 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Not authorized to access this session', 403)
     }
 
-    // Fetch student's subscription tier and language preference
+    // Fetch student's language preference (AI summaries are available to everyone)
     const { data: studentProfile } = await supabaseAdmin
       .from('student_profiles')
-      .select('preferred_language, subscription_tier')
+      .select('preferred_language')
       .eq('id', session.student_id)
       .single()
-
-    // Verify Pro/Max tier (AI summaries are a paid feature)
-    const tier = studentProfile?.subscription_tier
-    if (tier !== 'pro' && tier !== 'max') {
-      return errorResponse('AI summaries require a Pro subscription', 403)
-    }
 
     const preferredLanguage = studentProfile?.preferred_language ?? 'en'
 
@@ -321,7 +315,7 @@ function buildMessages(data: SessionData, language: string): any[] {
   // Build system message
   const systemMessage = {
     role: 'system',
-    content: `You are a friendly tutor giving feedback to a primary school student (ages 7-12) after a practice session. Parents may also read this.
+    content: `You are a friendly tutor giving feedback to a primary school student (ages 7-12) after a practice session. Teachers may also read this.
 
 Write a detailed but easy-to-read feedback that a child can understand.
 

@@ -64,13 +64,6 @@ export type Database = {
             foreignKeyName: 'announcement_reads_user_id_fkey'
             columns: ['user_id']
             isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'announcement_reads_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
@@ -118,302 +111,7 @@ export type Database = {
             foreignKeyName: 'announcements_created_by_fkey'
             columns: ['created_by']
             isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'announcements_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
             referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      badges: {
-        Row: {
-          coin_reward: number
-          created_at: string
-          display_order: number
-          icon_path: string
-          id: string
-          is_active: boolean
-          required_tier: Database['public']['Enums']['subscription_tier']
-          slug: string
-          tier: Database['public']['Enums']['badge_tier']
-          trigger_params: Json
-          trigger_type: Database['public']['Enums']['badge_trigger_type']
-        }
-        Insert: {
-          coin_reward?: number
-          created_at?: string
-          display_order?: number
-          icon_path: string
-          id?: string
-          is_active?: boolean
-          required_tier?: Database['public']['Enums']['subscription_tier']
-          slug: string
-          tier: Database['public']['Enums']['badge_tier']
-          trigger_params?: Json
-          trigger_type: Database['public']['Enums']['badge_trigger_type']
-        }
-        Update: {
-          coin_reward?: number
-          created_at?: string
-          display_order?: number
-          icon_path?: string
-          id?: string
-          is_active?: boolean
-          required_tier?: Database['public']['Enums']['subscription_tier']
-          slug?: string
-          tier?: Database['public']['Enums']['badge_tier']
-          trigger_params?: Json
-          trigger_type?: Database['public']['Enums']['badge_trigger_type']
-        }
-        Relationships: []
-      }
-      child_subscriptions: {
-        Row: {
-          cancel_at_period_end: boolean | null
-          created_at: string | null
-          current_period_end: string | null
-          current_period_start: string | null
-          id: string
-          is_active: boolean | null
-          next_billing_date: string | null
-          parent_id: string
-          scheduled_change_date: string | null
-          scheduled_tier: Database['public']['Enums']['subscription_tier'] | null
-          start_date: string
-          stripe_price_id: string | null
-          stripe_schedule_id: string | null
-          stripe_status: string | null
-          stripe_subscription_id: string | null
-          student_id: string
-          tier: Database['public']['Enums']['subscription_tier']
-          updated_at: string | null
-        }
-        Insert: {
-          cancel_at_period_end?: boolean | null
-          created_at?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          is_active?: boolean | null
-          next_billing_date?: string | null
-          parent_id: string
-          scheduled_change_date?: string | null
-          scheduled_tier?: Database['public']['Enums']['subscription_tier'] | null
-          start_date?: string
-          stripe_price_id?: string | null
-          stripe_schedule_id?: string | null
-          stripe_status?: string | null
-          stripe_subscription_id?: string | null
-          student_id: string
-          tier?: Database['public']['Enums']['subscription_tier']
-          updated_at?: string | null
-        }
-        Update: {
-          cancel_at_period_end?: boolean | null
-          created_at?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          is_active?: boolean | null
-          next_billing_date?: string | null
-          parent_id?: string
-          scheduled_change_date?: string | null
-          scheduled_tier?: Database['public']['Enums']['subscription_tier'] | null
-          start_date?: string
-          stripe_price_id?: string | null
-          stripe_schedule_id?: string | null
-          stripe_status?: string | null
-          stripe_subscription_id?: string | null
-          student_id?: string
-          tier?: Database['public']['Enums']['subscription_tier']
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'child_subscriptions_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'child_subscriptions_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'child_subscriptions_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: true
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'child_subscriptions_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: true
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      daily_coin_gifts: {
-        Row: {
-          coins: number
-          created_at: string
-          friendship_id: string
-          id: string
-          receiver_id: string
-          sender_id: string
-          sent_date: string
-        }
-        Insert: {
-          coins?: number
-          created_at?: string
-          friendship_id: string
-          id?: string
-          receiver_id: string
-          sender_id: string
-          sent_date?: string
-        }
-        Update: {
-          coins?: number
-          created_at?: string
-          friendship_id?: string
-          id?: string
-          receiver_id?: string
-          sender_id?: string
-          sent_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'daily_coin_gifts_friendship_id_fkey'
-            columns: ['friendship_id']
-            isOneToOne: false
-            referencedRelation: 'friendships'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'daily_coin_gifts_receiver_id_fkey'
-            columns: ['receiver_id']
-            isOneToOne: false
-            referencedRelation: 'student_profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'daily_coin_gifts_sender_id_fkey'
-            columns: ['sender_id']
-            isOneToOne: false
-            referencedRelation: 'student_profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      daily_statuses: {
-        Row: {
-          created_at: string | null
-          date: string
-          has_practiced: boolean | null
-          has_spun: boolean | null
-          id: string
-          mood: Database['public']['Enums']['mood_type'] | null
-          spin_reward: number | null
-          student_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          date?: string
-          has_practiced?: boolean | null
-          has_spun?: boolean | null
-          id?: string
-          mood?: Database['public']['Enums']['mood_type'] | null
-          spin_reward?: number | null
-          student_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          date?: string
-          has_practiced?: boolean | null
-          has_spun?: boolean | null
-          id?: string
-          mood?: Database['public']['Enums']['mood_type'] | null
-          spin_reward?: number | null
-          student_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'daily_statuses_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'daily_statuses_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      friendships: {
-        Row: {
-          closeness_level: number
-          closeness_xp: number
-          created_at: string
-          id: string
-          recipient_id: string
-          requester_id: string
-          responded_at: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          closeness_level?: number
-          closeness_xp?: number
-          created_at?: string
-          id?: string
-          recipient_id: string
-          requester_id: string
-          responded_at?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          closeness_level?: number
-          closeness_xp?: number
-          created_at?: string
-          id?: string
-          recipient_id?: string
-          requester_id?: string
-          responded_at?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'friendships_recipient_id_fkey'
-            columns: ['recipient_id']
-            isOneToOne: false
-            referencedRelation: 'student_profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'friendships_requester_id_fkey'
-            columns: ['requester_id']
-            isOneToOne: false
-            referencedRelation: 'student_profiles'
             referencedColumns: ['id']
           },
         ]
@@ -442,211 +140,26 @@ export type Database = {
         }
         Relationships: []
       }
-      owned_pets: {
+      organizations: {
         Row: {
-          count: number | null
-          created_at: string | null
-          food_fed: number
+          created_at: string
           id: string
-          pet_id: string
-          student_id: string
-          tier: number
-          updated_at: string | null
+          name: string
+          updated_at: string
         }
         Insert: {
-          count?: number | null
-          created_at?: string | null
-          food_fed?: number
+          created_at?: string
           id?: string
-          pet_id: string
-          student_id: string
-          tier?: number
-          updated_at?: string | null
+          name: string
+          updated_at?: string
         }
         Update: {
-          count?: number | null
-          created_at?: string | null
-          food_fed?: number
+          created_at?: string
           id?: string
-          pet_id?: string
-          student_id?: string
-          tier?: number
-          updated_at?: string | null
+          name?: string
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: 'owned_pets_pet_id_fkey'
-            columns: ['pet_id']
-            isOneToOne: false
-            referencedRelation: 'pets'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'owned_pets_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'owned_pets_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      parent_profiles: {
-        Row: {
-          created_at: string | null
-          id: string
-          stripe_customer_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id: string
-          stripe_customer_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          stripe_customer_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'parent_profiles_id_fkey'
-            columns: ['id']
-            isOneToOne: true
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_profiles_id_fkey'
-            columns: ['id']
-            isOneToOne: true
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      parent_student_invitations: {
-        Row: {
-          created_at: string | null
-          direction: Database['public']['Enums']['invitation_direction']
-          id: string
-          parent_email: string
-          parent_id: string | null
-          responded_at: string | null
-          status: Database['public']['Enums']['invitation_status'] | null
-          student_email: string
-          student_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          direction: Database['public']['Enums']['invitation_direction']
-          id?: string
-          parent_email: string
-          parent_id?: string | null
-          responded_at?: string | null
-          status?: Database['public']['Enums']['invitation_status'] | null
-          student_email: string
-          student_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          direction?: Database['public']['Enums']['invitation_direction']
-          id?: string
-          parent_email?: string
-          parent_id?: string | null
-          responded_at?: string | null
-          status?: Database['public']['Enums']['invitation_status'] | null
-          student_email?: string
-          student_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'parent_student_invitations_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_invitations_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_invitations_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_invitations_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      parent_student_links: {
-        Row: {
-          id: string
-          linked_at: string | null
-          parent_id: string
-          student_id: string
-        }
-        Insert: {
-          id?: string
-          linked_at?: string | null
-          parent_id: string
-          student_id: string
-        }
-        Update: {
-          id?: string
-          linked_at?: string | null
-          parent_id?: string
-          student_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'parent_student_links_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_links_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_links_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: true
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'parent_student_links_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: true
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
+        Relationships: []
       }
       payment_history: {
         Row: {
@@ -662,7 +175,7 @@ export type Database = {
           stripe_payment_intent_id: string | null
           stripe_subscription_id: string | null
           student_id: string | null
-          tier: Database['public']['Enums']['subscription_tier'] | null
+          tier: string | null
         }
         Insert: {
           amount_cents: number
@@ -677,7 +190,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_subscription_id?: string | null
           student_id?: string | null
-          tier?: Database['public']['Enums']['subscription_tier'] | null
+          tier?: string | null
         }
         Update: {
           amount_cents?: number
@@ -692,69 +205,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_subscription_id?: string | null
           student_id?: string | null
-          tier?: Database['public']['Enums']['subscription_tier'] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'payment_history_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'payment_history_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'payment_history_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'payment_history_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      pets: {
-        Row: {
-          created_at: string | null
-          id: string
-          image_path: string
-          name: string
-          rarity: Database['public']['Enums']['pet_rarity']
-          tier2_image_path: string | null
-          tier3_image_path: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          image_path: string
-          name: string
-          rarity: Database['public']['Enums']['pet_rarity']
-          tier2_image_path?: string | null
-          tier3_image_path?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          image_path?: string
-          name?: string
-          rarity?: Database['public']['Enums']['pet_rarity']
-          tier2_image_path?: string | null
-          tier3_image_path?: string | null
-          updated_at?: string | null
+          tier?: string | null
         }
         Relationships: []
       }
@@ -816,7 +267,6 @@ export type Database = {
       practice_sessions: {
         Row: {
           ai_summary: string | null
-          coins_earned: number | null
           completed_at: string | null
           correct_count: number | null
           created_at: string | null
@@ -828,11 +278,9 @@ export type Database = {
           topic_id: string
           total_questions: number
           total_time_seconds: number | null
-          xp_earned: number | null
         }
         Insert: {
           ai_summary?: string | null
-          coins_earned?: number | null
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
@@ -844,11 +292,9 @@ export type Database = {
           topic_id: string
           total_questions: number
           total_time_seconds?: number | null
-          xp_earned?: number | null
         }
         Update: {
           ai_summary?: string | null
-          coins_earned?: number | null
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
@@ -860,7 +306,6 @@ export type Database = {
           topic_id?: string
           total_questions?: number
           total_time_seconds?: number | null
-          xp_earned?: number | null
         }
         Relationships: [
           {
@@ -868,20 +313,6 @@ export type Database = {
             columns: ['grade_level_id']
             isOneToOne: false
             referencedRelation: 'grade_levels'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'practice_sessions_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['grade_level_id']
-          },
-          {
-            foreignKeyName: 'practice_sessions_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
             referencedColumns: ['id']
           },
           {
@@ -907,24 +338,6 @@ export type Database = {
           },
         ]
       }
-      processed_webhook_events: {
-        Row: {
-          event_id: string
-          event_type: string
-          processed_at: string
-        }
-        Insert: {
-          event_id: string
-          event_type: string
-          processed_at?: string
-        }
-        Update: {
-          event_id?: string
-          event_type?: string
-          processed_at?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -934,8 +347,9 @@ export type Database = {
           has_completed_tour: boolean
           id: string
           name: string
+          organization_id: string | null
           updated_at: string | null
-          user_type: Database['public']['Enums']['user_type']
+          user_type: Database['public']['Enums']['user_role']
         }
         Insert: {
           avatar_path?: string | null
@@ -945,8 +359,9 @@ export type Database = {
           has_completed_tour?: boolean
           id: string
           name: string
+          organization_id?: string | null
           updated_at?: string | null
-          user_type: Database['public']['Enums']['user_type']
+          user_type: Database['public']['Enums']['user_role']
         }
         Update: {
           avatar_path?: string | null
@@ -956,10 +371,19 @@ export type Database = {
           has_completed_tour?: boolean
           id?: string
           name?: string
+          organization_id?: string | null
           updated_at?: string | null
-          user_type?: Database['public']['Enums']['user_type']
+          user_type?: Database['public']['Enums']['user_role']
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'profiles_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
       }
       question_feedback: {
         Row: {
@@ -999,13 +423,6 @@ export type Database = {
             columns: ['question_id']
             isOneToOne: false
             referencedRelation: 'questions'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'question_feedback_reported_by_fkey'
-            columns: ['reported_by']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
             referencedColumns: ['id']
           },
           {
@@ -1105,13 +522,6 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'questions_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['grade_level_id']
-          },
-          {
             foreignKeyName: 'questions_subject_id_fkey'
             columns: ['subject_id']
             isOneToOne: false
@@ -1188,114 +598,50 @@ export type Database = {
           },
         ]
       }
-      student_badges: {
-        Row: {
-          badge_id: string
-          seen_at: string | null
-          student_id: string
-          unlocked_at: string
-        }
-        Insert: {
-          badge_id: string
-          seen_at?: string | null
-          student_id: string
-          unlocked_at?: string
-        }
-        Update: {
-          badge_id?: string
-          seen_at?: string | null
-          student_id?: string
-          unlocked_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'student_badges_badge_id_fkey'
-            columns: ['badge_id']
-            isOneToOne: false
-            referencedRelation: 'badges'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'student_badges_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'student_profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       student_profiles: {
         Row: {
-          coins: number | null
           created_at: string | null
-          current_streak: number
-          featured_badges: string[]
-          food: number | null
-          friend_code: string
+          created_by: string | null
           grade_level_id: string | null
           id: string
-          max_streak: number
           preferred_language: string
           school_id: string | null
-          selected_pet_id: string | null
-          subscription_tier: Database['public']['Enums']['subscription_tier']
           updated_at: string | null
-          xp: number | null
+          username: string | null
         }
         Insert: {
-          coins?: number | null
           created_at?: string | null
-          current_streak?: number
-          featured_badges?: string[]
-          food?: number | null
-          friend_code?: string
+          created_by?: string | null
           grade_level_id?: string | null
           id: string
-          max_streak?: number
           preferred_language?: string
           school_id?: string | null
-          selected_pet_id?: string | null
-          subscription_tier?: Database['public']['Enums']['subscription_tier']
           updated_at?: string | null
-          xp?: number | null
+          username?: string | null
         }
         Update: {
-          coins?: number | null
           created_at?: string | null
-          current_streak?: number
-          featured_badges?: string[]
-          food?: number | null
-          friend_code?: string
+          created_by?: string | null
           grade_level_id?: string | null
           id?: string
-          max_streak?: number
           preferred_language?: string
           school_id?: string | null
-          selected_pet_id?: string | null
-          subscription_tier?: Database['public']['Enums']['subscription_tier']
           updated_at?: string | null
-          xp?: number | null
+          username?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: 'student_profiles_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'student_profiles_grade_level_id_fkey'
             columns: ['grade_level_id']
             isOneToOne: false
             referencedRelation: 'grade_levels'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'student_profiles_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['grade_level_id']
-          },
-          {
-            foreignKeyName: 'student_profiles_id_fkey'
-            columns: ['id']
-            isOneToOne: true
-            referencedRelation: 'leaderboard'
             referencedColumns: ['id']
           },
           {
@@ -1310,13 +656,6 @@ export type Database = {
             columns: ['school_id']
             isOneToOne: false
             referencedRelation: 'schools'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'student_profiles_selected_pet_id_fkey'
-            columns: ['selected_pet_id']
-            isOneToOne: false
-            referencedRelation: 'pets'
             referencedColumns: ['id']
           },
         ]
@@ -1359,13 +698,6 @@ export type Database = {
             columns: ['question_id']
             isOneToOne: false
             referencedRelation: 'questions'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'student_question_progress_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
             referencedColumns: ['id']
           },
           {
@@ -1458,47 +790,7 @@ export type Database = {
             referencedRelation: 'grade_levels'
             referencedColumns: ['id']
           },
-          {
-            foreignKeyName: 'subjects_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['grade_level_id']
-          },
         ]
-      }
-      subscription_plans: {
-        Row: {
-          created_at: string | null
-          features: Json | null
-          id: Database['public']['Enums']['subscription_tier']
-          is_highlighted: boolean | null
-          name: string
-          price_monthly: number
-          sessions_per_day: number
-          stripe_price_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          features?: Json | null
-          id: Database['public']['Enums']['subscription_tier']
-          is_highlighted?: boolean | null
-          name: string
-          price_monthly: number
-          sessions_per_day: number
-          stripe_price_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          features?: Json | null
-          id?: Database['public']['Enums']['subscription_tier']
-          is_highlighted?: boolean | null
-          name?: string
-          price_monthly?: number
-          sessions_per_day?: number
-          stripe_price_id?: string | null
-        }
-        Relationships: []
       }
       topics: {
         Row: {
@@ -1538,70 +830,8 @@ export type Database = {
           },
         ]
       }
-      weekly_leaderboard_rewards: {
-        Row: {
-          coins_awarded: number
-          created_at: string | null
-          id: string
-          rank: number
-          seen_at: string | null
-          student_id: string
-          week_start: string
-          weekly_xp: number
-        }
-        Insert: {
-          coins_awarded: number
-          created_at?: string | null
-          id?: string
-          rank: number
-          seen_at?: string | null
-          student_id: string
-          week_start: string
-          weekly_xp: number
-        }
-        Update: {
-          coins_awarded?: number
-          created_at?: string | null
-          id?: string
-          rank?: number
-          seen_at?: string | null
-          student_id?: string
-          week_start?: string
-          weekly_xp?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'weekly_leaderboard_rewards_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'leaderboard'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'weekly_leaderboard_rewards_student_id_fkey'
-            columns: ['student_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
     }
     Views: {
-      leaderboard: {
-        Row: {
-          avatar_path: string | null
-          current_streak: number | null
-          grade_level_id: string | null
-          grade_level_name: string | null
-          grade_rank: number | null
-          id: string | null
-          name: string | null
-          rank: number | null
-          xp: number | null
-        }
-        Relationships: []
-      }
       question_statistics: {
         Row: {
           attempts: number | null
@@ -1612,95 +842,8 @@ export type Database = {
         }
         Relationships: []
       }
-      weekly_leaderboard: {
-        Row: {
-          avatar_path: string | null
-          current_streak: number | null
-          grade_level_name: string | null
-          id: string | null
-          name: string | null
-          rank: number | null
-          total_xp: number | null
-          weekly_xp: number | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
-      _weekly_leaderboard_data: {
-        Args: never
-        Returns: {
-          avatar_path: string
-          current_streak: number
-          grade_level_name: string
-          id: string
-          name: string
-          rank: number
-          total_xp: number
-          weekly_xp: number
-        }[]
-      }
-      accept_parent_student_invitation: {
-        Args: {
-          p_accepting_user_id: string
-          p_invitation_id: string
-          p_is_parent: boolean
-        }
-        Returns: {
-          link_id: string
-          linked_at: string
-          parent_email: string
-          parent_id: string
-          parent_name: string
-          student_avatar_path: string
-          student_email: string
-          student_grade_level_name: string
-          student_id: string
-          student_name: string
-        }[]
-      }
-      backfill_badge_for_all_eligible: {
-        Args: { p_badge_id: string }
-        Returns: number
-      }
-      calculate_display_streak: {
-        Args: { p_student_id: string }
-        Returns: number
-      }
-      check_and_award_badges: {
-        Args: { p_student_id: string }
-        Returns: {
-          coin_reward: number
-          created_at: string
-          display_order: number
-          icon_path: string
-          id: string
-          is_active: boolean
-          required_tier: Database['public']['Enums']['subscription_tier']
-          slug: string
-          tier: Database['public']['Enums']['badge_tier']
-          trigger_params: Json
-          trigger_type: Database['public']['Enums']['badge_trigger_type']
-        }[]
-        SetofOptions: {
-          from: '*'
-          to: 'badges'
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      check_trigger_eligibility: {
-        Args: {
-          p_params: Json
-          p_student_id: string
-          p_trigger_type: Database['public']['Enums']['badge_trigger_type']
-        }
-        Returns: boolean
-      }
-      combine_pets: {
-        Args: { p_owned_pet_ids: string[]; p_student_id: string }
-        Returns: Json
-      }
       complete_practice_session: {
         Args: { p_session_id: string }
         Returns: Json
@@ -1716,69 +859,6 @@ export type Database = {
         }
         Returns: string
       }
-      create_user_profile: {
-        Args: {
-          p_date_of_birth?: string
-          p_email: string
-          p_name: string
-          p_school_id?: string
-          p_user_id: string
-          p_user_type: string
-        }
-        Returns: undefined
-      }
-      decay_closeness_xp: { Args: never; Returns: undefined }
-      distribute_weekly_leaderboard_rewards: { Args: never; Returns: undefined }
-      evolve_pet: {
-        Args: { p_owned_pet_id: string; p_student_id: string }
-        Returns: Json
-      }
-      exchange_coins_for_food: {
-        Args: { p_food_amount: number }
-        Returns: undefined
-      }
-      feed_pet_for_evolution: {
-        Args: {
-          p_food_amount: number
-          p_owned_pet_id: string
-          p_student_id: string
-        }
-        Returns: Json
-      }
-      gacha_multi_pull: { Args: never; Returns: Json }
-      gacha_pull: { Args: never; Returns: Json }
-      generate_friend_code: { Args: never; Returns: string }
-      get_child_badge_summary: {
-        Args: { p_child_id: string }
-        Returns: {
-          lifetime: number
-          this_week: number
-        }[]
-      }
-      get_friend_requests: {
-        Args: never
-        Returns: {
-          avatar_path: string
-          created_at: string
-          direction: string
-          friendship_id: string
-          name: string
-          student_id: string
-        }[]
-      }
-      get_friends: {
-        Args: never
-        Returns: {
-          avatar_path: string
-          closeness_level: number
-          closeness_xp: number
-          friend_id: string
-          friend_since: string
-          friendship_id: string
-          last_active: string
-          name: string
-        }[]
-      }
       get_question_statistics: {
         Args: never
         Returns: {
@@ -1789,19 +869,6 @@ export type Database = {
           question_id: string
         }[]
       }
-      get_student_badge_progress: {
-        Args: { p_student_id: string }
-        Returns: {
-          badge_id: string
-          current_value: number
-          progress_pct: number
-          target_value: number
-        }[]
-      }
-      get_student_profile_for_dialog: {
-        Args: { p_student_id: string }
-        Returns: Json
-      }
       get_subtopic_answered_counts: {
         Args: never
         Returns: {
@@ -1809,67 +876,11 @@ export type Database = {
           topic_id: string
         }[]
       }
-      get_tier_from_stripe_price: {
-        Args: { p_price_id: string }
-        Returns: Database['public']['Enums']['subscription_tier']
-      }
       get_unread_announcement_count: { Args: never; Returns: number }
-      initial_pet_draw: { Args: never; Returns: string }
-      record_spin_reward: {
-        Args: {
-          p_daily_status_id: string
-          p_reward: number
-          p_student_id: string
-        }
-        Returns: Json
-      }
       refresh_question_statistics: { Args: never; Returns: undefined }
-      remove_friend: { Args: { p_friendship_id: string }; Returns: undefined }
-      respond_friend_request: {
-        Args: { p_accept: boolean; p_friendship_id: string }
-        Returns: undefined
-      }
-      search_student_by_friend_code: {
-        Args: { p_code: string }
-        Returns: {
-          avatar_path: string
-          id: string
-          name: string
-        }[]
-      }
-      search_students_by_name: {
-        Args: { p_query: string }
-        Returns: {
-          avatar_path: string
-          friend_code: string
-          id: string
-          name: string
-        }[]
-      }
-      send_daily_coins: { Args: { p_friendship_id: string }; Returns: Json }
-      send_friend_request: { Args: { p_target_id: string }; Returns: string }
-      set_featured_badges: { Args: { p_badges: string[] }; Returns: string[] }
-      update_student_streak: { Args: { p_student_id: string }; Returns: number }
     }
     Enums: {
       announcement_audience: 'all' | 'students_only' | 'parents_only'
-      badge_tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master' | 'grandmaster'
-      badge_trigger_type:
-        | 'total_sessions_completed'
-        | 'total_xp_earned'
-        | 'total_questions_answered'
-        | 'total_days_practiced'
-        | 'current_streak'
-        | 'max_streak_ever'
-        | 'perfect_sessions_count'
-        | 'subject_accuracy_threshold'
-        | 'unique_pets_owned'
-        | 'pet_max_tier_reached'
-        | 'pets_of_rarity_count'
-        | 'parent_linked'
-        | 'subscription_tier_reached'
-        | 'total_friends'
-        | 'friend_closeness_level_reached'
       feedback_category:
         | 'question_error'
         | 'image_error'
@@ -1877,13 +888,8 @@ export type Database = {
         | 'answer_error'
         | 'explanation_error'
         | 'other'
-      invitation_direction: 'parent_to_student' | 'student_to_parent'
-      invitation_status: 'pending' | 'accepted' | 'rejected' | 'cancelled'
-      mood_type: 'sad' | 'neutral' | 'happy'
-      pet_rarity: 'common' | 'rare' | 'epic' | 'legendary'
       question_type: 'mcq' | 'short_answer' | 'mrq'
-      subscription_tier: 'core' | 'plus' | 'pro' | 'max'
-      user_type: 'admin' | 'student' | 'parent'
+      user_role: 'admin' | 'manager' | 'teacher' | 'student'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2013,24 +1019,6 @@ export const Constants = {
   public: {
     Enums: {
       announcement_audience: ['all', 'students_only', 'parents_only'],
-      badge_tier: ['bronze', 'silver', 'gold', 'platinum', 'diamond', 'master', 'grandmaster'],
-      badge_trigger_type: [
-        'total_sessions_completed',
-        'total_xp_earned',
-        'total_questions_answered',
-        'total_days_practiced',
-        'current_streak',
-        'max_streak_ever',
-        'perfect_sessions_count',
-        'subject_accuracy_threshold',
-        'unique_pets_owned',
-        'pet_max_tier_reached',
-        'pets_of_rarity_count',
-        'parent_linked',
-        'subscription_tier_reached',
-        'total_friends',
-        'friend_closeness_level_reached',
-      ],
       feedback_category: [
         'question_error',
         'image_error',
@@ -2039,13 +1027,8 @@ export const Constants = {
         'explanation_error',
         'other',
       ],
-      invitation_direction: ['parent_to_student', 'student_to_parent'],
-      invitation_status: ['pending', 'accepted', 'rejected', 'cancelled'],
-      mood_type: ['sad', 'neutral', 'happy'],
-      pet_rarity: ['common', 'rare', 'epic', 'legendary'],
       question_type: ['mcq', 'short_answer', 'mrq'],
-      subscription_tier: ['core', 'plus', 'pro', 'max'],
-      user_type: ['admin', 'student', 'parent'],
+      user_role: ['admin', 'manager', 'teacher', 'student'],
     },
   },
 } as const

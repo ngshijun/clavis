@@ -8,7 +8,7 @@
 -- This script is idempotent — safe to run multiple times (ON CONFLICT DO NOTHING).
 -- It runs as postgres superuser, bypassing RLS.
 --
--- Reference data (grade levels, subjects, topics, sub-topics, pets) uses the
+-- Reference data (grade levels, subjects, topics, sub-topics) uses the
 -- same UUIDs as production so that staging mirrors the real curriculum.
 -- Questions are a small representative sample — prod has 1,200+ questions.
 -- =============================================================================
@@ -16,27 +16,25 @@
 BEGIN;
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 1. SUBSCRIPTION PLANS                                                    ║
+-- ║ 1. ORGANIZATION                                                          ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Matches prod pricing and features. stripe_price_id is omitted (env-specific).
+-- The revamp migration also seeds this org; ON CONFLICT keeps whichever row
+-- exists. All non-admin test users are attached to it via subquery below.
 
-INSERT INTO public.subscription_plans (id, name, price_monthly, sessions_per_day, features, is_highlighted)
-VALUES
-  ('core', 'Core',  0.00,  3,  '["3 daily practice sessions", "All subjects & topics", "Track your learning progress", "Collect & evolve cute pets", "Compete on the weekly leaderboard"]'::jsonb, false),
-  ('plus', 'Plus',  9.99,  10, '["10 daily practice sessions", "All subjects & topics", "Review mistakes with full explanations", "Track your learning progress", "Collect & evolve cute pets", "Compete on the weekly leaderboard"]'::jsonb, false),
-  ('pro',  'Pro',   19.99, 20, '["20 daily practice sessions", "All subjects & topics", "Review mistakes with full explanations", "AI-powered feedback after every session", "Track your learning progress", "Collect & evolve cute pets", "Compete on the weekly leaderboard"]'::jsonb, true),
-  ('max',  'Max',   29.99, 30, '["30 daily practice sessions", "All subjects & topics", "Review mistakes with full explanations", "Collect & evolve cute pets", "Compete on the weekly leaderboard", "AI-powered feedback after every session", "Priority email support"]'::jsonb, false)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.organizations (name)
+VALUES ('Clavis Demo Center')
+ON CONFLICT (name) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 2. TEST USERS                                                            ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- All test accounts use password: Test1234!
--- Admin:    admin@clavis.test
+-- Admin:    admin@clavis.test    (platform admin, no org)
+-- Manager:  manager@clavis.test  (Clavis Demo Center)
+-- Teacher:  teacher@clavis.test  (Clavis Demo Center)
 -- Student:  student@clavis.test
 -- Student2: student2@clavis.test
--- Parent:   parent@clavis.test
 
 -- auth.users
 INSERT INTO auth.users (
@@ -79,13 +77,24 @@ INSERT INTO auth.users (
   ),
   (
     '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000004',
+    '00000000-0000-0000-0000-000000000005',
     'authenticated', 'authenticated',
-    'parent@clavis.test',
+    'manager@clavis.test',
     crypt('Test1234!', gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Mrs Tan"}'::jsonb,
+    '{"name":"Mr Wong"}'::jsonb,
+    now(), now(), '', '', '', ''
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000006',
+    'authenticated', 'authenticated',
+    'teacher@clavis.test',
+    crypt('Test1234!', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"name":"Ms Lee"}'::jsonb,
     now(), now(), '', '', '', ''
   )
 ON CONFLICT (id) DO NOTHING;
@@ -99,17 +108,25 @@ VALUES
    jsonb_build_object('sub', '00000000-0000-0000-0000-000000000002', 'email', 'student@clavis.test'), now(), now(), now()),
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'email',
    jsonb_build_object('sub', '00000000-0000-0000-0000-000000000003', 'email', 'student2@clavis.test'), now(), now(), now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000004', 'email', 'parent@clavis.test'), now(), now(), now())
+  (gen_random_uuid(), '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'email',
+   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000005', 'email', 'manager@clavis.test'), now(), now(), now()),
+  (gen_random_uuid(), '00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'email',
+   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000006', 'email', 'teacher@clavis.test'), now(), now(), now())
 ON CONFLICT DO NOTHING;
 
--- profiles
-INSERT INTO public.profiles (id, name, email, user_type, has_completed_tour)
-VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Admin User',  'admin@clavis.test',    'admin',   true),
-  ('00000000-0000-0000-0000-000000000002', 'Alice Tan',   'student@clavis.test',  'student', true),
-  ('00000000-0000-0000-0000-000000000003', 'Ben Lim',     'student2@clavis.test', 'student', true),
-  ('00000000-0000-0000-0000-000000000004', 'Mrs Tan',     'parent@clavis.test',   'parent',  true)
+-- profiles (admin has no org; everyone else belongs to the demo center)
+INSERT INTO public.profiles (id, name, email, user_type, has_completed_tour, organization_id)
+SELECT v.id, v.name, v.email, v.user_type::public.user_role, true,
+       CASE WHEN v.user_type = 'admin' THEN NULL
+            ELSE (SELECT o.id FROM public.organizations o WHERE o.name = 'Clavis Demo Center')
+       END
+FROM (VALUES
+  ('00000000-0000-0000-0000-000000000001'::uuid, 'Admin User', 'admin@clavis.test',    'admin'),
+  ('00000000-0000-0000-0000-000000000005'::uuid, 'Mr Wong',    'manager@clavis.test',  'manager'),
+  ('00000000-0000-0000-0000-000000000006'::uuid, 'Ms Lee',     'teacher@clavis.test',  'teacher'),
+  ('00000000-0000-0000-0000-000000000002'::uuid, 'Alice Tan',  'student@clavis.test',  'student'),
+  ('00000000-0000-0000-0000-000000000003'::uuid, 'Ben Lim',    'student2@clavis.test', 'student')
+) AS v(id, name, email, user_type)
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -129,19 +146,17 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 4. STUDENT & PARENT PROFILES                                            ║
+-- ║ 4. STUDENT PROFILES                                                      ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- created_by = Ms Lee (teacher). usernames NULL: these mirror legacy
+-- email-based students.
 
-INSERT INTO public.student_profiles (id, grade_level_id, xp, coins, food, current_streak, subscription_tier, preferred_language)
+INSERT INTO public.student_profiles (id, grade_level_id, preferred_language, created_by)
 VALUES
   -- Alice: Year 1
-  ('00000000-0000-0000-0000-000000000002', '54081b95-ee5f-43d0-8f95-d640d48bb734', 150, 50, 5, 2, 'core', 'en'),
+  ('00000000-0000-0000-0000-000000000002', '54081b95-ee5f-43d0-8f95-d640d48bb734', 'en', '00000000-0000-0000-0000-000000000006'),
   -- Ben: Year 2
-  ('00000000-0000-0000-0000-000000000003', 'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a', 80,  30, 2, 1, 'core', 'en')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.parent_profiles (id)
-VALUES ('00000000-0000-0000-0000-000000000004')
+  ('00000000-0000-0000-0000-000000000003', 'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a', 'en', '00000000-0000-0000-0000-000000000006')
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -502,118 +517,20 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9. PETS (all 34 from prod, with image paths)                             ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
-INSERT INTO public.pets (id, name, rarity, image_path, tier2_image_path, tier3_image_path)
-VALUES
-  -- Common (12)
-  ('56280e79-c181-47e7-940b-fc78473648d6', 'Baby Dragon',      'common',    '1771608787300.png',                                     '1771608787882.png',                                     '1771608788179.png'),
-  ('50aed2a3-8c82-499e-a0df-c8b09e5c8f4b', 'Cloud Bunny',      'common',    '50aed2a3-8c82-499e-a0df-c8b09e5c8f4b.png',              '50aed2a3-8c82-499e-a0df-c8b09e5c8f4b_tier2.png',        '50aed2a3-8c82-499e-a0df-c8b09e5c8f4b_tier3.png'),
-  ('29eb7f2d-3a51-48d8-b1d9-e7db032b7968', 'Dust Hamster',     'common',    '29eb7f2d-3a51-48d8-b1d9-e7db032b7968.png',              '29eb7f2d-3a51-48d8-b1d9-e7db032b7968_tier2.png',        '29eb7f2d-3a51-48d8-b1d9-e7db032b7968_tier3.png'),
-  ('c91a4a38-a227-4e79-8644-5cd7d90e19db', 'Earth Snake',      'common',    'c91a4a38-a227-4e79-8644-5cd7d90e19db.png',              'c91a4a38-a227-4e79-8644-5cd7d90e19db_tier2.png',        'c91a4a38-a227-4e79-8644-5cd7d90e19db_tier3.png'),
-  ('ecf2abf1-f5f5-4457-ad12-cc518c0ac916', 'Electric Rat',     'common',    'ecf2abf1-f5f5-4457-ad12-cc518c0ac916.png',              'ecf2abf1-f5f5-4457-ad12-cc518c0ac916_tier2.png',        'ecf2abf1-f5f5-4457-ad12-cc518c0ac916_tier3.png'),
-  ('7261d247-5e07-4973-a45f-abe854fd5c80', 'Giant Goldfish',   'common',    '1772262074140.png',                                     '1772262074416.png',                                     '1772262074710.png'),
-  ('5d0a2926-0bcf-4765-9ce7-b13dc0215c96', 'Grass Monkey',     'common',    '1771167852658.png',                                     '1771167853196.png',                                     '1771167853437.png'),
-  ('ec35ee71-907a-42c8-b1e0-39a81afd2d44', 'Leaf Gecko',       'common',    '1772261745910.png',                                     '1772261746611.png',                                     '1772261746906.png'),
-  ('7c3a3988-25bc-4057-b8ce-9e8e5eea8af8', 'Ocean Starfish',   'common',    '1771608038698.png',                                     '1771608039069.png',                                     '1771608039436.png'),
-  ('2d3cb724-7f87-4f3b-a858-207aba6cf947', 'Sea Nautilus',     'common',    '1771770222613.png',                                     '1771770223111.png',                                     '1771770223395.png'),
-  ('e30eed4f-2bb6-474a-b98f-d9cb3e48427a', 'Spiky Pufflefish', 'common',    '1771608504697.png',                                     '1771608505253.png',                                     '1771608505868.png'),
-  ('c90a8ab7-cbd6-4311-a838-bd7f4e500779', 'Thorny Sheep',     'common',    '1771770340207.png',                                     '1771770340739.png',                                     '1771770341019.png'),
-  -- Rare (8)
-  ('ae398076-afeb-4c11-8d9a-bb6228d06985', 'Aqua Kitten',      'rare',      'ae398076-afeb-4c11-8d9a-bb6228d06985.png',              'ae398076-afeb-4c11-8d9a-bb6228d06985_tier2.png',        'ae398076-afeb-4c11-8d9a-bb6228d06985_tier3.png'),
-  ('56e0acd6-e324-4d82-ad68-ad3b82dcf2dc', 'Armor Bull',       'rare',      '1772007527773.png',                                     '1772007528372.png',                                     '1772007528863.png'),
-  ('64999397-9d1f-4297-b1f4-76218d3f9cfc', 'Ember Puppy',      'rare',      '64999397-9d1f-4297-b1f4-76218d3f9cfc.png',              '64999397-9d1f-4297-b1f4-76218d3f9cfc_tier2.png',        '64999397-9d1f-4297-b1f4-76218d3f9cfc_tier3.png'),
-  ('56dc0ecc-df37-45f0-ac35-e81d0e2f6bd4', 'Glacial Mammoth',  'rare',      '1772007637771.png',                                     '1772007638103.png',                                     '1772007638677.png'),
-  ('143ef6fc-1824-47d6-a2c6-82baaad48961', 'Ice Rooster',      'rare',      '1772261513798.png',                                     '1772261514354.png',                                     '1772261514836.png'),
-  ('09147875-8c4c-4785-8f26-2f9471ea576a', 'Metal Owl',        'rare',      '1771608278941.png',                                     '1771608279763.png',                                     '1771608280079.png'),
-  ('5a53c4cc-4787-4aac-988d-9c74f0c7971a', 'Shadow Cat',       'rare',      '5a53c4cc-4787-4aac-988d-9c74f0c7971a.png',              '5a53c4cc-4787-4aac-988d-9c74f0c7971a_tier2.png',        '5a53c4cc-4787-4aac-988d-9c74f0c7971a_tier3.png'),
-  ('a9115252-644c-4d86-a1a0-9105d62e2fe9', 'Void Penguin',     'rare',      'a9115252-644c-4d86-a1a0-9105d62e2fe9.png',              'a9115252-644c-4d86-a1a0-9105d62e2fe9_tier2.png',        'a9115252-644c-4d86-a1a0-9105d62e2fe9_tier3.png'),
-  -- Epic (9)
-  ('a94b28c9-d835-4290-be81-7497953af652', 'Celestial Fox',    'epic',      'a94b28c9-d835-4290-be81-7497953af652.png',              'a94b28c9-d835-4290-be81-7497953af652_tier2.png',        'a94b28c9-d835-4290-be81-7497953af652_tier3.png'),
-  ('c119aa73-7491-4bf5-a971-2c991c3e758a', 'Crystal Pterosaur','epic',      'c119aa73-7491-4bf5-a971-2c991c3e758a.png',              'c119aa73-7491-4bf5-a971-2c991c3e758a_tier2.png',        'c119aa73-7491-4bf5-a971-2c991c3e758a_tier3.png'),
-  ('344a6f89-9086-4d02-9627-3a5cccb39d55', 'Frost Dragon',     'epic',      '344a6f89-9086-4d02-9627-3a5cccb39d55.png',              '344a6f89-9086-4d02-9627-3a5cccb39d55_tier2.png',        '344a6f89-9086-4d02-9627-3a5cccb39d55_tier3.png'),
-  ('7b27f354-86d5-4e0b-8cb3-a9dce5df7d4c', 'Pyro Fox',         'epic',      '7b27f354-86d5-4e0b-8cb3-a9dce5df7d4c.png',              '7b27f354-86d5-4e0b-8cb3-a9dce5df7d4c_tier2.png',        '7b27f354-86d5-4e0b-8cb3-a9dce5df7d4c_tier3.png'),
-  ('316e6dbc-8ce1-4057-8c49-71726e76ebd5', 'Radiant Pony',     'epic',      '1771609211379.png',                                     '1771609211740.png',                                     '1771609212086.png'),
-  ('268b3a01-a037-4e7b-8049-4a4b9fb7e3f5', 'Star Wolf',        'epic',      '268b3a01-a037-4e7b-8049-4a4b9fb7e3f5.png',              '268b3a01-a037-4e7b-8049-4a4b9fb7e3f5_tier2.png',        '268b3a01-a037-4e7b-8049-4a4b9fb7e3f5_tier3.png'),
-  ('2f418d33-9181-4e53-948d-1128f96163c1', 'Stone Bear',       'epic',      '2f418d33-9181-4e53-948d-1128f96163c1.png',              '2f418d33-9181-4e53-948d-1128f96163c1_tier2.png',        '2f418d33-9181-4e53-948d-1128f96163c1_tier3.png'),
-  ('97c2a29f-e199-436b-831a-a1aa3046b404', 'Wind Dragon',      'epic',      '1772261932268.png',                                     '1772261932582.png',                                     '1772261932903.png'),
-  ('66c32043-5098-4f01-8f8d-d75baeecae79', 'Woodland Bear',    'epic',      '1772262332274.png',                                     '1772262332913.png',                                     '1772262333297.png'),
-  -- Legendary (5)
-  ('bdcc1781-6127-4919-8d6c-cf0a70bffe58', 'Lightning Snake',  'legendary', 'bdcc1781-6127-4919-8d6c-cf0a70bffe58.png',              'bdcc1781-6127-4919-8d6c-cf0a70bffe58_tier2.png',        'bdcc1781-6127-4919-8d6c-cf0a70bffe58_tier3.png'),
-  ('a1f6ef51-5e6e-4abd-a8e8-f7813000b897', 'Poison Cockroach', 'legendary', '1771177424526.png',                                     '1771177425210.png',                                     '1771177425501.png'),
-  ('cd242b09-c444-421d-9efd-20df2905531c', 'Rainbow Unicorn',  'legendary', '1771176923316.png',                                     '1771176924171.png',                                     '1771176924443.png'),
-  ('43bfd295-e55f-43ce-b729-dea00e6728ee', 'Ruby Python',      'legendary', '1771770477216.png',                                     '1771770477769.png',                                     '1771770478089.png'),
-  ('1f7d40be-8da9-4670-a697-17983d3558d0', 'Sky Dragon',       'legendary', '1769605038446.png',                                     '1769605038829.png',                                     '1769605039184.png'),
-  ('e3cddae4-c3a5-47fa-9d39-fc0b7ddc7073', 'Solar Phoenix',    'legendary', '1770992222467.png',                                     'e3cddae4-c3a5-47fa-9d39-fc0b7ddc7073_tier2.png',        '1770992223872.png')
-ON CONFLICT (id) DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 10. OWNED PETS (for test students)                                       ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
-INSERT INTO public.owned_pets (id, student_id, pet_id, count, tier, food_fed)
-VALUES
-  -- Alice owns: Grass Monkey (tier 2), Cloud Bunny, Aqua Kitten
-  ('61000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '5d0a2926-0bcf-4765-9ce7-b13dc0215c96', 1, 2, 12),
-  ('61000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '50aed2a3-8c82-499e-a0df-c8b09e5c8f4b', 1, 1, 3),
-  ('61000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', 'ae398076-afeb-4c11-8d9a-bb6228d06985', 1, 1, 0),
-  -- Ben owns: Baby Dragon, Ember Puppy
-  ('61000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000003', '56280e79-c181-47e7-940b-fc78473648d6', 1, 1, 2),
-  ('61000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000003', '64999397-9d1f-4297-b1f4-76218d3f9cfc', 1, 1, 0)
-ON CONFLICT (id) DO NOTHING;
-
--- Set selected pets (references pets.id, not owned_pets.id)
-UPDATE public.student_profiles
-SET selected_pet_id = '5d0a2926-0bcf-4765-9ce7-b13dc0215c96'  -- Grass Monkey
-WHERE id = '00000000-0000-0000-0000-000000000002' AND selected_pet_id IS NULL;
-
-UPDATE public.student_profiles
-SET selected_pet_id = '56280e79-c181-47e7-940b-fc78473648d6'  -- Baby Dragon
-WHERE id = '00000000-0000-0000-0000-000000000003' AND selected_pet_id IS NULL;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 11. PARENT–STUDENT LINK                                                  ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
--- Mrs Tan is linked to Alice
-INSERT INTO public.parent_student_links (id, parent_id, student_id)
-VALUES ('62000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000002')
-ON CONFLICT (id) DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 12. DAILY STATUSES                                                       ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
-INSERT INTO public.daily_statuses (id, student_id, date, mood, has_spun, has_practiced)
-VALUES
-  -- Alice: last 3 days
-  ('63000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', CURRENT_DATE - 2, 'happy',   true,  true),
-  ('63000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', CURRENT_DATE - 1, 'happy',   true,  true),
-  ('63000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', CURRENT_DATE,     'neutral', false, false),
-  -- Ben: today only
-  ('63000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000003', CURRENT_DATE,     'happy',   true,  true)
-ON CONFLICT (id) DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 13. PRACTICE SESSION (completed, for Alice)                              ║
+-- ║ 9. PRACTICE SESSION (completed, for Alice)                               ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
 
 INSERT INTO public.practice_sessions (
   id, student_id, topic_id, total_questions, current_question_index,
-  completed_at, correct_count, xp_earned, coins_earned, total_time_seconds
+  completed_at, correct_count, total_time_seconds
 ) VALUES (
   '70000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000002',
   '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > Basic Calculation
   3, 3,
   now() - interval '1 day',
-  0, 20, 5, 145
+  0, 145
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -641,14 +558,14 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 14. ANNOUNCEMENT                                                         ║
+-- ║ 10. ANNOUNCEMENT                                                         ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 
 INSERT INTO public.announcements (id, title, content, target_audience, created_by, is_pinned)
 VALUES (
   '80000000-0000-0000-0000-000000000001',
   'Welcome to Clavis!',
-  'We are excited to have you here. Start practising to earn XP and climb the leaderboard!',
+  'We are excited to have you here. Start practising to sharpen your skills!',
   'all',
   '00000000-0000-0000-0000-000000000001',
   true
