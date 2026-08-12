@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
 import { useClassroomsStore } from '@/stores/classrooms'
+import { useAuthStore } from '@/stores/auth'
 import { Info, Loader2, X } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ const t = useT()
 const languageStore = useLanguageStore()
 const assessmentsStore = useAssessmentsStore()
 const classroomsStore = useClassroomsStore()
+const authStore = useAuthStore()
 
 const props = defineProps<{
   assessment: AssessmentListItem | null
@@ -62,7 +64,12 @@ watch(open, async (isOpen) => {
     classroomsStore.classrooms.length === 0
       ? classroomsStore.fetchClassrooms()
       : Promise.resolve(null),
-    classroomsStore.fetchOrgStudents(),
+    // A teacher may only assign to students in the classrooms they teach
+    // (P6d), so their picker draws from that roster union; a manager assigns
+    // org-wide.
+    authStore.isManager
+      ? classroomsStore.fetchOrgStudents()
+      : classroomsStore.fetchTeacherStudents(),
   ])
   isLoading.value = false
 
@@ -90,12 +97,14 @@ const availableClassrooms = computed(() =>
   classroomsStore.classrooms.filter((item) => !assignedClassroomIds.value.has(item.id)),
 )
 
-const orgStudentPicks = computed<PickableMember[]>(() =>
-  classroomsStore.orgStudents.map((student) => ({
-    id: student.id,
-    name: student.name,
-    detail: [student.username, student.gradeLevelName].filter(Boolean).join(' · ') || null,
-  })),
+const studentPicks = computed<PickableMember[]>(() =>
+  (authStore.isManager ? classroomsStore.orgStudents : classroomsStore.teacherStudents).map(
+    (student) => ({
+      id: student.id,
+      name: student.name,
+      detail: [student.username, student.gradeLevelName].filter(Boolean).join(' · ') || null,
+    }),
+  ),
 )
 
 async function handleAssign() {
@@ -267,7 +276,7 @@ async function handleRemove(assignmentId: string) {
             <FieldLabel>{{ t.staff.assign.studentLabel }}</FieldLabel>
             <MemberPickList
               v-model:selected-ids="selectedStudentIds"
-              :members="orgStudentPicks"
+              :members="studentPicks"
               :disabled-ids="assignedStudentIds"
               :disabled-label="t.staff.assign.alreadyAssigned"
               single

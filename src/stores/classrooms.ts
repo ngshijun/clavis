@@ -51,6 +51,9 @@ export const useClassroomsStore = defineStore('classrooms', () => {
   const orgStudents = ref<ClassroomStudent[]>([])
   const isLoadingOrgStudents = ref(false)
 
+  const teacherStudents = ref<ClassroomStudent[]>([])
+  const isLoadingTeacherStudents = ref(false)
+
   const filters = ref({ search: '' })
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
@@ -406,6 +409,65 @@ export const useClassroomsStore = defineStore('classrooms', () => {
     }
   }
 
+  /**
+   * The distinct students across every classroom the calling TEACHER teaches.
+   * RLS on `classroom_students` already restricts the read to rosters of
+   * classrooms the caller teaches (`app.is_classroom_teacher`), so this single
+   * query is inherently teacher-scoped — no org-wide student read. Used by the
+   * assignment dialog's individual-student picker for teachers, whose DB
+   * INSERT policy only accepts students they share a classroom with (P6d).
+   * Managers use the org-wide `orgStudents` instead.
+   */
+  async function fetchTeacherStudents(options?: { force?: boolean }): Promise<{
+    error: string | null
+  }> {
+    if (teacherStudents.value.length > 0 && !options?.force) return { error: null }
+
+    isLoadingTeacherStudents.value = true
+
+    try {
+      const { data, error: fetchError } = await supabase.from('classroom_students').select(
+        `
+          student_id,
+          student_profiles (
+            id,
+            username,
+            grade_levels (name),
+            profiles!student_profiles_id_fkey (name)
+          )
+        `,
+      )
+
+      if (fetchError) throw fetchError
+
+      const byId = new Map<string, ClassroomStudent>()
+      for (const row of data ?? []) {
+        const student = row.student_profiles as {
+          id: string
+          username: string | null
+          grade_levels: { name: string } | null
+          profiles: { name: string } | null
+        } | null
+        const id = student?.id ?? row.student_id
+        if (byId.has(id)) continue
+        byId.set(id, {
+          id,
+          name: student?.profiles?.name ?? '',
+          username: student?.username ?? null,
+          gradeLevelName: student?.grade_levels?.name ?? null,
+        })
+      }
+
+      teacherStudents.value = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedFetchOrgStudents') }
+    } finally {
+      isLoadingTeacherStudents.value = false
+    }
+  }
+
   function setSearch(value: string) {
     filters.value.search = value
     pagination.value.pageIndex = 0
@@ -426,6 +488,8 @@ export const useClassroomsStore = defineStore('classrooms', () => {
     error.value = null
     orgStudents.value = []
     isLoadingOrgStudents.value = false
+    teacherStudents.value = []
+    isLoadingTeacherStudents.value = false
     filters.value = { search: '' }
     pagination.value = { pageIndex: 0, pageSize: 10 }
   }
@@ -437,6 +501,8 @@ export const useClassroomsStore = defineStore('classrooms', () => {
     filteredClassrooms,
     orgStudents,
     isLoadingOrgStudents,
+    teacherStudents,
+    isLoadingTeacherStudents,
     filters,
     setSearch,
     pagination,
@@ -453,6 +519,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
     addClassroomTeachers,
     removeClassroomTeacher,
     fetchOrgStudents,
+    fetchTeacherStudents,
     $reset,
   }
 })
