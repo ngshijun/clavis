@@ -40,7 +40,7 @@ export interface IdScopedStatisticsStore {
 }
 
 /**
- * Filter/sort orchestration shared by the parent and admin statistics pages.
+ * Filter/sort orchestration shared by the student and admin statistics pages.
  * Both scope their data to an entity ID (selected child / target student) and
  * use identical store method signatures, so the cascading filter computeds,
  * filtered/sorted session lists and the summary cards are derived here once.

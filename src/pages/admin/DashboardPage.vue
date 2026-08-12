@@ -1,22 +1,12 @@
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useAdminDashboardStore } from '@/stores/admin-dashboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, Users, Activity, BookOpen, Loader2 } from 'lucide-vue-next'
+import { Building2, Users, Activity, BookOpen, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
 const t = useT()
-
-const MonthlyRevenueChart = defineAsyncComponent(
-  () => import('@/components/admin/MonthlyRevenueChart.vue'),
-)
-const MonthlyUpgradesChart = defineAsyncComponent(
-  () => import('@/components/admin/MonthlyUpgradesChart.vue'),
-)
-const SubscriptionTierChart = defineAsyncComponent(
-  () => import('@/components/admin/SubscriptionTierChart.vue'),
-)
 
 const dashboardStore = useAdminDashboardStore()
 
@@ -45,36 +35,16 @@ onMounted(async () => {
     <!-- Stats Cards -->
     <div v-else-if="dashboardStore.stats" class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <!-- Revenue Card -->
+        <!-- Organizations Card -->
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle class="text-sm font-medium">{{
-              t.admin.dashboard.revenueThisMonth
-            }}</CardTitle>
-            <DollarSign class="size-4 text-muted-foreground" />
+            <CardTitle class="text-sm font-medium">{{ t.admin.dashboard.organizations }}</CardTitle>
+            <Building2 class="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div class="text-2xl font-bold">
-              {{
-                dashboardStore.stats.revenue.currentMonth.toLocaleString('en-MY', {
-                  style: 'currency',
-                  currency: dashboardStore.stats.revenue.currency,
-                })
-              }}
-            </div>
+            <div class="text-2xl font-bold">{{ dashboardStore.stats.organizations }}</div>
             <p class="text-xs text-muted-foreground">
-              <span
-                :class="
-                  dashboardStore.stats.revenue.change.startsWith('+')
-                    ? 'text-green-600'
-                    : dashboardStore.stats.revenue.change.startsWith('-')
-                      ? 'text-red-600'
-                      : ''
-                "
-              >
-                {{ dashboardStore.stats.revenue.change }}
-              </span>
-              {{ t.admin.dashboard.fromLastMonth }}
+              {{ t.admin.dashboard.organizationsOnPlatform }}
             </p>
           </CardContent>
         </Card>
@@ -91,7 +61,8 @@ onMounted(async () => {
               {{
                 t.admin.dashboard.userBreakdown(
                   dashboardStore.stats.users.students,
-                  dashboardStore.stats.users.parents,
+                  dashboardStore.stats.users.teachers,
+                  dashboardStore.stats.users.managers,
                   dashboardStore.stats.users.admins,
                 )
               }}
@@ -110,7 +81,7 @@ onMounted(async () => {
           <CardContent>
             <div class="text-2xl font-bold">{{ dashboardStore.stats.activeStudentsToday }}</div>
             <p class="text-xs text-muted-foreground">
-              {{ t.admin.dashboard.studentsLoggedInToday }}
+              {{ t.admin.dashboard.studentsPractisedToday }}
             </p>
           </CardContent>
         </Card>
@@ -130,19 +101,6 @@ onMounted(async () => {
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      <!-- Charts Row (1/4 width each) -->
-      <div class="grid gap-4 lg:grid-cols-4">
-        <div class="lg:col-span-1">
-          <MonthlyRevenueChart />
-        </div>
-        <div class="lg:col-span-1">
-          <MonthlyUpgradesChart />
-        </div>
-        <div class="lg:col-span-1">
-          <SubscriptionTierChart />
-        </div>
       </div>
     </div>
   </div>

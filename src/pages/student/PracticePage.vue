@@ -3,14 +3,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
-import {
-  usePracticeStore,
-  type SessionLimitStatus,
-  type StudentSubscriptionStatus,
-} from '@/stores/practice'
+import { usePracticeStore } from '@/stores/practice'
 import { usePracticeProgress } from '@/composables/usePracticeProgress'
 import { useT } from '@/composables/useT'
-import { Loader2, Clock, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
+import { Loader2, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,28 +45,17 @@ const selectedTopicId = computed({
   set: (val) => practiceStore.setPracticeTopic(val),
 })
 const isStartingSession = ref(false)
-const sessionLimitStatus = ref<SessionLimitStatus | null>(null)
-const subscriptionStatus = ref<StudentSubscriptionStatus | null>(null)
-const isLoadingLimit = ref(true)
 
 // Confirmation dialog state
 const showConfirmDialog = ref(false)
 const pendingSubTopicId = ref<string | null>(null)
 
-// Fetch curriculum, session limit, and sub-topic progress on mount
+// Fetch curriculum and sub-topic progress on mount
 onMounted(async () => {
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
-  // Fetch subscription status and sub-topic progress in parallel
-  const [subStatus] = await Promise.all([
-    practiceStore.getStudentSubscriptionStatus(),
-    practiceStore.fetchSubTopicProgress(),
-  ])
-  subscriptionStatus.value = subStatus
-  // Check session limit using already-fetched subscription status (avoids duplicate call)
-  sessionLimitStatus.value = await practiceStore.checkSessionLimit(false, subStatus)
-  isLoadingLimit.value = false
+  await practiceStore.fetchSubTopicProgress()
 })
 
 // Get student's grade level ID
@@ -124,16 +109,6 @@ function getImageUrl(coverImagePath: string | null): string {
 function selectSubTopic(subTopicId: string) {
   if (!selectedTopic.value || isStartingSession.value) return
 
-  // Check limit before showing dialog
-  if (sessionLimitStatus.value && !sessionLimitStatus.value.canStartSession) {
-    toast.warning(
-      subscriptionStatus.value?.tier === 'pro' || subscriptionStatus.value?.tier === 'max'
-        ? t.value.student.practice.toastLimitReachedPro(sessionLimitStatus.value.sessionLimit)
-        : t.value.student.practice.toastLimitReachedFree(sessionLimitStatus.value.sessionLimit),
-    )
-    return
-  }
-
   // Show confirmation dialog
   pendingSubTopicId.value = subTopicId
   showConfirmDialog.value = true
@@ -158,10 +133,6 @@ async function confirmStartSession() {
 
     if (result.error) {
       toast.error(result.error)
-      // Refresh limit status if limit was reached
-      if (result.limitReached) {
-        sessionLimitStatus.value = await practiceStore.checkSessionLimit()
-      }
       return
     }
 
@@ -198,25 +169,6 @@ async function confirmStartSession() {
           }}
         </p>
       </div>
-      <!-- Session Counter -->
-      <div
-        v-if="
-          !curriculumStore.isLoading &&
-          !isLoadingLimit &&
-          sessionLimitStatus &&
-          sessionLimitStatus.canStartSession
-        "
-        class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground"
-      >
-        <span :class="sessionLimitStatus.remainingSessions <= 1 ? 'text-yellow-600' : ''">
-          {{
-            t.student.practice.sessionsRemaining(
-              sessionLimitStatus.remainingSessions,
-              sessionLimitStatus.sessionLimit,
-            )
-          }}
-        </span>
-      </div>
     </div>
 
     <!-- Loading State -->
@@ -246,29 +198,6 @@ async function confirmStartSession() {
     </Card>
 
     <template v-else>
-      <!-- Session Limit Reached -->
-      <Card
-        v-if="!isLoadingLimit && sessionLimitStatus && !sessionLimitStatus.canStartSession"
-        class="mb-6 border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 text-center dark:border-amber-800 dark:bg-card dark:from-amber-950/30 dark:to-yellow-950/30"
-      >
-        <CardContent class="py-8">
-          <div
-            class="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
-          >
-            <Clock class="size-7 text-amber-500" />
-          </div>
-          <h3 class="text-lg font-semibold">{{ t.student.practice.dailyLimitReached }}</h3>
-          <p class="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            {{ t.student.practice.dailyLimitReachedDesc(sessionLimitStatus.sessionLimit)
-            }}<template
-              v-if="subscriptionStatus?.tier !== 'pro' && subscriptionStatus?.tier !== 'max'"
-            >
-              {{ t.student.practice.dailyLimitUpgradeHint }}</template
-            >.
-          </p>
-        </CardContent>
-      </Card>
-
       <!-- Subject Selection -->
       <div v-if="!selectedSubject">
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -393,8 +322,7 @@ async function confirmStartSession() {
             :key="subTopic.id"
             class="flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg"
             :class="{
-              'opacity-50 pointer-events-none':
-                isStartingSession || !sessionLimitStatus?.canStartSession,
+              'opacity-50 pointer-events-none': isStartingSession,
               'border-2 border-green-500 bg-green-50 dark:bg-green-950/30':
                 subTopic.questionCount > 0 &&
                 practiceStore.getSubTopicAnsweredCount(subTopic.id) >= subTopic.questionCount,

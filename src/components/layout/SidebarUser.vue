@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useT } from '@/composables/useT'
 import { getAvatarUrl } from '@/lib/storage'
-import { ChevronsUpDown, LogOut, Users } from 'lucide-vue-next'
+import { ChevronsUpDown, LogOut } from 'lucide-vue-next'
 import {
   SidebarFooter,
   SidebarMenu,
@@ -24,8 +24,6 @@ import { toast } from 'vue-sonner'
 const authStore = useAuthStore()
 const router = useRouter()
 const t = useT()
-
-const isStudent = computed(() => authStore.userType === 'student')
 
 const profilePath = computed(() => {
   if (!authStore.userType) return '/login'
@@ -99,11 +97,6 @@ async function handleLogout() {
                   <span class="truncate text-xs text-muted-foreground">{{ userEmail }}</span>
                 </div>
               </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator v-if="isStudent" />
-            <DropdownMenuItem v-if="isStudent" @click="router.push('/student/parent')">
-              <Users class="mr-2 size-4" />
-              {{ t.shared.layout.sidebar.myParent }}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem @click="handleLogout">

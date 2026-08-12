@@ -29,34 +29,6 @@ export const loginFormSchema = z.object({
 })
 export type LoginFormValues = z.infer<typeof loginFormSchema>
 
-export const signupFormSchema = z
-  .object({
-    name: nameSchema,
-    email: emailSchema,
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-    userType: z.enum(['student', 'parent'], {
-      error: 'Please select a user type',
-    }),
-    dateOfBirth: z.string().optional(),
-    schoolId: z.string().optional(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  })
-  .refine((data) => data.userType !== 'student' || !!data.schoolId, {
-    message: 'Please select a school',
-    path: ['schoolId'],
-  })
-export type SignupFormValues = z.infer<typeof signupFormSchema>
-
-// Invitation forms
-export const inviteEmailFormSchema = z.object({
-  email: emailSchema,
-})
-export type InviteEmailFormValues = z.infer<typeof inviteEmailFormSchema>
-
 // Profile forms
 export const editNameFormSchema = z.object({
   name: nameSchema,
@@ -81,20 +53,11 @@ export const addCurriculumItemFormSchema = z.object({
 })
 export type AddCurriculumItemFormValues = z.infer<typeof addCurriculumItemFormSchema>
 
-// Pet forms
-export const petFormSchema = z.object({
-  name: requiredStringSchema('Name'),
-  rarity: z.enum(['common', 'rare', 'epic', 'legendary'], {
-    error: 'Please select a rarity',
-  }),
-})
-export type PetFormValues = z.infer<typeof petFormSchema>
-
 // Announcement forms
 export const announcementFormSchema = z.object({
   title: requiredStringSchema('Title'),
   content: z.string().min(1, 'Content is required'),
-  targetAudience: z.enum(['all', 'students_only', 'parents_only'], {
+  targetAudience: z.enum(['all', 'students_only'], {
     error: 'Please select target audience',
   }),
   expiresAt: z.string().optional().nullable(),

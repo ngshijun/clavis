@@ -68,7 +68,7 @@ const popularIndex = 2 // Pro plan
               ]"
               as-child
             >
-              <RouterLink to="/signup">{{ t.landing.pricing.getStarted }}</RouterLink>
+              <RouterLink to="/login">{{ t.landing.pricing.getStarted }}</RouterLink>
             </Button>
           </CardContent>
         </Card>

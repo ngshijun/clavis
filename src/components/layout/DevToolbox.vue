@@ -2,13 +2,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useCelebrationQueue } from '@/composables/useCelebrationQueue'
 import { Button } from '@/components/ui/button'
 import { Wrench } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
-const celebrationQueue = useCelebrationQueue()
 const router = useRouter()
 const isOpen = ref(false)
 const isSigningIn = ref(false)
@@ -18,7 +16,8 @@ const TEST_PASSWORD = 'Test1234!'
 const accounts = [
   { label: 'Student A', email: 'student@clavis.test', color: 'bg-blue-500 hover:bg-blue-600' },
   { label: 'Student B', email: 'student2@clavis.test', color: 'bg-sky-500 hover:bg-sky-600' },
-  { label: 'Parent', email: 'parent@clavis.test', color: 'bg-green-500 hover:bg-green-600' },
+  { label: 'Teacher', email: 'teacher@clavis.test', color: 'bg-green-500 hover:bg-green-600' },
+  { label: 'Manager', email: 'manager@clavis.test', color: 'bg-teal-500 hover:bg-teal-600' },
   { label: 'Admin', email: 'admin@clavis.test', color: 'bg-orange-500 hover:bg-orange-600' },
 ] as const
 
@@ -35,10 +34,6 @@ async function signInAs(email: string) {
   } finally {
     isSigningIn.value = false
   }
-}
-
-function testLevelUp() {
-  celebrationQueue.enqueue([{ type: 'levelUp', oldLevel: 4, newLevel: 5 }])
 }
 </script>
 
@@ -58,12 +53,6 @@ function testLevelUp() {
         @click="signInAs(account.email)"
       >
         {{ account.label }}
-      </button>
-      <button
-        class="rounded bg-purple-500 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-600"
-        @click="testLevelUp"
-      >
-        Level Up
       </button>
     </div>
 

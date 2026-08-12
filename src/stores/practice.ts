@@ -4,16 +4,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { useQuestionsStore, type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
-import { useLanguageStore } from './language'
-import type { Database } from '@/types/database.types'
 import { handleError, errorMessages } from '@/lib/errors'
 import { computeScorePercent, mapAnswerRow } from '@/lib/questionHelpers'
-import { canViewAiSummary } from '@/lib/tierConfig'
-import {
-  useStudentSubscriptionStore,
-  type StudentSubscriptionStatus,
-  type SessionLimitStatus,
-} from '@/stores/student-subscription'
 import {
   type PracticeAnswer,
   type PracticeSession,
@@ -25,14 +17,11 @@ import {
 import { usePracticeHistoryStore } from './practice-history'
 
 export type { PracticeAnswer, PracticeSession } from '@/lib/practiceHelpers'
-export type { StudentSubscriptionStatus, SessionLimitStatus }
 
 export const usePracticeStore = defineStore('practice', () => {
   const currentSession = ref<PracticeSession | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-
-  const subscription = useStudentSubscriptionStore()
 
   // Practice page navigation state (persisted across navigation)
   const practiceNavigation = ref({
@@ -98,7 +87,6 @@ export const usePracticeStore = defineStore('practice', () => {
   ): Promise<{
     session: PracticeSession | null
     error: string | null
-    limitReached?: boolean
   }> {
     if (!authStore.user || authStore.user.userType !== 'student') {
       return { session: null, error: errorMessages().onlyStudentsCanPractice }
@@ -108,21 +96,6 @@ export const usePracticeStore = defineStore('practice', () => {
     error.value = null
 
     try {
-      // Check session limit before starting
-      const limitStatus = await subscription.checkSessionLimit()
-      if (!limitStatus.canStartSession) {
-        const subStatus = await subscription.getStudentSubscriptionStatus()
-        const isTopTier = subStatus.tier === 'pro' || subStatus.tier === 'max'
-        const langStore = useLanguageStore()
-        return {
-          session: null,
-          error: isTopTier
-            ? langStore.t.student.practice.toastLimitReachedPro(limitStatus.sessionLimit)
-            : langStore.t.student.practice.toastLimitReachedFree(limitStatus.sessionLimit),
-          limitReached: true,
-        }
-      }
-
       // Ensure curriculum is loaded
       if (curriculumStore.gradeLevels.length === 0) {
         await curriculumStore.fetchCurriculum()
@@ -241,8 +214,6 @@ export const usePracticeStore = defineStore('practice', () => {
         correctAnswers: 0,
         answerCount: 0,
         durationSeconds: 0,
-        xpEarned: null,
-        coinsEarned: null,
         aiSummary: null,
         createdAt: new Date().toISOString(),
         completedAt: null,
@@ -252,9 +223,6 @@ export const usePracticeStore = defineStore('practice', () => {
 
       currentSession.value = session
       usePracticeHistoryStore().addToHistory(session)
-
-      // Invalidate session limit cache (session count changed)
-      subscription.invalidateSessionLimitCache()
 
       return { session, error: null }
     } catch (err) {
@@ -411,39 +379,30 @@ export const usePracticeStore = defineStore('practice', () => {
   /**
    * Shape of the jsonb payload returned by the complete_practice_session RPC.
    */
-  interface CompletionRewards {
-    xp_earned: number
-    coins_earned: number
+  interface CompletionResult {
     correct_count: number
-    newly_unlocked_badges?: Array<Database['public']['Tables']['badges']['Row']>
+    total: number
   }
 
   /**
    * Validate the complete_practice_session RPC payload. Returns the parsed
-   * rewards only when all three fields are present and finite, else null so the
+   * result only when both fields are present and finite, else null so the
    * caller can surface a handled error instead of writing undefined into the UI.
    */
-  function parseCompletionRewards(rewards: unknown): CompletionRewards | null {
-    if (typeof rewards !== 'object' || rewards === null) return null
-    const r = rewards as Record<string, unknown>
+  function parseCompletionResult(result: unknown): CompletionResult | null {
+    if (typeof result !== 'object' || result === null) return null
+    const r = result as Record<string, unknown>
     if (
-      typeof r.xp_earned !== 'number' ||
-      !Number.isFinite(r.xp_earned) ||
-      typeof r.coins_earned !== 'number' ||
-      !Number.isFinite(r.coins_earned) ||
       typeof r.correct_count !== 'number' ||
-      !Number.isFinite(r.correct_count)
+      !Number.isFinite(r.correct_count) ||
+      typeof r.total !== 'number' ||
+      !Number.isFinite(r.total)
     ) {
       return null
     }
     return {
-      xp_earned: r.xp_earned,
-      coins_earned: r.coins_earned,
       correct_count: r.correct_count,
-      // Pass through (not strictly validated): optional celebration payload.
-      newly_unlocked_badges: Array.isArray(r.newly_unlocked_badges)
-        ? (r.newly_unlocked_badges as Array<Database['public']['Tables']['badges']['Row']>)
-        : undefined,
+      total: r.total,
     }
   }
 
@@ -460,11 +419,10 @@ export const usePracticeStore = defineStore('practice', () => {
 
     try {
       // Complete session atomically using RPC function
-      // Server counts correct answers from practice_answers and calculates rewards
-      const { data: rewards, error: completeError } = await supabase.rpc(
-        'complete_practice_session',
-        { p_session_id: currentSession.value.id },
-      )
+      // Server counts correct answers from practice_answers
+      const { data, error: completeError } = await supabase.rpc('complete_practice_session', {
+        p_session_id: currentSession.value.id,
+      })
 
       if (completeError) {
         return {
@@ -475,9 +433,8 @@ export const usePracticeStore = defineStore('practice', () => {
 
       // complete_practice_session returns a jsonb payload; validate the numeric
       // fields before trusting them so a null/misshaped result surfaces as a
-      // handled error instead of writing undefined into the reward UI. Newly
-      // unlocked badges are passed through for the celebration queue.
-      const result = parseCompletionRewards(rewards)
+      // handled error instead of writing undefined into the score UI.
+      const result = parseCompletionResult(data)
       if (!result) {
         return { session: null, error: errorMessages().failedCompleteSession }
       }
@@ -489,28 +446,14 @@ export const usePracticeStore = defineStore('practice', () => {
         0,
       )
       currentSession.value.correctAnswers = result.correct_count
-      currentSession.value.xpEarned = result.xp_earned
-      currentSession.value.coinsEarned = result.coins_earned
-
-      // Hand off newly-unlocked badges to the badges store + celebration queue
-      if (result.newly_unlocked_badges && result.newly_unlocked_badges.length > 0) {
-        const { useBadgesStore } = await import('@/stores/badges')
-        const badgesStore = useBadgesStore()
-        badgesStore.handleNewlyUnlocked(result.newly_unlocked_badges)
-      }
+      currentSession.value.totalQuestions = result.total
 
       // Update the corresponding entry in history store
       const historyStore = usePracticeHistoryStore()
       historyStore.updateInHistory(currentSession.value)
       historyStore.invalidateCache()
 
-      // Refresh auth store to get updated XP/coins from database
-      await authStore.refreshProfile()
-
-      // Invalidate session limit cache (session count changed)
-      subscription.invalidateSessionLimitCache()
-
-      // Generate AI summary for Pro tier and above (non-blocking)
+      // Generate AI summary (non-blocking)
       generateAiSummary(currentSession.value.id)
 
       return { session: currentSession.value, error: null }
@@ -521,17 +464,12 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /**
-   * Generate AI summary for a session (Pro tier and above).
+   * Generate AI summary for a session.
    * Called non-blocking after session completion; failures are swallowed since
    * SessionResultPage offers an explicit retry and tracks its own UI status.
    */
   async function generateAiSummary(sessionId: string): Promise<void> {
     try {
-      const subscriptionStatus = await subscription.getStudentSubscriptionStatus()
-      if (!canViewAiSummary(subscriptionStatus.tier)) {
-        return
-      }
-
       const { summary, error: summaryError } = await generateSessionSummary(sessionId)
       if (summaryError || !summary) {
         return
@@ -671,7 +609,6 @@ export const usePracticeStore = defineStore('practice', () => {
     currentSession.value = null
     isLoading.value = false
     error.value = null
-    subscription.$reset()
     subTopicProgress.value = new Map()
     resetPracticeNavigation()
     usePracticeHistoryStore().$reset()
@@ -730,8 +667,6 @@ export const usePracticeStore = defineStore('practice', () => {
     resumeSession,
     optionNumberToId,
     optionNumbersToIds,
-    getStudentSubscriptionStatus: subscription.getStudentSubscriptionStatus,
-    checkSessionLimit: subscription.checkSessionLimit,
     $reset,
   }
 })

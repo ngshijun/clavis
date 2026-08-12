@@ -36,7 +36,7 @@ export function useTour() {
   function shouldShowTour(): boolean {
     const user = authStore.user
     if (!user) return false
-    if (user.userType !== 'student' && user.userType !== 'parent') return false
+    if (user.userType !== 'student') return false
 
     // Check localStorage cache first (avoids extra DB query)
     if (isTourCached(user.id)) return false
@@ -57,14 +57,12 @@ export function useTour() {
     showWelcomeDialog.value = false
     isTourActive.value = true
 
-    const userType = authStore.user?.userType
-    const [driver, { getStudentTourSteps }, { getParentTourSteps }] = await Promise.all([
+    const [driver, { getStudentTourSteps }] = await Promise.all([
       loadDriver(),
       import('./tour/studentTourSteps'),
-      import('./tour/parentTourSteps'),
     ])
 
-    const steps = userType === 'student' ? getStudentTourSteps() : getParentTourSteps()
+    const steps = getStudentTourSteps()
 
     const tourLabels = useLanguageStore().t.shared.tours
     driverInstance = driver({

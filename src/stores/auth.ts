@@ -1,47 +1,36 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase, clearSupabaseAuth } from '@/lib/supabaseClient'
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 import { resetAllStores } from '@/lib/piniaResetPlugin'
 import type { Database } from '@/types/database.types'
 import { handleError, errorMessages } from '@/lib/errors'
 import { handleAuthError } from '@/lib/authErrors'
-import { XP_PER_LEVEL, computeLevel } from '@/lib/xp'
 import { optimizeImage } from '@/lib/imageOptimizer'
 
-type UserType = Database['public']['Enums']['user_type']
+type UserRole = Database['public']['Enums']['user_role']
 
 export interface AuthUser {
   id: string
   email: string
   name: string
-  userType: UserType
+  userType: UserRole
   avatarPath: string | null
   dateOfBirth: string | null
   createdAt: string | null
   hasCompletedTour: boolean
   // Student-specific fields
   studentProfile?: {
-    xp: number
-    coins: number
-    food: number
     gradeLevelId: string | null
-    selectedPetId: string | null
     preferredLanguage: 'en' | 'zh'
     schoolId: string | null
     schoolName: string | null
-    friendCode: string
-    subscriptionTier: Database['public']['Enums']['subscription_tier']
-  }
-  // Parent-specific fields
-  parentProfile?: {
-    createdAt: string | null
   }
 }
 
 /**
  * Fetch the user's profile from the database
- * This includes the main profile and type-specific profile (student/parent)
+ * This includes the main profile and the student profile for students
  */
 async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
   try {
@@ -78,28 +67,10 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
 
       if (studentProfile) {
         authUser.studentProfile = {
-          xp: studentProfile.xp ?? 0,
-          coins: studentProfile.coins ?? 0,
-          food: studentProfile.food ?? 0,
           gradeLevelId: studentProfile.grade_level_id,
-          selectedPetId: studentProfile.selected_pet_id,
           preferredLanguage: studentProfile.preferred_language === 'zh' ? 'zh' : 'en',
           schoolId: studentProfile.school_id,
           schoolName: (studentProfile.schools as { name: string } | null)?.name ?? null,
-          friendCode: studentProfile.friend_code,
-          subscriptionTier: studentProfile.subscription_tier,
-        }
-      }
-    } else if (profile.user_type === 'parent') {
-      const { data: parentProfile } = await supabase
-        .from('parent_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (parentProfile) {
-        authUser.parentProfile = {
-          createdAt: parentProfile.created_at,
         }
       }
     }
@@ -108,58 +79,6 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
   } catch (err) {
     console.error('Error fetching user profile:', err)
     return null
-  }
-}
-
-/**
- * Ensure the user's profile exists in the database
- * This is a fallback in case the DB trigger didn't create it on signup
- * Called on first login to guarantee profile exists
- */
-async function ensureProfileExists(user: SupabaseUser): Promise<{ error: string | null }> {
-  try {
-    // Check if profile already exists using maybeSingle() to avoid error when not found
-    const { data: existingProfile, error: checkError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    // If profile exists, we're done
-    if (existingProfile) {
-      return { error: null }
-    }
-
-    // If there was an error other than "not found", return it
-    if (checkError) {
-      return { error: handleError(checkError, 'unknown') }
-    }
-
-    // Profile doesn't exist, create it atomically using RPC function
-    const userMetadata = user.user_metadata || {}
-    const userType = (userMetadata.user_type as UserType) || 'student'
-    const name = (userMetadata.name as string) || 'User'
-    const dateOfBirth = userMetadata.date_of_birth as string | undefined
-    const schoolId = userMetadata.school_id as string | undefined
-
-    // Create main profile and type-specific profile atomically
-    const { error: rpcError } = await supabase.rpc('create_user_profile', {
-      p_user_id: user.id,
-      p_email: user.email!,
-      p_name: name,
-      p_user_type: userType,
-      p_date_of_birth: dateOfBirth,
-      p_school_id: schoolId,
-    })
-
-    if (rpcError) {
-      return { error: handleError(rpcError, 'unknown') }
-    }
-
-    return { error: null }
-  } catch (err) {
-    const message = handleError(err, 'unknown')
-    return { error: message }
   }
 }
 
@@ -200,11 +119,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const isAuthenticated = computed(() => user.value !== null)
-  const userType = computed<UserType | null>(() => user.value?.userType ?? null)
+  const userType = computed<UserRole | null>(() => user.value?.userType ?? null)
 
-  // Student-specific computed properties
+  // Role computed properties
   const isStudent = computed(() => user.value?.userType === 'student')
-  const isParent = computed(() => user.value?.userType === 'parent')
   const isAdmin = computed(() => user.value?.userType === 'admin')
 
   const studentProfile = computed(() => {
@@ -212,23 +130,6 @@ export const useAuthStore = defineStore('auth', () => {
       return user.value.studentProfile
     }
     return null
-  })
-
-  const currentLevel = computed(() => {
-    if (!studentProfile.value) return 1
-    return computeLevel(studentProfile.value.xp)
-  })
-
-  const currentLevelXp = computed(() => {
-    if (!studentProfile.value) return 0
-    return studentProfile.value.xp % XP_PER_LEVEL
-  })
-
-  const xpToNextLevel = computed(() => XP_PER_LEVEL)
-
-  const xpProgress = computed(() => {
-    if (!studentProfile.value) return 0
-    return Math.round((currentLevelXp.value / XP_PER_LEVEL) * 100)
   })
 
   /**
@@ -254,8 +155,6 @@ export const useAuthStore = defineStore('auth', () => {
       } = await supabase.auth.getSession()
 
       if (session?.user) {
-        // Ensure profile exists
-        await ensureProfileExists(session.user)
         // Fetch the user profile through the sequenced loader
         await loadUserProfile(session.user.id)
       }
@@ -284,7 +183,6 @@ export const useAuthStore = defineStore('auth', () => {
         // request id discards this result if a later load (e.g. from initialize()
         // or refreshProfile()) has already superseded it — preventing stale clobber.
         setTimeout(async () => {
-          await ensureProfileExists(signedInUser)
           const ok = await loadUserProfile(signedInUser.id)
           profileLoadError.value = !ok
         }, 0)
@@ -302,55 +200,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Store unsubscribe function to prevent memory leaks
     authListenerUnsubscribe = subscription.unsubscribe
-  }
-
-  /**
-   * Sign up a new user
-   */
-  async function signUp(
-    email: string,
-    password: string,
-    name: string,
-    userTypeParam: 'student' | 'parent',
-    dateOfBirth?: string,
-    schoolId?: string,
-  ) {
-    isLoading.value = true
-    try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            user_type: userTypeParam,
-            date_of_birth: dateOfBirth,
-            school_id: schoolId,
-          },
-        },
-      })
-
-      if (signUpError) {
-        const message = handleAuthError(signUpError)
-        return { user: null, error: message }
-      }
-
-      // Supabase returns a user with empty identities when the email is already registered
-      // (instead of an error, to prevent email enumeration)
-      if (data.user && data.user.identities?.length === 0) {
-        return {
-          user: null,
-          error: errorMessages().authAccountExists,
-        }
-      }
-
-      return { user: data.user, error: null }
-    } catch (err) {
-      const message = handleError(err, 'unknown')
-      return { user: null, error: message }
-    } finally {
-      isLoading.value = false
-    }
   }
 
   /**
@@ -375,8 +224,6 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       if (data.user) {
-        // Ensure profile exists on first login
-        await ensureProfileExists(data.user)
         // Fetch the user profile through the sequenced loader
         await loadUserProfile(data.user.id)
       }
@@ -483,28 +330,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Resend signup confirmation email
-   */
-  async function resendConfirmationEmail(email: string): Promise<{ error: string | null }> {
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email,
-      })
-
-      if (resendError) {
-        return {
-          error: handleAuthError(resendError),
-        }
-      }
-
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'unknown') }
-    }
-  }
-
-  /**
    * Update user password
    */
   async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
@@ -530,18 +355,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function refreshProfile() {
     if (!user.value) return
-
-    const oldLevel = currentLevel.value
-
-    const ok = await loadUserProfile(user.value.id)
-    if (ok) {
-      // Detect level-up after profile refresh and enqueue for celebration
-      const newLevel = currentLevel.value
-      if (newLevel > oldLevel) {
-        const { useCelebrationQueue } = await import('@/composables/useCelebrationQueue')
-        useCelebrationQueue().enqueue([{ type: 'levelUp', oldLevel, newLevel }])
-      }
-    }
+    await loadUserProfile(user.value.id)
   }
 
   /**
@@ -783,27 +597,6 @@ export const useAuthStore = defineStore('auth', () => {
     return { error: null }
   }
 
-  /**
-   * Set selected pet
-   */
-  async function setSelectedPet(petId: string | null) {
-    if (!user.value || user.value.userType !== 'student' || !user.value.studentProfile) {
-      return { error: errorMessages().notAStudent }
-    }
-
-    const { error } = await supabase
-      .from('student_profiles')
-      .update({ selected_pet_id: petId })
-      .eq('id', user.value.id)
-
-    if (error) {
-      return { error: handleError(error, 'failedUpdateSelectedPet') }
-    }
-
-    user.value.studentProfile.selectedPetId = petId
-    return { error: null }
-  }
-
   return {
     // State
     user,
@@ -815,21 +608,14 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     userType,
     isStudent,
-    isParent,
     isAdmin,
     studentProfile,
-    currentLevel,
-    currentLevelXp,
-    xpToNextLevel,
-    xpProgress,
     // Actions
     initialize,
-    signUp,
     signIn,
     signOut,
     getSession,
     resetPassword,
-    resendConfirmationEmail,
     updatePassword,
     refreshProfile,
     updateName,
@@ -841,6 +627,5 @@ export const useAuthStore = defineStore('auth', () => {
     updateSchool,
     updatePreferredLanguage,
     setTourCompleted,
-    setSelectedPet,
   }
 })

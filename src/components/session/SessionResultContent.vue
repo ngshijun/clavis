@@ -5,9 +5,7 @@ import { formatDateTime } from '@/lib/date'
 import { useQuestionsStore } from '@/stores/questions'
 import SessionSummaryCards from './SessionSummaryCards.vue'
 import SessionQuestionCard from './SessionQuestionCard.vue'
-import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { Lock } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -24,7 +22,6 @@ defineProps<{
   completedAt: string | null
   questions: SessionQuestion[]
   answers: SessionAnswer[]
-  isLocked: boolean
   answerLabel: 'self' | 'student'
 }>()
 
@@ -51,26 +48,8 @@ function getAnswerByIndex(answers: SessionAnswer[], index: number): SessionAnswe
 
   <Separator class="mb-6" />
 
-  <!-- Question Details Locked -->
-  <Card
-    v-if="isLocked"
-    class="border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 text-center dark:border-purple-800 dark:bg-card dark:from-purple-950/30 dark:to-indigo-950/30"
-  >
-    <CardContent class="py-8">
-      <div
-        class="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/50"
-      >
-        <Lock class="size-7 text-purple-500" />
-      </div>
-      <h3 class="text-lg font-semibold">
-        {{ t.shared.sessionResultContent.questionDetailsLocked }}
-      </h3>
-      <slot name="locked-message" />
-    </CardContent>
-  </Card>
-
   <!-- Questions List -->
-  <div v-else class="space-y-4">
+  <div class="space-y-4">
     <h2 class="text-lg font-semibold">{{ t.shared.sessionResultContent.questionDetails }}</h2>
 
     <SessionQuestionCard

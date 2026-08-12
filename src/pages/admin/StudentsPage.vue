@@ -6,10 +6,9 @@ import { useAdminStudentsStore, type AdminStudent } from '@/stores/admin-student
 import { Search, Loader2, Users, ArrowUpDown } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/ui/data-table'
 import { toast } from 'vue-sonner'
-import { formatDate, formatRelativeDate } from '@/lib/date'
+import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const router = useRouter()
@@ -25,30 +24,6 @@ onMounted(async () => {
     }
   }
 })
-
-// Subscription tier config for badge styling
-const tierConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  core: {
-    label: 'Core',
-    color: 'text-gray-700 dark:text-gray-300',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
-  },
-  plus: {
-    label: 'Plus',
-    color: 'text-green-700 dark:text-green-300',
-    bgColor: 'bg-green-100 dark:bg-green-900/50',
-  },
-  pro: {
-    label: 'Pro',
-    color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/50',
-  },
-  max: {
-    label: 'Max',
-    color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-purple-100 dark:bg-purple-900/50',
-  },
-}
 
 // Column definitions
 const columns: ColumnDef<AdminStudent>[] = [
@@ -92,91 +67,10 @@ const columns: ColumnDef<AdminStudent>[] = [
     },
   },
   {
-    accessorKey: 'xp',
-    header: ({ column }) => {
-      return h(
-        Button,
-        {
-          variant: 'ghost',
-          onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-        },
-        () => [t.value.admin.students.xpCol, h(ArrowUpDown, { class: 'ml-2 size-4' })],
-      )
-    },
-    cell: ({ row }) => {
-      const xp = row.original.xp
-      return h(
-        'div',
-        { class: 'font-medium text-purple-600 dark:text-purple-400' },
-        xp.toLocaleString(),
-      )
-    },
-  },
-  {
-    accessorKey: 'coins',
-    header: ({ column }) => {
-      return h(
-        Button,
-        {
-          variant: 'ghost',
-          onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-        },
-        () => [t.value.admin.students.coinsCol, h(ArrowUpDown, { class: 'ml-2 size-4' })],
-      )
-    },
-    cell: ({ row }) => {
-      const coins = row.original.coins
-      return h(
-        'div',
-        { class: 'font-medium text-amber-600 dark:text-amber-400' },
-        coins.toLocaleString(),
-      )
-    },
-  },
-  {
     accessorKey: 'dateOfBirth',
     header: () => t.value.admin.students.dobCol,
     cell: ({ row }) => {
       return h('div', {}, formatDate(row.original.dateOfBirth))
-    },
-  },
-  {
-    accessorKey: 'subscriptionTier',
-    header: ({ column }) => {
-      return h(
-        Button,
-        {
-          variant: 'ghost',
-          onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-        },
-        () => [t.value.admin.students.subscriptionCol, h(ArrowUpDown, { class: 'ml-2 size-4' })],
-      )
-    },
-    cell: ({ row }) => {
-      const tier = row.original.subscriptionTier
-      if (!tier) {
-        return h('div', { class: 'text-muted-foreground' }, t.value.admin.students.noneSubscription)
-      }
-      const config = tierConfig[tier] ?? tierConfig.core!
-      return h(
-        Badge,
-        { variant: 'secondary', class: `${config!.bgColor} ${config!.color}` },
-        () => config!.label,
-      )
-    },
-  },
-  {
-    accessorKey: 'parentName',
-    header: () => t.value.admin.students.parentNameCol,
-    cell: ({ row }) => {
-      return h('div', {}, row.original.parentName ?? '-')
-    },
-  },
-  {
-    accessorKey: 'parentEmail',
-    header: () => t.value.admin.students.parentEmailCol,
-    cell: ({ row }) => {
-      return h('div', { class: 'text-muted-foreground' }, row.original.parentEmail ?? '-')
     },
   },
   {
@@ -193,26 +87,6 @@ const columns: ColumnDef<AdminStudent>[] = [
     },
     cell: ({ row }) => {
       return h('div', {}, formatDate(row.original.joinedAt))
-    },
-  },
-  {
-    accessorKey: 'lastActive',
-    header: ({ column }) => {
-      return h(
-        Button,
-        {
-          variant: 'ghost',
-          onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-        },
-        () => [t.value.admin.students.lastActiveCol, h(ArrowUpDown, { class: 'ml-2 size-4' })],
-      )
-    },
-    cell: ({ row }) => {
-      const lastActive = row.original.lastActive
-      if (!lastActive) {
-        return h('div', { class: 'text-muted-foreground' }, t.value.admin.students.neverActive)
-      }
-      return h('div', {}, formatRelativeDate(lastActive, t.value.shared.relativeDate))
     },
   },
 ]

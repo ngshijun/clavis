@@ -6,16 +6,8 @@ import {
   MessageSquare,
   PenTool,
   Users,
-  UsersRound,
-  Trophy,
-  Award,
-  FolderHeart,
-  Baby,
   PieChart,
-  CreditCard,
-  PawPrint,
   Megaphone,
-  Mail,
 } from 'lucide-vue-next'
 import type { SidebarNavConfig } from '@/types'
 
@@ -28,27 +20,14 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Question Statistics', path: '/admin/question-statistics', icon: BarChart3 },
     { title: 'Question Feedback', path: '/admin/question-feedback', icon: MessageSquare },
     { title: 'Students', path: '/admin/students', icon: Users },
-    { title: 'Payment History', path: '/admin/payment-history', icon: CreditCard },
-    { title: 'Leaderboard', path: '/admin/leaderboard', icon: Trophy },
-    { title: 'Pets', path: '/admin/pets', icon: PawPrint },
   ],
+  // Manager and teacher navigation is built in P1c alongside their dashboards.
+  manager: [],
+  teacher: [],
   student: [
     { title: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
     { title: 'Announcements', path: '/student/announcements', icon: Megaphone },
     { title: 'Practice', path: '/student/practice', icon: PenTool },
     { title: 'Statistics', path: '/student/statistics', icon: PieChart },
-    { title: 'Leaderboard', path: '/student/leaderboard', icon: Trophy },
-    { title: 'Friends', path: '/student/friends', icon: UsersRound },
-    { title: 'My Pet', path: '/student/my-pet', icon: PawPrint },
-    { title: 'Collections', path: '/student/collections', icon: FolderHeart },
-    { title: 'Achievements', path: '/student/achievements', icon: Award },
-  ],
-  parent: [
-    { title: 'Dashboard', path: '/parent/dashboard', icon: LayoutDashboard },
-    { title: 'Announcements', path: '/parent/announcements', icon: Megaphone },
-    { title: 'Children', path: '/parent/children', icon: Baby },
-    { title: 'Statistics', path: '/parent/statistics', icon: PieChart },
-    { title: 'Subscription', path: '/parent/subscription', icon: CreditCard },
-    { title: 'Contact Us', path: '/parent/contact', icon: Mail },
   ],
 }
