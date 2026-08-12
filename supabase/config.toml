@@ -4,6 +4,11 @@
 # 2. Relay-level JWT verification is incompatible with ECC (P-256) JWT signing keys
 # 3. Supabase recommends function-owned auth over relay verification
 
+[functions.create-user]
+verify_jwt = false
+# Without this the bundler cannot resolve the bare "@supabase/..." specifiers.
+import_map = "./functions/deno.json"
+
 [functions.generate-session-summary]
 verify_jwt = false
 

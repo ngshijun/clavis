@@ -28,6 +28,35 @@ function studentRouteGuard() {
   )
 }
 
+// Manager routes: fire-and-forget data preloading (non-blocking)
+function managerRouteGuard() {
+  import('@/stores/manager-teachers').then((teachersMod) => {
+    const teachersStore = teachersMod.useManagerTeachersStore()
+
+    if (teachersStore.teachers.length === 0 && !teachersStore.isLoading) {
+      teachersStore.fetchTeachers()
+    }
+  })
+}
+
+// Teacher routes: fire-and-forget data preloading (non-blocking)
+function teacherRouteGuard() {
+  Promise.all([import('@/stores/teacher-students'), import('@/stores/curriculum')]).then(
+    ([studentsMod, curriculumMod]) => {
+      const studentsStore = studentsMod.useTeacherStudentsStore()
+      const curriculumStore = curriculumMod.useCurriculumStore()
+
+      if (studentsStore.students.length === 0 && !studentsStore.isLoading) {
+        studentsStore.fetchStudents()
+      }
+
+      if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+        curriculumStore.fetchCurriculum()
+      }
+    },
+  )
+}
+
 // Admin routes: fire-and-forget data preloading (non-blocking)
 function adminRouteGuard() {
   Promise.all([
@@ -124,6 +153,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AnnouncementsPage.vue'),
         },
         {
+          path: 'organizations',
+          name: 'admin-organizations',
+          component: () => import('@/pages/admin/OrganizationsPage.vue'),
+        },
+        {
           path: 'students',
           name: 'admin-students',
           component: () => import('@/pages/admin/StudentsPage.vue'),
@@ -142,6 +176,44 @@ const router = createRouter({
           path: 'profile',
           name: 'admin-profile',
           component: () => import('@/pages/admin/ProfilePage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/manager',
+      component: () => import('@/components/layout/AppLayout.vue'),
+      meta: { requiresAuth: true, allowedRoles: ['manager'] },
+      redirect: '/manager/dashboard',
+      beforeEnter: managerRouteGuard,
+      children: [
+        {
+          path: 'dashboard',
+          name: 'manager-dashboard',
+          component: () => import('@/pages/manager/DashboardPage.vue'),
+        },
+        {
+          path: 'profile',
+          name: 'manager-profile',
+          component: () => import('@/pages/shared/StaffProfilePage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/teacher',
+      component: () => import('@/components/layout/AppLayout.vue'),
+      meta: { requiresAuth: true, allowedRoles: ['teacher'] },
+      redirect: '/teacher/dashboard',
+      beforeEnter: teacherRouteGuard,
+      children: [
+        {
+          path: 'dashboard',
+          name: 'teacher-dashboard',
+          component: () => import('@/pages/teacher/DashboardPage.vue'),
+        },
+        {
+          path: 'profile',
+          name: 'teacher-profile',
+          component: () => import('@/pages/shared/StaffProfilePage.vue'),
         },
       ],
     },
@@ -207,9 +279,8 @@ const router = createRouter({
 // Navigation guard
 export function getDashboardPath(userType: UserRole | null): string {
   if (userType === 'admin') return '/admin/dashboard'
-  // TEMPORARY (P1c): manager/teacher dashboards do not exist yet; send them to
-  // login so the app stays navigable until P1c builds their surfaces.
-  if (userType === 'manager' || userType === 'teacher') return '/login'
+  if (userType === 'manager') return '/manager/dashboard'
+  if (userType === 'teacher') return '/teacher/dashboard'
   return '/student/dashboard'
 }
 
@@ -230,9 +301,6 @@ router.beforeEach(async (to) => {
     | undefined
 
   if (requiresGuest && isAuthenticated) {
-    // TEMPORARY (P1c): manager/teacher have no dashboard yet — let them stay on
-    // guest pages instead of redirect-looping between /login and /login.
-    if (userType === 'manager' || userType === 'teacher') return true
     return getDashboardPath(userType)
   }
 

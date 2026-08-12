@@ -98,6 +98,19 @@ export default {
     failedDeleteQuestion: 'Failed to delete question.',
     // Admin students
     failedFetchStudents: 'Failed to load students.',
+    // Organizations & staff
+    failedFetchOrganizations: 'Failed to load organizations.',
+    failedCreateOrganization: 'Failed to create organization.',
+    failedUpdateOrganization: 'Failed to update organization.',
+    failedFetchTeachers: 'Failed to load teachers.',
+    // Account provisioning (create-user edge function)
+    provisionForbidden: 'You do not have permission to create this account.',
+    provisionInvalidInput: 'Please check the account details and try again.',
+    provisionEmailTaken: 'An account with this email already exists.',
+    provisionUsernameTaken: 'This username is already taken.',
+    provisionOrganizationNotFound: 'The selected organization no longer exists.',
+    provisionGradeLevelNotFound: 'The selected grade level no longer exists.',
+    provisionFailed: 'Failed to create the account. Please try again.',
     // Admin dashboard
     failedFetchDashboardStats: 'Failed to load dashboard stats.',
     // Announcements
@@ -499,6 +512,21 @@ export default {
       toastMarkAllReadFailed: (error: string) => error,
       toastMarkedAllRead: 'All announcements marked as read',
     },
+    staffProfile: {
+      title: 'My Profile',
+      subtitle: 'Manage your account settings',
+      accountDetails: 'Account Details',
+      accountDetailsDesc: 'Your account information',
+      emailAddress: 'Email Address',
+      role: 'Role',
+      organization: 'Organization',
+      memberSince: 'Member Since',
+      noOrganization: 'Not assigned',
+      roles: {
+        manager: 'Manager',
+        teacher: 'Teacher',
+      },
+    },
   },
   layout: {
     greetings: {
@@ -541,10 +569,17 @@ export default {
         admin: {
           dashboard: 'Dashboard',
           announcements: 'Announcements',
+          organizations: 'Organizations',
           curriculum: 'Curriculum',
           questionBank: 'Question Bank',
           questionStatistics: 'Question Statistics',
           questionFeedback: 'Question Feedback',
+          students: 'Students',
+        },
+        manager: {
+          teachers: 'Teachers',
+        },
+        teacher: {
           students: 'Students',
         },
         student: {

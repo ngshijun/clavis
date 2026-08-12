@@ -97,6 +97,19 @@ export default {
     failedDeleteQuestion: '删除题目失败。',
     // Admin students
     failedFetchStudents: '加载学生失败。',
+    // 机构与教职员
+    failedFetchOrganizations: '加载机构失败。',
+    failedCreateOrganization: '创建机构失败。',
+    failedUpdateOrganization: '更新机构失败。',
+    failedFetchTeachers: '加载教师失败。',
+    // 账户开通（create-user 边缘函数）
+    provisionForbidden: '你没有权限创建此账户。',
+    provisionInvalidInput: '请检查账户资料后重试。',
+    provisionEmailTaken: '该邮箱已被注册。',
+    provisionUsernameTaken: '该用户名已被使用。',
+    provisionOrganizationNotFound: '所选机构已不存在。',
+    provisionGradeLevelNotFound: '所选年级已不存在。',
+    provisionFailed: '创建账户失败，请重试。',
     // Admin dashboard
     failedFetchDashboardStats: '加载仪表板数据失败。',
     // Announcements
@@ -495,6 +508,21 @@ export default {
       toastMarkAllReadFailed: (error: string) => error,
       toastMarkedAllRead: '所有公告已标为已读',
     },
+    staffProfile: {
+      title: '我的账户',
+      subtitle: '管理你的账户设置',
+      accountDetails: '账户信息',
+      accountDetailsDesc: '你的账户资料',
+      emailAddress: '邮箱地址',
+      role: '角色',
+      organization: '所属机构',
+      memberSince: '加入日期',
+      noOrganization: '未分配',
+      roles: {
+        manager: '主管',
+        teacher: '教师',
+      },
+    },
   },
   layout: {
     greetings: {
@@ -534,10 +562,17 @@ export default {
         admin: {
           dashboard: '主页',
           announcements: '公告',
+          organizations: '机构',
           curriculum: '课程',
           questionBank: '题库',
           questionStatistics: '题目统计',
           questionFeedback: '题目反馈',
+          students: '学生',
+        },
+        manager: {
+          teachers: '教师',
+        },
+        teacher: {
           students: '学生',
         },
         student: {

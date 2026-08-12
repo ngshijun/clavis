@@ -19,12 +19,17 @@ export interface AuthUser {
   dateOfBirth: string | null
   createdAt: string | null
   hasCompletedTour: boolean
+  // Tenancy: NULL only for platform admins (DB CHECK enforces the invariant)
+  organizationId: string | null
+  organizationName: string | null
   // Student-specific fields
   studentProfile?: {
     gradeLevelId: string | null
     preferredLanguage: 'en' | 'zh'
     schoolId: string | null
     schoolName: string | null
+    username: string | null
+    createdBy: string | null
   }
 }
 
@@ -37,7 +42,7 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
     // Fetch main profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, organizations(name)')
       .eq('id', userId)
       .single()
 
@@ -55,6 +60,8 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
       dateOfBirth: profile.date_of_birth,
       createdAt: profile.created_at,
       hasCompletedTour: profile.has_completed_tour ?? false,
+      organizationId: profile.organization_id,
+      organizationName: (profile.organizations as { name: string } | null)?.name ?? null,
     }
 
     // Fetch type-specific profile
@@ -71,6 +78,8 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
           preferredLanguage: studentProfile.preferred_language === 'zh' ? 'zh' : 'en',
           schoolId: studentProfile.school_id,
           schoolName: (studentProfile.schools as { name: string } | null)?.name ?? null,
+          username: studentProfile.username,
+          createdBy: studentProfile.created_by,
         }
       }
     }
@@ -124,6 +133,10 @@ export const useAuthStore = defineStore('auth', () => {
   // Role computed properties
   const isStudent = computed(() => user.value?.userType === 'student')
   const isAdmin = computed(() => user.value?.userType === 'admin')
+  const isManager = computed(() => user.value?.userType === 'manager')
+  const isTeacher = computed(() => user.value?.userType === 'teacher')
+
+  const organizationId = computed(() => user.value?.organizationId ?? null)
 
   const studentProfile = computed(() => {
     if (user.value?.userType === 'student') {
@@ -609,6 +622,9 @@ export const useAuthStore = defineStore('auth', () => {
     userType,
     isStudent,
     isAdmin,
+    isManager,
+    isTeacher,
+    organizationId,
     studentProfile,
     // Actions
     initialize,

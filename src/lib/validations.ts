@@ -65,6 +65,44 @@ export const announcementFormSchema = z.object({
 })
 export type AnnouncementFormValues = z.infer<typeof announcementFormSchema>
 
+// Organization forms (platform admin)
+export const organizationFormSchema = z.object({
+  name: requiredStringSchema('Organization name').max(120, 'Name must be 120 characters or less'),
+})
+export type OrganizationFormValues = z.infer<typeof organizationFormSchema>
+
+// Account provisioning forms.
+// Mirrors the server-side rules in supabase/functions/create-user/provisioning.ts.
+export const provisionedPasswordSchema = passwordSchema.max(
+  72,
+  'Password must be 72 characters or less',
+)
+
+export const staffAccountFormSchema = z.object({
+  name: nameSchema.max(100, 'Name must be 100 characters or less'),
+  email: emailSchema,
+  password: provisionedPasswordSchema,
+})
+export type StaffAccountFormValues = z.infer<typeof staffAccountFormSchema>
+
+export const usernameSchema = z
+  .string()
+  .min(1, 'Username is required')
+  .trim()
+  .toLowerCase()
+  .regex(
+    /^[a-z0-9][a-z0-9._-]{2,29}$/,
+    'Username must be 3-30 characters: letters, numbers, dot, underscore or hyphen',
+  )
+
+export const studentAccountFormSchema = z.object({
+  name: nameSchema.max(100, 'Name must be 100 characters or less'),
+  username: usernameSchema,
+  password: provisionedPasswordSchema,
+  gradeLevelId: requiredStringSchema('Grade level'),
+})
+export type StudentAccountFormValues = z.infer<typeof studentAccountFormSchema>
+
 // Contact form
 export const contactFormSchema = z.object({
   name: nameSchema,
