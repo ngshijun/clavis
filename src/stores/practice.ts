@@ -5,7 +5,6 @@ import { useQuestionsStore, type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
 import { handleError, errorMessages } from '@/lib/errors'
-import { computeScorePercent, mapAnswerRow } from '@/lib/questionHelpers'
 import {
   type PracticeAnswer,
   type PracticeSession,
@@ -63,19 +62,6 @@ export const usePracticeStore = defineStore('practice', () => {
   })
 
   const isCurrentQuestionAnswered = computed(() => currentAnswer.value !== null)
-
-  const sessionResults = computed(() => {
-    if (!currentSession.value) return null
-    const totalAnswered = currentSession.value.answers.length
-    const correctAnswers = currentSession.value.answers.filter((a) => a.isCorrect).length
-    return {
-      total: totalQuestions.value,
-      answered: totalAnswered,
-      correct: correctAnswers,
-      incorrect: totalAnswered - correctAnswers,
-      score: computeScorePercent(correctAnswers, totalAnswered),
-    }
-  })
 
   /**
    * Start a new practice session
@@ -249,27 +235,6 @@ export const usePracticeStore = defineStore('practice', () => {
     }
 
     const question = currentQuestion.value
-    let isCorrect = false
-
-    if (question.type === 'mcq' && selectedOptionIds && selectedOptionIds.length === 1) {
-      // MCQ: single correct answer
-      const selectedOption = question.options.find((o) => o.id === selectedOptionIds[0])
-      isCorrect = selectedOption?.isCorrect ?? false
-    } else if (question.type === 'mrq' && selectedOptionIds && selectedOptionIds.length > 0) {
-      // MRQ: must select ALL correct options and NO incorrect options
-      const correctOptionIds = question.options
-        .filter((o) => o.isCorrect)
-        .map((o) => o.id as string)
-      const selectedSet = new Set(selectedOptionIds)
-      const correctSet = new Set(correctOptionIds)
-
-      // Check if sets are equal (same size and all elements match)
-      isCorrect =
-        selectedSet.size === correctSet.size && [...selectedSet].every((id) => correctSet.has(id))
-    } else if (question.type === 'short_answer' && textAnswer && question.answer) {
-      // Simple case-insensitive comparison for short answers
-      isCorrect = textAnswer.trim().toLowerCase() === question.answer.trim().toLowerCase()
-    }
 
     try {
       // Convert option IDs to numbers for database storage
@@ -278,36 +243,36 @@ export const usePracticeStore = defineStore('practice', () => {
           ? selectedOptionIds.map((id) => optionIdToNumber(id))
           : null
 
-      // Insert answer into database
-      const { data: answerData, error: insertError } = await supabase
-        .from('practice_answers')
-        .insert({
-          session_id: currentSession.value.id,
-          question_id: question.id,
-          selected_options: selectedOptionsNumbers,
-          text_answer: textAnswer ?? null,
-          is_correct: isCorrect,
-          time_spent_seconds: timeSpentSeconds ?? null,
-        })
-        .select()
-        .single()
+      // Deferred feedback (decision 40): the client never grades and never
+      // reads is_correct — SELECT on the column is revoked (P5a) and the
+      // grading trigger owns the value. The column is NOT NULL, so a
+      // placeholder false is sent (INSERT grant retained; trigger overwrites).
+      // No returning select, so PostgREST never reads the revoked column back.
+      const { error: insertError } = await supabase.from('practice_answers').insert({
+        session_id: currentSession.value.id,
+        question_id: question.id,
+        selected_options: selectedOptionsNumbers,
+        text_answer: textAnswer ?? null,
+        is_correct: false,
+        time_spent_seconds: timeSpentSeconds ?? null,
+      })
 
       if (insertError) {
         return { answer: null, error: handleError(insertError, 'failedSubmitAnswer') }
       }
 
-      // is_correct is now server-graded by trg_grade_practice_answer; the row
-      // returned by .select() carries the authoritative value (the optimistic
-      // local `isCorrect` above is advisory only). Use the persisted value for
-      // any score-affecting UI so the counter cannot diverge from the server.
-      const answer = mapAnswerRow(answerData)
-      currentSession.value.answers.push(answer)
-
-      // Update local counts for UI
-      currentSession.value.answerCount++
-      if (answer.isCorrect) {
-        currentSession.value.correctAnswers++
+      const answer: PracticeAnswer = {
+        questionId: question.id,
+        selectedOptions: selectedOptionsNumbers,
+        textAnswer: textAnswer ?? null,
+        // Unknown mid-session by design; results come from get_session_result
+        // after completion. Nothing reads this field during the session.
+        isCorrect: false,
+        answeredAt: new Date().toISOString(),
+        timeSpentSeconds: timeSpentSeconds ?? null,
       }
+      currentSession.value.answers.push(answer)
+      currentSession.value.answerCount++
 
       return { answer, error: null }
     } catch (err) {
@@ -644,7 +609,6 @@ export const usePracticeStore = defineStore('practice', () => {
     totalQuestions,
     currentAnswer,
     isCurrentQuestionAnswered,
-    sessionResults,
     // Practice navigation
     practiceNavigation,
     setPracticeSubject,

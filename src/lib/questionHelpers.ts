@@ -53,26 +53,66 @@ export function extractOptionsFromQuestion(q: QuestionRow): QuestionOption[] {
   return options
 }
 
-/** Map a single raw DB answer row to typed PracticeAnswer */
-export function mapAnswerRow(a: AnswerRow): PracticeAnswer {
+/**
+ * The practice_answers columns SELECTable by `authenticated` — `is_correct` is
+ * column-revoked (P5a, decision 41), so a `select('*')` errors with 42501.
+ * Every client read of practice_answers must name exactly these columns.
+ */
+export const PRACTICE_ANSWER_COLUMNS =
+  'id, session_id, question_id, selected_options, text_answer, time_spent_seconds, answered_at'
+
+/** An answer row as returned by a PRACTICE_ANSWER_COLUMNS select (no is_correct). */
+export type PracticeAnswerRow = Pick<
+  AnswerRow,
+  'question_id' | 'selected_options' | 'text_answer' | 'time_spent_seconds' | 'answered_at'
+>
+
+/**
+ * Map a raw DB answer row to a typed PracticeAnswer. Correctness is no longer
+ * readable from the row; the caller supplies it (staff views derive it from
+ * the bank question, students get it only from get_session_result).
+ */
+export function mapAnswerRow(a: PracticeAnswerRow, isCorrect: boolean): PracticeAnswer {
   return {
     questionId: a.question_id,
     selectedOptions: a.selected_options,
     textAnswer: a.text_answer,
-    isCorrect: a.is_correct ?? false,
+    isCorrect,
     answeredAt: a.answered_at ?? new Date().toISOString(),
     timeSpentSeconds: a.time_spent_seconds,
   }
 }
 
-/** Map raw DB answer rows to typed PracticeAnswer[] */
-export function mapAnswerRows(rows: AnswerRow[]): PracticeAnswer[] {
-  return rows.map(mapAnswerRow)
+/**
+ * Derive an answer's correctness from the bank question row (staff surfaces
+ * only — staff can read the answer key). Mirrors grade_practice_answer:
+ * MCQ/MRQ selected-set equality with the correct-option set, short answer
+ * trimmed-lowercase equality. Unknown question (deleted) counts as incorrect.
+ */
+export function deriveAnswerCorrectness(
+  answer: PracticeAnswerRow,
+  question: QuestionRow | undefined,
+): boolean {
+  if (!question) return false
+
+  if (question.type === 'short_answer') {
+    if (!answer.text_answer || !question.answer) return false
+    return answer.text_answer.trim().toLowerCase() === question.answer.trim().toLowerCase()
+  }
+
+  const correct = new Set<number>()
+  if (question.option_1_is_correct) correct.add(1)
+  if (question.option_2_is_correct) correct.add(2)
+  if (question.option_3_is_correct) correct.add(3)
+  if (question.option_4_is_correct) correct.add(4)
+
+  const selected = new Set(answer.selected_options ?? [])
+  return selected.size === correct.size && [...selected].every((n) => correct.has(n))
 }
 
 /** Build SessionQuestion[] from answer rows and a questions map, with placeholders for deleted questions */
 export function buildQuestionsFromAnswers(
-  answersData: Database['public']['Tables']['practice_answers']['Row'][],
+  answersData: { question_id: string | null }[],
   questionsMap: Map<string, QuestionRow>,
 ): SessionQuestion[] {
   return answersData.map((answer, index) => {

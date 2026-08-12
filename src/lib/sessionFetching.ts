@@ -12,8 +12,10 @@ import type { PracticeSessionSummary, PracticeSessionFull } from '@/types/sessio
 import {
   computeScorePercent,
   buildQuestionsFromAnswers,
-  mapAnswerRows,
+  mapAnswerRow,
+  deriveAnswerCorrectness,
   assembleSessionFull,
+  PRACTICE_ANSWER_COLUMNS,
 } from '@/lib/questionHelpers'
 
 /**
@@ -134,7 +136,7 @@ export async function fetchFullSessionDetails(
       .single(),
     supabase
       .from('practice_answers')
-      .select('*')
+      .select(PRACTICE_ANSWER_COLUMNS)
       .eq('session_id', sessionId)
       .order('answered_at', { ascending: true }),
   ])
@@ -161,9 +163,16 @@ export async function fetchFullSessionDetails(
     questionsMap.set(q.id, q)
   }
 
-  // Build questions and answers from DB rows
+  // Build questions and answers from DB rows. is_correct is column-revoked
+  // (P5a), so correctness is derived here from the bank rows — this is a
+  // staff-only surface where the answer key is readable by design.
   const questions = buildQuestionsFromAnswers(answersData ?? [], questionsMap)
-  const answers = mapAnswerRows(answersData ?? [])
+  const answers = (answersData ?? []).map((row) =>
+    mapAnswerRow(
+      row,
+      deriveAnswerCorrectness(row, row.question_id ? questionsMap.get(row.question_id) : undefined),
+    ),
+  )
   const subTopic = sessionData.sub_topics as unknown as SubTopicHierarchy
 
   const correctAnswers = answers.filter((a) => a.isCorrect).length

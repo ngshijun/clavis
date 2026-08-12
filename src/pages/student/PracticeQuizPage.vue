@@ -44,11 +44,24 @@ const pendingNavigation = ref<string | null>(null)
 // Time tracking for current question
 const questionStartTime = ref<number>(Date.now())
 
-// Reset timer when question changes (track by question index)
+/**
+ * Hydrate the local inputs from the saved answer so navigating back shows the
+ * student's own selection (deferred feedback — never correctness, decision 40).
+ */
+function hydrateInputs() {
+  const answer = practiceStore.currentAnswer
+  selectedOptionIds.value = new Set(
+    practiceStore.optionNumbersToIds(answer?.selectedOptions ?? null),
+  )
+  textAnswer.value = answer?.textAnswer ?? ''
+}
+
+// Reset timer + rehydrate inputs when the question (or session) changes
 watch(
-  () => practiceStore.currentQuestionNumber,
+  () => [practiceStore.currentSession?.id, practiceStore.currentQuestionNumber],
   () => {
     questionStartTime.value = Date.now()
+    hydrateInputs()
   },
 )
 
@@ -81,13 +94,13 @@ onMounted(async () => {
     router.replace('/student/practice')
   }
 
-  // Initialize question start time
+  // Initialize question start time and input state
   questionStartTime.value = Date.now()
+  hydrateInputs()
 })
 
 const currentQuestion = computed(() => practiceStore.currentQuestion)
 const { displayOptions, clearCache: clearShuffleCache } = useQuestionShuffle(currentQuestion)
-const currentAnswer = computed(() => practiceStore.currentAnswer)
 const isAnswered = computed(() => practiceStore.isCurrentQuestionAnswered)
 const progress = computed(() => {
   if (!practiceStore.totalQuestions) return 0
@@ -102,35 +115,13 @@ const allQuestionsAnswered = computed(() => {
   return practiceStore.currentSession?.answers.length === practiceStore.totalQuestions
 })
 
-// O(1) lookup Map for answers by question ID (avoids repeated .find() calls in template)
-const answerByQuestionId = computed(() => {
-  const map = new Map<string, { isCorrect: boolean }>()
+// Answered questions for the navigation grid (no correctness — decision 40)
+const answeredQuestionIds = computed(() => {
+  const ids = new Set<string>()
   for (const answer of practiceStore.currentSession?.answers ?? []) {
-    if (answer.questionId) {
-      map.set(answer.questionId, { isCorrect: answer.isCorrect })
-    }
+    if (answer.questionId) ids.add(answer.questionId)
   }
-  return map
-})
-
-// Get correct answer for display
-const correctAnswer = computed(() => {
-  if (!currentQuestion.value) return ''
-  if (currentQuestion.value.type === 'mcq') {
-    const correct = currentQuestion.value.options.find((o) => o.isCorrect)
-    return correct?.text ?? ''
-  }
-  if (currentQuestion.value.type === 'mrq') {
-    const correctOptions = currentQuestion.value.options.filter((o) => o.isCorrect)
-    return correctOptions.map((o) => o.text).join(', ')
-  }
-  return currentQuestion.value.answer ?? ''
-})
-
-// Get the selected option ids from the current answer (convert from numbers to letters)
-const answeredOptionIds = computed(() => {
-  if (!currentAnswer.value?.selectedOptions) return []
-  return practiceStore.optionNumbersToIds(currentAnswer.value.selectedOptions)
+  return ids
 })
 
 // Check if all options are image-only (no text)
@@ -140,7 +131,7 @@ const isImageOnlyOptions = computed(() => {
 })
 
 async function submitAnswer() {
-  if (!currentQuestion.value) return
+  if (!currentQuestion.value || isAnswered.value) return
   // In-flight guard: prevents a second insert (e.g. double-tap on a different
   // MCQ option) firing before isAnswered flips, which would violate the
   // UNIQUE(session_id, question_id) constraint on practice_answers.
@@ -171,9 +162,7 @@ async function submitAnswer() {
 }
 
 async function nextQuestion() {
-  // Reset input state
-  selectedOptionIds.value = new Set()
-  textAnswer.value = ''
+  // Input state is rehydrated by the question-change watcher
   await practiceStore.nextQuestion()
 }
 
@@ -210,13 +199,11 @@ function exitQuiz() {
 
 async function goToQuestion(index: number) {
   await practiceStore.goToQuestion(index)
-  selectedOptionIds.value = new Set()
-  textAnswer.value = ''
 }
 
 // Handle option click - single select for MCQ, toggle for MRQ
 function handleOptionClick(optionId: string) {
-  if (!currentQuestion.value) return
+  if (!currentQuestion.value || isAnswered.value) return
 
   if (currentQuestion.value.type === 'mcq') {
     // MCQ: single selection — submit immediately on click
@@ -323,27 +310,24 @@ onBeforeRouteLeave((to) => {
               />
             </div>
 
-            <!-- MCQ/MRQ Options (shuffled and filtered) -->
+            <!-- MCQ/MRQ Options (shuffled and filtered) — deferred feedback:
+                 the student's own selection only, never correctness -->
             <QuestionOptionsList
               v-if="currentQuestion.type === 'mcq' || currentQuestion.type === 'mrq'"
               :options="displayOptions"
               :question-id="currentQuestion.id"
               :question-type="currentQuestion.type"
               :selected-option-ids="selectedOptionIds"
-              :is-answered="isAnswered"
-              :answered-option-ids="answeredOptionIds"
               :is-image-only="isImageOnlyOptions"
-              :disabled="isSubmitting"
+              :disabled="isSubmitting || isAnswered"
               @select="handleOptionClick"
             />
 
-            <!-- Short Answer Input -->
+            <!-- Short Answer Input — no correctness feedback until completion -->
             <ShortAnswerInput
               v-if="currentQuestion.type === 'short_answer'"
               v-model="textAnswer"
-              :is-answered="isAnswered"
-              :is-correct="currentAnswer?.isCorrect ?? null"
-              :correct-answer="correctAnswer"
+              :disabled="isAnswered"
               @submit="submitAnswer"
             />
           </CardContent>
@@ -392,7 +376,8 @@ onBeforeRouteLeave((to) => {
           </CardFooter>
         </Card>
 
-        <!-- Question Navigation -->
+        <!-- Question Navigation: answered = filled, current = primary.
+             No correctness colors — feedback is deferred to the results. -->
         <div class="mt-4 flex flex-wrap justify-center gap-2">
           <button
             v-for="(q, index) in practiceStore.currentSession?.questions"
@@ -401,10 +386,8 @@ onBeforeRouteLeave((to) => {
             :class="{
               'border-primary bg-primary text-primary-foreground':
                 index === practiceStore.currentQuestionNumber - 1,
-              'border-green-500 bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300':
-                answerByQuestionId.get(q.id)?.isCorrect,
-              'border-red-500 bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300':
-                answerByQuestionId.has(q.id) && !answerByQuestionId.get(q.id)?.isCorrect,
+              'border-primary/50 bg-primary/10':
+                index !== practiceStore.currentQuestionNumber - 1 && answeredQuestionIds.has(q.id),
               'hover:border-primary/50': index !== practiceStore.currentQuestionNumber - 1,
             }"
             @click="goToQuestion(index)"

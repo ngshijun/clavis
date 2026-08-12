@@ -30,31 +30,20 @@ export interface SessionQuestion {
   }>
 }
 
-const props = defineProps<{
+// This card is a STAFF surface (admin session review) — it reveals the answer
+// key. Student practice results use ReviewQuestionCard, which never does.
+defineProps<{
   question: SessionQuestion
   answer: SessionAnswer | undefined
   index: number
-  /** 'self' = viewer's own answer, 'student' = student's answer (admin/parent view) */
-  answerLabel: 'self' | 'student'
   getImageUrl: (path: string | null) => string
   getThumbnailUrl: (path: string | null) => string
 }>()
 
-const answerText = computed(() =>
-  props.answerLabel === 'self'
-    ? t.value.shared.sessionQuestionCard.selfAnswer
-    : t.value.shared.sessionQuestionCard.studentAnswer,
-)
-const correctAnswerText = computed(() =>
-  props.answerLabel === 'self'
-    ? t.value.shared.sessionQuestionCard.selfCorrectAnswer
-    : t.value.shared.sessionQuestionCard.studentCorrectAnswer,
-)
-
-const deletedAnswerWasText = computed(() =>
-  props.answerLabel === 'self'
-    ? t.value.shared.sessionQuestionCard.deletedAnswerWasSelf
-    : t.value.shared.sessionQuestionCard.deletedAnswerWasStudent,
+const answerText = computed(() => t.value.shared.sessionQuestionCard.studentAnswer)
+const correctAnswerText = computed(() => t.value.shared.sessionQuestionCard.studentCorrectAnswer)
+const deletedAnswerWasText = computed(
+  () => t.value.shared.sessionQuestionCard.deletedAnswerWasStudent,
 )
 </script>
 
