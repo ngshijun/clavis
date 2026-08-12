@@ -106,8 +106,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       correctAnswers: row.correct_count ?? 0,
       answerCount,
       durationSeconds: row.total_time_seconds ?? 0,
-      xpEarned: row.xp_earned,
-      coinsEarned: row.coins_earned,
       createdAt: row.created_at,
       completedAt: row.completed_at,
       aiSummary: row.ai_summary ?? null,

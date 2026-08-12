@@ -2,7 +2,6 @@ import type { PracticeAnswer } from '@/types/session'
 
 export type { PracticeAnswer } from '@/types/session'
 export type { DateRangeFilter } from '@/lib/sessionFilters'
-export type { StudentSubscriptionStatus, SessionLimitStatus } from '@/stores/student-subscription'
 
 export interface PracticeSession {
   id: string
@@ -19,8 +18,6 @@ export interface PracticeSession {
   correctAnswers: number
   answerCount: number // Actual number of answered questions
   durationSeconds: number
-  xpEarned: number | null
-  coinsEarned: number | null
   createdAt: string | null
   completedAt: string | null
   aiSummary: string | null

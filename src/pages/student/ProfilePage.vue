@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePracticeStore, type StudentSubscriptionStatus } from '@/stores/practice'
-import { useSubscriptionStore } from '@/stores/subscription'
 import { useCurriculumStore } from '@/stores/curriculum'
-import { useBadgesStore } from '@/stores/badges'
-import FeaturedBadgesRow from '@/components/student/FeaturedBadgesRow.vue'
-import BadgePickerDialog from '@/components/student/BadgePickerDialog.vue'
 import { useProfileEditor } from '@/composables/useProfileEditor'
 import { useT } from '@/composables/useT'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -32,15 +26,8 @@ import {
   Calendar,
   GraduationCap,
   Languages,
-  Trophy,
-  CirclePoundSterling,
   Pencil,
   Camera,
-  Loader2,
-  Zap,
-  Sparkles,
-  Crown,
-  CreditCard,
   Check,
   RotateCcw,
   School,
@@ -56,10 +43,7 @@ import { useTour } from '@/composables/useTour'
 import { useLanguageStore } from '@/stores/language'
 
 const authStore = useAuthStore()
-const practiceStore = usePracticeStore()
-const subscriptionStore = useSubscriptionStore()
 const curriculumStore = useCurriculumStore()
-const badgesStore = useBadgesStore()
 const t = useT()
 const languageStore = useLanguageStore()
 const {
@@ -74,27 +58,9 @@ const {
 } = useProfileEditor()
 const { resetAndStartTour } = useTour()
 
-// Subscription
-const subscriptionStatus = ref<StudentSubscriptionStatus | null>(null)
-const isLoadingPlans = ref(false)
-
-function getTierIcon(tier: string) {
-  switch (tier) {
-    case 'plus':
-      return Zap
-    case 'pro':
-      return Sparkles
-    case 'max':
-      return Crown
-    default:
-      return CreditCard
-  }
-}
-
 // Dialog states
 const showAvatarDialog = ref(false)
 const showEditNameDialog = ref(false)
-const showBadgePicker = ref(false)
 
 // Birthday calendar popover
 const birthdayPopoverOpen = ref(false)
@@ -120,17 +86,7 @@ const currentSchoolName = computed(() => {
 })
 
 onMounted(async () => {
-  isLoadingPlans.value = true
-  await Promise.all([
-    curriculumStore.fetchCurriculum(),
-    practiceStore.getStudentSubscriptionStatus().then((status) => {
-      subscriptionStatus.value = status
-    }),
-    subscriptionStore.fetchPlans(),
-    badgesStore.hasLoaded ? Promise.resolve() : badgesStore.loadAll(),
-  ]).finally(() => {
-    isLoadingPlans.value = false
-  })
+  await curriculumStore.fetchCurriculum()
 })
 
 async function handleAvatarSave(payload: { file: File | null; previewUrl: string }) {
@@ -226,7 +182,7 @@ async function handleSchoolChange(schoolId: string) {
       <!-- Profile Card -->
       <Card>
         <CardContent class="flex flex-1 flex-col justify-between gap-6">
-          <!-- Avatar + identity + level/coins in one row -->
+          <!-- Avatar + identity in one row -->
           <div class="flex items-center gap-4">
             <div class="relative shrink-0">
               <Avatar class="size-20">
@@ -256,38 +212,6 @@ async function handleSchoolChange(schoolId: string) {
                 </Button>
               </div>
               <p class="truncate text-xs text-muted-foreground">{{ authStore.user?.email }}</p>
-              <div class="flex flex-wrap items-center gap-1.5">
-                <Badge variant="secondary" class="text-xs">
-                  <Trophy class="mr-1 size-3" />
-                  {{ t.student.profile.levelBadge(authStore.currentLevel) }}
-                </Badge>
-                <Badge variant="outline" class="text-xs">
-                  <CirclePoundSterling class="mr-1 size-3 text-amber-600 dark:text-amber-400" />
-                  {{ t.student.profile.coinsBadge(authStore.studentProfile?.coins ?? 0) }}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          <!-- Featured Badges -->
-          <FeaturedBadgesRow
-            :badges="badgesStore.featuredBadges"
-            editable
-            @edit="showBadgePicker = true"
-            @select-badge="showBadgePicker = true"
-          />
-
-          <!-- XP Progress -->
-          <div class="space-y-2">
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{ t.student.profile.xpProgress }}</span>
-              <span>{{ authStore.currentLevelXp }} / {{ authStore.xpToNextLevel }}</span>
-            </div>
-            <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
-              <div
-                class="h-full bg-primary transition-all"
-                :style="{ width: `${authStore.xpProgress}%` }"
-              />
             </div>
           </div>
         </CardContent>
@@ -534,79 +458,6 @@ async function handleSchoolChange(schoolId: string) {
       </Card>
     </div>
 
-    <!-- My Plan -->
-    <Card>
-      <CardHeader>
-        <CardTitle>{{ t.student.profile.myPlanTitle }}</CardTitle>
-        <CardDescription>{{ t.student.profile.myPlanDesc }}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div
-          v-if="isLoadingPlans || !subscriptionStatus"
-          class="flex items-center justify-center py-8"
-        >
-          <Loader2 class="size-6 animate-spin text-muted-foreground" />
-        </div>
-        <div v-else class="grid gap-4 md:grid-cols-3">
-          <div
-            v-for="plan in subscriptionStore.visiblePlans"
-            :key="plan.id"
-            class="relative flex flex-col rounded-lg border p-4"
-            :class="[
-              subscriptionStatus.tier === plan.id ? 'border-primary bg-muted/50' : 'border-border',
-            ]"
-          >
-            <!-- Current Plan badge -->
-            <Badge
-              v-if="subscriptionStatus.tier === plan.id"
-              class="absolute -top-2 left-1/2 -translate-x-1/2"
-            >
-              {{ t.student.profile.currentPlan }}
-            </Badge>
-
-            <!-- Plan header -->
-            <div class="flex items-center gap-2">
-              <component :is="getTierIcon(plan.id)" class="size-5 text-primary" />
-              <span class="font-semibold">{{ plan.name }}</span>
-            </div>
-
-            <!-- Sessions badge -->
-            <div class="mt-3">
-              <Badge variant="outline">{{
-                t.student.profile.sessionsPerDay(plan.sessionsPerDay)
-              }}</Badge>
-            </div>
-
-            <!-- Features list -->
-            <ul class="mt-3 flex-1 space-y-1.5">
-              <li
-                v-for="(feature, i) in (
-                  t.shared.planCard.features as Record<string, readonly string[]>
-                )[plan.id] ?? plan.features"
-                :key="i"
-                class="flex items-start gap-2 text-sm"
-              >
-                <Check class="mt-0.5 size-4 shrink-0 text-green-500" />
-                <span>{{ feature }}</span>
-              </li>
-            </ul>
-
-            <!-- Footer -->
-            <p
-              v-if="
-                subscriptionStatus.tier !== plan.id &&
-                ['core', 'plus', 'pro'].indexOf(plan.id) >
-                  ['core', 'plus', 'pro'].indexOf(subscriptionStatus.tier)
-              "
-              class="mt-3 text-center text-xs text-muted-foreground"
-            >
-              {{ t.student.profile.askParentToUpgrade }}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
     <EditAvatarDialog
       v-model:open="showAvatarDialog"
       :current-avatar-url="userAvatarUrl"
@@ -621,7 +472,5 @@ async function handleSchoolChange(schoolId: string) {
       :is-saving="isSaving"
       @save="handleNameSave"
     />
-
-    <BadgePickerDialog v-model:open="showBadgePicker" />
   </div>
 </template>

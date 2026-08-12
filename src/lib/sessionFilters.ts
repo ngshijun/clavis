@@ -32,8 +32,7 @@ export interface SessionFilterParams {
  * string (YYYY-MM-DD). Returns null for 'alltime' (no filtering).
  *
  * Boundaries are anchored to the MYT (UTC+8) calendar — consistent with the
- * rest of the app (daily statuses, streaks, leaderboard) — rather than the
- * browser's local timezone. Day arithmetic is performed on the MYT calendar.
+ * rest of the app — rather than the browser's local timezone. Day arithmetic is performed on the MYT calendar.
  */
 export function getDateRangeStart(filter: DateRangeFilter): string | null {
   const todayMYT = toMYTDateString()

@@ -2,119 +2,44 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { handleError } from '@/lib/errors'
-import { toMYTDateString, toMYTMonthKey } from '@/lib/date'
+import { toMYTDateString } from '@/lib/date'
 
 // Cache TTL for dashboard stats (5 minutes - balances freshness with avoiding redundant queries)
 const STATS_CACHE_TTL = 5 * 60 * 1000
 
-/** Create a Map with keys for the last 12 months (MYT), initialized with defaultValue */
-function initializeMonthlyMap<T>(defaultValue: () => T): Map<string, T> {
-  const currentMonth = toMYTMonthKey()
-  const [cy, cm] = currentMonth.split('-').map(Number)
-  const map = new Map<string, T>()
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date(Date.UTC(cy!, cm! - 1 - i, 1))
-    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
-    map.set(key, defaultValue())
-  }
-  return map
-}
-
-/** Convert a YYYY-MM key to a display label like "Jan 2026" */
-function monthKeyToLabel(monthKey: string): string {
-  const [year, monthNum] = monthKey.split('-')
-  const date = new Date(Number(year), Number(monthNum) - 1, 1)
-  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
-
-export interface MonthlyRevenue {
-  month: string // YYYY-MM format
-  label: string // e.g., "Jan 2026"
-  amount: number // in currency units (not cents)
-}
-
-export interface MonthlyUpgrades {
-  month: string // YYYY-MM format
-  label: string // e.g., "Jan 2026"
-  plus: number
-  pro: number
-}
-
-export interface TierDistribution {
-  tier: string // 'core' | 'plus' | 'pro'
-  label: string
-  count: number
-  color: string
-}
-
 export interface DashboardStats {
-  revenue: {
-    total: number
-    currentMonth: number
-    previousMonth: number
-    change: string
-    currency: string
-    monthly: MonthlyRevenue[] // Last 12 months
-  }
-  upgrades: MonthlyUpgrades[] // Last 12 months
-  tierDistribution: TierDistribution[]
   users: {
     total: number
     students: number
-    parents: number
+    teachers: number
+    managers: number
     admins: number
   }
+  organizations: number
   activeStudentsToday: number
   practiceSessionsToday: number
 }
 
-// Explicit shapes for PostgREST server-side aggregation responses. PostgREST
-// returns aggregate columns under the alias declared in the select(); the
-// aliases below are pinned to the names used in the queries (e.g. `sum`, `count`)
-// so a select-shape drift breaks here at the single cast site rather than
-// silently reading undefined.
+// Explicit shape for the PostgREST server-side aggregation response. PostgREST
+// returns aggregate columns under the alias declared in the select(), so the
+// alias below is pinned to the name used in the query (`count`) — a select-shape
+// drift breaks here at the single cast site rather than silently reading undefined.
 interface UserTypeCountRow {
   user_type: string
   count: number
 }
-interface RevenueByCurrencyRow {
-  currency: string
-  sum: number | null
-}
-interface RevenueSumRow {
-  sum: number | null
-}
-interface TierCountRow {
-  subscription_tier: string
-  count: number
-}
 
-// Stripe invoice billing_reason values that represent a genuine new/changed
-// paid subscription (vs. 'subscription_cycle' recurring renewals). Stored in
-// payment_history.metadata.billing_reason by the stripe-webhook function.
-const UPGRADE_BILLING_REASONS = ['subscription_create', 'subscription_update'] as const
-
-export const useAdminDashboardStore = defineStore('adminDashboard', () => {
-  const stats = ref<DashboardStats>({
-    revenue: {
-      total: 0,
-      currentMonth: 0,
-      previousMonth: 0,
-      change: '0%',
-      currency: 'MYR',
-      monthly: [],
-    },
-    upgrades: [],
-    tierDistribution: [],
-    users: {
-      total: 0,
-      students: 0,
-      parents: 0,
-      admins: 0,
-    },
+function emptyStats(): DashboardStats {
+  return {
+    users: { total: 0, students: 0, teachers: 0, managers: 0, admins: 0 },
+    organizations: 0,
     activeStudentsToday: 0,
     practiceSessionsToday: 0,
-  })
+  }
+}
+
+export const useAdminDashboardStore = defineStore('adminDashboard', () => {
+  const stats = ref<DashboardStats>(emptyStats())
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -128,37 +53,6 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     return Date.now() - lastFetched.value > STATS_CACHE_TTL
   }
 
-  // Get today's date in YYYY-MM-DD format (Asia/Kuala_Lumpur timezone)
-  function getTodayString(): string {
-    return toMYTDateString()
-  }
-
-  // Get first day of current month (MYT, returned as UTC ISO string)
-  function getCurrentMonthStart(): string {
-    const [y, m] = toMYTMonthKey().split('-').map(Number)
-    // 1st of month midnight MYT = UTC -8 hours
-    return new Date(Date.UTC(y!, m! - 1, 1, -8)).toISOString()
-  }
-
-  // Get first and last day of previous month (MYT, returned as UTC ISO strings)
-  function getPreviousMonthRange(): { start: string; end: string } {
-    const [y, m] = toMYTMonthKey().split('-').map(Number)
-    // Previous month start: 1st of (month-1), midnight MYT
-    const start = new Date(Date.UTC(y!, m! - 2, 1, -8))
-    // Previous month end: last day of (month-1), 23:59:59.999 MYT
-    const end = new Date(Date.UTC(y!, m! - 1, 0, 15, 59, 59, 999))
-    return {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    }
-  }
-
-  // Get range for last 12 months including current month (MYT, returned as UTC ISO string)
-  function getLast12MonthsStart(): string {
-    const [y, m] = toMYTMonthKey().split('-').map(Number)
-    return new Date(Date.UTC(y!, m! - 12, 1, -8)).toISOString()
-  }
-
   // Fetch all dashboard stats (with cache check)
   async function fetchStats(force = false): Promise<{ error: string | null }> {
     // Skip if cache is still valid and not forced
@@ -170,242 +64,52 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     error.value = null
 
     try {
-      const today = getTodayString()
-      const currentMonthStart = getCurrentMonthStart()
-      const previousMonth = getPreviousMonthRange()
-      const last12MonthsStart = getLast12MonthsStart()
+      const today = toMYTDateString()
 
-      // Fetch all stats in parallel
-      const [
-        usersResult,
-        activeStudentsResult,
-        practiceSessionsResult,
-        totalRevenueResult,
-        currentMonthRevenueResult,
-        previousMonthRevenueResult,
-        monthlyRevenueResult,
-        monthlyUpgradesResult,
-        tierDistributionResult,
-      ] = await Promise.all([
-        // Total users by type (server-side aggregation)
+      const [usersResult, organizationsResult, sessionsTodayResult] = await Promise.all([
+        // Total users by role (server-side aggregation)
         supabase.from('profiles').select('user_type, count:user_type.count()'),
 
-        // Active students today = students who opened the app today. A daily_statuses
-        // row is auto-created on first dashboard load (has_practiced may be false), so
-        // counting all of today's rows intentionally measures app opens, not practice.
-        supabase
-          .from('daily_statuses')
-          .select('id', { count: 'exact', head: true })
-          .eq('date', today),
+        // Organizations on the platform
+        supabase.from('organizations').select('id', { count: 'exact', head: true }),
 
-        // Practice sessions created today (MYT boundaries)
+        // Practice sessions created today (MYT boundaries). student_id is selected so
+        // "active students today" can be derived as the distinct student count.
         supabase
           .from('practice_sessions')
-          .select('id', { count: 'exact', head: true })
+          .select('student_id')
           .gte('created_at', `${today}T00:00:00+08:00`)
           .lt('created_at', `${today}T23:59:59.999+08:00`),
-
-        // Total revenue (server-side sum, grouped by currency)
-        supabase
-          .from('payment_history')
-          .select('currency, sum:amount_cents.sum()')
-          .eq('status', 'succeeded'),
-
-        // Current month revenue (server-side sum)
-        supabase
-          .from('payment_history')
-          .select('sum:amount_cents.sum()')
-          .eq('status', 'succeeded')
-          .gte('created_at', currentMonthStart),
-
-        // Previous month revenue (server-side sum)
-        supabase
-          .from('payment_history')
-          .select('sum:amount_cents.sum()')
-          .eq('status', 'succeeded')
-          .gte('created_at', previousMonth.start)
-          .lte('created_at', previousMonth.end),
-
-        // Monthly revenue for last 12 months (batch fetch to avoid 1000-row cap)
-        (async () => {
-          const BATCH = 1000
-          const rows: { amount_cents: number | null; created_at: string | null }[] = []
-          let from = 0
-          let hasMore = true
-          while (hasMore) {
-            const { data, error } = await supabase
-              .from('payment_history')
-              .select('amount_cents, created_at')
-              .eq('status', 'succeeded')
-              .gte('created_at', last12MonthsStart)
-              .order('created_at', { ascending: true })
-              .range(from, from + BATCH - 1)
-            if (error) return { data: null, error }
-            rows.push(...(data ?? []))
-            hasMore = (data?.length ?? 0) === BATCH
-            from += BATCH
-          }
-          return { data: rows, error: null }
-        })(),
-
-        // Monthly upgrades by tier for last 12 months (batch fetch to avoid 1000-row cap).
-        // Filtered to genuine upgrade events (subscription_create/subscription_update)
-        // so recurring renewals ('subscription_cycle') are not double-counted as upgrades.
-        (async () => {
-          const BATCH = 1000
-          const rows: { tier: string | null; created_at: string | null }[] = []
-          let from = 0
-          let hasMore = true
-          while (hasMore) {
-            const { data, error } = await supabase
-              .from('payment_history')
-              .select('tier, created_at')
-              .eq('status', 'succeeded')
-              .in('tier', ['plus', 'pro'])
-              .in('metadata->>billing_reason', UPGRADE_BILLING_REASONS as unknown as string[])
-              .gte('created_at', last12MonthsStart)
-              .order('created_at', { ascending: true })
-              .range(from, from + BATCH - 1)
-            if (error) return { data: null, error }
-            rows.push(...(data ?? []))
-            hasMore = (data?.length ?? 0) === BATCH
-            from += BATCH
-          }
-          return { data: rows, error: null }
-        })(),
-
-        // Subscription tier distribution (server-side aggregation)
-        supabase
-          .from('student_profiles')
-          .select('subscription_tier, count:subscription_tier.count()'),
       ])
 
-      // Check for errors
-      if (usersResult.error) {
-        const message = handleError(usersResult.error, 'failedFetchDashboardStats')
+      const firstError = usersResult.error ?? organizationsResult.error ?? sessionsTodayResult.error
+      if (firstError) {
+        const message = handleError(firstError, 'failedFetchDashboardStats')
         error.value = message
         return { error: message }
       }
 
+      const next = emptyStats()
+
       // Process users (server-side grouped counts)
       if (usersResult.data) {
         const rows = usersResult.data as unknown as UserTypeCountRow[]
-        let total = 0
         for (const row of rows) {
-          total += row.count
-          if (row.user_type === 'student') stats.value.users.students = row.count
-          else if (row.user_type === 'parent') stats.value.users.parents = row.count
-          else if (row.user_type === 'admin') stats.value.users.admins = row.count
+          next.users.total += row.count
+          if (row.user_type === 'student') next.users.students = row.count
+          else if (row.user_type === 'teacher') next.users.teachers = row.count
+          else if (row.user_type === 'manager') next.users.managers = row.count
+          else if (row.user_type === 'admin') next.users.admins = row.count
         }
-        stats.value.users.total = total
       }
 
-      // Process active students
-      stats.value.activeStudentsToday = activeStudentsResult.count ?? 0
+      next.organizations = organizationsResult.count ?? 0
 
-      // Process practice sessions
-      stats.value.practiceSessionsToday = practiceSessionsResult.count ?? 0
+      const sessionsToday = sessionsTodayResult.data ?? []
+      next.practiceSessionsToday = sessionsToday.length
+      next.activeStudentsToday = new Set(sessionsToday.map((s) => s.student_id)).size
 
-      // Process revenue (server-side sums)
-      if (totalRevenueResult.data) {
-        const rows = totalRevenueResult.data as unknown as RevenueByCurrencyRow[]
-        const firstRow = rows[0]
-        stats.value.revenue.total = (firstRow?.sum ?? 0) / 100
-        stats.value.revenue.currency = firstRow?.currency?.toUpperCase() || 'MYR'
-      }
-
-      if (currentMonthRevenueResult.data) {
-        const rows = currentMonthRevenueResult.data as unknown as RevenueSumRow[]
-        stats.value.revenue.currentMonth = (rows[0]?.sum ?? 0) / 100
-      }
-
-      if (previousMonthRevenueResult.data) {
-        const rows = previousMonthRevenueResult.data as unknown as RevenueSumRow[]
-        stats.value.revenue.previousMonth = (rows[0]?.sum ?? 0) / 100
-      }
-
-      // Calculate percentage change
-      const current = stats.value.revenue.currentMonth
-      const previous = stats.value.revenue.previousMonth
-      if (previous === 0) {
-        // Growth from zero is undefined/infinite, not 100% — label it distinctly.
-        stats.value.revenue.change = current > 0 ? 'New' : '0%'
-      } else {
-        const change = ((current - previous) / previous) * 100
-        const sign = change >= 0 ? '+' : ''
-        stats.value.revenue.change = `${sign}${change.toFixed(1)}%`
-      }
-
-      // Process monthly revenue for chart
-      if (monthlyRevenueResult.data) {
-        const monthlyMap = initializeMonthlyMap(() => 0)
-
-        for (const payment of monthlyRevenueResult.data) {
-          if (payment.created_at) {
-            const key = toMYTMonthKey(new Date(payment.created_at))
-            const existing = monthlyMap.get(key) ?? 0
-            monthlyMap.set(key, existing + (payment.amount_cents ?? 0))
-          }
-        }
-
-        stats.value.revenue.monthly = Array.from(monthlyMap.entries()).map(([month, cents]) => ({
-          month,
-          label: monthKeyToLabel(month),
-          amount: cents / 100,
-        }))
-      }
-
-      // Process monthly upgrades for stacked bar chart
-      if (monthlyUpgradesResult.data) {
-        const upgradesMap = initializeMonthlyMap(() => ({ plus: 0, pro: 0 }))
-
-        for (const upgrade of monthlyUpgradesResult.data) {
-          if (upgrade.created_at && upgrade.tier) {
-            const key = toMYTMonthKey(new Date(upgrade.created_at))
-            const existing = upgradesMap.get(key)
-            if (existing) {
-              const tier = upgrade.tier as 'plus' | 'pro'
-              existing[tier] = (existing[tier] ?? 0) + 1
-            }
-          }
-        }
-
-        stats.value.upgrades = Array.from(upgradesMap.entries()).map(([month, counts]) => ({
-          month,
-          label: monthKeyToLabel(month),
-          plus: counts.plus,
-          pro: counts.pro,
-        }))
-      }
-
-      // Process subscription tier distribution (server-side grouped counts)
-      if (tierDistributionResult.data) {
-        const tierColors: Record<string, string> = {
-          core: 'var(--chart-4)',
-          plus: 'var(--chart-1)',
-          pro: 'var(--chart-2)',
-        }
-        const tierLabels: Record<string, string> = {
-          core: 'Core',
-          plus: 'Plus',
-          pro: 'Pro',
-        }
-        const rows = tierDistributionResult.data as unknown as TierCountRow[]
-        const tierCounts = new Map<string, number>()
-        for (const row of rows) {
-          if (row.subscription_tier) {
-            tierCounts.set(row.subscription_tier, row.count)
-          }
-        }
-        stats.value.tierDistribution = ['core', 'plus', 'pro'].map((tier) => ({
-          tier,
-          label: tierLabels[tier] ?? tier,
-          count: tierCounts.get(tier) ?? 0,
-          color: tierColors[tier] ?? 'var(--chart-5)',
-        }))
-      }
-
-      // Update cache timestamp
+      stats.value = next
       lastFetched.value = Date.now()
 
       return { error: null }
@@ -418,33 +122,8 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     }
   }
 
-  // Update revenue (for when Stripe is integrated)
-  function updateRevenue(total: number, change: string) {
-    stats.value.revenue.total = total
-    stats.value.revenue.change = change
-  }
-
   function $reset() {
-    stats.value = {
-      revenue: {
-        total: 0,
-        currentMonth: 0,
-        previousMonth: 0,
-        change: '0%',
-        currency: 'MYR',
-        monthly: [],
-      },
-      upgrades: [],
-      tierDistribution: [],
-      users: {
-        total: 0,
-        students: 0,
-        parents: 0,
-        admins: 0,
-      },
-      activeStudentsToday: 0,
-      practiceSessionsToday: 0,
-    }
+    stats.value = emptyStats()
     isLoading.value = false
     error.value = null
     lastFetched.value = null
@@ -455,7 +134,6 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     isLoading,
     error,
     fetchStats,
-    updateRevenue,
     $reset,
   }
 })

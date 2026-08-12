@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, defineAsyncComponent } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -22,27 +22,19 @@ import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, CirclePoundSterling, Apple } from 'lucide-vue-next'
+import { Loader2 } from 'lucide-vue-next'
 import { useTour } from '@/composables/useTour'
-import { useFirstPetTour } from '@/composables/useFirstPetTour'
-import { useMoodReminder } from '@/composables/useMoodReminder'
-import { usePetsStore } from '@/stores/pets'
 import { useT } from '@/composables/useT'
 import AppSidebar from './AppSidebar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import LanguageToggle from './LanguageToggle.vue'
 import PreferencesDialog from './PreferencesDialog.vue'
 import { useLanguageStore } from '@/stores/language'
-const LevelUpDialog = defineAsyncComponent(() => import('./LevelUpDialog.vue'))
-const BadgeUnlockDialog = defineAsyncComponent(() => import('./BadgeUnlockDialog.vue'))
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
-const petsStore = usePetsStore()
 const t = useT()
 const languageStore = useLanguageStore()
 const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
-const { watchAndStart: watchAndStartFirstPetTour } = useFirstPetTour()
-const { watchAndStart: watchAndStartMoodReminder } = useMoodReminder()
 
 const PREFERENCES_STORAGE_KEY = 'preferences_confirmed'
 
@@ -53,35 +45,9 @@ const showGradeDialog = ref(false)
 const selectedGradeId = ref<string>('')
 const isSaving = ref(false)
 
-// Sequenced onboarding: preferences → grade (students) → welcome tour → first pet tour → mood reminder
-// Each step must complete before the next begins. The mood reminder waits reactively
-// for the welcome tour, first pet tour, and today's dashboard data to clear before opening.
+// Sequenced onboarding: preferences → grade (students) → welcome tour
 function startOnboarding() {
   promptTour()
-  startFirstPetTourWatcher()
-  if (authStore.isStudent) watchAndStartMoodReminder()
-}
-
-function startFirstPetTourWatcher() {
-  if (!authStore.isStudent) return
-
-  // Wait for both allPets (catalog) and ownedPets (user data) to be loaded
-  // before deciding whether to show the first pet tour. Without this,
-  // ownedPets may still be [] from its initial state, causing the tour
-  // to incorrectly trigger for students who already own pets.
-  if (petsStore.allPets.length > 0 && petsStore.ownedPetsLoaded) {
-    watchAndStartFirstPetTour()
-  } else {
-    const unwatchPets = watch(
-      [() => petsStore.allPets.length, () => petsStore.ownedPetsLoaded],
-      ([len, loaded]) => {
-        if (len > 0 && loaded) {
-          unwatchPets()
-          watchAndStartFirstPetTour()
-        }
-      },
-    )
-  }
 }
 
 onMounted(async () => {
@@ -134,10 +100,6 @@ async function handleSaveGrade() {
   }
 }
 
-const isStudent = computed(() => authStore.userType === 'student')
-const coins = computed(() => authStore.studentProfile?.coins ?? 0)
-const food = computed(() => authStore.studentProfile?.food ?? 0)
-
 const greeting = computed(() => {
   const hour = new Date().getHours()
   const greetings = t.value.shared.layout.greetings
@@ -183,27 +145,6 @@ const greeting = computed(() => {
           <h1 class="truncate text-lg font-medium">{{ greeting }}</h1>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Coins and Food display for students -->
-          <div v-if="isStudent" data-tour="student-currency" class="flex items-center gap-2">
-            <div
-              class="flex min-w-28 items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 dark:bg-amber-950/30"
-            >
-              <CirclePoundSterling class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span
-                class="flex-1 text-right text-sm font-semibold text-amber-600 dark:text-amber-400"
-                >{{ coins.toLocaleString() }}</span
-              >
-            </div>
-            <div
-              class="flex min-w-24 items-center gap-1 rounded-md bg-green-100 px-2.5 py-1 dark:bg-green-950/30"
-            >
-              <Apple class="size-4 shrink-0 text-green-600 dark:text-green-400" />
-              <span
-                class="flex-1 text-right text-sm font-semibold text-green-600 dark:text-green-400"
-                >{{ food.toLocaleString() }}</span
-              >
-            </div>
-          </div>
           <LanguageToggle />
           <ThemeToggle />
         </div>
@@ -212,10 +153,6 @@ const greeting = computed(() => {
         <router-view />
       </main>
     </SidebarInset>
-
-    <!-- Level Up Dialog (global, triggers on any XP gain that crosses a level boundary) -->
-    <LevelUpDialog />
-    <BadgeUnlockDialog />
 
     <!-- Preferences Dialog (shown once per device before any onboarding) -->
     <PreferencesDialog :open="showPreferencesDialog" @confirm="handlePreferencesConfirmed" />

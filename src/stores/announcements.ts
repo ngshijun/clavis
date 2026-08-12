@@ -23,6 +23,26 @@ export interface Announcement {
   isRead?: boolean
 }
 
+/**
+ * Audiences an admin may choose when authoring. The DB enum still carries the
+ * legacy `parents_only` value so pre-revamp rows keep rendering; it is not
+ * offered as a choice. The enum value itself is dropped in P4.
+ */
+export const SELECTABLE_AUDIENCES = [
+  'all',
+  'students_only',
+] as const satisfies readonly AnnouncementAudience[]
+
+export type SelectableAudience = (typeof SELECTABLE_AUDIENCES)[number]
+
+/**
+ * Coerce a stored audience to an authorable one. Pre-revamp `parents_only`
+ * rows fall back to `all` when reopened in the editor.
+ */
+export function toSelectableAudience(audience: AnnouncementAudience): SelectableAudience {
+  return audience === 'students_only' ? 'students_only' : 'all'
+}
+
 export function getAudienceConfig(): Record<
   AnnouncementAudience,
   { label: string; color: string; bgColor: string }
@@ -61,7 +81,7 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     search: '',
   })
 
-  // AnnouncementsPage pagination state (persisted across navigation, shared by student/parent)
+  // AnnouncementsPage pagination state (persisted across navigation)
   const announcementsPagination = ref({
     pageIndex: 0,
     pageSize: 5,

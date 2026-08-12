@@ -1,8 +1,8 @@
 /**
  * Date utilities for Asia/Kuala_Lumpur (MYT, UTC+8) timezone.
  *
- * The app's business logic (daily statuses, streaks, spin wheel, leaderboard)
- * is anchored to MYT. Using Intl.DateTimeFormat with an explicit IANA timezone
+ * The app's business logic (practice sessions, daily reporting) is anchored
+ * to MYT. Using Intl.DateTimeFormat with an explicit IANA timezone
  * ensures correct dates regardless of the user's browser timezone.
  */
 

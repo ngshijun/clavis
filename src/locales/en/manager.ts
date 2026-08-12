@@ -1,0 +1,31 @@
+export default {
+  teachers: {
+    title: 'Teachers',
+    subtitle: (organization: string) => `Teaching accounts in ${organization}`,
+    subtitleFallback: 'Teaching accounts in your organization',
+    addTeacherBtn: 'Add Teacher',
+    searchPlaceholder: 'Search by name or email...',
+    nameCol: 'Name',
+    emailCol: 'Email',
+    joinedCol: 'Joined',
+    noTeachers: 'No Teachers Yet',
+    noTeachersDesc: 'Create your first teacher account to get started.',
+    noTeachersMatchSearch: 'No teachers match your search criteria.',
+    toastLoadFailed: 'Failed to load teachers',
+  },
+
+  teacherForm: {
+    title: 'Add Teacher',
+    description: 'Create a teaching account in your organization.',
+    nameLabel: 'Full Name',
+    namePlaceholder: "Teacher's full name",
+    emailLabel: 'Email',
+    emailPlaceholder: 'teacher@example.com',
+    passwordLabel: 'Password',
+    passwordPlaceholder: 'At least 8 characters',
+    passwordHint: 'Share this password with the teacher; they can change it later.',
+    cancel: 'Cancel',
+    create: 'Create Teacher',
+    toastCreated: (name: string) => `Teacher ${name} created`,
+  },
+} as const

@@ -4,8 +4,10 @@ import { useForm, Field as VeeField } from 'vee-validate'
 import {
   useAnnouncementsStore,
   getAudienceConfig,
+  SELECTABLE_AUDIENCES,
+  toSelectableAudience,
   type Announcement,
-  type AnnouncementAudience,
+  type SelectableAudience,
 } from '@/stores/announcements'
 import { announcementFormSchema } from '@/lib/validations'
 import { Loader2, ImagePlus, X } from 'lucide-vue-next'
@@ -52,7 +54,7 @@ const { handleSubmit, resetForm, setValues } = useForm({
   initialValues: {
     title: '',
     content: '',
-    targetAudience: 'all' as AnnouncementAudience,
+    targetAudience: 'all' as SelectableAudience,
     expiresAt: null as string | null,
     isPinned: false,
   },
@@ -76,7 +78,7 @@ watch(open, async (isOpen) => {
     setValues({
       title: props.announcement.title,
       content: props.announcement.content,
-      targetAudience: props.announcement.targetAudience,
+      targetAudience: toSelectableAudience(props.announcement.targetAudience),
       expiresAt: props.announcement.expiresAt,
       isPinned: props.announcement.isPinned,
     })
@@ -240,11 +242,13 @@ const handleSave = handleSubmit(async (values) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
-                    v-for="(config, audience) in getAudienceConfig()"
+                    v-for="audience in SELECTABLE_AUDIENCES"
                     :key="audience"
                     :value="audience"
                   >
-                    <span :class="config.color">{{ config.label }}</span>
+                    <span :class="getAudienceConfig()[audience].color">{{
+                      getAudienceConfig()[audience].label
+                    }}</span>
                   </SelectItem>
                 </SelectContent>
               </Select>

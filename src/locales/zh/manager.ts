@@ -1,0 +1,31 @@
+export default {
+  teachers: {
+    title: '教师',
+    subtitle: (organization: string) => `${organization} 的教师账户`,
+    subtitleFallback: '你所在机构的教师账户',
+    addTeacherBtn: '添加教师',
+    searchPlaceholder: '按姓名或邮箱搜索...',
+    nameCol: '姓名',
+    emailCol: '邮箱',
+    joinedCol: '加入日期',
+    noTeachers: '尚无教师',
+    noTeachersDesc: '创建第一个教师账户以开始使用。',
+    noTeachersMatchSearch: '没有符合搜索条件的教师。',
+    toastLoadFailed: '加载教师失败',
+  },
+
+  teacherForm: {
+    title: '添加教师',
+    description: '在你的机构中创建一个教师账户。',
+    nameLabel: '姓名',
+    namePlaceholder: '教师的姓名',
+    emailLabel: '邮箱',
+    emailPlaceholder: 'teacher@example.com',
+    passwordLabel: '密码',
+    passwordPlaceholder: '至少 8 个字符',
+    passwordHint: '请将该密码告知教师，他们之后可自行修改。',
+    cancel: '取消',
+    create: '创建教师',
+    toastCreated: (name: string) => `教师 ${name} 已创建`,
+  },
+} as const

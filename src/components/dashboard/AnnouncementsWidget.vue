@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Megaphone, ChevronRight, Pin } from 'lucide-vue-next'
 import { useAnnouncementsStore, getAudienceConfig, type Announcement } from '@/stores/announcements'
-import { useAuthStore } from '@/stores/auth'
 import { formatTimeAgoCompact } from '@/lib/date'
 import AnnouncementDetailDialog from '@/components/announcements/AnnouncementDetailDialog.vue'
 import { useT } from '@/composables/useT'
@@ -15,7 +14,6 @@ const t = useT()
 
 const router = useRouter()
 const announcementsStore = useAnnouncementsStore()
-const authStore = useAuthStore()
 
 const showDetailDialog = ref(false)
 const selectedAnnouncement = ref<Announcement | null>(null)
@@ -26,8 +24,7 @@ function openAnnouncement(announcement: Announcement) {
 }
 
 function goToAnnouncementsPage() {
-  const basePath = authStore.userType === 'student' ? '/student' : '/parent'
-  router.push(`${basePath}/announcements`)
+  router.push('/student/announcements')
 }
 </script>
 

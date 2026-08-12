@@ -91,8 +91,7 @@ type QuestionRow = Database['public']['Tables']['questions']['Row']
  * Fetch full session details (session + answers + questions) and assemble
  * into a PracticeSessionFull.
  *
- * Shared by child-statistics (parent view, when subscription allows)
- * and admin-student-stats (admin view).
+ * Shared by admin-student-stats (admin view) and the student session pages.
  *
  * Callers are responsible for auth guards before calling.
  * Returns null if session is not found.

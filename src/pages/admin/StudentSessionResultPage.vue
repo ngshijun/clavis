@@ -84,7 +84,6 @@ function goBack() {
         :completed-at="session.completedAt"
         :questions="session.questions"
         :answers="session.answers"
-        :is-locked="false"
         answer-label="student"
       >
         <template #ai-summary>

@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 
-export type UserType = 'admin' | 'student' | 'parent'
+export type UserType = 'admin' | 'manager' | 'teacher' | 'student'
 
 export interface NavItem {
   title: string

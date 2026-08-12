@@ -108,7 +108,7 @@ export const useFeedbackStore = defineStore('feedback', () => {
     }
   }
 
-  // Submit feedback (for students/parents)
+  // Submit feedback (for students)
   async function submitFeedback(
     questionId: string,
     category: FeedbackCategory,

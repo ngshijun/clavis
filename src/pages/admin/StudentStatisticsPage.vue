@@ -6,31 +6,17 @@ import {
   useAdminStudentStatsStore,
   type StudentPracticeSession,
 } from '@/stores/admin-student-stats'
-import { useAdminStudentEngagementStore } from '@/stores/admin-student-engagement'
-import { usePetsStore } from '@/stores/pets'
 import { createPracticeHistoryColumns } from '@/lib/statisticsColumns'
 import { useStatisticsPage } from '@/composables/useStatisticsPage'
 import StatisticsFilterBar from '@/components/statistics/StatisticsFilterBar.vue'
 import StatisticsSummaryCards from '@/components/statistics/StatisticsSummaryCards.vue'
 import StudentInfoTab from '@/components/admin/StudentInfoTab.vue'
-import StudentSubscriptionTab from '@/components/admin/StudentSubscriptionTab.vue'
-import StudentPetCollectionTab from '@/components/admin/StudentPetCollectionTab.vue'
-import StudentDailyStatusTab from '@/components/admin/StudentDailyStatusTab.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'vue-sonner'
 import { DataTable } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
-import {
-  BookOpen,
-  History,
-  Calendar,
-  Loader2,
-  ArrowLeft,
-  User,
-  CreditCard,
-  PawPrint,
-} from 'lucide-vue-next'
+import { BookOpen, History, Loader2, ArrowLeft, User } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -38,8 +24,6 @@ const route = useRoute()
 const router = useRouter()
 const adminStudentsStore = useAdminStudentsStore()
 const adminStatsStore = useAdminStudentStatsStore()
-const adminEngagementStore = useAdminStudentEngagementStore()
-const petsStore = usePetsStore()
 
 const studentId = computed(() => route.params.studentId as string)
 
@@ -53,15 +37,8 @@ onMounted(async () => {
       await adminStudentsStore.fetchAllStudents()
     }
     if (studentId.value) {
-      const [statsResult, engagementResult] = await Promise.all([
-        adminStatsStore.fetchStudentStatistics(studentId.value),
-        adminEngagementStore.fetchStudentEngagement(studentId.value),
-        petsStore.allPets.length === 0
-          ? petsStore.fetchAllPets()
-          : Promise.resolve({ error: null }),
-      ])
+      const statsResult = await adminStatsStore.fetchStudentStatistics(studentId.value)
       if (statsResult.error) toast.error(statsResult.error)
-      if (engagementResult.error) toast.error(engagementResult.error)
     }
   } catch (err) {
     console.error('Failed to load statistics:', err)
@@ -77,7 +54,7 @@ watch(studentId, async (newStudentId) => {
   }
 })
 
-// Filter/sort orchestration shared with the parent statistics page.
+// Filter/sort orchestration shared with the student statistics page.
 const {
   hideInProgress,
   availableGradeLevels,
@@ -102,14 +79,6 @@ function handleRowClick(row: StudentPracticeSession) {
 function goBack() {
   router.push('/admin/students')
 }
-
-// Engagement data
-const engagement = computed(() =>
-  studentId.value ? adminEngagementStore.getStudentEngagement(studentId.value) : undefined,
-)
-
-const totalOwnedPets = computed(() => engagement.value?.ownedPets.length ?? 0)
-const totalPets = computed(() => petsStore.allPets.length)
 </script>
 
 <template>
@@ -141,23 +110,11 @@ const totalPets = computed(() => petsStore.allPets.length)
           <History class="mr-1.5 size-4" />
           {{ t.admin.studentStatistics.tabPractice }}
         </TabsTrigger>
-        <TabsTrigger v-if="engagement?.subscription" value="subscription">
-          <CreditCard class="mr-1.5 size-4" />
-          {{ t.admin.studentStatistics.tabSubscription }}
-        </TabsTrigger>
-        <TabsTrigger v-if="engagement" value="pets">
-          <PawPrint class="mr-1.5 size-4" />
-          {{ t.admin.studentStatistics.tabPets(totalOwnedPets, totalPets) }}
-        </TabsTrigger>
-        <TabsTrigger v-if="engagement" value="mood">
-          <Calendar class="mr-1.5 size-4" />
-          {{ t.admin.studentStatistics.tabDailyStatus }}
-        </TabsTrigger>
       </TabsList>
 
       <!-- Student Info Tab -->
       <TabsContent value="info">
-        <StudentInfoTab :student="student" :engagement="engagement" />
+        <StudentInfoTab :student="student" />
       </TabsContent>
 
       <!-- Practice History Tab -->
@@ -222,25 +179,6 @@ const totalPets = computed(() => petsStore.allPets.length)
             </CardContent>
           </Card>
         </div>
-      </TabsContent>
-
-      <!-- Subscription Tab -->
-      <TabsContent v-if="engagement?.subscription" value="subscription">
-        <StudentSubscriptionTab :subscription="engagement.subscription" />
-      </TabsContent>
-
-      <!-- Pet Collection Tab -->
-      <TabsContent v-if="engagement" value="pets">
-        <StudentPetCollectionTab
-          :owned-pets="engagement.ownedPets"
-          :selected-pet-id="engagement.selectedPetId"
-          :total-pets="totalPets"
-        />
-      </TabsContent>
-
-      <!-- Mood History Tab -->
-      <TabsContent v-if="engagement" value="mood">
-        <StudentDailyStatusTab :student-id="studentId" />
       </TabsContent>
     </Tabs>
   </div>

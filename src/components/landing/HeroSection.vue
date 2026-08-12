@@ -29,7 +29,7 @@ const { t } = storeToRefs(useLanguageStore())
 
         <div class="flex flex-col justify-center gap-4 sm:flex-row">
           <Button size="lg" as-child>
-            <RouterLink to="/signup">{{ t.landing.hero.getStarted }}</RouterLink>
+            <RouterLink to="/login">{{ t.landing.hero.getStarted }}</RouterLink>
           </Button>
           <Button size="lg" variant="outline" as-child>
             <RouterLink to="/login">{{ t.landing.hero.haveAccount }}</RouterLink>
