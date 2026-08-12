@@ -119,11 +119,10 @@ export default {
     goBack: 'Go Back',
   },
 
-  questionBank: {
-    title: 'Question Bank',
-    subtitle: 'Manage your question library',
+  subTopicQuestions: {
+    title: 'Questions',
+    subtitle: (subTopic: string) => `Manage the questions students practise in ${subTopic}.`,
     templateBtn: 'Template',
-    exportBtn: 'Export',
     bulkUploadBtn: 'Bulk Upload',
     addQuestionBtn: 'Add Question',
     deleteQuestionTitle: 'Delete Question',
@@ -131,18 +130,12 @@ export default {
       'Are you sure you want to delete this question? This action cannot be undone.',
     cancel: 'Cancel',
     delete: 'Delete',
+    noQuestions: 'No questions yet',
+    noQuestionsDesc: (subTopic: string) => `Add the first question to ${subTopic}.`,
     toastQuestionDeleted: 'Question deleted successfully',
-    toastNoQuestionsToExport: 'No questions to export',
     toastTemplateDownloaded: 'Template downloaded',
     toastTemplateFailed: 'Failed to download template',
-    toastExported: (count: number) => `Exported ${count} questions`,
-    toastExportFailed: 'Failed to export questions',
     toastBulkUploaded: 'Questions uploaded successfully',
-    exportTitle: 'Export Questions',
-    exportDesc: 'You are about to export the following questions to an Excel file.',
-    filtersApplied: 'Filters Applied:',
-    exportCount: (count: number) => `${count} question(s) will be exported.`,
-    exportConfirm: 'Export',
   },
 
   questionStatistics: {
@@ -218,9 +211,11 @@ export default {
     noSubTopics: 'No sub-topics yet',
     noSubTopicsDesc: (topic: string) => `Add sub-topics to ${topic}.`,
     pathOrderTitle: 'Learning path order',
-    pathOrderDesc: 'Students follow this order on their learning map. Drag a row to reorder.',
+    pathOrderDesc:
+      'Students follow this order on their learning map. Drag a row to reorder, or click one to manage its questions.',
     pathOrderSaving: 'Saving order…',
     pathOrderSaved: 'Learning path order saved',
+    orderSaved: 'Order saved',
     moveUp: 'Move up',
     moveDown: 'Move down',
     dragToReorder: 'Drag to reorder',

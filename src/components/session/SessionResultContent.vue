@@ -22,7 +22,6 @@ defineProps<{
   completedAt: string | null
   questions: SessionQuestion[]
   answers: SessionAnswer[]
-  answerLabel: 'self' | 'student'
 }>()
 
 function getAnswerByIndex(answers: SessionAnswer[], index: number): SessionAnswer | undefined {
@@ -58,7 +57,6 @@ function getAnswerByIndex(answers: SessionAnswer[], index: number): SessionAnswe
       :question="question"
       :answer="getAnswerByIndex(answers, index)"
       :index="index"
-      :answer-label="answerLabel"
       :get-image-url="questionsStore.getOptimizedQuestionImageUrl"
       :get-thumbnail-url="questionsStore.getThumbnailQuestionImageUrl"
     />

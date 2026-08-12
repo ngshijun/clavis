@@ -80,6 +80,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     selectedGradeLevelId: null as string | null,
     selectedSubjectId: null as string | null,
     selectedTopicId: null as string | null,
+    selectedSubTopicId: null as string | null,
   })
 
   /**
@@ -763,12 +764,157 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Persist a new learning-path order for one topic's sub-topics.
+   * Shared reorder core for every curriculum level (decision 43).
    *
-   * `sub_topics.display_order` IS the order students walk on the learning map,
-   * so this is the only place the path is authored. The whole new order ships
-   * in a single upsert (one request = one transaction), applied optimistically
-   * and rolled back if the write fails.
+   * `display_order` is what every level sorts by (and, for sub-topics, IS the
+   * learning-map order). The whole new order ships in a single upsert
+   * (one request = one transaction), applied optimistically to the local list
+   * and rolled back if the write fails. `display_order` is rewritten 1-based
+   * and gap-free on every drop.
+   */
+  async function applyReorder<T extends { id: string; displayOrder: number }>(opts: {
+    list: T[]
+    orderedIds: string[]
+    setList: (items: T[]) => void
+    persist: (items: T[]) => PromiseLike<{ error: unknown }>
+    errorKey:
+      | 'failedReorderGradeLevels'
+      | 'failedReorderSubjects'
+      | 'failedReorderTopics'
+      | 'failedReorderSubTopics'
+  }): Promise<{ success: boolean; error: string | null }> {
+    const previous = opts.list.slice()
+    const previousOrders = previous.map((item) => item.displayOrder)
+    const byId = new Map(previous.map((item) => [item.id, item]))
+    const reordered = opts.orderedIds
+      .map((id) => byId.get(id))
+      .filter((item): item is T => item !== undefined)
+
+    // The caller must send a permutation of the current list, nothing else.
+    // Guard length AND uniqueness: a duplicated id would survive the length
+    // check (mapping the same item twice) while silently dropping another.
+    const uniqueIds = new Set(opts.orderedIds)
+    if (reordered.length !== previous.length || uniqueIds.size !== opts.orderedIds.length) {
+      return { success: false, error: errorMessages()[opts.errorKey] }
+    }
+
+    // Optimistic apply
+    reordered.forEach((item, index) => {
+      item.displayOrder = index + 1
+    })
+    opts.setList(reordered)
+
+    try {
+      const { error: upsertError } = await opts.persist(reordered)
+      if (upsertError) throw upsertError
+
+      return { success: true, error: null }
+    } catch (err) {
+      // Rollback to the pre-drag order
+      previous.forEach((item, index) => {
+        item.displayOrder = previousOrders[index] ?? 0
+      })
+      opts.setList(previous)
+
+      console.error('Error reordering curriculum level:', err)
+      return { success: false, error: handleError(err, opts.errorKey) }
+    }
+  }
+
+  /**
+   * Persist a new grade-level order.
+   */
+  async function reorderGradeLevels(
+    orderedGradeLevelIds: string[],
+  ): Promise<{ success: boolean; error: string | null }> {
+    return applyReorder({
+      list: gradeLevels.value,
+      orderedIds: orderedGradeLevelIds,
+      setList: (items) => {
+        gradeLevels.value = items
+      },
+      persist: (items) =>
+        supabase.from('grade_levels').upsert(
+          items.map((g, index) => ({
+            id: g.id,
+            name: g.name,
+            display_order: index + 1,
+          })),
+          { onConflict: 'id' },
+        ),
+      errorKey: 'failedReorderGradeLevels',
+    })
+  }
+
+  /**
+   * Persist a new subject order within one grade level.
+   */
+  async function reorderSubjects(
+    gradeLevelId: string,
+    orderedSubjectIds: string[],
+  ): Promise<{ success: boolean; error: string | null }> {
+    const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
+    if (!gradeLevel) {
+      return { success: false, error: errorMessages().gradeLevelNotFound }
+    }
+
+    return applyReorder({
+      list: gradeLevel.subjects,
+      orderedIds: orderedSubjectIds,
+      setList: (items) => {
+        gradeLevel.subjects = items
+      },
+      persist: (items) =>
+        supabase.from('subjects').upsert(
+          items.map((s, index) => ({
+            id: s.id,
+            grade_level_id: gradeLevelId,
+            name: s.name,
+            display_order: index + 1,
+          })),
+          { onConflict: 'id' },
+        ),
+      errorKey: 'failedReorderSubjects',
+    })
+  }
+
+  /**
+   * Persist a new topic order within one subject.
+   */
+  async function reorderTopics(
+    gradeLevelId: string,
+    subjectId: string,
+    orderedTopicIds: string[],
+  ): Promise<{ success: boolean; error: string | null }> {
+    const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
+    const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
+    if (!subject) {
+      return { success: false, error: errorMessages().subjectNotFound }
+    }
+
+    return applyReorder({
+      list: subject.topics,
+      orderedIds: orderedTopicIds,
+      setList: (items) => {
+        subject.topics = items
+      },
+      persist: (items) =>
+        supabase.from('topics').upsert(
+          items.map((topic, index) => ({
+            id: topic.id,
+            subject_id: subjectId,
+            name: topic.name,
+            display_order: index + 1,
+          })),
+          { onConflict: 'id' },
+        ),
+      errorKey: 'failedReorderTopics',
+    })
+  }
+
+  /**
+   * Persist a new learning-path order for one topic's sub-topics.
+   * `sub_topics.display_order` IS the order students walk on the learning map.
    */
   async function reorderSubTopics(
     gradeLevelId: string,
@@ -783,48 +929,24 @@ export const useCurriculumStore = defineStore('curriculum', () => {
       return { success: false, error: errorMessages().topicNotFound }
     }
 
-    const previous = topic.subTopics.slice()
-    const previousOrders = previous.map((st) => st.displayOrder)
-    const byId = new Map(previous.map((st) => [st.id, st]))
-    const reordered = orderedSubTopicIds
-      .map((id) => byId.get(id))
-      .filter((st): st is SubTopic => st !== undefined)
-
-    // The caller must send a permutation of the current list, nothing else.
-    if (reordered.length !== previous.length) {
-      return { success: false, error: errorMessages().failedReorderSubTopics }
-    }
-
-    // Optimistic apply — display_order is 1-based and gap-free after a reorder.
-    reordered.forEach((st, index) => {
-      st.displayOrder = index + 1
+    return applyReorder({
+      list: topic.subTopics,
+      orderedIds: orderedSubTopicIds,
+      setList: (items) => {
+        topic.subTopics = items
+      },
+      persist: (items) =>
+        supabase.from('sub_topics').upsert(
+          items.map((st, index) => ({
+            id: st.id,
+            topic_id: topicId,
+            name: st.name,
+            display_order: index + 1,
+          })),
+          { onConflict: 'id' },
+        ),
+      errorKey: 'failedReorderSubTopics',
     })
-    topic.subTopics = reordered
-
-    try {
-      const { error: upsertError } = await supabase.from('sub_topics').upsert(
-        reordered.map((st, index) => ({
-          id: st.id,
-          topic_id: topicId,
-          name: st.name,
-          display_order: index + 1,
-        })),
-        { onConflict: 'id' },
-      )
-
-      if (upsertError) throw upsertError
-
-      return { success: true, error: null }
-    } catch (err) {
-      // Rollback to the pre-drag order
-      previous.forEach((st, index) => {
-        st.displayOrder = previousOrders[index] ?? 0
-      })
-      topic.subTopics = previous
-
-      console.error('Error reordering sub_topics:', err)
-      return { success: false, error: handleError(err, 'failedReorderSubTopics') }
-    }
   }
 
   function uploadCurriculumImage(
@@ -872,6 +994,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     if (gradeLevelId === null) {
       adminCurriculumNavigation.value.selectedSubjectId = null
       adminCurriculumNavigation.value.selectedTopicId = null
+      adminCurriculumNavigation.value.selectedSubTopicId = null
     }
   }
 
@@ -880,11 +1003,20 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     // Reset dependent selection when subject changes
     if (subjectId === null) {
       adminCurriculumNavigation.value.selectedTopicId = null
+      adminCurriculumNavigation.value.selectedSubTopicId = null
     }
   }
 
   function setAdminCurriculumTopic(topicId: string | null) {
     adminCurriculumNavigation.value.selectedTopicId = topicId
+    // Reset dependent selection when topic changes
+    if (topicId === null) {
+      adminCurriculumNavigation.value.selectedSubTopicId = null
+    }
+  }
+
+  function setAdminCurriculumSubTopic(subTopicId: string | null) {
+    adminCurriculumNavigation.value.selectedSubTopicId = subTopicId
   }
 
   function resetAdminCurriculumNavigation() {
@@ -892,6 +1024,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
       selectedGradeLevelId: null,
       selectedSubjectId: null,
       selectedTopicId: null,
+      selectedSubTopicId: null,
     }
   }
 
@@ -906,6 +1039,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     setAdminCurriculumGradeLevel,
     setAdminCurriculumSubject,
     setAdminCurriculumTopic,
+    setAdminCurriculumSubTopic,
     resetAdminCurriculumNavigation,
 
     // Actions
@@ -925,6 +1059,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     updateSubTopic,
     updateSubTopicCoverImage,
     deleteSubTopic,
+    reorderGradeLevels,
+    reorderSubjects,
+    reorderTopics,
     reorderSubTopics,
     uploadCurriculumImage,
     getCurriculumImageUrl,

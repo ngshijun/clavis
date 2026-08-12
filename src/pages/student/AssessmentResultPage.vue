@@ -1,19 +1,40 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStudentAssessmentsStore } from '@/stores/student-assessments'
+import { useStudentAssessmentsStore, type ReviewQuestion } from '@/stores/student-assessments'
 import { useT } from '@/composables/useT'
 import { formatDateTime } from '@/lib/date'
 import { ArrowLeft, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import AssessmentReviewCard from '@/components/assessment/AssessmentReviewCard.vue'
+import ReviewQuestionCard, {
+  type ReviewCardQuestion,
+} from '@/components/session/ReviewQuestionCard.vue'
 
 const router = useRouter()
 const route = useRoute()
 const store = useStudentAssessmentsStore()
 const t = useT()
+
+/** Adapt a store ReviewQuestion to the shared deferred-feedback review card. */
+function toCardQuestion(question: ReviewQuestion): ReviewCardQuestion {
+  return {
+    type: question.type,
+    question: question.question,
+    imagePath: question.imagePath,
+    options: question.options.map((option) => ({
+      number: option.number,
+      text: option.text || null,
+      imagePath: option.imagePath,
+    })),
+    selectedOptions: question.selectedOptions,
+    textAnswer: question.textAnswer,
+    answered: question.answered,
+    isCorrect: question.isCorrect,
+    points: question.points,
+  }
+}
 
 onMounted(async () => {
   const attemptId = route.params.attemptId as string
@@ -78,10 +99,10 @@ onMounted(async () => {
 
       <!-- Per-question breakdown (correctness only — no answer key) -->
       <div class="space-y-4">
-        <AssessmentReviewCard
+        <ReviewQuestionCard
           v-for="(question, index) in store.review.questions"
           :key="question.assessmentQuestionId"
-          :question="question"
+          :question="toCardQuestion(question)"
           :index="index"
         />
       </div>

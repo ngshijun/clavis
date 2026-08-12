@@ -14,11 +14,6 @@ export interface DuplicateInfo {
   question: string
 }
 
-export interface InvalidInfo {
-  row: number
-  errors: string[]
-}
-
 export interface WithinFileDuplicate {
   rows: number[]
   question: string
@@ -31,13 +26,13 @@ export interface ValidatedQuestion extends ParsedQuestion {
 export interface UploadValidationResult {
   valid: ValidatedQuestion[]
   duplicates: DuplicateInfo[]
-  invalid: InvalidInfo[]
   withinFileDuplicates: WithinFileDuplicate[]
-  curriculumErrors: InvalidInfo[]
 }
 
 export interface BulkUploadOptions {
   questions: ValidatedQuestion[]
+  /** Every imported question is created in this sub-topic (the one in view). */
+  subTopicId: string
   onProgress?: (current: number, total: number) => void
 }
 
@@ -54,30 +49,21 @@ function normalizeText(text: string): string {
   return text.toLowerCase().trim().replace(/\s+/g, ' ')
 }
 
-function getQuestionKey(
-  question: string,
-  gradeLevel: string,
-  subject: string,
-  topic: string,
-  subTopic: string,
-  imageHash?: string | null,
-): string {
-  const baseKey = `${normalizeText(question)}|${normalizeText(gradeLevel)}|${normalizeText(subject)}|${normalizeText(topic)}|${normalizeText(subTopic)}`
-  // Include image hash in key if present
+/**
+ * Dedup key within the target sub-topic: normalized question text, plus the
+ * image hash when the question carries images. The file's curriculum name
+ * columns play no part — the import is scoped to one sub-topic.
+ */
+function getQuestionKey(question: string, imageHash?: string | null): string {
+  const baseKey = normalizeText(question)
   return imageHash ? `${baseKey}|${imageHash}` : baseKey
 }
 
 /**
- * Build the dedup lookup map of existing questions keyed by question text +
- * hierarchy names + image hash, mapping to the existing question id.
- *
- * Selects only the columns the dedup key needs (question, sub_topic_id, image_hash)
- * and resolves hierarchy names from the already-loaded curriculum store, rather
- * than fetching '*' and hydrating full Question objects.
+ * Build the dedup lookup map of the target sub-topic's existing questions,
+ * keyed by question text + image hash, mapping to the existing question id.
  */
-async function buildExistingQuestionMap(
-  curriculumStore: ReturnType<typeof useCurriculumStore>,
-): Promise<Map<string, string>> {
+async function buildExistingQuestionMap(subTopicId: string): Promise<Map<string, string>> {
   const existingMap = new Map<string, string>()
   const BATCH_SIZE = 1000
   let from = 0
@@ -86,26 +72,15 @@ async function buildExistingQuestionMap(
   while (hasMore) {
     const { data, error } = await supabase
       .from('questions')
-      .select('id, question, sub_topic_id, image_hash')
+      .select('id, question, image_hash')
+      .eq('sub_topic_id', subTopicId)
       .range(from, from + BATCH_SIZE - 1)
 
     if (error) throw error
 
     const rows = data ?? []
     for (const row of rows) {
-      // Resolve the full hierarchy for names.
-      const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)
-      if (!hierarchy) continue
-
-      const key = getQuestionKey(
-        row.question,
-        hierarchy.gradeLevel.name,
-        hierarchy.subject.name,
-        hierarchy.topic.name,
-        hierarchy.subTopic.name,
-        row.image_hash,
-      )
-      existingMap.set(key, row.id)
+      existingMap.set(getQuestionKey(row.question, row.image_hash), row.id)
     }
 
     hasMore = rows.length === BATCH_SIZE
@@ -139,18 +114,12 @@ async function computeParsedQuestionHash(q: ParsedQuestion): Promise<string> {
 // VALIDATION
 // ============================================
 
-export async function validateQuestions(parsed: ParsedQuestion[]): Promise<UploadValidationResult> {
-  const curriculumStore = useCurriculumStore()
-
-  // Ensure curriculum is loaded (needed to resolve sub_topic_id -> hierarchy names)
-  if (curriculumStore.gradeLevels.length === 0) {
-    await curriculumStore.fetchCurriculum()
-  }
-
-  // Build the existing-question dedup map from a lightweight server query that
-  // selects only the columns the dedup key needs, instead of hydrating every
-  // row into a full Question via fetchQuestions() (which selects '*').
-  const existingMap = await buildExistingQuestionMap(curriculumStore)
+export async function validateQuestions(
+  parsed: ParsedQuestion[],
+  subTopicId: string,
+): Promise<UploadValidationResult> {
+  // Build the existing-question dedup map for the target sub-topic only.
+  const existingMap = await buildExistingQuestionMap(subTopicId)
 
   // Pre-compute image hashes for all parsed questions with images
   const parsedHashes = new Map<number, string>()
@@ -163,8 +132,6 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
 
   const valid: ValidatedQuestion[] = []
   const duplicates: DuplicateInfo[] = []
-  const invalid: InvalidInfo[] = []
-  const curriculumErrors: InvalidInfo[] = []
 
   // Track within-file duplicates (maps key to {rows, imageHash})
   const seenInFile = new Map<string, { rows: number[]; firstQuestion: ValidatedQuestion }>()
@@ -173,51 +140,7 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
     // Get the pre-computed image hash if this question has images
     const imageHash = parsedHashes.get(q.row) || null
 
-    const key = getQuestionKey(
-      q.question,
-      q.gradeLevelName,
-      q.subjectName,
-      q.topicName,
-      q.subTopicName,
-      imageHash, // Include image hash in key
-    )
-    const errors: string[] = []
-
-    // Check curriculum hierarchy: grade_level -> subject -> topic -> sub_topic
-    const gradeLevel = curriculumStore.gradeLevels.find(
-      (g) => normalizeText(g.name) === normalizeText(q.gradeLevelName),
-    )
-    if (!gradeLevel) {
-      errors.push(`Grade Level "${q.gradeLevelName}" not found`)
-    } else {
-      const subject = gradeLevel.subjects.find(
-        (s) => normalizeText(s.name) === normalizeText(q.subjectName),
-      )
-      if (!subject) {
-        errors.push(`Subject "${q.subjectName}" not found under "${q.gradeLevelName}"`)
-      } else {
-        // Find topic by name
-        const topic = subject.topics.find(
-          (t) => normalizeText(t.name) === normalizeText(q.topicName),
-        )
-        if (!topic) {
-          errors.push(`Topic "${q.topicName}" not found under "${q.subjectName}"`)
-        } else {
-          // Find sub-topic under the specific topic
-          const subTopic = topic.subTopics.find(
-            (st) => normalizeText(st.name) === normalizeText(q.subTopicName),
-          )
-          if (!subTopic) {
-            errors.push(`Sub-Topic "${q.subTopicName}" not found under "${q.topicName}"`)
-          }
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      curriculumErrors.push({ row: q.row, errors })
-      continue
-    }
+    const key = getQuestionKey(q.question, imageHash)
 
     // Create validated question with image hash
     const validatedQuestion: ValidatedQuestion = { ...q, imageHash }
@@ -262,9 +185,7 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
   return {
     valid,
     duplicates,
-    invalid,
     withinFileDuplicates,
-    curriculumErrors,
   }
 }
 
@@ -273,9 +194,16 @@ export async function validateQuestions(parsed: ParsedQuestion[]): Promise<Uploa
 // ============================================
 
 export async function executeBulkUpload(options: BulkUploadOptions): Promise<BulkUploadResult> {
-  const { questions, onProgress } = options
+  const { questions, subTopicId, onProgress } = options
   const questionsStore = useQuestionsStore()
   const curriculumStore = useCurriculumStore()
+
+  // The whole import targets one sub-topic; resolve its hierarchy once for the
+  // denormalized grade_level_id / subject_id columns.
+  if (curriculumStore.gradeLevels.length === 0) {
+    await curriculumStore.fetchCurriculum()
+  }
+  const hierarchy = curriculumStore.getSubTopicWithHierarchy(subTopicId)
 
   let success = 0
   const failed: Array<{ row: number; error: string }> = []
@@ -284,26 +212,6 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
     // Track uploaded image paths outside the try so the catch can clean them up.
     let uploadedImages: UploadedImages | null = null
     try {
-      // Resolve curriculum IDs: grade_level -> subject -> topic -> sub_topic
-      const gradeLevel = curriculumStore.gradeLevels.find(
-        (g) => normalizeText(g.name) === normalizeText(q.gradeLevelName),
-      )
-      const subject = gradeLevel?.subjects.find(
-        (s) => normalizeText(s.name) === normalizeText(q.subjectName),
-      )
-      const topic = subject?.topics.find(
-        (t) => normalizeText(t.name) === normalizeText(q.topicName),
-      )
-      const subTopic = topic?.subTopics.find(
-        (st) => normalizeText(st.name) === normalizeText(q.subTopicName),
-      )
-
-      if (!gradeLevel || !subject || !topic || !subTopic) {
-        failed.push({ row: q.row, error: 'Curriculum hierarchy not found' })
-        onProgress?.(i + 1, questions.length)
-        continue
-      }
-
       // Upload images BEFORE creating the question so image paths are included
       // in the initial INSERT (required by DB constraints like mcq_has_two_options)
       uploadedImages = await uploadImagesBeforeCreate(questionsStore, q)
@@ -311,11 +219,10 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
       // Build question input (including pre-computed image hash for duplicate detection)
       const input: CreateQuestionInput = {
         type: q.type,
-        gradeLevelId: gradeLevel.id,
-        subjectId: subject.id,
-        subTopicId: subTopic.id,
+        subTopicId,
+        gradeLevelId: hierarchy?.gradeLevel.id ?? null,
+        subjectId: hierarchy?.subject.id ?? null,
         question: q.question,
-        explanation: q.explanation || undefined,
         imagePath: uploadedImages.questionImagePath,
         imageHash: q.imageHash, // Pre-computed during validation
       }
@@ -329,24 +236,28 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
             text: q.optionA,
             imagePath: uploadedImages.optionImagePaths.a,
             isCorrect: correctIndex === 0,
+            tip: null,
           },
           {
             id: 'b',
             text: q.optionB,
             imagePath: uploadedImages.optionImagePaths.b,
             isCorrect: correctIndex === 1,
+            tip: null,
           },
           {
             id: 'c',
             text: q.optionC,
             imagePath: uploadedImages.optionImagePaths.c,
             isCorrect: correctIndex === 2,
+            tip: null,
           },
           {
             id: 'd',
             text: q.optionD,
             imagePath: uploadedImages.optionImagePaths.d,
             isCorrect: correctIndex === 3,
+            tip: null,
           },
         ]
       } else if (q.type === 'mrq') {
@@ -358,24 +269,28 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
             text: q.optionA,
             imagePath: uploadedImages.optionImagePaths.a,
             isCorrect: correctAnswers.includes('A'),
+            tip: null,
           },
           {
             id: 'b',
             text: q.optionB,
             imagePath: uploadedImages.optionImagePaths.b,
             isCorrect: correctAnswers.includes('B'),
+            tip: null,
           },
           {
             id: 'c',
             text: q.optionC,
             imagePath: uploadedImages.optionImagePaths.c,
             isCorrect: correctAnswers.includes('C'),
+            tip: null,
           },
           {
             id: 'd',
             text: q.optionD,
             imagePath: uploadedImages.optionImagePaths.d,
             isCorrect: correctAnswers.includes('D'),
+            tip: null,
           },
         ]
       } else {
@@ -383,8 +298,7 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         input.answer = q.correctAnswer
       }
 
-      // Create question (skip page refresh during bulk — one refresh at end)
-      const result = await questionsStore.addQuestion(input, { skipRefresh: true })
+      const result = await questionsStore.addQuestion(input)
       if (result.error || !result.id) {
         // INSERT failed — remove the already-uploaded images so storage is not orphaned.
         await cleanupUploadedImages(questionsStore, uploadedImages)
@@ -401,11 +315,6 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
     }
 
     onProgress?.(i + 1, questions.length)
-  }
-
-  // Single page refresh after all questions are inserted
-  if (success > 0) {
-    await questionsStore.fetchQuestionBankPage()
   }
 
   return { success, failed }

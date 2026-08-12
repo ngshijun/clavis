@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
-import { useQuestionsStore, type MCQOption } from '@/stores/questions'
+import { useQuestionsStore } from '@/stores/questions'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { shuffle } from '@/lib/practiceHelpers'
@@ -23,7 +23,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import QuestionOptionsList from '@/components/session/QuestionOptionsList.vue'
+import QuestionOptionsList, {
+  type DisplayOption,
+} from '@/components/session/QuestionOptionsList.vue'
 import ShortAnswerInput from '@/components/session/ShortAnswerInput.vue'
 
 const router = useRouter()
@@ -62,10 +64,9 @@ const unansweredCount = computed(() => totalQuestions.value - store.answeredCoun
  * Options adapted for the shared QuestionOptionsList. The option id carries the
  * grader's 1-based option number (as a string) so the selection round-trips
  * without a letter mapping; the rendered letter badge is display-index based.
- * `isCorrect` is always false — the runner never knows correctness, and with
- * `isAnswered` fixed to false the component's feedback branches never render.
+ * The component is content-only — the runner never knows correctness.
  */
-const displayOptions = computed<MCQOption[]>(() => {
+const displayOptions = computed<DisplayOption[]>(() => {
   const question = currentQuestion.value
   if (!question || question.type === 'short_answer') return []
 
@@ -79,8 +80,7 @@ const displayOptions = computed<MCQOption[]>(() => {
     id: String(option.number),
     text: option.text || null,
     imagePath: option.imagePath,
-    isCorrect: false,
-  })) as unknown as MCQOption[]
+  }))
 })
 
 const selectedOptionIds = computed(() => new Set([...selectedNumbers.value].map(String)))
@@ -376,7 +376,7 @@ onBeforeRouteLeave((to) => {
             />
           </div>
 
-          <!-- MCQ/MRQ options: never reveal correctness (isAnswered stays false),
+          <!-- MCQ/MRQ options: never reveal correctness,
                selection is revisable until submission -->
           <QuestionOptionsList
             v-if="currentQuestion.type === 'mcq' || currentQuestion.type === 'mrq'"
@@ -384,8 +384,6 @@ onBeforeRouteLeave((to) => {
             :question-id="currentQuestion.assessmentQuestionId"
             :question-type="currentQuestion.type"
             :selected-option-ids="selectedOptionIds"
-            :is-answered="false"
-            :answered-option-ids="[]"
             :is-image-only="isImageOnlyOptions"
             :disabled="isSaving || isCompleting"
             @select="handleOptionClick"
@@ -395,9 +393,6 @@ onBeforeRouteLeave((to) => {
           <ShortAnswerInput
             v-if="currentQuestion.type === 'short_answer'"
             v-model="textAnswer"
-            :is-answered="false"
-            :is-correct="null"
-            correct-answer=""
             @submit="flushTextAnswer"
           />
         </CardContent>

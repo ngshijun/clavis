@@ -139,32 +139,45 @@ function getCategoryVariant(
             <div
               v-for="option in question.options"
               :key="option.id"
-              class="flex items-center gap-3 rounded-lg border p-3 transition-colors"
+              class="space-y-2 rounded-lg border p-3 transition-colors"
               :class="{
                 'border-green-500 bg-green-50 dark:bg-green-950/20': option.isCorrect,
               }"
             >
-              <span
-                class="flex size-8 shrink-0 items-center justify-center rounded-full border font-medium"
-                :class="{
-                  'border-green-500 bg-green-500 text-white': option.isCorrect,
-                }"
-              >
-                {{ option.id.toUpperCase() }}
-              </span>
-              <div class="flex flex-1 items-center gap-2">
-                <span v-if="option.text">{{ option.text }}</span>
-                <img
-                  v-if="option.imagePath"
-                  :src="questionsStore.getThumbnailQuestionImageUrl(option.imagePath)"
-                  :alt="`Option ${option.id.toUpperCase()}`"
-                  class="max-h-16 rounded border object-contain"
-                />
-                <span v-if="!option.text && !option.imagePath" class="text-muted-foreground italic">
-                  {{ t.shared.questionPreviewDialog.emptyOption }}
+              <div class="flex items-center gap-3">
+                <span
+                  class="flex size-8 shrink-0 items-center justify-center rounded-full border font-medium"
+                  :class="{
+                    'border-green-500 bg-green-500 text-white': option.isCorrect,
+                  }"
+                >
+                  {{ option.id.toUpperCase() }}
                 </span>
+                <div class="flex flex-1 items-center gap-2">
+                  <span v-if="option.text">{{ option.text }}</span>
+                  <img
+                    v-if="option.imagePath"
+                    :src="questionsStore.getThumbnailQuestionImageUrl(option.imagePath)"
+                    :alt="`Option ${option.id.toUpperCase()}`"
+                    class="max-h-16 rounded border object-contain"
+                  />
+                  <span
+                    v-if="!option.text && !option.imagePath"
+                    class="text-muted-foreground italic"
+                  >
+                    {{ t.shared.questionPreviewDialog.emptyOption }}
+                  </span>
+                </div>
+                <CheckCircle2 v-if="option.isCorrect" class="size-5 shrink-0 text-green-500" />
               </div>
-              <CheckCircle2 v-if="option.isCorrect" class="size-5 shrink-0 text-green-500" />
+              <!-- Per-option tip: shown to a student who picks this option incorrectly -->
+              <div
+                v-if="option.tip"
+                class="rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300"
+              >
+                <span class="font-medium">{{ t.shared.questionPreviewDialog.tipLabel }}</span>
+                {{ option.tip }}
+              </div>
             </div>
           </div>
         </div>
@@ -178,27 +191,6 @@ function getCategoryVariant(
               <span class="font-medium">{{ question.answer || 'N/A' }}</span>
             </div>
           </div>
-        </div>
-
-        <!-- Explanation -->
-        <div v-if="question.explanation" class="space-y-2">
-          <h3 class="font-semibold">{{ t.shared.questionPreviewDialog.explanation }}</h3>
-          <div
-            class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/20"
-          >
-            <div
-              class="text-sm leading-relaxed text-amber-700 dark:text-amber-300"
-              v-html="parseSimpleMarkdown(question.explanation)"
-            />
-          </div>
-        </div>
-
-        <!-- No explanation message -->
-        <div v-else class="space-y-2">
-          <h3 class="font-semibold">{{ t.shared.questionPreviewDialog.explanation }}</h3>
-          <p class="text-sm text-muted-foreground italic">
-            {{ t.shared.questionPreviewDialog.noExplanation }}
-          </p>
         </div>
       </div>
     </DialogContent>

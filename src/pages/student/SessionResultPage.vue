@@ -2,17 +2,24 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticeStore } from '@/stores/practice'
-import { usePracticeHistoryStore } from '@/stores/practice-history'
+import {
+  usePracticeHistoryStore,
+  type PracticeSessionReview,
+  type PracticeReviewQuestion,
+} from '@/stores/practice-history'
 import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
-import type { PracticeSession } from '@/lib/practiceHelpers'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
-import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
+import { formatDateTime } from '@/lib/date'
 import { starsForScore } from '@/lib/learningMap'
-import SessionResultContent from '@/components/session/SessionResultContent.vue'
+import ReviewQuestionCard, {
+  type ReviewCardQuestion,
+} from '@/components/session/ReviewQuestionCard.vue'
+import SessionSummaryCards from '@/components/session/SessionSummaryCards.vue'
 import StarRating from '@/components/student/StarRating.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Loader2, BotMessageSquare, RefreshCw, AlertCircle } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -23,50 +30,62 @@ const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
 
 const sessionId = computed(() => route.params.sessionId as string)
-const session = ref<PracticeSession | null>(null)
+const review = ref<PracticeSessionReview | null>(null)
 const isLoading = ref(true)
+const notCompleted = ref(false)
 
 const aiSummaryStatus = ref<'idle' | 'loading' | 'success' | 'failed'>('idle')
 const isCurrentSession = ref(false)
 
-// buildSessionSummary reads only questions.length / answers[].isCorrect; PracticeSession's
-// richer questions[] is structurally a superset, so cast to the helper's minimal shape.
-const summary = computed(() =>
-  session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
-)
-
 // Stars for this session's score (decision 19: derived, never stored).
-// buildSessionSummary rounds the same way the DB does, so these stars match
-// what the map will show once the refetched stats arrive.
-const sessionStars = computed(() => (summary.value ? starsForScore(summary.value.score) : 0))
+// get_session_result rounds the same way the DB stats upsert does, so these
+// stars match what the map will show once the refetched stats arrive.
+const sessionStars = computed(() => (review.value ? starsForScore(review.value.scorePercent) : 0))
 
 // Best-so-far for this sub-topic, from the stats refetched after completion
 const bestStats = computed(() =>
-  session.value ? statsStore.getStats(session.value.subTopicId) : null,
+  review.value ? statsStore.getStats(review.value.subTopicId) : null,
 )
 const bestStars = computed(() =>
   bestStats.value ? starsForScore(bestStats.value.bestScorePercent) : 0,
 )
 
+/** Adapt a review question to the shared deferred-feedback review card. */
+function toCardQuestion(question: PracticeReviewQuestion): ReviewCardQuestion {
+  return {
+    type: question.type,
+    question: question.question,
+    imagePath: question.imagePath,
+    options: question.options,
+    selectedOptions: question.selectedOptions,
+    textAnswer: question.textAnswer,
+    answered: question.answered,
+    isCorrect: question.isCorrect,
+    isDeleted: question.isDeleted,
+    wrongOptionTips: question.wrongOptionTips,
+  }
+}
+
 onMounted(async () => {
-  const result = await historyStore.getSessionById(sessionId.value)
+  const result = await historyStore.getSessionReview(sessionId.value)
 
-  if (result.session) {
-    session.value = result.session
+  if (result.review) {
+    review.value = result.review
 
-    isCurrentSession.value = practiceStore.currentSession?.id === result.session.id
+    isCurrentSession.value = practiceStore.currentSession?.id === result.review.sessionId
 
     // Refetch map stats so best-so-far includes this completion (non-blocking;
     // the stars card fills in reactively when the fetch lands)
-    if (result.session.completedAt) {
-      void statsStore.fetchStats()
-    }
+    void statsStore.fetchStats()
 
-    if (result.session.aiSummary) {
+    if (result.review.aiSummary) {
       aiSummaryStatus.value = 'success'
     } else if (isCurrentSession.value) {
       generateAiSummary()
     }
+  } else if (result.notCompleted) {
+    // Results are deferred to completion (decision 40)
+    notCompleted.value = true
   } else {
     router.replace('/student/statistics')
   }
@@ -82,17 +101,17 @@ function goToHistory() {
 }
 
 async function generateAiSummary() {
-  if (!session.value || aiSummaryStatus.value === 'loading') return
+  if (!review.value || aiSummaryStatus.value === 'loading') return
 
   aiSummaryStatus.value = 'loading'
-  const { summary, error } = await practiceStore.generateSessionSummary(session.value.id)
+  const { summary, error } = await practiceStore.generateSessionSummary(review.value.sessionId)
 
   if (error || !summary) {
     aiSummaryStatus.value = 'failed'
     return
   }
 
-  session.value.aiSummary = summary
+  review.value.aiSummary = summary
   aiSummaryStatus.value = 'success'
 }
 </script>
@@ -104,7 +123,7 @@ async function generateAiSummary() {
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
-    <template v-else-if="session && summary">
+    <template v-else-if="review">
       <!-- Header -->
       <div class="mb-6">
         <Button variant="ghost" size="sm" class="mb-4" @click="goBack">
@@ -116,7 +135,7 @@ async function generateAiSummary() {
           <div>
             <h1 class="text-2xl font-bold">{{ t.student.sessionResult.title }}</h1>
             <p class="text-muted-foreground">
-              {{ session.subjectName }} - {{ session.topicName }} | {{ session.gradeLevelName }}
+              {{ review.subjectName }} - {{ review.topicName }} | {{ review.gradeLevelName }}
             </p>
           </div>
         </div>
@@ -124,7 +143,6 @@ async function generateAiSummary() {
 
       <!-- Stars earned this session + best-so-far for the sub-topic -->
       <Card
-        v-if="session.completedAt"
         class="mb-6 border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20"
       >
         <CardContent class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
@@ -134,7 +152,7 @@ async function generateAiSummary() {
               <p class="text-sm font-semibold">
                 {{ t.student.sessionResult.starsEarned(sessionStars) }}
               </p>
-              <p class="text-xs text-muted-foreground">{{ session.subTopicName }}</p>
+              <p class="text-xs text-muted-foreground">{{ review.subTopicName }}</p>
             </div>
           </div>
           <div v-if="bestStats" class="flex items-center gap-2 text-sm text-muted-foreground">
@@ -144,69 +162,96 @@ async function generateAiSummary() {
         </CardContent>
       </Card>
 
-      <SessionResultContent
-        :summary="summary"
-        :completed-at="session.completedAt"
-        :questions="session.questions"
-        :answers="session.answers"
-        answer-label="self"
+      <!-- Summary Cards -->
+      <SessionSummaryCards
+        :score="review.scorePercent"
+        :correct-answers="review.correctCount"
+        :incorrect-answers="review.total - review.correctCount"
+        :duration-seconds="review.durationSeconds"
+      />
+
+      <div class="mb-4 text-sm text-muted-foreground">
+        {{ t.shared.sessionResultContent.completed(formatDateTime(review.completedAt)) }}
+        · {{ t.student.sessionResult.keyHiddenNote }}
+      </div>
+
+      <!-- AI Summary -->
+      <Card
+        class="mb-6 border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20"
       >
-        <template #ai-summary>
-          <Card
-            class="mb-6 border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20"
+        <CardHeader class="pb-2">
+          <CardTitle
+            class="flex items-center justify-between text-sm font-medium text-purple-700 dark:text-purple-300"
           >
-            <CardHeader class="pb-2">
-              <CardTitle
-                class="flex items-center justify-between text-sm font-medium text-purple-700 dark:text-purple-300"
-              >
-                <div class="flex items-center gap-2">
-                  <BotMessageSquare class="size-4" />
-                  {{ t.student.sessionResult.aiSummaryTitle }}
-                </div>
-                <Button
-                  v-if="!session.aiSummary && aiSummaryStatus !== 'loading'"
-                  variant="outline"
-                  size="sm"
-                  class="h-7 text-xs"
-                  @click="generateAiSummary"
-                >
-                  <RefreshCw class="mr-1 size-3" />
-                  {{
-                    aiSummaryStatus === 'failed'
-                      ? t.student.sessionResult.aiSummaryRetry
-                      : t.student.sessionResult.aiSummaryGenerate
-                  }}
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                v-if="aiSummaryStatus === 'loading'"
-                class="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <Loader2 class="size-4 animate-spin" />
-                {{ t.student.sessionResult.aiSummaryGenerating }}
-              </div>
-              <div
-                v-else-if="session.aiSummary"
-                class="text-sm leading-relaxed"
-                v-html="parseSimpleMarkdown(session.aiSummary)"
-              />
-              <div
-                v-else-if="aiSummaryStatus === 'failed' && isCurrentSession"
-                class="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <AlertCircle class="size-4 text-red-500" />
-                {{ t.student.sessionResult.aiSummaryFailed }}
-              </div>
-              <div v-else class="text-sm text-muted-foreground">
-                {{ t.student.sessionResult.aiSummaryEmpty }}
-              </div>
-            </CardContent>
-          </Card>
-        </template>
-      </SessionResultContent>
+            <div class="flex items-center gap-2">
+              <BotMessageSquare class="size-4" />
+              {{ t.student.sessionResult.aiSummaryTitle }}
+            </div>
+            <Button
+              v-if="!review.aiSummary && aiSummaryStatus !== 'loading'"
+              variant="outline"
+              size="sm"
+              class="h-7 text-xs"
+              @click="generateAiSummary"
+            >
+              <RefreshCw class="mr-1 size-3" />
+              {{
+                aiSummaryStatus === 'failed'
+                  ? t.student.sessionResult.aiSummaryRetry
+                  : t.student.sessionResult.aiSummaryGenerate
+              }}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div
+            v-if="aiSummaryStatus === 'loading'"
+            class="flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <Loader2 class="size-4 animate-spin" />
+            {{ t.student.sessionResult.aiSummaryGenerating }}
+          </div>
+          <div
+            v-else-if="review.aiSummary"
+            class="text-sm leading-relaxed"
+            v-html="parseSimpleMarkdown(review.aiSummary)"
+          />
+          <div
+            v-else-if="aiSummaryStatus === 'failed' && isCurrentSession"
+            class="flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <AlertCircle class="size-4 text-red-500" />
+            {{ t.student.sessionResult.aiSummaryFailed }}
+          </div>
+          <div v-else class="text-sm text-muted-foreground">
+            {{ t.student.sessionResult.aiSummaryEmpty }}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator class="mb-6" />
+
+      <!-- Per-question breakdown: right/wrong + tips for wrongly-selected
+           options; the correct answer is never revealed (decision 39) -->
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold">{{ t.shared.sessionResultContent.questionDetails }}</h2>
+
+        <ReviewQuestionCard
+          v-for="(question, index) in review.questions"
+          :key="question.questionId ?? `deleted-${index}`"
+          :question="toCardQuestion(question)"
+          :index="index"
+        />
+      </div>
     </template>
+
+    <!-- Session not finished yet -->
+    <div v-else-if="notCompleted" class="py-12 text-center">
+      <p class="text-muted-foreground">{{ t.student.sessionResult.resultsAfterCompletion }}</p>
+      <Button class="mt-4" @click="goToHistory">{{
+        t.student.sessionResult.goToStatistics
+      }}</Button>
+    </div>
 
     <!-- Empty State -->
     <div v-else class="py-12 text-center">

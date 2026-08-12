@@ -12,12 +12,90 @@ import {
   createSessionLookupMethods,
 } from '@/lib/sessionFilters'
 import { type PracticeSession } from '@/lib/practiceHelpers'
-import { mapAnswerRow } from '@/lib/questionHelpers'
+import { mapAnswerRow, PRACTICE_ANSWER_COLUMNS } from '@/lib/questionHelpers'
+import type { QuestionRow, QuestionType } from './questions'
 import { useCascadingFilters } from '@/composables/useCascadingFilters'
 
 export type { DateRangeFilter }
 
 type PracticeSessionRow = Database['public']['Tables']['practice_sessions']['Row']
+
+/** One option of a review question — content only, never correctness. */
+export interface PracticeReviewOption {
+  /** 1-based option number as stored in practice_answers.selected_options. */
+  number: number
+  text: string | null
+  imagePath: string | null
+}
+
+/**
+ * A question on the practice results screen (decisions 39–41): per-question
+ * correctness plus tips for wrongly-selected options — the correct answer is
+ * never present in this shape.
+ */
+export interface PracticeReviewQuestion {
+  questionId: string | null
+  questionOrder: number
+  type: QuestionType
+  question: string
+  imagePath: string | null
+  options: PracticeReviewOption[]
+  selectedOptions: number[] | null
+  textAnswer: string | null
+  answered: boolean
+  isCorrect: boolean
+  /** Tips for options the student selected AND got wrong (tip may be null). */
+  wrongOptionTips: { number: number; tip: string | null }[]
+  /** The bank question no longer exists; content is a placeholder. */
+  isDeleted: boolean
+}
+
+export interface PracticeSessionReview {
+  sessionId: string
+  subTopicId: string
+  gradeLevelName: string
+  subjectName: string
+  topicName: string
+  subTopicName: string
+  completedAt: string
+  correctCount: number
+  total: number
+  scorePercent: number
+  durationSeconds: number
+  aiSummary: string | null
+  questions: PracticeReviewQuestion[]
+}
+
+/** Shape of the get_session_result jsonb payload (see P5A handoff). */
+interface SessionResultPayload {
+  session_id: string
+  completed_at: string
+  correct_count: number
+  total: number
+  score_percent: number
+  questions: {
+    question_id: string | null
+    question_order: number
+    type: QuestionType
+    is_correct: boolean
+    selected_options: number[] | null
+    text_answer: string | null
+    wrong_option_tips: { number: number; tip: string | null }[] | null
+  }[]
+}
+
+/** Extract display options (number/text/image only) from a bank question row. */
+function extractReviewOptions(q: QuestionRow): PracticeReviewOption[] {
+  const options: PracticeReviewOption[] = []
+  const push = (number: number, text: string | null, imagePath: string | null) => {
+    if (text !== null || imagePath !== null) options.push({ number, text, imagePath })
+  }
+  push(1, q.option_1_text, q.option_1_image_path)
+  push(2, q.option_2_text, q.option_2_image_path)
+  push(3, q.option_3_text, q.option_3_image_path)
+  push(4, q.option_4_text, q.option_4_image_path)
+  return options
+}
 
 // Cache TTL for session history (new sessions are added in-memory, so stale risk is low)
 const SESSION_HISTORY_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -257,7 +335,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
         supabase.from('practice_sessions').select('*').eq('id', sessionId).single(),
         supabase
           .from('practice_answers')
-          .select('*')
+          .select(PRACTICE_ANSWER_COLUMNS)
           .eq('session_id', sessionId)
           .order('answered_at', { ascending: true }),
       ])
@@ -282,7 +360,9 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       }
 
       const session = rowToSession(sessionResult.data)
-      session.answers = (answersResult.data ?? []).map(mapAnswerRow)
+      // is_correct is column-revoked for students (P5a); correctness is not
+      // available here — the results page reads it from get_session_result.
+      session.answers = (answersResult.data ?? []).map((row) => mapAnswerRow(row, false))
 
       // Get all question IDs from answers (including null for deleted questions)
       const questionIds = session.answers.map((a) => a.questionId).filter(Boolean) as string[]
@@ -314,7 +394,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
           subTopicId: session.subTopicId,
           gradeLevelId: session.gradeLevelId,
           subjectId: session.subjectId,
-          explanation: null,
           answer: null,
           options: [],
           createdAt: null,
@@ -332,6 +411,141 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     } catch (err) {
       const message = handleError(err, 'failedFetchSession')
       return { session: null, error: message }
+    }
+  }
+
+  /**
+   * Load the deferred-feedback results for a COMPLETED session (decisions
+   * 39–41): correctness + wrong-option tips come only from the
+   * get_session_result RPC (owner-gated, post-completion); question content
+   * comes from the bank. The correct answer is never part of the result.
+   */
+  async function getSessionReview(sessionId: string): Promise<{
+    review: PracticeSessionReview | null
+    notCompleted: boolean
+    error: string | null
+  }> {
+    try {
+      if (!authStore.user) {
+        return { review: null, notCompleted: false, error: errorMessages().notAuthenticated }
+      }
+
+      if (curriculumStore.gradeLevels.length === 0) {
+        await curriculumStore.fetchCurriculum()
+      }
+
+      // Session row first: owner check (RLS + defense-in-depth) and the
+      // completion gate, so an in-progress session renders a friendly state
+      // instead of surfacing the RPC's completion error.
+      const { data: sessionRow, error: sessionError } = await supabase
+        .from('practice_sessions')
+        .select('id, student_id, sub_topic_id, total_time_seconds, ai_summary, completed_at')
+        .eq('id', sessionId)
+        .single()
+
+      if (sessionError) {
+        return {
+          review: null,
+          notCompleted: false,
+          error: handleError(sessionError, 'failedFetchSession'),
+        }
+      }
+      if (sessionRow.student_id !== authStore.user.id) {
+        return {
+          review: null,
+          notCompleted: false,
+          error: errorMessages().unauthorizedSessionAccess,
+        }
+      }
+      if (!sessionRow.completed_at) {
+        return { review: null, notCompleted: true, error: null }
+      }
+
+      const { data: resultData, error: resultError } = await supabase.rpc('get_session_result', {
+        p_session_id: sessionId,
+      })
+
+      if (resultError) {
+        return {
+          review: null,
+          notCompleted: false,
+          error: handleError(resultError, 'failedFetchSession'),
+        }
+      }
+
+      const result = resultData as unknown as SessionResultPayload
+      if (typeof result?.session_id !== 'string' || !Array.isArray(result.questions)) {
+        return { review: null, notCompleted: false, error: errorMessages().failedFetchSession }
+      }
+
+      // Question content from the bank (students may read questions; the
+      // review card renders content only — never option correctness).
+      const questionIds = result.questions
+        .map((q) => q.question_id)
+        .filter((id): id is string => id !== null)
+
+      const questionsMap = new Map<string, QuestionRow>()
+      if (questionIds.length > 0) {
+        const { data: questionsData, error: questionsError } = await supabase
+          .from('questions')
+          .select('*')
+          .in('id', questionIds)
+
+        if (questionsError) {
+          return {
+            review: null,
+            notCompleted: false,
+            error: handleError(questionsError, 'failedFetchSession'),
+          }
+        }
+        for (const row of questionsData ?? []) {
+          questionsMap.set(row.id, row)
+        }
+      }
+
+      const names = getCurriculumNames(sessionRow.sub_topic_id)
+
+      const questions: PracticeReviewQuestion[] = [...result.questions]
+        .sort((a, b) => a.question_order - b.question_order)
+        .map((entry) => {
+          const bank = entry.question_id ? questionsMap.get(entry.question_id) : undefined
+          return {
+            questionId: entry.question_id,
+            questionOrder: entry.question_order,
+            type: bank ? (bank.type as QuestionType) : entry.type,
+            question: bank?.question ?? '',
+            imagePath: bank?.image_path ?? null,
+            options: bank ? extractReviewOptions(bank) : [],
+            selectedOptions: entry.selected_options,
+            textAnswer: entry.text_answer,
+            answered: entry.selected_options !== null || entry.text_answer !== null,
+            isCorrect: entry.is_correct === true,
+            wrongOptionTips: entry.wrong_option_tips ?? [],
+            isDeleted: !bank,
+          }
+        })
+
+      return {
+        review: {
+          sessionId: result.session_id,
+          subTopicId: sessionRow.sub_topic_id,
+          gradeLevelName: names.gradeLevelName,
+          subjectName: names.subjectName,
+          topicName: names.topicName,
+          subTopicName: names.subTopicName,
+          completedAt: result.completed_at,
+          correctCount: result.correct_count,
+          total: result.total,
+          scorePercent: result.score_percent,
+          durationSeconds: sessionRow.total_time_seconds ?? 0,
+          aiSummary: sessionRow.ai_summary ?? null,
+          questions,
+        },
+        notCompleted: false,
+        error: null,
+      }
+    } catch (err) {
+      return { review: null, notCompleted: false, error: handleError(err, 'failedFetchSession') }
     }
   }
 
@@ -395,6 +609,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     getHistoryTopics,
     getHistorySubTopics,
     getSessionById,
+    getSessionReview,
 
     // Called by practice store
     addToHistory,

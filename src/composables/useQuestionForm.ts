@@ -1,7 +1,6 @@
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { z } from 'zod'
-import { useCurriculumStore } from '@/stores/curriculum'
 import { useQuestionsStore, type MCQOption, type Question } from '@/stores/questions'
 import type { Database } from '@/types/database.types'
 
@@ -13,6 +12,7 @@ const mcqOptionSchema = z.object({
   text: z.string().nullable(),
   imagePath: z.string().nullable(),
   isCorrect: z.boolean(),
+  tip: z.string().nullable(),
 })
 
 // Helper to check if an option is filled
@@ -23,12 +23,7 @@ const isOptionFilled = (opt: { text: string | null; imagePath: string | null }) 
 const questionFormSchema = z
   .object({
     type: z.enum(['mcq', 'mrq', 'short_answer']),
-    gradeLevelId: z.string().min(1, 'Grade level is required'),
-    subjectId: z.string().min(1, 'Subject is required'),
-    topicId: z.string().min(1, 'Topic is required'),
-    subTopicId: z.string().min(1, 'Sub-topic is required'),
     question: z.string().min(1, 'Question text is required'),
-    explanation: z.string().optional(),
     answer: z.string().optional(),
     options: z.array(mcqOptionSchema).optional(),
   })
@@ -86,10 +81,10 @@ const questionFormSchema = z
   })
 
 export const defaultOptions: MCQOption[] = [
-  { id: 'a', text: '', imagePath: null, isCorrect: false },
-  { id: 'b', text: '', imagePath: null, isCorrect: false },
-  { id: 'c', text: '', imagePath: null, isCorrect: false },
-  { id: 'd', text: '', imagePath: null, isCorrect: false },
+  { id: 'a', text: '', imagePath: null, isCorrect: false, tip: null },
+  { id: 'b', text: '', imagePath: null, isCorrect: false, tip: null },
+  { id: 'c', text: '', imagePath: null, isCorrect: false, tip: null },
+  { id: 'd', text: '', imagePath: null, isCorrect: false, tip: null },
 ]
 
 export interface QuestionImageState {
@@ -124,8 +119,12 @@ function freshOptionImages(): OptionImagesMap {
   }
 }
 
+/**
+ * Question editor form. The target sub-topic is contextual (the sub-topic
+ * the admin is viewing on the curriculum page), so the form carries no
+ * curriculum selection — only the question content itself.
+ */
 export function useQuestionForm() {
-  const curriculumStore = useCurriculumStore()
   const questionsStore = useQuestionsStore()
 
   const isSaving = ref(false)
@@ -135,12 +134,7 @@ export function useQuestionForm() {
       validationSchema: questionFormSchema,
       initialValues: {
         type: 'mcq' as QuestionType,
-        gradeLevelId: '',
-        subjectId: '',
-        topicId: '',
-        subTopicId: '',
         question: '',
-        explanation: '',
         answer: '',
         options: [...defaultOptions],
       },
@@ -156,32 +150,6 @@ export function useQuestionForm() {
     b: null,
     c: null,
     d: null,
-  })
-
-  // ─── Curriculum fetch ────────────────────────────────────────────────────────
-  onMounted(async () => {
-    if (curriculumStore.gradeLevels.length === 0) {
-      await curriculumStore.fetchCurriculum()
-    }
-  })
-
-  // ─── Cascading selects ───────────────────────────────────────────────────────
-  const availableSubjects = computed(() => {
-    const grade = curriculumStore.gradeLevels.find((g) => g.id === values.gradeLevelId)
-    return grade?.subjects ?? []
-  })
-
-  const availableTopics = computed(() => {
-    const grade = curriculumStore.gradeLevels.find((g) => g.id === values.gradeLevelId)
-    const subject = grade?.subjects.find((s) => s.id === values.subjectId)
-    return subject?.topics ?? []
-  })
-
-  const availableSubTopics = computed(() => {
-    const grade = curriculumStore.gradeLevels.find((g) => g.id === values.gradeLevelId)
-    const subject = grade?.subjects.find((s) => s.id === values.subjectId)
-    const topic = subject?.topics.find((t) => t.id === values.topicId)
-    return topic?.subTopics ?? []
   })
 
   // ─── Image handlers ──────────────────────────────────────────────────────────
@@ -275,6 +243,14 @@ export function useQuestionForm() {
     setFieldValue('options', options)
   }
 
+  function updateOptionTip(optionId: string, tip: string) {
+    const currentOptions = values.options || []
+    const options = currentOptions.map((opt) =>
+      opt.id === optionId ? { ...opt, tip: tip || null } : opt,
+    )
+    setFieldValue('options', options)
+  }
+
   // ─── Edit-only: get display URL for option images ─────────────────────────────
   function getOptionImageUrl(optionId: 'a' | 'b' | 'c' | 'd'): string {
     const option = values.options?.find((o) => o.id === optionId)
@@ -294,12 +270,7 @@ export function useQuestionForm() {
     resetForm({
       values: {
         type: 'mcq',
-        gradeLevelId: '',
-        subjectId: '',
-        topicId: '',
-        subTopicId: '',
         question: '',
-        explanation: '',
         answer: '',
         options: [...defaultOptions.map((o) => ({ ...o }))],
       },
@@ -343,21 +314,16 @@ export function useQuestionForm() {
     }
 
     // Set form values
-    const hierarchy = curriculumStore.getSubTopicWithHierarchy(question.subTopicId)
     setValues({
       type: question.type,
-      gradeLevelId: question.gradeLevelId ?? '',
-      subjectId: question.subjectId ?? '',
-      topicId: hierarchy?.topic.id ?? '',
-      subTopicId: question.subTopicId,
       question: question.question,
-      explanation: question.explanation ?? '',
       answer: question.answer ?? '',
       options: question.options.map((opt) => ({
         id: opt.id,
         text: opt.text,
         imagePath: opt.imagePath,
         isCorrect: opt.isCorrect,
+        tip: opt.tip,
       })),
     })
   }
@@ -369,11 +335,6 @@ export function useQuestionForm() {
     setFieldValue,
     errors,
     isSaving,
-
-    // Curriculum
-    availableSubjects,
-    availableTopics,
-    availableSubTopics,
 
     // Consolidated image state
     questionImage,
@@ -391,6 +352,7 @@ export function useQuestionForm() {
     setCorrectOption,
     toggleCorrectOption,
     updateOptionText,
+    updateOptionTip,
 
     // Edit-only helpers
     getOptionImageUrl,

@@ -84,7 +84,6 @@ function goBack() {
         :completed-at="session.completedAt"
         :questions="session.questions"
         :answers="session.answers"
-        answer-label="student"
       >
         <template #ai-summary>
           <Card
