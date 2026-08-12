@@ -371,81 +371,119 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 8. QUESTIONS (representative sample from prod — 15 questions)            ║
+-- ║ 8. QUESTIONS (fresh new-shape sample with per-option tips)               ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Revamp 2.1 (decision 44): STAGING ONLY. Wipe the whole question bank and
+-- everything that references it, then insert a fresh representative set in
+-- the new shape — per-option tips (option_N_tip) instead of a single
+-- explanation, spanning MCQ, MRQ, and short-answer so the tips feature is
+-- testable end to end. Prod is NOT touched by this (it lives in the
+-- migration, which is schema-only; prod keeps its real questions).
+--
 -- grade_level_id and subject_id are auto-populated by the
--- populate_question_hierarchy_trigger from the sub-topic chain.
--- Prod has 1,200+ questions — this is a small sample for testing.
+-- populate_question_hierarchy trigger from the sub-topic chain.
+-- is_correct on the seeded practice answers below is recomputed by the
+-- grade_practice_answer BEFORE trigger, so the values written here are
+-- only illustrative.
+
+-- Wipe order: children before parents. assessment_questions.question_id is
+-- ON DELETE RESTRICT, so it MUST be cleared before questions (its own
+-- children attempt_questions/attempt_answers cascade from it). The rest
+-- (session_questions, student_question_progress, question_feedback) cascade
+-- on question delete, and practice_answers.question_id is ON DELETE SET
+-- NULL, but we clear the practice trio explicitly so no orphan rows remain
+-- (acceptable on staging — this is test data).
+DELETE FROM public.attempt_answers;
+DELETE FROM public.attempt_questions;
+DELETE FROM public.assessment_questions;
+DELETE FROM public.practice_answers;
+DELETE FROM public.session_questions;
+DELETE FROM public.student_question_progress;
+DELETE FROM public.questions;
 
 INSERT INTO public.questions (
-  id, type, question, sub_topic_id, explanation, answer,
-  option_1_text, option_1_is_correct,
-  option_2_text, option_2_is_correct,
-  option_3_text, option_3_is_correct,
-  option_4_text, option_4_is_correct
+  id, type, question, sub_topic_id, answer,
+  option_1_text, option_1_is_correct, option_1_tip,
+  option_2_text, option_2_is_correct, option_2_tip,
+  option_3_text, option_3_is_correct, option_3_tip,
+  option_4_text, option_4_is_correct, option_4_tip
 ) VALUES
 
-  -- ── Y1 Math > Chapter 1 > Basic Calculation (Chinese) ────────────────────
+  -- ── Y1 Math > Chapter 1 > Basic Calculation (Chinese) — MCQ ──────────────
+  -- The three below back the completed practice session in section 9.
 
   ('073d50c7-22e1-43c1-be30-ba53e7b04e66', 'mcq',
    '在 15, 20, 25, 30 中，下一个数是多少？',
    '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '五个五个地增加。',
    NULL,
-   '31', false, '35', true, '40', false, '45', false),
+   '31', false, '这是五个五个地数，不是加 1。',
+   '35', true,  NULL,
+   '40', false, '你跳过了一个数，先数到 35。',
+   '45', false, '太大了，30 的下一步是 35。'),
 
   ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 'mcq',
    '在数字 7 中，个位数值是多少？',
    '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '7是个位数，数值是7。',
    NULL,
-   '70', false, '7', true, '0', false, '1', false),
+   '70', false, '70 是七十，那是十位，不是个位。',
+   '7', true,  NULL,
+   '0', false, '0 表示没有，再看看数字本身。',
+   '1', false, '1 是位数的个数，不是数值。'),
 
   ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 'mcq',
    '哪个数字最大？',
    '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '91在选项中是最大的。',
    NULL,
-   '19', false, '91', true, '49', false, '90', false),
+   '19', false, '先比十位：1 比 9 小。',
+   '91', true,  NULL,
+   '49', false, '十位是 4，比 9 小。',
+   '90', false, '十位相同，再比个位：0 比 1 小。'),
 
-  ('169f1572-c8e8-4e86-83ac-243ae5fc66de', 'mcq',
-   '瓶子里装了 50 粒红豆。同样的瓶子装了半瓶绿豆。绿豆大约有多少粒？',
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — MRQ (multiple correct) ──────
+
+  ('a1000000-0000-4000-8000-000000000001', 'mrq',
+   '以下哪些是双数（可选多个）？',
    '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '一半大约是25。',
    NULL,
-   '50', false, '100', false, '25', true, '10', false),
+   '2', true,  NULL,
+   '3', false, '3 除以 2 有余数，是单数。',
+   '4', true,  NULL,
+   '5', false, '5 是单数，末位是 5。'),
 
-  ('17c5258e-ca6f-4002-b4b7-d8b84db7d0eb', 'mcq',
-   '一罐糖果大约有10颗，两罐同样的糖果大约有多少颗？',
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — short answer (no options) ───
+
+  ('a1000000-0000-4000-8000-000000000002', 'short_answer',
+   '10 + 10 = ？',
    '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '10加10等于20。',
-   NULL,
-   '10', false, '20', true, '5', false, '50', false),
+   '20',
+   NULL, false, NULL,
+   NULL, false, NULL,
+   NULL, false, NULL,
+   NULL, false, NULL),
 
-  -- ── Y3 Math > Chapter 1 > Basic Calculation (Chinese) ────────────────────
+  -- ── Y3 Math > Chapter 1 > Basic Calculation — MCQ ────────────────────────
 
   ('0183618e-b41f-42c4-b838-c7caa9647fa6', 'mcq',
    '3 个千、14 个十和 5 个一组成的数是？',
    '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   '3000 + 140 + 5 = 3145。',
    NULL,
-   '3145', true, '3415', false, '31405', false, '3195', false),
+   '3145', true, NULL,
+   '3415', false, '14 个十是 140，要进位到百位。',
+   '31405', false, '不要把 14 个十直接写进数字里。',
+   '3195', false, '14 个十是 140，不是 190。'),
 
-  ('0940714c-089a-4eea-ac07-b7df1a258ecc', 'mcq',
-   '在 9014 中，数字 9 的数值是多少？',
+  -- ── Y3 Math > Chapter 1 > Basic Calculation — MRQ ────────────────────────
+
+  ('a1000000-0000-4000-8000-000000000003', 'mrq',
+   '以下哪些数大于 3000（可选多个）？',
    '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   '9在千位，所以它的数值是 9000。',
    NULL,
-   '9', false, '90', false, '900', false, '9000', true),
+   '3145', true, NULL,
+   '2999', false, '2999 比 3000 小 1。',
+   '3001', true, NULL,
+   '2130', false, '2130 的千位是 2，小于 3。'),
 
-  ('0a8812ce-bee0-499e-a023-c8c9273272d5', 'mcq',
-   '从小到大排列：2310, 2130, 2031。',
-   '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   '比较千位相同，看百位：0 < 1 < 3。',
-   NULL,
-   '2310, 2130, 2031', false, '2031, 2130, 2310', true, '2130, 2031, 2310', false, '2031, 2310, 2130', false),
-
-  -- ── Y2 English > Grammar > Verbs ─────────────────────────────────────────
+  -- ── Y2 English > Grammar > Verbs — MCQ ───────────────────────────────────
 
   ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', 'mcq',
    'Choose the correct answer
@@ -453,35 +491,10 @@ INSERT INTO public.questions (
 I _______ my teeth.',
    '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
    NULL,
-   NULL,
-   'comb', false, 'brush', true, 'ride', false, 'read', false),
-
-  ('66ac16fb-0603-49b1-9974-6c4101f92c83', 'mcq',
-   'Choose the correct answer
-
-I _______ movies.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   NULL,
-   'watch', true, 'comb', false, 'feed', false, 'paint', false),
-
-  ('b7e8eeeb-ab8b-4062-9a6d-dfc255656558', 'mcq',
-   'Choose the correct answer
-
-I _______ chess.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   NULL,
-   'comb', false, 'play', true, 'feed', false, 'read', false),
-
-  ('bac84629-adc6-4527-bd5e-9183e3378323', 'mcq',
-   'Choose the correct answer
-
-I _______ my cat.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   NULL,
-   'sing', false, 'read', false, 'feed', true, 'dance', false),
+   'comb', false, 'You comb your hair, not your teeth.',
+   'brush', true, NULL,
+   'ride', false, 'You ride a bike or a horse.',
+   'read', false, 'You read books, not teeth.'),
 
   ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 'mcq',
    'Choose the correct answer
@@ -489,29 +502,21 @@ I _______ my cat.',
 I _______ books.',
    '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
    NULL,
-   NULL,
-   'read', true, 'watch', false, 'comb', false, 'feed', false),
+   'read', true, NULL,
+   'watch', false, 'You watch movies or TV, not books.',
+   'comb', false, 'You comb hair, not books.',
+   'feed', false, 'You feed animals, not books.'),
 
-  ('cc6ac816-fc6d-40d8-923c-11f20d4cec86', 'mcq',
-   'Choose the correct answer
-
-I _______ my hair.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   NULL,
-   'comb', true, 'brush', false, 'watch', false, 'read', false),
-
-  -- ── Y2 English > Comprehension > Unit 5 (days of the week) ───────────────
+  -- ── Y2 English > Comprehension > Unit 5 (days of the week) — MCQ ──────────
 
   ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', 'mcq',
    'Which group of days is written in the correct order?',
    '3e7aa63a-900f-42f1-af4d-774b42e6020f',
-   E'The correct order is:\n• Monday (星期一)\n• Tuesday (星期二)\n• Wednesday (星期三)\n• Thursday (星期四)\n• Friday (星期五)\n• Saturday (星期六)\n• Sunday (星期日)',
    NULL,
-   'Wednesday, Thursday, Tuesday', false,
-   'Monday, Tuesday, Wednesday', true,
-   'Saturday, Sunday, Friday', false,
-   'Tuesday, Thursday, Wednesday', false)
+   'Wednesday, Thursday, Tuesday', false, 'Tuesday comes before Wednesday, not after Thursday.',
+   'Monday, Tuesday, Wednesday', true, NULL,
+   'Saturday, Sunday, Friday', false, 'Friday comes before Saturday in the week.',
+   'Tuesday, Thursday, Wednesday', false, 'Wednesday comes before Thursday.')
 
 ON CONFLICT (id) DO NOTHING;
 
@@ -530,7 +535,7 @@ INSERT INTO public.practice_sessions (
   '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > Basic Calculation
   3, 3,
   now() - interval '1 day',
-  0, 145
+  2, 145   -- Q1 + Q3 correct, Q2 wrong (matches the answers seeded below)
 )
 ON CONFLICT (id) DO NOTHING;
 

@@ -810,7 +810,6 @@ export type Database = {
         Row: {
           answer: string | null
           created_at: string | null
-          explanation: string | null
           grade_level_id: string | null
           id: string
           image_hash: string | null
@@ -818,15 +817,19 @@ export type Database = {
           option_1_image_path: string | null
           option_1_is_correct: boolean | null
           option_1_text: string | null
+          option_1_tip: string | null
           option_2_image_path: string | null
           option_2_is_correct: boolean | null
           option_2_text: string | null
+          option_2_tip: string | null
           option_3_image_path: string | null
           option_3_is_correct: boolean | null
           option_3_text: string | null
+          option_3_tip: string | null
           option_4_image_path: string | null
           option_4_is_correct: boolean | null
           option_4_text: string | null
+          option_4_tip: string | null
           question: string
           sub_topic_id: string
           subject_id: string | null
@@ -836,7 +839,6 @@ export type Database = {
         Insert: {
           answer?: string | null
           created_at?: string | null
-          explanation?: string | null
           grade_level_id?: string | null
           id?: string
           image_hash?: string | null
@@ -844,15 +846,19 @@ export type Database = {
           option_1_image_path?: string | null
           option_1_is_correct?: boolean | null
           option_1_text?: string | null
+          option_1_tip?: string | null
           option_2_image_path?: string | null
           option_2_is_correct?: boolean | null
           option_2_text?: string | null
+          option_2_tip?: string | null
           option_3_image_path?: string | null
           option_3_is_correct?: boolean | null
           option_3_text?: string | null
+          option_3_tip?: string | null
           option_4_image_path?: string | null
           option_4_is_correct?: boolean | null
           option_4_text?: string | null
+          option_4_tip?: string | null
           question: string
           sub_topic_id: string
           subject_id?: string | null
@@ -862,7 +868,6 @@ export type Database = {
         Update: {
           answer?: string | null
           created_at?: string | null
-          explanation?: string | null
           grade_level_id?: string | null
           id?: string
           image_hash?: string | null
@@ -870,15 +875,19 @@ export type Database = {
           option_1_image_path?: string | null
           option_1_is_correct?: boolean | null
           option_1_text?: string | null
+          option_1_tip?: string | null
           option_2_image_path?: string | null
           option_2_is_correct?: boolean | null
           option_2_text?: string | null
+          option_2_tip?: string | null
           option_3_image_path?: string | null
           option_3_is_correct?: boolean | null
           option_3_text?: string | null
+          option_3_tip?: string | null
           option_4_image_path?: string | null
           option_4_is_correct?: boolean | null
           option_4_text?: string | null
+          option_4_tip?: string | null
           question?: string
           sub_topic_id?: string
           subject_id?: string | null
@@ -1318,6 +1327,7 @@ export type Database = {
           question_id: string
         }[]
       }
+      get_session_result: { Args: { p_session_id: string }; Returns: Json }
       get_student_rollups: {
         Args: { p_class_id?: string; p_organization_id?: string }
         Returns: {
