@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Pencil, Trash2 } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
+import { GripVertical, Loader2, Pencil, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -8,10 +9,10 @@ import { useT } from '@/composables/useT'
 import type { AssessmentQuestionItem } from '@/stores/assessments'
 
 /**
- * The assessment question composer list. Reordering is native HTML5
- * drag-and-drop with move up/down buttons as the keyboard and touch path
- * (same pattern as the admin SubTopicPathList). The parent owns persistence —
- * this component only emits intents.
+ * The assessment question composer list. Reordering is vue-draggable-plus
+ * (SortableJS) via the grip handle, with built-in touch support (same pattern
+ * as the admin SubTopicPathList). The parent owns persistence — this
+ * component only emits intents.
  */
 const props = defineProps<{
   items: AssessmentQuestionItem[]
@@ -28,53 +29,21 @@ const emit = defineEmits<{
 
 const t = useT()
 
-const dragIndex = ref<number | null>(null)
-const overIndex = ref<number | null>(null)
-
 const interactive = computed(() => !props.disabled && !props.isSaving)
 
-function resetDrag() {
-  dragIndex.value = null
-  overIndex.value = null
-}
-
-function emitMove(from: number, to: number) {
-  const ids = props.items.map((item) => item.id)
-  const [moved] = ids.splice(from, 1)
-  if (moved === undefined) return
-  ids.splice(to, 0, moved)
-  emit('reorder', ids)
-}
-
-function onDragStart(index: number, event: DragEvent) {
-  if (!interactive.value) return
-  dragIndex.value = index
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    // Firefox requires payload on the transfer for the drag to start at all.
-    event.dataTransfer.setData('text/plain', props.items[index]?.id ?? '')
-  }
-}
-
-function onDragOver(index: number, event: DragEvent) {
-  if (dragIndex.value === null) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-  overIndex.value = index
-}
-
-function onDrop(index: number) {
-  const from = dragIndex.value
-  resetDrag()
-  if (from === null || from === index) return
-  emitMove(from, index)
-}
-
-function move(index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= props.items.length) return
-  emitMove(index, target)
-}
+/**
+ * VueDraggable writes the post-drop order here; the getter keeps rendering
+ * from props so the parent (via the store's optimistic apply) stays the
+ * single source of truth for the list.
+ */
+const list = computed({
+  get: () => props.items,
+  set: (value: AssessmentQuestionItem[]) =>
+    emit(
+      'reorder',
+      value.map((item) => item.id),
+    ),
+})
 
 function typeLabel(item: AssessmentQuestionItem): string {
   if (item.type === 'mcq') return t.value.shared.questionBankTable.typeMultipleChoice
@@ -104,23 +73,24 @@ function onPointsChange(item: AssessmentQuestionItem, event: Event) {
       {{ t.staff.builder.savingOrder }}
     </div>
 
-    <ol class="space-y-2" :class="isSaving && 'pointer-events-none opacity-60'">
+    <VueDraggable
+      v-model="list"
+      tag="ol"
+      handle="[data-drag-handle]"
+      ghost-class="opacity-50"
+      :animation="150"
+      :disabled="!interactive"
+      class="space-y-2"
+      :class="isSaving && 'pointer-events-none opacity-60'"
+    >
       <li
         v-for="(item, index) in items"
         :key="item.id"
-        :draggable="interactive"
         class="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors"
-        :class="[
-          dragIndex === index && 'opacity-50',
-          overIndex === index && dragIndex !== index && 'border-primary bg-accent',
-        ]"
-        @dragstart="onDragStart(index, $event)"
-        @dragover="onDragOver(index, $event)"
-        @dragend="resetDrag"
-        @drop.prevent="onDrop(index)"
       >
         <GripVertical
           v-if="!disabled"
+          data-drag-handle
           class="size-5 shrink-0 cursor-grab text-muted-foreground"
           :aria-label="t.staff.builder.dragToReorder"
         />
@@ -156,26 +126,6 @@ function onPointsChange(item: AssessmentQuestionItem, event: Event) {
 
         <div v-if="!disabled" class="flex shrink-0 items-center gap-1">
           <Button
-            variant="ghost"
-            size="icon"
-            class="size-8"
-            :disabled="index === 0 || !interactive"
-            :aria-label="t.staff.builder.moveUp"
-            @click="move(index, -1)"
-          >
-            <ChevronUp class="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="size-8"
-            :disabled="index === items.length - 1 || !interactive"
-            :aria-label="t.staff.builder.moveDown"
-            @click="move(index, 1)"
-          >
-            <ChevronDown class="size-4" />
-          </Button>
-          <Button
             v-if="item.source === 'adhoc'"
             variant="secondary"
             size="icon"
@@ -198,6 +148,6 @@ function onPointsChange(item: AssessmentQuestionItem, event: Event) {
           </Button>
         </div>
       </li>
-    </ol>
+    </VueDraggable>
   </div>
 </template>

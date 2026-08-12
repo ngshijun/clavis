@@ -217,8 +217,6 @@ export default {
     pathOrderSaving: 'Saving order…',
     pathOrderSaved: 'Learning path order saved',
     orderSaved: 'Order saved',
-    moveUp: 'Move up',
-    moveDown: 'Move down',
     dragToReorder: 'Drag to reorder',
     editName: 'Rename',
     editImage: 'Change image',

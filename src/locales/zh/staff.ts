@@ -182,8 +182,6 @@ export default {
     pointsLabel: '分值',
     bankBadge: '题库',
     adhocBadge: '自编',
-    moveUp: '上移',
-    moveDown: '下移',
     dragToReorder: '拖动以调整顺序',
     editQuestion: '编辑题目',
     removeQuestion: '移除题目',

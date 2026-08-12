@@ -184,8 +184,6 @@ export default {
     pointsLabel: 'Points',
     bankBadge: 'Bank',
     adhocBadge: 'Custom',
-    moveUp: 'Move up',
-    moveDown: 'Move down',
     dragToReorder: 'Drag to reorder',
     editQuestion: 'Edit question',
     removeQuestion: 'Remove question',
