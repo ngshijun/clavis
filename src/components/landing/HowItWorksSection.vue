@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { UserPlus, Gamepad2, TrendingUp } from 'lucide-vue-next'
+import { Building2, ClipboardCheck, TrendingUp } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useLanguageStore } from '@/stores/language'
 
 const { t } = storeToRefs(useLanguageStore())
 
-const stepIcons = [UserPlus, Gamepad2, TrendingUp]
+const stepIcons = [Building2, ClipboardCheck, TrendingUp]
 </script>
 
 <template>

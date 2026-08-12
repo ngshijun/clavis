@@ -1274,8 +1274,40 @@ export type Database = {
         }
         Returns: string
       }
+      get_assessment_completion: {
+        Args: { p_assessment_id: string }
+        Returns: Json
+      }
       get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
       get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
+      get_class_rollups: {
+        Args: { p_organization_id?: string }
+        Returns: {
+          assigned_attempts: number
+          avg_assessment_score: number
+          avg_map_mastery: number
+          class_id: string
+          class_name: string
+          completed_attempts: number
+          student_count: number
+          teacher_id: string
+          teacher_name: string
+        }[]
+      }
+      get_org_overview: {
+        Args: never
+        Returns: {
+          assessment_count: number
+          class_count: number
+          last_activity_at: string
+          manager_count: number
+          organization_id: string
+          organization_name: string
+          student_count: number
+          teacher_count: number
+        }[]
+      }
+      get_platform_totals: { Args: never; Returns: Json }
       get_question_statistics: {
         Args: never
         Returns: {
@@ -1284,6 +1316,22 @@ export type Database = {
           correct_count: number
           correctness_rate: number
           question_id: string
+        }[]
+      }
+      get_student_rollups: {
+        Args: { p_class_id?: string; p_organization_id?: string }
+        Returns: {
+          assigned_count: number
+          at_risk: boolean
+          avg_assessment_score: number
+          completed_count: number
+          last_practice_at: string
+          map_mastery: number
+          student_id: string
+          student_name: string
+          sub_topics_attempted: number
+          sub_topics_completed: number
+          username: string
         }[]
       }
       get_subtopic_answered_counts: {

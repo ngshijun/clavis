@@ -3,57 +3,70 @@ import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { handleError } from '@/lib/errors'
 import { toMYTDateString } from '@/lib/date'
+import type { Database } from '@/types/database.types'
 
 // Cache TTL for dashboard stats (5 minutes - balances freshness with avoiding redundant queries)
 const STATS_CACHE_TTL = 5 * 60 * 1000
 
-export interface DashboardStats {
-  users: {
-    total: number
-    students: number
-    teachers: number
-    managers: number
-    admins: number
-  }
-  organizations: number
+type OrgOverviewRowRaw = Database['public']['Functions']['get_org_overview']['Returns'][number]
+
+export interface OrgOverviewRow {
+  organizationId: string
+  organizationName: string
+  managerCount: number
+  teacherCount: number
+  /** Seats in use = student profiles in the org (decision 34). */
+  studentCount: number
+  classCount: number
+  assessmentCount: number
+  lastActivityAt: string | null
+}
+
+/** Parsed shape of the `get_platform_totals` jsonb payload (P4A-HANDOFF §E). */
+export interface PlatformTotals {
+  orgCount: number
+  managerCount: number
+  teacherCount: number
+  /** Total seats in use across the platform. */
+  studentCount: number
+  assessmentCount: number
+  classCount: number
+  lastActivityAt: string | null
+}
+
+interface PlatformTotalsJson {
+  org_count: number
+  manager_count: number
+  teacher_count: number
+  student_count: number
+  assessment_count: number
+  class_count: number
+  last_activity_at: string | null
+}
+
+export interface TodayStats {
   activeStudentsToday: number
   practiceSessionsToday: number
 }
 
-// Explicit shape for the PostgREST server-side aggregation response. PostgREST
-// returns aggregate columns under the alias declared in the select(), so the
-// alias below is pinned to the name used in the query (`count`) — a select-shape
-// drift breaks here at the single cast site rather than silently reading undefined.
-interface UserTypeCountRow {
-  user_type: string
-  count: number
-}
-
-function emptyStats(): DashboardStats {
-  return {
-    users: { total: 0, students: 0, teachers: 0, managers: 0, admins: 0 },
-    organizations: 0,
-    activeStudentsToday: 0,
-    practiceSessionsToday: 0,
-  }
-}
-
+/**
+ * Platform-admin dashboard: per-org seat/usage overview + platform totals
+ * (both via the P4a admin-only RPCs) plus today's practice activity.
+ */
 export const useAdminDashboardStore = defineStore('adminDashboard', () => {
-  const stats = ref<DashboardStats>(emptyStats())
+  const orgOverview = ref<OrgOverviewRow[]>([])
+  const totals = ref<PlatformTotals | null>(null)
+  const today = ref<TodayStats>({ activeStudentsToday: 0, practiceSessionsToday: 0 })
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const lastFetched = ref<number | null>(null)
 
-  /**
-   * Check if cache is stale
-   */
   function isCacheStale(): boolean {
     if (!lastFetched.value) return true
     return Date.now() - lastFetched.value > STATS_CACHE_TTL
   }
 
-  // Fetch all dashboard stats (with cache check)
   async function fetchStats(force = false): Promise<{ error: string | null }> {
     // Skip if cache is still valid and not forced
     if (!force && !isCacheStale()) {
@@ -64,52 +77,52 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     error.value = null
 
     try {
-      const today = toMYTDateString()
+      const todayMYT = toMYTDateString()
 
-      const [usersResult, organizationsResult, sessionsTodayResult] = await Promise.all([
-        // Total users by role (server-side aggregation)
-        supabase.from('profiles').select('user_type, count:user_type.count()'),
-
-        // Organizations on the platform
-        supabase.from('organizations').select('id', { count: 'exact', head: true }),
+      const [overviewResult, totalsResult, sessionsTodayResult] = await Promise.all([
+        supabase.rpc('get_org_overview'),
+        supabase.rpc('get_platform_totals'),
 
         // Practice sessions created today (MYT boundaries). student_id is selected so
         // "active students today" can be derived as the distinct student count.
         supabase
           .from('practice_sessions')
           .select('student_id')
-          .gte('created_at', `${today}T00:00:00+08:00`)
-          .lt('created_at', `${today}T23:59:59.999+08:00`),
+          .gte('created_at', `${todayMYT}T00:00:00+08:00`)
+          .lt('created_at', `${todayMYT}T23:59:59.999+08:00`),
       ])
 
-      const firstError = usersResult.error ?? organizationsResult.error ?? sessionsTodayResult.error
-      if (firstError) {
-        const message = handleError(firstError, 'failedFetchDashboardStats')
-        error.value = message
-        return { error: message }
+      const firstError = overviewResult.error ?? totalsResult.error ?? sessionsTodayResult.error
+      if (firstError) throw firstError
+
+      orgOverview.value = (overviewResult.data ?? []).map((row: OrgOverviewRowRaw) => ({
+        organizationId: row.organization_id,
+        organizationName: row.organization_name,
+        managerCount: row.manager_count,
+        teacherCount: row.teacher_count,
+        studentCount: row.student_count,
+        classCount: row.class_count,
+        assessmentCount: row.assessment_count,
+        lastActivityAt: row.last_activity_at ?? null,
+      }))
+
+      const rawTotals = totalsResult.data as unknown as PlatformTotalsJson
+      totals.value = {
+        orgCount: rawTotals.org_count,
+        managerCount: rawTotals.manager_count,
+        teacherCount: rawTotals.teacher_count,
+        studentCount: rawTotals.student_count,
+        assessmentCount: rawTotals.assessment_count,
+        classCount: rawTotals.class_count,
+        lastActivityAt: rawTotals.last_activity_at ?? null,
       }
-
-      const next = emptyStats()
-
-      // Process users (server-side grouped counts)
-      if (usersResult.data) {
-        const rows = usersResult.data as unknown as UserTypeCountRow[]
-        for (const row of rows) {
-          next.users.total += row.count
-          if (row.user_type === 'student') next.users.students = row.count
-          else if (row.user_type === 'teacher') next.users.teachers = row.count
-          else if (row.user_type === 'manager') next.users.managers = row.count
-          else if (row.user_type === 'admin') next.users.admins = row.count
-        }
-      }
-
-      next.organizations = organizationsResult.count ?? 0
 
       const sessionsToday = sessionsTodayResult.data ?? []
-      next.practiceSessionsToday = sessionsToday.length
-      next.activeStudentsToday = new Set(sessionsToday.map((s) => s.student_id)).size
+      today.value = {
+        practiceSessionsToday: sessionsToday.length,
+        activeStudentsToday: new Set(sessionsToday.map((s) => s.student_id)).size,
+      }
 
-      stats.value = next
       lastFetched.value = Date.now()
 
       return { error: null }
@@ -123,14 +136,18 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
   }
 
   function $reset() {
-    stats.value = emptyStats()
+    orgOverview.value = []
+    totals.value = null
+    today.value = { activeStudentsToday: 0, practiceSessionsToday: 0 }
     isLoading.value = false
     error.value = null
     lastFetched.value = null
   }
 
   return {
-    stats,
+    orgOverview,
+    totals,
+    today,
     isLoading,
     error,
     fetchStats,

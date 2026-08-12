@@ -24,7 +24,7 @@ const { t } = storeToRefs(useLanguageStore())
           <RouterLink to="/login">{{ t.landing.header.login }}</RouterLink>
         </Button>
         <Button as-child>
-          <RouterLink to="/login">{{ t.landing.header.signup }}</RouterLink>
+          <a href="#contact">{{ t.landing.header.bookDemo }}</a>
         </Button>
         <LanguageToggle />
         <ThemeToggle />

@@ -28,12 +28,6 @@ const { t } = storeToRefs(useLanguageStore())
             {{ t.landing.footer.login }}
           </RouterLink>
           <RouterLink
-            to="/login"
-            class="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {{ t.landing.footer.signup }}
-          </RouterLink>
-          <RouterLink
             to="/forgot-password"
             class="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >

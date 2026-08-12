@@ -2,11 +2,22 @@
 import { ref, h, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentAttempt } from '@/stores/assessments'
+import { useStaffDashboardStore, type AssessmentCompletion } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
-import { ArrowLeft, ArrowUpDown, BarChart3, Loader2 } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  ArrowUpDown,
+  BarChart3,
+  CheckCircle2,
+  Loader2,
+  Timer,
+  Users,
+} from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
+import StatTile from '@/components/dashboard/StatTile.vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import AttemptResultDialog from '@/components/staff/AttemptResultDialog.vue'
 import { toast } from 'vue-sonner'
@@ -18,6 +29,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
+const staffDashboardStore = useStaffDashboardStore()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
 const basePath = computed(() => `/${authStore.userType}`)
@@ -25,18 +37,38 @@ const basePath = computed(() => `/${authStore.userType}`)
 const isLoading = ref(true)
 const showResultDialog = ref(false)
 const selectedAttempt = ref<AssessmentAttempt | null>(null)
+const completion = ref<AssessmentCompletion | null>(null)
 
 onMounted(async () => {
-  // Assessment + questions (for the per-question breakdown labels) + attempts.
-  const [detailResult, attemptsResult] = await Promise.all([
+  // Assessment + questions (for the per-question breakdown labels) + attempts
+  // + the aggregated completion summary (assigned vs completed, distribution).
+  const [detailResult, attemptsResult, completionResult] = await Promise.all([
     assessmentsStore.fetchAssessmentDetail(assessmentId.value),
     assessmentsStore.fetchAttempts(assessmentId.value),
+    staffDashboardStore.fetchAssessmentCompletion(assessmentId.value),
   ])
   isLoading.value = false
+  completion.value = completionResult.completion
 
-  if (detailResult.error || attemptsResult.error) {
+  if (detailResult.error || attemptsResult.error || completionResult.error) {
     toast.error(t.value.staff.results.toastLoadFailed)
   }
+})
+
+// Fixed band order, aligned to the star thresholds (60/80) — single-hue bars.
+const BUCKET_KEYS = ['0-49', '50-59', '60-79', '80-100'] as const
+
+const distribution = computed(() => {
+  if (!completion.value) return []
+  const buckets = completion.value.buckets
+  const counts = BUCKET_KEYS.map((key) => buckets[key] ?? 0)
+  const max = Math.max(...counts, 1)
+  return BUCKET_KEYS.map((key, index) => ({
+    key,
+    label: t.value.staff.results.bucketLabels[key],
+    count: counts[index],
+    percent: Math.round((counts[index] / max) * 100),
+  }))
 })
 
 function openBreakdown(attempt: AssessmentAttempt) {
@@ -151,6 +183,55 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
           {{ t.staff.results.subtitle(assessmentsStore.currentAssessment?.title ?? '') }}
         </p>
       </div>
+
+      <!-- Completion summary (get_assessment_completion) -->
+      <div v-if="completion" class="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          :label="t.staff.results.assignedTile"
+          :value="completion.assignedCount"
+          :icon="Users"
+          :subtitle="t.staff.results.assignedTileHint"
+        />
+        <StatTile
+          :label="t.staff.results.completedTile"
+          :value="completion.completedCount"
+          :icon="CheckCircle2"
+        />
+        <StatTile
+          :label="t.staff.results.inProgressTile"
+          :value="completion.inProgressCount"
+          :icon="Timer"
+        />
+        <StatTile
+          :label="t.staff.results.avgScoreTile"
+          :value="completion.avgScore === null ? '—' : `${completion.avgScore}%`"
+          :icon="BarChart3"
+        />
+      </div>
+
+      <!-- Score distribution over completed attempts -->
+      <Card v-if="completion && completion.completedCount > 0" class="mb-6">
+        <CardHeader>
+          <CardTitle class="text-base">{{ t.staff.results.distributionTitle }}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="space-y-2">
+            <div v-for="bucket in distribution" :key="bucket.key" class="flex items-center gap-3">
+              <span class="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                {{ bucket.label }}
+              </span>
+              <div class="flex flex-1 items-center gap-2">
+                <div
+                  v-if="bucket.count > 0"
+                  class="h-4 rounded-r-sm bg-primary"
+                  :style="{ width: `${bucket.percent}%` }"
+                />
+                <span class="text-xs tabular-nums text-muted-foreground">{{ bucket.count }}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <!-- Empty State -->
       <div v-if="assessmentsStore.currentAttempts.length === 0" class="py-16 text-center">

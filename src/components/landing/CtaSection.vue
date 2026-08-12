@@ -18,10 +18,10 @@ const { t } = storeToRefs(useLanguageStore())
         </p>
         <div class="flex flex-col justify-center gap-4 sm:flex-row">
           <Button size="lg" as-child>
-            <RouterLink to="/login">{{ t.landing.cta.getStarted }}</RouterLink>
+            <a href="#contact">{{ t.landing.cta.bookDemo }}</a>
           </Button>
           <Button size="lg" variant="outline" as-child>
-            <RouterLink to="/login">{{ t.landing.cta.haveAccount }}</RouterLink>
+            <RouterLink to="/login">{{ t.landing.cta.login }}</RouterLink>
           </Button>
         </div>
       </div>

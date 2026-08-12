@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, PawPrint } from 'lucide-vue-next'
+import { BookOpen, Building2, ClipboardCheck, GraduationCap } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useLanguageStore } from '@/stores/language'
 
@@ -14,7 +14,7 @@ const { t } = storeToRefs(useLanguageStore())
         <div
           class="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
         >
-          <GraduationCap class="size-4" />
+          <Building2 class="size-4" />
           <span>{{ t.landing.hero.badge }}</span>
         </div>
 
@@ -29,10 +29,10 @@ const { t } = storeToRefs(useLanguageStore())
 
         <div class="flex flex-col justify-center gap-4 sm:flex-row">
           <Button size="lg" as-child>
-            <RouterLink to="/login">{{ t.landing.hero.getStarted }}</RouterLink>
+            <a href="#contact">{{ t.landing.hero.bookDemo }}</a>
           </Button>
           <Button size="lg" variant="outline" as-child>
-            <RouterLink to="/login">{{ t.landing.hero.haveAccount }}</RouterLink>
+            <RouterLink to="/login">{{ t.landing.hero.login }}</RouterLink>
           </Button>
         </div>
 
@@ -55,26 +55,13 @@ const { t } = storeToRefs(useLanguageStore())
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <PawPrint class="size-5 text-primary" />
+            <ClipboardCheck class="size-5 text-primary" />
             <div class="text-left">
-              <p class="text-lg font-bold leading-tight">{{ t.landing.hero.stats.petsValue }}</p>
-              <p class="text-xs text-muted-foreground">{{ t.landing.hero.stats.petsLabel }}</p>
+              <p class="text-lg font-bold leading-tight">{{ t.landing.hero.stats.gradingValue }}</p>
+              <p class="text-xs text-muted-foreground">{{ t.landing.hero.stats.gradingLabel }}</p>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Product screenshot -->
-      <div class="mx-auto mt-16 max-w-5xl px-4">
-        <img
-          src="/screenshots/main-hero.webp"
-          alt="Clavis — 50% off launch promotion"
-          width="1280"
-          height="720"
-          class="aspect-video w-full"
-          fetchpriority="high"
-          decoding="async"
-        />
       </div>
     </div>
 

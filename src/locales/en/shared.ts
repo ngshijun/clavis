@@ -609,11 +609,13 @@ export default {
           students: 'Students',
         },
         manager: {
+          dashboard: 'Dashboard',
           teachers: 'Teachers',
           classes: 'Classes',
           assessments: 'Assessments',
         },
         teacher: {
+          dashboard: 'Dashboard',
           students: 'Students',
           classes: 'Classes',
           assessments: 'Assessments',

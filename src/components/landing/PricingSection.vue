@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Check } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useLanguageStore } from '@/stores/language'
 
 const { t } = storeToRefs(useLanguageStore())
-
-const popularIndex = 2 // Pro plan
 </script>
 
 <template>
@@ -21,58 +18,31 @@ const popularIndex = 2 // Pro plan
         </p>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-3">
-        <Card
-          v-for="(plan, index) in t.landing.pricing.plans"
-          :key="index"
-          :class="[
-            'relative flex flex-col bg-landing-band-alt',
-            index === popularIndex ? 'border-primary shadow-lg' : 'shadow-md',
-          ]"
-        >
-          <Badge v-if="index === popularIndex" class="absolute -top-3 left-1/2 -translate-x-1/2">
-            {{ t.landing.pricing.mostPopular }}
-          </Badge>
-          <CardHeader>
-            <CardTitle>{{ plan.name }}</CardTitle>
-            <CardDescription>{{ plan.description }}</CardDescription>
-            <div class="mt-4">
-              <div v-if="plan.originalPrice" class="mb-1.5 flex items-center gap-2">
-                <span
-                  class="text-base text-muted-foreground line-through decoration-muted-foreground/50"
-                >
-                  {{ plan.originalPrice }}
-                </span>
-                <span
-                  class="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground"
-                >
-                  {{ t.landing.pricing.save }}{{ plan.savePercent }}
-                </span>
-              </div>
-              <span class="text-3xl font-bold">{{ plan.price }}</span>
-              <span v-if="plan.period" class="text-muted-foreground">{{ plan.period }}</span>
-            </div>
-          </CardHeader>
-          <CardContent class="flex flex-1 flex-col">
-            <ul class="mb-6 flex-1 space-y-3">
-              <li v-for="feature in plan.features" :key="feature" class="flex items-center gap-2">
-                <Check class="size-4 text-primary" />
-                <span class="text-sm">{{ feature }}</span>
-              </li>
-            </ul>
-            <Button
-              :variant="index === popularIndex ? 'default' : 'outline'"
-              :class="[
-                'w-full',
-                index !== popularIndex ? 'bg-landing-band dark:bg-landing-band' : '',
-              ]"
-              as-child
+      <Card class="mx-auto max-w-lg border-primary bg-landing-band-alt shadow-lg">
+        <CardHeader>
+          <CardTitle>{{ t.landing.pricing.planName }}</CardTitle>
+          <CardDescription>{{ t.landing.pricing.planDescription }}</CardDescription>
+          <div class="mt-4">
+            <p class="text-3xl font-bold">{{ t.landing.pricing.priceLabel }}</p>
+            <p class="mt-2 text-sm text-muted-foreground">{{ t.landing.pricing.priceNote }}</p>
+          </div>
+        </CardHeader>
+        <CardContent class="flex flex-col">
+          <ul class="mb-6 space-y-3">
+            <li
+              v-for="feature in t.landing.pricing.features"
+              :key="feature"
+              class="flex items-center gap-2"
             >
-              <RouterLink to="/login">{{ t.landing.pricing.getStarted }}</RouterLink>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+              <Check class="size-4 shrink-0 text-primary" />
+              <span class="text-sm">{{ feature }}</span>
+            </li>
+          </ul>
+          <Button class="w-full" as-child>
+            <a href="#contact">{{ t.landing.pricing.contactUs }}</a>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   </section>
 </template>
