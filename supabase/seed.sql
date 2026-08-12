@@ -148,16 +148,24 @@ ON CONFLICT (id) DO NOTHING;
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 4. STUDENT PROFILES                                                      ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- created_by = Ms Lee (teacher). usernames NULL: these mirror legacy
--- email-based students.
+-- created_by = Mr Wong (manager). Revamp 2.2: students are provisioned by the
+-- manager, not the teacher. usernames NULL: these mirror legacy email-based
+-- students.
 
 INSERT INTO public.student_profiles (id, grade_level_id, preferred_language, created_by)
 VALUES
   -- Alice: Year 1
-  ('00000000-0000-0000-0000-000000000002', '54081b95-ee5f-43d0-8f95-d640d48bb734', 'en', '00000000-0000-0000-0000-000000000006'),
+  ('00000000-0000-0000-0000-000000000002', '54081b95-ee5f-43d0-8f95-d640d48bb734', 'en', '00000000-0000-0000-0000-000000000005'),
   -- Ben: Year 2
-  ('00000000-0000-0000-0000-000000000003', 'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a', 'en', '00000000-0000-0000-0000-000000000006')
+  ('00000000-0000-0000-0000-000000000003', 'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a', 'en', '00000000-0000-0000-0000-000000000005')
 ON CONFLICT (id) DO NOTHING;
+
+-- The INSERT above is ON CONFLICT DO NOTHING, so existing staging rows keep
+-- their old created_by. Repoint the demo students to the manager explicitly so
+-- staging reflects Revamp 2.2's manager-provisioning model (idempotent).
+UPDATE public.student_profiles
+SET created_by = '00000000-0000-0000-0000-000000000005'
+WHERE id IN ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003');
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -560,6 +568,77 @@ VALUES
   ('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '11e08503-3ca0-409a-a46d-5bc1f2f5f50f',
    true, 65, now() - interval '1 day', '{2}', NULL)
 ON CONFLICT (id) DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9b. CLASSROOMS + MEMBERSHIPS (Revamp 2.2 — many-to-many)                 ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Two sections of the SAME grade+subject (decision 47 allows this), created
+-- by Mr Wong (manager). Memberships demonstrate the many-to-many model:
+--   * Ms Lee (teacher) teaches BOTH classrooms          -> teacher in 2 classrooms
+--   * Classroom A holds Alice + Ben                      -> classroom with 2 students
+--   * Alice is in BOTH classrooms                        -> student in 2 classrooms
+
+INSERT INTO public.classrooms (id, organization_id, grade_level_id, subject_id, name, created_by)
+SELECT v.id, o.id, v.grade_level_id, v.subject_id, v.name, '00000000-0000-0000-0000-000000000005'
+FROM (VALUES
+  ('c1000000-0000-4000-8000-000000000001'::uuid,
+   '54081b95-ee5f-43d0-8f95-d640d48bb734'::uuid,  -- Year 1
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1'::uuid,  -- Year 1 Mathematics
+   '一年级数学 A组 Year 1 Math (Group A)'),
+  ('c1000000-0000-4000-8000-000000000002'::uuid,
+   '54081b95-ee5f-43d0-8f95-d640d48bb734'::uuid,  -- Year 1
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1'::uuid,  -- Year 1 Mathematics
+   '一年级数学 B组 Year 1 Math (Group B)')
+) AS v(id, grade_level_id, subject_id, name)
+CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
+ON CONFLICT (id) DO NOTHING;
+
+-- Ms Lee (000006) teaches both classrooms.
+INSERT INTO public.classroom_teachers (classroom_id, teacher_id)
+VALUES
+  ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000006'),
+  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000006')
+ON CONFLICT DO NOTHING;
+
+-- Classroom A: Alice + Ben.  Classroom B: Alice (so Alice is in both).
+INSERT INTO public.classroom_students (classroom_id, student_id)
+VALUES
+  ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002'),
+  ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003'),
+  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000002')
+ON CONFLICT DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9c. ASSESSMENT (published) assigned to a classroom                       ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Created by Ms Lee (teacher), two bank questions, assigned to Classroom A so
+-- the many-to-many assignment flow is testable end to end.
+
+INSERT INTO public.assessments (id, organization_id, created_by, title, description, status)
+SELECT
+  'a5000000-0000-4000-8000-000000000001', o.id,
+  '00000000-0000-0000-0000-000000000006',
+  'Year 1 Math — Quiz 1', '100 以内的整数 warm-up', 'published'
+FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+VALUES
+  ('a9100000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
+   '073d50c7-22e1-43c1-be30-ba53e7b04e66', 0, 1),
+  ('a9100000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000001',
+   '0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 1, 1)
+ON CONFLICT (id) DO NOTHING;
+
+-- Assigned to Classroom A, due in 7 days, by Ms Lee.
+INSERT INTO public.assessment_assignments (id, assessment_id, classroom_id, due_at, assigned_by)
+VALUES
+  ('a6000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
+   'c1000000-0000-4000-8000-000000000001', now() + interval '7 days',
+   '00000000-0000-0000-0000-000000000006')
+ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗

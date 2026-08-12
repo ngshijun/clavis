@@ -55,9 +55,9 @@ describe('planProvisioning — hierarchy', () => {
     expect(result.organizationId).toBe(ORG)
   })
 
-  it('lets a teacher create a student stamped with created_by and a synthetic email', () => {
+  it('lets a manager create a student stamped with created_by and a synthetic email', () => {
     const result = plan(
-      planProvisioning(teacher, {
+      planProvisioning(manager, {
         role: 'student',
         name: 'Sam',
         username: 'Sam.Lee',
@@ -71,7 +71,7 @@ describe('planProvisioning — hierarchy', () => {
       email: 'sam.lee@student.clavis.app',
       organizationId: ORG,
       gradeLevelId: 'grade-1',
-      createdBy: 'teacher-1',
+      createdBy: 'manager-1',
     })
   })
 
@@ -79,9 +79,9 @@ describe('planProvisioning — hierarchy', () => {
     ['admin', admin, 'teacher'],
     ['admin', admin, 'student'],
     ['manager', manager, 'manager'],
-    ['manager', manager, 'student'],
     ['teacher', teacher, 'manager'],
     ['teacher', teacher, 'teacher'],
+    ['teacher', teacher, 'student'],
     ['student', student, 'student'],
     ['student', student, 'teacher'],
   ])('rejects %s → %s', (_callerRole, caller, role) => {
@@ -111,7 +111,11 @@ describe('planProvisioning — hierarchy', () => {
 
 describe('planProvisioning — validation', () => {
   it('rejects an unknown role', () => {
-    const result = planProvisioning(admin, { role: 'superuser', name: 'X', password: 'password123' })
+    const result = planProvisioning(admin, {
+      role: 'superuser',
+      name: 'X',
+      password: 'password123',
+    })
     expect(result).toMatchObject({ code: 'INVALID_INPUT', status: 400 })
   })
 
@@ -140,7 +144,7 @@ describe('planProvisioning — validation', () => {
     ['spaces', 'sam lee'],
     ['at sign', 'sam@lee'],
   ])('rejects username %s', (_label, username) => {
-    const result = planProvisioning(teacher, {
+    const result = planProvisioning(manager, {
       role: 'student',
       name: 'Sam',
       username,
@@ -151,7 +155,7 @@ describe('planProvisioning — validation', () => {
   })
 
   it('rejects a student without a grade level', () => {
-    const result = planProvisioning(teacher, {
+    const result = planProvisioning(manager, {
       role: 'student',
       name: 'Sam',
       username: 'samlee',
