@@ -10,7 +10,7 @@ export interface PracticeSession {
   gradeLevelName: string
   subjectId: string | null
   subjectName: string
-  subTopicId: string // topic_id column now references sub_topics
+  subTopicId: string
   topicName: string
   subTopicName: string
   totalQuestions: number

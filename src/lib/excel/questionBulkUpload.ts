@@ -71,7 +71,7 @@ function getQuestionKey(
  * Build the dedup lookup map of existing questions keyed by question text +
  * hierarchy names + image hash, mapping to the existing question id.
  *
- * Selects only the columns the dedup key needs (question, topic_id, image_hash)
+ * Selects only the columns the dedup key needs (question, sub_topic_id, image_hash)
  * and resolves hierarchy names from the already-loaded curriculum store, rather
  * than fetching '*' and hydrating full Question objects.
  */
@@ -86,15 +86,15 @@ async function buildExistingQuestionMap(
   while (hasMore) {
     const { data, error } = await supabase
       .from('questions')
-      .select('id, question, topic_id, image_hash')
+      .select('id, question, sub_topic_id, image_hash')
       .range(from, from + BATCH_SIZE - 1)
 
     if (error) throw error
 
     const rows = data ?? []
     for (const row of rows) {
-      // topic_id references sub_topics; resolve the full hierarchy for names.
-      const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.topic_id)
+      // Resolve the full hierarchy for names.
+      const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)
       if (!hierarchy) continue
 
       const key = getQuestionKey(
@@ -142,7 +142,7 @@ async function computeParsedQuestionHash(q: ParsedQuestion): Promise<string> {
 export async function validateQuestions(parsed: ParsedQuestion[]): Promise<UploadValidationResult> {
   const curriculumStore = useCurriculumStore()
 
-  // Ensure curriculum is loaded (needed to resolve topic_id -> hierarchy names)
+  // Ensure curriculum is loaded (needed to resolve sub_topic_id -> hierarchy names)
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
@@ -313,7 +313,7 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
         type: q.type,
         gradeLevelId: gradeLevel.id,
         subjectId: subject.id,
-        subTopicId: subTopic.id, // topic_id column references sub_topics
+        subTopicId: subTopic.id,
         question: q.question,
         explanation: q.explanation || undefined,
         imagePath: uploadedImages.questionImagePath,

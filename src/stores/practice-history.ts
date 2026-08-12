@@ -59,7 +59,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
 
   /**
    * Get curriculum names for a sub-topic
-   * Note: topic_id column in DB now references sub_topics table
    */
   function getCurriculumNames(subTopicId: string): {
     gradeLevelName: string
@@ -86,11 +85,10 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
 
   /**
    * Convert database row to PracticeSession (without questions/answers)
-   * Note: topic_id column in DB now references sub_topics table
    * @param answerCount - Optional answer count from nested query, defaults to 0
    */
   function rowToSession(row: PracticeSessionRow, answerCount: number = 0): PracticeSession {
-    const names = getCurriculumNames(row.topic_id)
+    const names = getCurriculumNames(row.sub_topic_id)
     return {
       id: row.id,
       studentId: row.student_id,
@@ -98,7 +96,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       gradeLevelName: names.gradeLevelName,
       subjectId: row.subject_id,
       subjectName: names.subjectName,
-      subTopicId: row.topic_id, // topic_id column references sub_topics
+      subTopicId: row.sub_topic_id,
       topicName: names.topicName,
       subTopicName: names.subTopicName,
       totalQuestions: row.total_questions,

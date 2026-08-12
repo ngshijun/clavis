@@ -80,6 +80,7 @@ export default {
     failedAddSubTopic: 'Failed to add sub-topic.',
     failedUpdateSubTopic: 'Failed to update sub-topic.',
     failedDeleteSubTopic: 'Failed to delete sub-topic.',
+    failedReorderSubTopics: 'Failed to save the learning path order.',
     gradeLevelNotFound: 'Grade level not found.',
     subjectNotFound: 'Subject not found.',
     topicNotFound: 'Topic not found.',

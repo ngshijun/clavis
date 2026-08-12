@@ -6,8 +6,10 @@ import CurriculumEditImageDialog from '@/components/admin/CurriculumEditImageDia
 import CurriculumDeleteDialog from '@/components/admin/CurriculumDeleteDialog.vue'
 import CurriculumEditNameDialog from '@/components/admin/CurriculumEditNameDialog.vue'
 import CurriculumLevelPanel from '@/components/admin/CurriculumLevelPanel.vue'
+import SubTopicPathList from '@/components/admin/SubTopicPathList.vue'
 import { Plus, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 import {
   Breadcrumb,
@@ -207,6 +209,28 @@ function handleDeleted(
   }
 }
 
+// Learning path (sub-topic order) state
+const isSavingPathOrder = ref(false)
+
+async function handleReorderSubTopics(orderedIds: string[]) {
+  if (!selectedGradeLevel.value || !selectedSubject.value || !selectedTopic.value) return
+
+  isSavingPathOrder.value = true
+  const { success, error } = await curriculumStore.reorderSubTopics(
+    selectedGradeLevel.value.id,
+    selectedSubject.value.id,
+    selectedTopic.value.id,
+    orderedIds,
+  )
+  isSavingPathOrder.value = false
+
+  if (success) {
+    toast.success(t.value.admin.curriculum.pathOrderSaved)
+  } else if (error) {
+    toast.error(error)
+  }
+}
+
 // Edit name dialog state
 const showEditNameDialog = ref(false)
 const editNameType = ref<'grade' | 'subject' | 'topic' | 'subtopic'>('grade')
@@ -369,16 +393,16 @@ function openEditNameDialog(
       @add="openAddDialog('topic')"
     />
 
-    <!-- Sub-Topic Selection (Level 4) -->
-    <CurriculumLevelPanel
+    <!-- Sub-Topic Learning Path (Level 4) — display_order IS the student map order -->
+    <SubTopicPathList
       v-else
       :items="selectedTopic.subTopics"
-      has-image
       :get-cover-image-url="(st) => (st.coverImagePath ? getImageUrl(st.coverImagePath) : null)"
-      :get-description="() => t.admin.curriculum.subTopicLabel"
+      :is-saving="isSavingPathOrder"
       :empty-title="t.admin.curriculum.noSubTopics"
       :empty-description="t.admin.curriculum.noSubTopicsDesc(selectedTopic.name)"
       :add-label="t.admin.curriculum.addSubTopic"
+      @reorder="handleReorderSubTopics"
       @edit-name="
         (st) =>
           openEditNameDialog(

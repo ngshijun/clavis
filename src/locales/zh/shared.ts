@@ -79,6 +79,7 @@ export default {
     failedAddSubTopic: '添加子课题失败。',
     failedUpdateSubTopic: '更新子课题失败。',
     failedDeleteSubTopic: '删除子课题失败。',
+    failedReorderSubTopics: '保存学习路径顺序失败。',
     gradeLevelNotFound: '未找到此年级。',
     subjectNotFound: '未找到此科目。',
     topicNotFound: '未找到此课题。',
