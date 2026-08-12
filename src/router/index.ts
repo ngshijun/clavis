@@ -133,11 +133,6 @@ const router = createRouter({
           component: () => import('@/pages/admin/CurriculumPage.vue'),
         },
         {
-          path: 'question-bank',
-          name: 'admin-question-bank',
-          component: () => import('@/pages/admin/QuestionBankPage.vue'),
-        },
-        {
           path: 'question-statistics',
           name: 'admin-question-statistics',
           component: () => import('@/pages/admin/QuestionStatisticsPage.vue'),

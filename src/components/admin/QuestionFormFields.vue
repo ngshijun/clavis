@@ -2,10 +2,6 @@
 import { Field as VeeField } from 'vee-validate'
 import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
-
-const t = useT()
-const languageStore = useLanguageStore()
-import { useCurriculumStore } from '@/stores/curriculum'
 import type { useQuestionForm } from '@/composables/useQuestionForm'
 import { ImagePlus, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -20,6 +16,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+const t = useT()
+const languageStore = useLanguageStore()
+
 const props = withDefaults(
   defineProps<{
     form: ReturnType<typeof useQuestionForm>
@@ -29,8 +28,6 @@ const props = withDefaults(
     optionImageUrlGetter: undefined,
   },
 )
-
-const curriculumStore = useCurriculumStore()
 
 // Shorthand accessors to avoid verbose .value throughout template
 const f = props.form
@@ -44,166 +41,36 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
 </script>
 
 <template>
-  <!-- Question Type + Grade Level Row -->
-  <div class="grid grid-cols-2 gap-4">
-    <VeeField v-slot="{ handleChange, value }" name="type">
-      <Field>
-        <FieldLabel>
-          {{ t.shared.questionFormFields.questionTypeLabel }}
-          <span class="text-destructive">*</span>
-        </FieldLabel>
-        <Select
-          :key="languageStore.language"
-          :model-value="value"
-          :disabled="f.isSaving.value"
-          @update:model-value="handleChange"
-        >
-          <SelectTrigger class="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="mcq">{{
-              t.shared.questionFormFields.multipleChoiceSingle
-            }}</SelectItem>
-            <SelectItem value="mrq">{{
-              t.shared.questionFormFields.multipleResponseMultiple
-            }}</SelectItem>
-            <SelectItem value="short_answer">{{
-              t.shared.questionFormFields.shortAnswerType
-            }}</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-    </VeeField>
-
-    <VeeField v-slot="{ handleChange, value, errors: fieldErrors }" name="gradeLevelId">
-      <Field :data-invalid="!!fieldErrors.length">
-        <FieldLabel>
-          {{ t.shared.questionFormFields.gradeLevelLabel }} <span class="text-destructive">*</span>
-        </FieldLabel>
-        <Select
-          :key="languageStore.language"
-          :model-value="value"
-          :disabled="f.isSaving.value"
-          @update:model-value="
-            (val) => {
-              handleChange(val)
-              f.setFieldValue('subjectId', '')
-              f.setFieldValue('topicId', '')
-            }
-          "
-        >
-          <SelectTrigger class="w-full" :class="{ 'border-destructive': !!fieldErrors.length }">
-            <SelectValue :placeholder="t.shared.questionFormFields.gradeLevelPlaceholder" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="grade in curriculumStore.gradeLevels"
-              :key="grade.id"
-              :value="grade.id"
-            >
-              {{ grade.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <FieldError :errors="fieldErrors" />
-      </Field>
-    </VeeField>
-  </div>
-
-  <!-- Subject, Topic, Sub-Topic Row -->
-  <div class="grid grid-cols-3 gap-4">
-    <VeeField v-slot="{ handleChange, value, errors: fieldErrors }" name="subjectId">
-      <Field :data-invalid="!!fieldErrors.length">
-        <FieldLabel>
-          {{ t.shared.questionFormFields.subjectLabel }} <span class="text-destructive">*</span>
-        </FieldLabel>
-        <Select
-          :key="languageStore.language"
-          :model-value="value"
-          :disabled="!f.values.gradeLevelId || f.isSaving.value"
-          @update:model-value="
-            (val) => {
-              handleChange(val)
-              f.setFieldValue('topicId', '')
-              f.setFieldValue('subTopicId', '')
-            }
-          "
-        >
-          <SelectTrigger class="w-full" :class="{ 'border-destructive': !!fieldErrors.length }">
-            <SelectValue :placeholder="t.shared.questionFormFields.subjectPlaceholder" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="subject in f.availableSubjects.value"
-              :key="subject.id"
-              :value="subject.id"
-            >
-              {{ subject.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <FieldError :errors="fieldErrors" />
-      </Field>
-    </VeeField>
-
-    <VeeField v-slot="{ handleChange, value, errors: fieldErrors }" name="topicId">
-      <Field :data-invalid="!!fieldErrors.length">
-        <FieldLabel>
-          {{ t.shared.questionFormFields.topicLabel }} <span class="text-destructive">*</span>
-        </FieldLabel>
-        <Select
-          :key="languageStore.language"
-          :model-value="value"
-          :disabled="!f.values.subjectId || f.isSaving.value"
-          @update:model-value="
-            (val) => {
-              handleChange(val)
-              f.setFieldValue('subTopicId', '')
-            }
-          "
-        >
-          <SelectTrigger class="w-full" :class="{ 'border-destructive': !!fieldErrors.length }">
-            <SelectValue :placeholder="t.shared.questionFormFields.topicPlaceholder" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="topic in f.availableTopics.value" :key="topic.id" :value="topic.id">
-              {{ topic.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <FieldError :errors="fieldErrors" />
-      </Field>
-    </VeeField>
-
-    <VeeField v-slot="{ handleChange, value, errors: fieldErrors }" name="subTopicId">
-      <Field :data-invalid="!!fieldErrors.length">
-        <FieldLabel>
-          {{ t.shared.questionFormFields.subTopicLabel }} <span class="text-destructive">*</span>
-        </FieldLabel>
-        <Select
-          :key="languageStore.language"
-          :model-value="value"
-          :disabled="!f.values.topicId || f.isSaving.value"
-          @update:model-value="handleChange"
-        >
-          <SelectTrigger class="w-full" :class="{ 'border-destructive': !!fieldErrors.length }">
-            <SelectValue :placeholder="t.shared.questionFormFields.subTopicPlaceholder" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="subTopic in f.availableSubTopics.value"
-              :key="subTopic.id"
-              :value="subTopic.id"
-            >
-              {{ subTopic.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <FieldError :errors="fieldErrors" />
-      </Field>
-    </VeeField>
-  </div>
+  <!-- Question Type -->
+  <VeeField v-slot="{ handleChange, value }" name="type">
+    <Field>
+      <FieldLabel>
+        {{ t.shared.questionFormFields.questionTypeLabel }}
+        <span class="text-destructive">*</span>
+      </FieldLabel>
+      <Select
+        :key="languageStore.language"
+        :model-value="value"
+        :disabled="f.isSaving.value"
+        @update:model-value="handleChange"
+      >
+        <SelectTrigger class="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="mcq">{{
+            t.shared.questionFormFields.multipleChoiceSingle
+          }}</SelectItem>
+          <SelectItem value="mrq">{{
+            t.shared.questionFormFields.multipleResponseMultiple
+          }}</SelectItem>
+          <SelectItem value="short_answer">{{
+            t.shared.questionFormFields.shortAnswerType
+          }}</SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
+  </VeeField>
 
   <!-- Question -->
   <VeeField v-slot="{ value, handleChange, handleBlur, errors: fieldErrors }" name="question">
@@ -283,6 +150,9 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
         {{ t.shared.questionFormFields.optionsDesc }}
         {{ f.values.type === 'mrq' ? t.shared.questionFormFields.mrqToggleHint : '' }}
       </p>
+      <p class="text-xs text-muted-foreground">
+        {{ t.shared.questionFormFields.tipsHint }}
+      </p>
       <FieldError
         v-if="f.errors.value.options"
         :errors="[
@@ -352,6 +222,14 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
               {{ t.shared.questionFormFields.addImage }}
             </Button>
           </div>
+          <!-- Per-option tip: shown to a student who picks THIS option and gets it wrong -->
+          <Textarea
+            :model-value="option.tip ?? ''"
+            :placeholder="t.shared.questionFormFields.tipPlaceholder(option.id.toUpperCase())"
+            rows="2"
+            :disabled="f.isSaving.value"
+            @update:model-value="f.updateOptionTip(option.id, $event as string)"
+          />
         </div>
       </div>
     </div>
@@ -377,21 +255,6 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
         :class="{ 'border-destructive': !!fieldErrors.length }"
       />
       <FieldError :errors="fieldErrors" />
-    </Field>
-  </VeeField>
-
-  <!-- Explanation -->
-  <VeeField v-slot="{ value, handleChange, handleBlur }" name="explanation">
-    <Field>
-      <FieldLabel>{{ t.shared.questionFormFields.explanationLabel }}</FieldLabel>
-      <Textarea
-        :model-value="value"
-        @update:model-value="handleChange"
-        @blur="handleBlur"
-        :placeholder="t.shared.questionFormFields.explanationPlaceholder"
-        rows="2"
-        :disabled="f.isSaving.value"
-      />
     </Field>
   </VeeField>
 </template>

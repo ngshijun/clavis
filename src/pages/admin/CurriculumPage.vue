@@ -7,6 +7,7 @@ import CurriculumDeleteDialog from '@/components/admin/CurriculumDeleteDialog.vu
 import CurriculumEditNameDialog from '@/components/admin/CurriculumEditNameDialog.vue'
 import CurriculumLevelPanel from '@/components/admin/CurriculumLevelPanel.vue'
 import SubTopicPathList from '@/components/admin/SubTopicPathList.vue'
+import SubTopicQuestionsPanel from '@/components/admin/SubTopicQuestionsPanel.vue'
 import { Plus, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
@@ -36,6 +37,10 @@ const selectedTopicId = computed({
   get: () => curriculumStore.adminCurriculumNavigation.selectedTopicId,
   set: (val) => curriculumStore.setAdminCurriculumTopic(val),
 })
+const selectedSubTopicId = computed({
+  get: () => curriculumStore.adminCurriculumNavigation.selectedSubTopicId,
+  set: (val) => curriculumStore.setAdminCurriculumSubTopic(val),
+})
 
 // Computed for navigation
 const selectedGradeLevel = computed(() => {
@@ -51,6 +56,11 @@ const selectedSubject = computed(() => {
 const selectedTopic = computed(() => {
   if (!selectedSubject.value || !selectedTopicId.value) return null
   return selectedSubject.value.topics.find((t) => t.id === selectedTopicId.value) ?? null
+})
+
+const selectedSubTopic = computed(() => {
+  if (!selectedTopic.value || !selectedSubTopicId.value) return null
+  return selectedTopic.value.subTopics.find((st) => st.id === selectedSubTopicId.value) ?? null
 })
 
 // Computed for dynamic add button
@@ -94,30 +104,44 @@ function selectGradeLevel(gradeLevelId: string) {
   selectedGradeLevelId.value = gradeLevelId
   selectedSubjectId.value = null
   selectedTopicId.value = null
+  selectedSubTopicId.value = null
 }
 
 function selectSubject(subjectId: string) {
   selectedSubjectId.value = subjectId
   selectedTopicId.value = null
+  selectedSubTopicId.value = null
 }
 
 function selectTopic(topicId: string) {
   selectedTopicId.value = topicId
+  selectedSubTopicId.value = null
+}
+
+function selectSubTopic(subTopicId: string) {
+  selectedSubTopicId.value = subTopicId
 }
 
 function goBackToGradeLevels() {
   selectedGradeLevelId.value = null
   selectedSubjectId.value = null
   selectedTopicId.value = null
+  selectedSubTopicId.value = null
 }
 
 function goBackToSubjects() {
   selectedSubjectId.value = null
   selectedTopicId.value = null
+  selectedSubTopicId.value = null
 }
 
 function goBackToTopics() {
   selectedTopicId.value = null
+  selectedSubTopicId.value = null
+}
+
+function goBackToSubTopics() {
+  selectedSubTopicId.value = null
 }
 
 // Add dialog state
@@ -209,26 +233,59 @@ function handleDeleted(
   }
 }
 
-// Learning path (sub-topic order) state
-const isSavingPathOrder = ref(false)
+// Reorder state — one level is visible at a time, so a single flag suffices
+const isSavingOrder = ref(false)
 
-async function handleReorderSubTopics(orderedIds: string[]) {
-  if (!selectedGradeLevel.value || !selectedSubject.value || !selectedTopic.value) return
-
-  isSavingPathOrder.value = true
-  const { success, error } = await curriculumStore.reorderSubTopics(
-    selectedGradeLevel.value.id,
-    selectedSubject.value.id,
-    selectedTopic.value.id,
-    orderedIds,
-  )
-  isSavingPathOrder.value = false
+async function runReorder(
+  persist: () => Promise<{ success: boolean; error: string | null }>,
+  successMessage: string,
+) {
+  isSavingOrder.value = true
+  const { success, error } = await persist()
+  isSavingOrder.value = false
 
   if (success) {
-    toast.success(t.value.admin.curriculum.pathOrderSaved)
+    toast.success(successMessage)
   } else if (error) {
     toast.error(error)
   }
+}
+
+function handleReorderGradeLevels(orderedIds: string[]) {
+  runReorder(
+    () => curriculumStore.reorderGradeLevels(orderedIds),
+    t.value.admin.curriculum.orderSaved,
+  )
+}
+
+function handleReorderSubjects(orderedIds: string[]) {
+  if (!selectedGradeLevel.value) return
+  const gradeLevelId = selectedGradeLevel.value.id
+  runReorder(
+    () => curriculumStore.reorderSubjects(gradeLevelId, orderedIds),
+    t.value.admin.curriculum.orderSaved,
+  )
+}
+
+function handleReorderTopics(orderedIds: string[]) {
+  if (!selectedGradeLevel.value || !selectedSubject.value) return
+  const gradeLevelId = selectedGradeLevel.value.id
+  const subjectId = selectedSubject.value.id
+  runReorder(
+    () => curriculumStore.reorderTopics(gradeLevelId, subjectId, orderedIds),
+    t.value.admin.curriculum.orderSaved,
+  )
+}
+
+function handleReorderSubTopics(orderedIds: string[]) {
+  if (!selectedGradeLevel.value || !selectedSubject.value || !selectedTopic.value) return
+  const gradeLevelId = selectedGradeLevel.value.id
+  const subjectId = selectedSubject.value.id
+  const topicId = selectedTopic.value.id
+  runReorder(
+    () => curriculumStore.reorderSubTopics(gradeLevelId, subjectId, topicId, orderedIds),
+    t.value.admin.curriculum.pathOrderSaved,
+  )
 }
 
 // Edit name dialog state
@@ -266,8 +323,12 @@ function openEditNameDialog(
         <h1 class="text-2xl font-bold">{{ t.admin.curriculum.title }}</h1>
         <p class="text-muted-foreground">{{ t.admin.curriculum.subtitle }}</p>
       </div>
-      <!-- Dynamic Add Button -->
-      <Button :disabled="curriculumStore.isLoading" @click="openAddDialog(currentAddType)">
+      <!-- Dynamic Add Button (level 5 has its own question actions) -->
+      <Button
+        v-if="!selectedSubTopic"
+        :disabled="curriculumStore.isLoading"
+        @click="openAddDialog(currentAddType)"
+      >
         <Plus class="mr-2 size-4" />
         {{ addButtonLabel }}
       </Button>
@@ -303,7 +364,16 @@ function openEditNameDialog(
         <template v-if="selectedTopic">
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{{ selectedTopic.name }}</BreadcrumbPage>
+            <BreadcrumbLink v-if="selectedSubTopic" as-child>
+              <button @click="goBackToSubTopics">{{ selectedTopic.name }}</button>
+            </BreadcrumbLink>
+            <BreadcrumbPage v-else>{{ selectedTopic.name }}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </template>
+        <template v-if="selectedSubTopic">
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{{ selectedSubTopic.name }}</BreadcrumbPage>
           </BreadcrumbItem>
         </template>
       </BreadcrumbList>
@@ -319,11 +389,13 @@ function openEditNameDialog(
       v-else-if="!selectedGradeLevel"
       :items="curriculumStore.gradeLevels"
       clickable
+      :is-saving="isSavingOrder"
       :get-description="(g) => t.admin.curriculum.subjectCount(g.subjects.length)"
       :empty-title="t.admin.curriculum.noGradeLevels"
       :empty-description="t.admin.curriculum.noGradeLevelsDesc"
       :add-label="t.admin.curriculum.addGradeLevel"
       @select="(g) => selectGradeLevel(g.id)"
+      @reorder="handleReorderGradeLevels"
       @edit-name="(g) => openEditNameDialog('grade', g.name, g.id)"
       @delete="(g) => openDeleteDialog('grade', g.name, g.id)"
       @add="openAddDialog('grade')"
@@ -335,12 +407,14 @@ function openEditNameDialog(
       :items="selectedGradeLevel.subjects"
       clickable
       has-image
+      :is-saving="isSavingOrder"
       :get-cover-image-url="(s) => (s.coverImagePath ? getImageUrl(s.coverImagePath) : null)"
       :get-description="(s) => t.admin.curriculum.topicCount(s.topics.length)"
       :empty-title="t.admin.curriculum.noSubjects"
       :empty-description="t.admin.curriculum.noSubjectsDesc(selectedGradeLevel.name)"
       :add-label="t.admin.curriculum.addSubject"
       @select="(s) => selectSubject(s.id)"
+      @reorder="handleReorderSubjects"
       @edit-name="(s) => openEditNameDialog('subject', s.name, selectedGradeLevel!.id, s.id)"
       @edit-image="
         (s) =>
@@ -364,12 +438,14 @@ function openEditNameDialog(
       :items="selectedSubject.topics"
       clickable
       has-image
+      :is-saving="isSavingOrder"
       :get-cover-image-url="(t) => (t.coverImagePath ? getImageUrl(t.coverImagePath) : null)"
       :get-description="(topic) => t.admin.curriculum.subTopicCount(topic.subTopics.length)"
       :empty-title="t.admin.curriculum.noTopics"
       :empty-description="t.admin.curriculum.noTopicsDesc(selectedSubject.name)"
       :add-label="t.admin.curriculum.addTopic"
       @select="(t) => selectTopic(t.id)"
+      @reorder="handleReorderTopics"
       @edit-name="
         (t) =>
           openEditNameDialog('topic', t.name, selectedGradeLevel!.id, selectedSubject!.id, t.id)
@@ -393,15 +469,19 @@ function openEditNameDialog(
       @add="openAddDialog('topic')"
     />
 
+    <!-- Sub-Topic Questions (Level 5) — decision 42: per-sub-topic question CRUD -->
+    <SubTopicQuestionsPanel v-else-if="selectedSubTopic" :sub-topic="selectedSubTopic" />
+
     <!-- Sub-Topic Learning Path (Level 4) — display_order IS the student map order -->
     <SubTopicPathList
       v-else
       :items="selectedTopic.subTopics"
       :get-cover-image-url="(st) => (st.coverImagePath ? getImageUrl(st.coverImagePath) : null)"
-      :is-saving="isSavingPathOrder"
+      :is-saving="isSavingOrder"
       :empty-title="t.admin.curriculum.noSubTopics"
       :empty-description="t.admin.curriculum.noSubTopicsDesc(selectedTopic.name)"
       :add-label="t.admin.curriculum.addSubTopic"
+      @select="(st) => selectSubTopic(st.id)"
       @reorder="handleReorderSubTopics"
       @edit-name="
         (st) =>

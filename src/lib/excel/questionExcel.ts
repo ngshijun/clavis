@@ -1,5 +1,4 @@
 import type ExcelJS from 'exceljs'
-import type { Question } from '@/stores/questions'
 import type { GradeLevel } from '@/stores/curriculum'
 
 // ============================================
@@ -30,7 +29,6 @@ export interface ParsedQuestion {
   optionD: string | null
   optionDImage: ParsedQuestionImage | null
   correctAnswer: string
-  explanation: string | null
 }
 
 export interface ParseError {
@@ -62,6 +60,8 @@ const COLUMNS = {
   OPTION_D: 14, // N
   OPTION_D_IMAGE: 15, // O
   CORRECT_ANSWER: 16, // P
+  // Q ("Explanation") is kept in the workbook layout for format stability but
+  // is no longer imported — questions carry per-option tips edited in the app.
   EXPLANATION: 17, // Q
 }
 
@@ -532,8 +532,8 @@ function setupInstructionsSheet(sheet: ExcelJS.Worksheet) {
     ['  - For MRQ: Enter multiple answers separated by commas (e.g., A,B or A,C,D)'],
     ['  - For short_answer: Type the correct answer text'],
     [''],
-    ['Explanation (Optional)'],
-    ['  - Explanation shown to students after answering incorrectly'],
+    ['Explanation (Ignored)'],
+    ['  - This column is no longer imported. Per-option tips are edited in the app instead.'],
     [''],
     ['TIPS:'],
     ['- Images should be small (recommended max 200x200 pixels)'],
@@ -561,215 +561,6 @@ function setupInstructionsSheet(sheet: ExcelJS.Worksheet) {
       excelRow.font = { bold: true, size: 12 }
     }
   })
-}
-
-// ============================================
-// EXPORT QUESTIONS
-// ============================================
-
-export async function exportQuestionsToExcel(
-  questions: Question[],
-  getImageAsBase64: (path: string) => Promise<string | null>,
-): Promise<void> {
-  const ExcelJS = (await import('exceljs')).default
-  const { saveAs } = await import('file-saver')
-  // Step 1: Collect all unique image paths
-  const imagePaths = new Set<string>()
-  for (const q of questions) {
-    if (q.imagePath) imagePaths.add(q.imagePath)
-    if ((q.type === 'mcq' || q.type === 'mrq') && q.options) {
-      for (const opt of q.options) {
-        if (opt.imagePath) imagePaths.add(opt.imagePath)
-      }
-    }
-  }
-
-  // Step 2: Fetch all images in parallel
-  const imageCache = new Map<string, string>()
-  if (imagePaths.size > 0) {
-    const pathArray = Array.from(imagePaths)
-    const results = await Promise.all(pathArray.map((path) => getImageAsBase64(path)))
-    pathArray.forEach((path, index) => {
-      const base64 = results[index]
-      if (base64) {
-        imageCache.set(path, base64)
-      }
-    })
-  }
-
-  // Step 3: Create workbook and add data
-  const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'Clavis'
-  workbook.created = new Date()
-
-  const sheet = workbook.addWorksheet('Questions')
-
-  // Set column widths (same as template)
-  sheet.columns = [
-    { header: 'Type', key: 'type', width: 15 },
-    { header: 'Grade Level', key: 'gradeLevel', width: 15 },
-    { header: 'Subject', key: 'subject', width: 20 },
-    { header: 'Topic', key: 'topic', width: 25 },
-    { header: 'Sub-Topic', key: 'subTopic', width: 25 },
-    { header: 'Question Text', key: 'question', width: 40 },
-    { header: 'Question Image', key: 'questionImage', width: 18 },
-    { header: 'Option A', key: 'optionA', width: 25 },
-    { header: 'Option A Image', key: 'optionAImage', width: 15 },
-    { header: 'Option B', key: 'optionB', width: 25 },
-    { header: 'Option B Image', key: 'optionBImage', width: 15 },
-    { header: 'Option C', key: 'optionC', width: 25 },
-    { header: 'Option C Image', key: 'optionCImage', width: 15 },
-    { header: 'Option D', key: 'optionD', width: 25 },
-    { header: 'Option D Image', key: 'optionDImage', width: 15 },
-    { header: 'Correct Answer', key: 'correctAnswer', width: 18 },
-    { header: 'Explanation', key: 'explanation', width: 40 },
-  ]
-
-  // Set text format on content columns to prevent Excel from auto-converting
-  // values like fractions (2/5) into dates when the file is opened
-  const textColumns = [
-    COLUMNS.TYPE,
-    COLUMNS.GRADE_LEVEL,
-    COLUMNS.SUBJECT,
-    COLUMNS.TOPIC,
-    COLUMNS.SUB_TOPIC,
-    COLUMNS.QUESTION_TEXT,
-    COLUMNS.OPTION_A,
-    COLUMNS.OPTION_B,
-    COLUMNS.OPTION_C,
-    COLUMNS.OPTION_D,
-    COLUMNS.CORRECT_ANSWER,
-    COLUMNS.EXPLANATION,
-  ]
-  for (const col of textColumns) {
-    sheet.getColumn(col).numFmt = '@'
-  }
-
-  // Wrap multi-line question text / explanation so the exported file round-trips
-  // correctly when admins reopen it in Excel/Sheets.
-  for (const col of [COLUMNS.QUESTION_TEXT, COLUMNS.EXPLANATION]) {
-    sheet.getColumn(col).alignment = { wrapText: true, vertical: 'top' }
-  }
-
-  // Style header
-  const headerRow = sheet.getRow(1)
-  headerRow.font = { bold: true }
-  headerRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FFE0E0E0' },
-  }
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
-  headerRow.height = 25
-
-  // Step 4: Add data rows with images from cache
-  for (const [i, q] of questions.entries()) {
-    const rowIndex = i + 2
-    const row = sheet.getRow(rowIndex)
-    row.height = 80
-
-    // Text data
-    row.getCell(COLUMNS.TYPE).value = q.type
-    row.getCell(COLUMNS.GRADE_LEVEL).value = q.gradeLevelName
-    row.getCell(COLUMNS.SUBJECT).value = q.subjectName
-    row.getCell(COLUMNS.TOPIC).value = q.topicName
-    row.getCell(COLUMNS.SUB_TOPIC).value = q.subTopicName
-    row.getCell(COLUMNS.QUESTION_TEXT).value = q.question
-
-    // Question image (from cache)
-    if (q.imagePath) {
-      addImageToCellFromCache(
-        workbook,
-        sheet,
-        q.imagePath,
-        COLUMNS.QUESTION_IMAGE - 1,
-        rowIndex - 1,
-        imageCache,
-      )
-    }
-
-    // MCQ / MRQ options
-    if ((q.type === 'mcq' || q.type === 'mrq') && q.options) {
-      const optionConfigs = [
-        { textCol: COLUMNS.OPTION_A, imageCol: COLUMNS.OPTION_A_IMAGE, index: 0 },
-        { textCol: COLUMNS.OPTION_B, imageCol: COLUMNS.OPTION_B_IMAGE, index: 1 },
-        { textCol: COLUMNS.OPTION_C, imageCol: COLUMNS.OPTION_C_IMAGE, index: 2 },
-        { textCol: COLUMNS.OPTION_D, imageCol: COLUMNS.OPTION_D_IMAGE, index: 3 },
-      ]
-
-      // Collect correct-answer letters; MCQ has one, MRQ may have several.
-      const correctLetters: string[] = []
-
-      for (const config of optionConfigs) {
-        const opt = q.options[config.index]
-        if (opt) {
-          row.getCell(config.textCol).value = opt.text || ''
-          if (opt.imagePath) {
-            addImageToCellFromCache(
-              workbook,
-              sheet,
-              opt.imagePath,
-              config.imageCol - 1,
-              rowIndex - 1,
-              imageCache,
-            )
-          }
-          if (opt.isCorrect) {
-            correctLetters.push(String.fromCharCode(65 + config.index)) // A, B, C, D
-          }
-        }
-      }
-
-      // MRQ stores correctness in option_*_is_correct (q.answer is null), so the
-      // correct-answer cell must be derived from the collected option letters.
-      row.getCell(COLUMNS.CORRECT_ANSWER).value = correctLetters.join(',')
-    } else {
-      // Short answer
-      row.getCell(COLUMNS.CORRECT_ANSWER).value = q.answer || ''
-    }
-
-    row.getCell(COLUMNS.EXPLANATION).value = q.explanation || ''
-  }
-
-  // Download
-  const buffer = await workbook.xlsx.writeBuffer()
-  const blob = new Blob([buffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  })
-  const timestamp = new Date().toISOString().slice(0, 10)
-  saveAs(blob, `questions_export_${timestamp}.xlsx`)
-}
-
-function addImageToCellFromCache(
-  workbook: ExcelJS.Workbook,
-  sheet: ExcelJS.Worksheet,
-  imagePath: string,
-  col: number,
-  row: number,
-  imageCache: Map<string, string>,
-): void {
-  try {
-    const base64 = imageCache.get(imagePath)
-    if (!base64) return
-
-    const extension = getExtensionFromPath(imagePath)
-    const imageId = workbook.addImage({
-      base64: base64,
-      extension: extension as 'png' | 'jpeg' | 'gif',
-    })
-
-    sheet.addImage(imageId, {
-      tl: { col, row },
-      ext: { width: 100, height: 70 },
-    })
-  } catch (error) {
-    console.error(`Failed to add image ${imagePath}:`, error)
-  }
-}
-
-function getExtensionFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() || 'png'
-  return ext === 'jpg' ? 'jpeg' : ext
 }
 
 // ============================================
@@ -820,7 +611,6 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
     const optionC = getCellValue(row.getCell(COLUMNS.OPTION_C)) || null
     const optionD = getCellValue(row.getCell(COLUMNS.OPTION_D)) || null
     const correctAnswer = getCellValue(row.getCell(COLUMNS.CORRECT_ANSWER))
-    const explanation = getCellValue(row.getCell(COLUMNS.EXPLANATION)) || null
 
     // Skip empty rows
     if (!type && !gradeLevel && !subject && !topic && !subTopic && !questionText) return
@@ -833,7 +623,6 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
       { col: COLUMNS.OPTION_C, label: 'L' },
       { col: COLUMNS.OPTION_D, label: 'N' },
       { col: COLUMNS.CORRECT_ANSWER, label: 'P' },
-      { col: COLUMNS.EXPLANATION, label: 'Q' },
     ]
     const dateErrors: ParseError[] = []
     for (const { col, label } of dateCheckColumns) {
@@ -1020,7 +809,6 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
         optionD,
         optionDImage: imageMap.get(`${rowNumber}-${imageColumns.optionDImage}`) || null,
         correctAnswer: normalizedAnswer,
-        explanation,
       })
     }
   })

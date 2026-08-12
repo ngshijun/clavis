@@ -20,6 +20,8 @@ import { useT } from '@/composables/useT'
 
 const props = defineProps<{
   open: boolean
+  /** The sub-topic the new question is created in (the one in view). */
+  subTopicId: string
 }>()
 
 const emit = defineEmits<{
@@ -48,10 +50,8 @@ const onSubmit = form.handleSubmit(async (formValues) => {
   form.isSaving.value = true
 
   try {
-    // Get hierarchy info for grade_level_id and subject_id
-    const hierarchy = curriculumStore.getSubTopicWithHierarchy(formValues.subTopicId)
-    const gradeLevelId = hierarchy?.gradeLevel.id ?? formValues.gradeLevelId
-    const subjectId = hierarchy?.subject.id ?? formValues.subjectId
+    // Denormalized grade_level_id / subject_id come from the contextual sub-topic
+    const hierarchy = curriculumStore.getSubTopicWithHierarchy(props.subTopicId)
 
     // Upload images BEFORE creating the question so image paths are included
     // in the initial INSERT (required by DB constraints like mcq_has_two_options)
@@ -101,10 +101,9 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       type: formValues.type,
       question: formValues.question,
       imagePath: questionImagePath,
-      subTopicId: formValues.subTopicId,
-      gradeLevelId,
-      subjectId,
-      explanation: formValues.explanation || null,
+      subTopicId: props.subTopicId,
+      gradeLevelId: hierarchy?.gradeLevel.id ?? null,
+      subjectId: hierarchy?.subject.id ?? null,
       answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
       imageHash,
       options:

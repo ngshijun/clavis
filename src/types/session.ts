@@ -23,7 +23,6 @@ export interface SessionQuestion {
   id: string
   type: 'mcq' | 'mrq' | 'short_answer'
   question: string
-  explanation: string | null
   answer: string | null
   imagePath: string | null
   options?: QuestionOption[]

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import {
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   GripVertical,
   ImagePlus,
@@ -20,6 +21,7 @@ import type { SubTopic } from '@/stores/curriculum'
  * Renders a topic's sub-topics as the ordered path students walk on their
  * learning map (`sub_topics.display_order`). Reordering is native HTML5
  * drag-and-drop, with move up/down buttons as the keyboard and touch path.
+ * Clicking a row opens that sub-topic's question management (decision 42).
  * The parent owns persistence — this component only emits the new id order.
  */
 const props = defineProps<{
@@ -32,6 +34,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  select: [item: SubTopic]
   reorder: [orderedIds: string[]]
   'edit-name': [item: SubTopic]
   'edit-image': [item: SubTopic]
@@ -110,11 +113,12 @@ function move(index: number, delta: number) {
           v-for="(item, index) in items"
           :key="item.id"
           :draggable="!isSaving"
-          class="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors"
+          class="group flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
           :class="[
             dragIndex === index && 'opacity-50',
             overIndex === index && dragIndex !== index && 'border-primary bg-accent',
           ]"
+          @click="emit('select', item)"
           @dragstart="onDragStart(index, $event)"
           @dragover="onDragOver(index, $event)"
           @dragend="resetDrag"
@@ -152,7 +156,7 @@ function move(index: number, delta: number) {
               class="size-8"
               :disabled="index === 0"
               :aria-label="t.admin.curriculum.moveUp"
-              @click="move(index, -1)"
+              @click.stop="move(index, -1)"
             >
               <ChevronUp class="size-4" />
             </Button>
@@ -162,7 +166,7 @@ function move(index: number, delta: number) {
               class="size-8"
               :disabled="index === items.length - 1"
               :aria-label="t.admin.curriculum.moveDown"
-              @click="move(index, 1)"
+              @click.stop="move(index, 1)"
             >
               <ChevronDown class="size-4" />
             </Button>
@@ -171,7 +175,7 @@ function move(index: number, delta: number) {
               size="icon"
               class="size-8"
               :aria-label="t.admin.curriculum.editName"
-              @click="emit('edit-name', item)"
+              @click.stop="emit('edit-name', item)"
             >
               <Pencil class="size-4" />
             </Button>
@@ -180,7 +184,7 @@ function move(index: number, delta: number) {
               size="icon"
               class="size-8"
               :aria-label="t.admin.curriculum.editImage"
-              @click="emit('edit-image', item)"
+              @click.stop="emit('edit-image', item)"
             >
               <ImagePlus class="size-4" />
             </Button>
@@ -189,10 +193,11 @@ function move(index: number, delta: number) {
               size="icon"
               class="size-8"
               :aria-label="t.shared.actions.delete"
-              @click="emit('delete', item)"
+              @click.stop="emit('delete', item)"
             >
               <Trash2 class="size-4" />
             </Button>
+            <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
           </div>
         </li>
       </ol>

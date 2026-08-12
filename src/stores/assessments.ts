@@ -129,7 +129,9 @@ function rowToAssessmentQuestion(
                 return Boolean(source?.text) || Boolean(source?.imagePath)
               }),
       answer: bank.answer,
-      explanation: bank.explanation,
+      // The bank carries per-option tips now, not an explanation; the ad-hoc
+      // payload shape has no slot for tips, so bank copies carry none.
+      explanation: null,
       payload: null,
     }
   }

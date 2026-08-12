@@ -15,6 +15,8 @@ export interface MCQOption {
   text: string | null
   imagePath: string | null
   isCorrect: boolean
+  /** Shown to a student who picked this option and got the question wrong. */
+  tip: string | null
 }
 
 export interface Question {
@@ -25,9 +27,8 @@ export interface Question {
   subTopicId: string
   gradeLevelId: string | null
   subjectId: string | null
-  explanation: string | null
   answer: string | null // For short_answer type
-  options: MCQOption[] // For MCQ type
+  options: MCQOption[] // For MCQ/MRQ type (each option carries its own tip)
   createdAt: string | null
   updatedAt: string | null
   imageHash: string | null // SHA-256 hash of all images for duplicate detection
@@ -57,7 +58,6 @@ export interface CreateQuestionInput {
   subTopicId: string
   gradeLevelId?: string | null
   subjectId?: string | null
-  explanation?: string | null
   answer?: string | null
   options?: MCQOption[]
   imageHash?: string | null // SHA-256 hash of all images for duplicate detection
@@ -67,10 +67,6 @@ export interface UpdateQuestionInput {
   type?: QuestionType
   question?: string
   imagePath?: string | null
-  subTopicId?: string
-  gradeLevelId?: string | null
-  subjectId?: string | null
-  explanation?: string | null
   answer?: string | null
   options?: MCQOption[]
   imageHash?: string | null // SHA-256 hash of all images for duplicate detection
@@ -89,24 +85,28 @@ export function rowToQuestion(
       text: row.option_1_text,
       imagePath: row.option_1_image_path,
       isCorrect: row.option_1_is_correct ?? false,
+      tip: row.option_1_tip,
     },
     {
       id: 'b',
       text: row.option_2_text,
       imagePath: row.option_2_image_path,
       isCorrect: row.option_2_is_correct ?? false,
+      tip: row.option_2_tip,
     },
     {
       id: 'c',
       text: row.option_3_text,
       imagePath: row.option_3_image_path,
       isCorrect: row.option_3_is_correct ?? false,
+      tip: row.option_3_tip,
     },
     {
       id: 'd',
       text: row.option_4_text,
       imagePath: row.option_4_image_path,
       isCorrect: row.option_4_is_correct ?? false,
+      tip: row.option_4_tip,
     },
   ]
 
@@ -132,7 +132,6 @@ export function rowToQuestion(
     subTopicId: row.sub_topic_id,
     gradeLevelId: row.grade_level_id,
     subjectId: row.subject_id,
-    explanation: row.explanation,
     answer: row.answer,
     options,
     createdAt: row.created_at,
@@ -145,6 +144,37 @@ export function rowToQuestion(
   }
 }
 
+/** Write MCQ/MRQ options (text, image, correctness, tip) into a row payload */
+function applyOptionsToRow(
+  target: Database['public']['Tables']['questions']['Update'],
+  options: MCQOption[],
+): void {
+  const optionA = options.find((o) => o.id === 'a')
+  const optionB = options.find((o) => o.id === 'b')
+  const optionC = options.find((o) => o.id === 'c')
+  const optionD = options.find((o) => o.id === 'd')
+
+  target.option_1_text = optionA?.text ?? null
+  target.option_1_image_path = optionA?.imagePath ?? null
+  target.option_1_is_correct = optionA?.isCorrect ?? false
+  target.option_1_tip = optionA?.tip ?? null
+
+  target.option_2_text = optionB?.text ?? null
+  target.option_2_image_path = optionB?.imagePath ?? null
+  target.option_2_is_correct = optionB?.isCorrect ?? false
+  target.option_2_tip = optionB?.tip ?? null
+
+  target.option_3_text = optionC?.text ?? null
+  target.option_3_image_path = optionC?.imagePath ?? null
+  target.option_3_is_correct = optionC?.isCorrect ?? false
+  target.option_3_tip = optionC?.tip ?? null
+
+  target.option_4_text = optionD?.text ?? null
+  target.option_4_image_path = optionD?.imagePath ?? null
+  target.option_4_is_correct = optionD?.isCorrect ?? false
+  target.option_4_tip = optionD?.tip ?? null
+}
+
 export const useQuestionsStore = defineStore('questions', () => {
   const curriculumStore = useCurriculumStore()
 
@@ -154,28 +184,6 @@ export const useQuestionsStore = defineStore('questions', () => {
 
   // Question statistics (fetched separately or computed from practice_answers)
   const questionStatistics = ref<QuestionStatistics[]>([])
-
-  // ============================================
-  // Question Bank Page State (persisted across navigation)
-  // ============================================
-  const {
-    filters: questionBankFilters,
-    pagination: questionBankPagination,
-    setGradeLevel: _setQuestionBankGradeLevel,
-    setSubject: _setQuestionBankSubject,
-    setTopic: _setQuestionBankTopic,
-    setSubTopic: _setQuestionBankSubTopic,
-    setPageIndex: _setQuestionBankPageIndex,
-    setPageSize: _setQuestionBankPageSize,
-    resetFilters: resetQuestionBankFilters,
-  } = useCascadingFilters({ hasSearch: true })
-
-  // Server-side pagination state for question bank
-  const serverQuestions = ref<Question[]>([])
-  const serverTotalCount = ref(0)
-  const serverIsLoading = ref(false)
-  let fetchVersion = 0
-  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
   // ============================================
   // Question Feedback Page State (persisted across navigation)
@@ -204,8 +212,6 @@ export const useQuestionsStore = defineStore('questions', () => {
     setPageSize: setQuestionStatisticsPageSize,
     resetFilters: resetQuestionStatisticsFilters,
   } = useCascadingFilters({ hasSearch: true })
-
-  const ALL_VALUE = '__all__'
 
   /**
    * Resolve a selected name-path to the exact set of sub_topic IDs by walking
@@ -236,142 +242,6 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
     }
     return ids
-  }
-
-  /**
-   * Resolve current question bank filters to an array of sub_topic IDs
-   * using the already-loaded curriculum hierarchy.
-   * Returns null if no filters are applied (fetch all questions).
-   */
-  function resolveSubTopicIds(): string[] | null {
-    const f = questionBankFilters.value
-    const gradeLevel = f.gradeLevel !== ALL_VALUE ? f.gradeLevel : undefined
-    const subject = f.subject !== ALL_VALUE ? f.subject : undefined
-    const topic = f.topic !== ALL_VALUE ? f.topic : undefined
-    const subTopic = f.subTopic !== ALL_VALUE ? f.subTopic : undefined
-
-    if (!gradeLevel && !subject && !topic && !subTopic) return null
-
-    return resolveSubTopicIdsForPath(gradeLevel, subject, topic, subTopic)
-  }
-
-  /** Escape SQL LIKE wildcards so user input is matched literally */
-  function escapeLikePattern(value: string): string {
-    return value.replace(/%/g, '\\%').replace(/_/g, '\\_')
-  }
-
-  /**
-   * Get current filter parameters for query building.
-   */
-  function getFilterParams() {
-    return {
-      subTopicIds: resolveSubTopicIds(),
-      search: (questionBankFilters.value as { search?: string }).search?.trim() || '',
-    }
-  }
-
-  /**
-   * Fetch a single page of questions for the question bank (server-side pagination).
-   */
-  async function fetchQuestionBankPage(): Promise<void> {
-    const version = ++fetchVersion
-    serverIsLoading.value = true
-    error.value = null
-
-    try {
-      // Ensure curriculum is loaded first
-      if (curriculumStore.gradeLevels.length === 0) {
-        await curriculumStore.fetchCurriculum()
-      }
-
-      const { pageIndex, pageSize } = questionBankPagination.value
-      const from = pageIndex * pageSize
-      const to = from + pageSize - 1
-      const { subTopicIds, search } = getFilterParams()
-
-      // No sub-topics match filters — return empty immediately
-      if (subTopicIds !== null && subTopicIds.length === 0) {
-        serverQuestions.value = []
-        serverTotalCount.value = 0
-        serverIsLoading.value = false
-        return
-      }
-
-      let query = supabase.from('questions').select('*', { count: 'exact', head: false })
-
-      if (subTopicIds !== null) {
-        query = query.in('sub_topic_id', subTopicIds)
-      }
-      if (search) {
-        query = query.ilike('question', `%${escapeLikePattern(search)}%`)
-      }
-
-      const {
-        data,
-        count,
-        error: fetchError,
-      } = await query.order('created_at', { ascending: false }).range(from, to)
-
-      if (fetchError) throw fetchError
-
-      // Discard stale responses
-      if (version !== fetchVersion) return
-
-      serverQuestions.value = (data ?? []).map((row) => rowToQuestion(row, curriculumStore))
-      serverTotalCount.value = count ?? 0
-    } catch (err) {
-      if (version !== fetchVersion) return
-      error.value = handleError(err, 'failedFetchQuestions')
-    } finally {
-      if (version === fetchVersion) {
-        serverIsLoading.value = false
-      }
-    }
-  }
-
-  /**
-   * Fetch ALL questions matching current filters (for export).
-   * Uses batch fetching since exports can exceed 1000 rows.
-   * Only called on explicit export actions, not on page load.
-   */
-  async function fetchAllFilteredQuestions(): Promise<Question[]> {
-    if (curriculumStore.gradeLevels.length === 0) {
-      await curriculumStore.fetchCurriculum()
-    }
-
-    const { subTopicIds, search } = getFilterParams()
-
-    // No sub-topics match filters — return empty immediately
-    if (subTopicIds !== null && subTopicIds.length === 0) {
-      return []
-    }
-
-    const BATCH_SIZE = 1000
-    const allRows: QuestionRow[] = []
-    let from = 0
-    let hasMore = true
-
-    while (hasMore) {
-      let query = supabase.from('questions').select('*')
-
-      if (subTopicIds !== null) {
-        query = query.in('sub_topic_id', subTopicIds)
-      }
-      if (search) {
-        query = query.ilike('question', `%${escapeLikePattern(search)}%`)
-      }
-
-      const { data, error: fetchError } = await query
-        .order('created_at', { ascending: false })
-        .range(from, from + BATCH_SIZE - 1)
-
-      if (fetchError) throw fetchError
-      allRows.push(...(data ?? []))
-      hasMore = (data?.length ?? 0) === BATCH_SIZE
-      from += BATCH_SIZE
-    }
-
-    return allRows.map((row) => rowToQuestion(row, curriculumStore))
   }
 
   /**
@@ -446,11 +316,11 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * Add a new question
+   * Add a new question. The caller owns list refreshes (the per-sub-topic
+   * question panel refetches its own sub-topic after a successful write).
    */
   async function addQuestion(
     input: CreateQuestionInput,
-    options?: { skipRefresh?: boolean },
   ): Promise<{ error: string | null; id?: string }> {
     try {
       const insertData: Database['public']['Tables']['questions']['Insert'] = {
@@ -460,33 +330,13 @@ export const useQuestionsStore = defineStore('questions', () => {
         sub_topic_id: input.subTopicId,
         grade_level_id: input.gradeLevelId ?? null,
         subject_id: input.subjectId ?? null,
-        explanation: input.explanation ?? null,
         answer: input.type === 'short_answer' ? (input.answer ?? null) : null,
         image_hash: input.imageHash ?? null,
       }
 
       // Add MCQ/MRQ options if present
       if ((input.type === 'mcq' || input.type === 'mrq') && input.options) {
-        const optionA = input.options.find((o) => o.id === 'a')
-        const optionB = input.options.find((o) => o.id === 'b')
-        const optionC = input.options.find((o) => o.id === 'c')
-        const optionD = input.options.find((o) => o.id === 'd')
-
-        insertData.option_1_text = optionA?.text ?? null
-        insertData.option_1_image_path = optionA?.imagePath ?? null
-        insertData.option_1_is_correct = optionA?.isCorrect ?? false
-
-        insertData.option_2_text = optionB?.text ?? null
-        insertData.option_2_image_path = optionB?.imagePath ?? null
-        insertData.option_2_is_correct = optionB?.isCorrect ?? false
-
-        insertData.option_3_text = optionC?.text ?? null
-        insertData.option_3_image_path = optionC?.imagePath ?? null
-        insertData.option_3_is_correct = optionC?.isCorrect ?? false
-
-        insertData.option_4_text = optionD?.text ?? null
-        insertData.option_4_image_path = optionD?.imagePath ?? null
-        insertData.option_4_is_correct = optionD?.isCorrect ?? false
+        applyOptionsToRow(insertData, input.options)
       }
 
       const { data, error: insertError } = await supabase
@@ -496,11 +346,6 @@ export const useQuestionsStore = defineStore('questions', () => {
         .single()
 
       if (insertError) throw insertError
-
-      // Refresh current page to show the new question (skip during bulk operations)
-      if (!options?.skipRefresh) {
-        await fetchQuestionBankPage()
-      }
 
       return { error: null, id: data.id }
     } catch (err) {
@@ -522,35 +367,12 @@ export const useQuestionsStore = defineStore('questions', () => {
       if (input.type !== undefined) updateData.type = input.type
       if (input.question !== undefined) updateData.question = input.question
       if (input.imagePath !== undefined) updateData.image_path = input.imagePath
-      if (input.subTopicId !== undefined) updateData.sub_topic_id = input.subTopicId
-      if (input.gradeLevelId !== undefined) updateData.grade_level_id = input.gradeLevelId
-      if (input.subjectId !== undefined) updateData.subject_id = input.subjectId
-      if (input.explanation !== undefined) updateData.explanation = input.explanation
       if (input.answer !== undefined) updateData.answer = input.answer
       if (input.imageHash !== undefined) updateData.image_hash = input.imageHash
 
       // Update MCQ options if present
       if (input.options) {
-        const optionA = input.options.find((o) => o.id === 'a')
-        const optionB = input.options.find((o) => o.id === 'b')
-        const optionC = input.options.find((o) => o.id === 'c')
-        const optionD = input.options.find((o) => o.id === 'd')
-
-        updateData.option_1_text = optionA?.text ?? null
-        updateData.option_1_image_path = optionA?.imagePath ?? null
-        updateData.option_1_is_correct = optionA?.isCorrect ?? false
-
-        updateData.option_2_text = optionB?.text ?? null
-        updateData.option_2_image_path = optionB?.imagePath ?? null
-        updateData.option_2_is_correct = optionB?.isCorrect ?? false
-
-        updateData.option_3_text = optionC?.text ?? null
-        updateData.option_3_image_path = optionC?.imagePath ?? null
-        updateData.option_3_is_correct = optionC?.isCorrect ?? false
-
-        updateData.option_4_text = optionD?.text ?? null
-        updateData.option_4_image_path = optionD?.imagePath ?? null
-        updateData.option_4_is_correct = optionD?.isCorrect ?? false
+        applyOptionsToRow(updateData, input.options)
       }
 
       const { error: updateError } = await supabase
@@ -561,9 +383,6 @@ export const useQuestionsStore = defineStore('questions', () => {
         .single()
 
       if (updateError) throw updateError
-
-      // Refresh current page
-      await fetchQuestionBankPage()
 
       return { error: null }
     } catch (err) {
@@ -580,9 +399,6 @@ export const useQuestionsStore = defineStore('questions', () => {
       const { error: deleteError } = await supabase.from('questions').delete().eq('id', id)
 
       if (deleteError) throw deleteError
-
-      // Refresh current page
-      await fetchQuestionBankPage()
 
       return { error: null }
     } catch (err) {
@@ -831,57 +647,11 @@ export const useQuestionsStore = defineStore('questions', () => {
     questionFeedbackPagination.value.pageIndex = 0
   }
 
-  // ============================================
-  // Question Bank filter setters (trigger server refetch)
-  // ============================================
-  function setQuestionBankGradeLevel(value: string) {
-    _setQuestionBankGradeLevel(value)
-    fetchQuestionBankPage()
-  }
-  function setQuestionBankSubject(value: string) {
-    _setQuestionBankSubject(value)
-    fetchQuestionBankPage()
-  }
-  function setQuestionBankTopic(value: string) {
-    _setQuestionBankTopic(value)
-    fetchQuestionBankPage()
-  }
-  function setQuestionBankSubTopic(value: string) {
-    _setQuestionBankSubTopic(value)
-    fetchQuestionBankPage()
-  }
-  function setQuestionBankSearch(value: string) {
-    // Bypasses the composable's setSearch to avoid resetting pageIndex on every keystroke.
-    // pageIndex is reset in the debounce callback so the page and data update together.
-    ;(questionBankFilters.value as { search: string }).search = value
-    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
-    searchDebounceTimer = setTimeout(() => {
-      questionBankPagination.value.pageIndex = 0
-      fetchQuestionBankPage()
-    }, 300)
-  }
-  function setQuestionBankPageIndex(value: number) {
-    _setQuestionBankPageIndex(value)
-    fetchQuestionBankPage()
-  }
-  function setQuestionBankPageSize(value: number) {
-    _setQuestionBankPageSize(value)
-    fetchQuestionBankPage()
-  }
-
   function $reset() {
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
-      searchDebounceTimer = null
-    }
     questions.value = []
-    serverQuestions.value = []
-    serverTotalCount.value = 0
-    serverIsLoading.value = false
     questionStatistics.value = []
     isLoading.value = false
     error.value = null
-    resetQuestionBankFilters()
     resetQuestionStatisticsFilters()
     questionFeedbackFilters.value = { search: '' }
     questionFeedbackPagination.value = { pageIndex: 0, pageSize: 10 }
@@ -895,15 +665,8 @@ export const useQuestionsStore = defineStore('questions', () => {
     isLoading,
     error,
 
-    // Server-side pagination state (question bank)
-    serverQuestions,
-    serverTotalCount,
-    serverIsLoading,
-
     // Actions
     fetchQuestions,
-    fetchQuestionBankPage,
-    fetchAllFilteredQuestions,
     fetchQuestionsBySubTopic,
     fetchQuestionById,
     addQuestion,
@@ -926,17 +689,6 @@ export const useQuestionsStore = defineStore('questions', () => {
     getSubTopics,
     getFilteredQuestions,
     getFilteredQuestionsWithStats,
-
-    // Question Bank Page State
-    questionBankFilters,
-    questionBankPagination,
-    setQuestionBankGradeLevel,
-    setQuestionBankSubject,
-    setQuestionBankTopic,
-    setQuestionBankSubTopic,
-    setQuestionBankSearch,
-    setQuestionBankPageIndex,
-    setQuestionBankPageSize,
 
     // Question Feedback Page State
     questionFeedbackFilters,

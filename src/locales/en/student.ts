@@ -39,8 +39,6 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
     exitQuiz: 'Exit Quiz',
-    explanation: 'Explanation',
-    noExplanation: 'No explanation available for this question.',
     reportIssue: 'Report an issue',
     submitAnswer: 'Submit Answer',
     next: 'Next',

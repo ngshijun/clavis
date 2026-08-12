@@ -39,7 +39,12 @@ import {
 } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{
+  open: boolean
+  /** Every imported question is created in this sub-topic (the one in view). */
+  subTopicId: string
+  subTopicName: string
+}>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   uploaded: []
@@ -63,7 +68,6 @@ const isLoading = ref(false)
 
 // Collapsible states
 const isParseErrorsOpen = ref(false)
-const isCurriculumErrorsOpen = ref(false)
 const isDuplicatesOpen = ref(false)
 const isWithinFileDuplicatesOpen = ref(false)
 const isFailedOpen = ref(false)
@@ -74,9 +78,7 @@ const canUpload = computed(() => {
 })
 
 const totalErrors = computed(() => {
-  return (
-    (parseResult.value?.errors.length || 0) + (validationResult.value?.curriculumErrors.length || 0)
-  )
+  return parseResult.value?.errors.length || 0
 })
 
 // Methods
@@ -131,8 +133,8 @@ async function processFile() {
       return
     }
 
-    // Validate questions
-    validationResult.value = await validateQuestions(parseResult.value.questions)
+    // Validate questions against the target sub-topic
+    validationResult.value = await validateQuestions(parseResult.value.questions, props.subTopicId)
     step.value = 'preview'
   } catch (error) {
     console.error('Error processing file:', error)
@@ -152,6 +154,7 @@ async function executeUpload() {
   try {
     uploadResult.value = await executeBulkUpload({
       questions: validationResult.value.valid,
+      subTopicId: props.subTopicId,
       onProgress: (current) => {
         uploadProgress.value = current
       },
@@ -175,7 +178,6 @@ function reset() {
   uploadTotal.value = 0
   uploadResult.value = null
   isParseErrorsOpen.value = false
-  isCurriculumErrorsOpen.value = false
   isDuplicatesOpen.value = false
   isWithinFileDuplicatesOpen.value = false
   isFailedOpen.value = false
@@ -211,7 +213,10 @@ const progressPercent = computed(() => {
     <DialogContent class="max-h-[85vh] sm:max-w-2xl overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ t.shared.questionBulkUploadDialog.title }}</DialogTitle>
-        <DialogDescription>{{ t.shared.questionBulkUploadDialog.description }}</DialogDescription>
+        <DialogDescription>
+          {{ t.shared.questionBulkUploadDialog.description }}
+          {{ t.shared.questionBulkUploadDialog.scopedNotice(subTopicName) }}
+        </DialogDescription>
       </DialogHeader>
 
       <!-- Step 1: Upload -->
@@ -327,37 +332,6 @@ const progressPercent = computed(() => {
                 class="rounded bg-red-100 p-2 text-xs dark:bg-red-900/30"
               >
                 {{ t.shared.questionBulkUploadDialog.rowError(err.row, err.column, err.message) }}
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        <!-- Curriculum Errors -->
-        <Collapsible
-          v-if="validationResult?.curriculumErrors.length"
-          v-model:open="isCurriculumErrorsOpen"
-          class="rounded-lg border border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/10"
-        >
-          <CollapsibleTrigger
-            class="flex w-full items-center justify-between p-3 text-sm font-medium text-red-600"
-          >
-            <span>{{
-              t.shared.questionBulkUploadDialog.curriculumErrors(
-                validationResult.curriculumErrors.length,
-              )
-            }}</span>
-            <component :is="isCurriculumErrorsOpen ? ChevronDown : ChevronRight" class="size-4" />
-          </CollapsibleTrigger>
-          <CollapsibleContent class="px-3 pb-3">
-            <div class="max-h-32 space-y-1 overflow-y-auto">
-              <div
-                v-for="err in validationResult.curriculumErrors"
-                :key="err.row"
-                class="rounded bg-red-100 p-2 text-xs dark:bg-red-900/30"
-              >
-                {{
-                  t.shared.questionBulkUploadDialog.rowErrorSimple(err.row, err.errors.join(', '))
-                }}
               </div>
             </div>
           </CollapsibleContent>

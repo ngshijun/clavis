@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { useCurriculumStore } from '@/stores/curriculum'
 import { useQuestionsStore, type Question } from '@/stores/questions'
 import { useQuestionForm } from '@/composables/useQuestionForm'
 import { computeQuestionImageHash } from '@/lib/imageHash'
@@ -30,7 +29,6 @@ const emit = defineEmits<{
 
 const t = useT()
 
-const curriculumStore = useCurriculumStore()
 const questionsStore = useQuestionsStore()
 
 const form = useQuestionForm()
@@ -52,11 +50,6 @@ const onSubmit = form.handleSubmit(async (formValues) => {
 
   try {
     const questionId = props.question.id
-
-    // Get hierarchy info for grade_level_id and subject_id
-    const hierarchy = curriculumStore.getSubTopicWithHierarchy(formValues.subTopicId)
-    const gradeLevelId = hierarchy?.gradeLevel.id ?? formValues.gradeLevelId
-    const subjectId = hierarchy?.subject.id ?? formValues.subjectId
 
     // Track image paths to update
     let questionImagePath: string | null = props.question.imagePath
@@ -112,18 +105,15 @@ const onSubmit = form.handleSubmit(async (formValues) => {
             text: opt.text,
             imagePath: optionImagePaths[opt.id] ?? null,
             isCorrect: opt.isCorrect,
+            tip: opt.tip,
           }))
         : undefined
 
-    // Update the question
+    // Update the question (it stays in its sub-topic — CRUD is per-sub-topic)
     const result = await questionsStore.updateQuestion(questionId, {
       type: formValues.type,
       question: formValues.question,
       imagePath: questionImagePath,
-      subTopicId: formValues.subTopicId,
-      gradeLevelId,
-      subjectId,
-      explanation: formValues.explanation || null,
       answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
       options: updateOptions,
     })

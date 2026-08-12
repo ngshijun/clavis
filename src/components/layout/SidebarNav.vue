@@ -31,7 +31,6 @@ const pathToNavKey: Record<string, string> = {
   '/admin/announcements': 'announcements',
   '/admin/organizations': 'organizations',
   '/admin/curriculum': 'curriculum',
-  '/admin/question-bank': 'questionBank',
   '/admin/question-statistics': 'questionStatistics',
   '/admin/question-feedback': 'questionFeedback',
   '/admin/students': 'students',

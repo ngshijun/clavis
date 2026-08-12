@@ -48,8 +48,8 @@ const isSaving = ref(false)
 const selectedIds = ref<string[]>([])
 const search = ref('')
 
-// Local cascading filter state — deliberately NOT the questions store's
-// question-bank state, which belongs to the admin Question Bank page.
+// Local cascading filter state — this picker owns its own filters rather than
+// sharing page-level state in the questions store.
 const gradeLevel = ref(ALL_VALUE)
 const subject = ref(ALL_VALUE)
 const topic = ref(ALL_VALUE)

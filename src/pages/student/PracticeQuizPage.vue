@@ -346,24 +346,6 @@ onBeforeRouteLeave((to) => {
               :correct-answer="correctAnswer"
               @submit="submitAnswer"
             />
-
-            <!-- Explanation (shown after answering, if wrong) -->
-            <div
-              v-if="isAnswered"
-              class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
-            >
-              <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
-                {{ t.student.practiceQuiz.explanation }}
-              </p>
-              <div
-                v-if="currentQuestion.explanation"
-                class="mt-1 text-sm leading-relaxed text-amber-700 dark:text-amber-300"
-                v-html="parseSimpleMarkdown(currentQuestion.explanation)"
-              />
-              <p v-else class="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                {{ t.student.practiceQuiz.noExplanation }}
-              </p>
-            </div>
           </CardContent>
 
           <CardFooter class="flex items-center">

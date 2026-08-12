@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { useFeedbackStore } from '@/stores/feedback'
 import { useAuthStore } from '@/stores/auth'
-import { questionFeedbackFormSchema } from '@/lib/validations'
+import { questionFeedbackFormSchema, type QuestionFeedbackFormValues } from '@/lib/validations'
 import { toast } from 'vue-sonner'
 import {
   Dialog,
@@ -23,14 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Database } from '@/types/database.types'
 import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
 
 const t = useT()
 const languageStore = useLanguageStore()
 
-type FeedbackCategory = Database['public']['Enums']['feedback_category']
+// Only the categories the form still offers (decision 45 dropped explanation_error)
+type FeedbackCategory = QuestionFeedbackFormValues['category']
 
 const props = defineProps<{
   questionId: string
@@ -51,10 +51,9 @@ const feedbackCategories = computed<{ value: FeedbackCategory; label: string }[]
   { value: 'image_error', label: t.value.shared.questionFeedbackDialog.categories.image_error },
   { value: 'option_error', label: t.value.shared.questionFeedbackDialog.categories.option_error },
   { value: 'answer_error', label: t.value.shared.questionFeedbackDialog.categories.answer_error },
-  {
-    value: 'explanation_error',
-    label: t.value.shared.questionFeedbackDialog.categories.explanation_error,
-  },
+  // 'explanation_error' is deliberately NOT offered anymore (decision 45):
+  // questions carry per-option tips now. The enum value stays in the DB and is
+  // still rendered for legacy feedback rows.
   { value: 'other', label: t.value.shared.questionFeedbackDialog.categories.other },
 ])
 

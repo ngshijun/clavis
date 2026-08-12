@@ -35,14 +35,12 @@ export const editNameFormSchema = z.object({
 })
 export type EditNameFormValues = z.infer<typeof editNameFormSchema>
 
-// Question feedback form
+// Question feedback form — 'explanation_error' is no longer offered (decision 45);
+// the DB enum keeps the value for legacy rows.
 export const questionFeedbackFormSchema = z.object({
-  category: z.enum(
-    ['question_error', 'image_error', 'option_error', 'answer_error', 'explanation_error', 'other'],
-    {
-      error: 'Please select an issue type',
-    },
-  ),
+  category: z.enum(['question_error', 'image_error', 'option_error', 'answer_error', 'other'], {
+    error: 'Please select an issue type',
+  }),
   details: z.string().optional(),
 })
 export type QuestionFeedbackFormValues = z.infer<typeof questionFeedbackFormSchema>

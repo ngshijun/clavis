@@ -21,7 +21,6 @@ export interface SessionQuestion {
   question: string
   imagePath?: string | null
   answer?: string | null
-  explanation?: string | null
   isDeleted?: boolean
   options?: Array<{
     id: string
@@ -240,24 +239,6 @@ const deletedAnswerWasText = computed(() =>
             <span class="font-medium">{{ t.shared.sessionQuestionCard.theCorrectAnswerIs }}</span>
             <span class="text-green-600">{{ question.answer }}</span>
           </div>
-        </div>
-
-        <!-- Explanation -->
-        <div
-          v-if="answer"
-          class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
-        >
-          <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
-            {{ t.shared.sessionQuestionCard.explanation }}
-          </p>
-          <div
-            v-if="question.explanation"
-            class="mt-1 text-sm leading-relaxed text-amber-700 dark:text-amber-300"
-            v-html="parseSimpleMarkdown(question.explanation)"
-          />
-          <p v-else class="mt-1 text-sm text-amber-700 dark:text-amber-300">
-            {{ t.shared.sessionQuestionCard.noExplanation }}
-          </p>
         </div>
       </template>
     </CardContent>

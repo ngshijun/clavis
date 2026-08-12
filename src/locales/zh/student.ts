@@ -37,8 +37,6 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `第 ${current} / ${total} 题`,
     exitQuiz: '退出练习',
-    explanation: '解析',
-    noExplanation: '此题暂无解析。',
     reportIssue: '举报问题',
     submitAnswer: '提交答案',
     next: '下一题',
