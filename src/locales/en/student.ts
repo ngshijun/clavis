@@ -6,7 +6,7 @@ export default {
   },
   practice: {
     title: 'Practice',
-    subtitleSubTopic: 'Select a sub-topic to start practicing',
+    subtitleMap: 'Follow your path — tap any stop to practice',
     subtitleTopic: 'Select a topic to continue',
     subtitleSubject: 'Select a subject to start practicing',
     gradeLevelNotSet: 'Grade Level Not Set',
@@ -16,17 +16,22 @@ export default {
       `${completed}/${total} ${total === 1 ? 'topic' : 'topics'} completed`,
     subTopicCompleted: (completed: number, total: number) =>
       `${completed}/${total} ${total === 1 ? 'sub-topic' : 'sub-topics'} completed`,
-    questionsCompleted: (answered: number, total: number) =>
-      `${answered}/${total} ${total === 1 ? 'question' : 'questions'} practiced`,
     noSubjects: 'No subjects available for your grade level.',
     noTopics: 'No topics available for this subject.',
     noSubTopics: 'No sub-topics available for this topic.',
     startingSession: 'Starting practice session...',
-    startSession: 'Start Practice Session?',
-    startSessionDesc: (name: string) =>
-      `You are about to start a practice session for ${name}. This will use 1 of your daily sessions.`,
-    cancel: 'Cancel',
-    startSessionConfirm: 'Start Session',
+  },
+  learningMap: {
+    continueHere: 'Continue here',
+    nodeAria: (name: string, stars: number) =>
+      `${name} — ${stars} of 3 ${stars === 1 ? 'star' : 'stars'}`,
+    questionCount: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`,
+    bestScore: (score: number) => `Best score: ${score}%`,
+    notPracticedYet: 'Not practiced yet — give it a go!',
+    sessionsCompleted: (n: number) => `${n} ${n === 1 ? 'session' : 'sessions'} completed`,
+    startPractice: 'Start Practice',
+    practiceAgain: 'Practice Again',
+    noQuestionsYet: 'No questions here yet. Check back soon!',
   },
   practiceQuiz: {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
@@ -55,6 +60,9 @@ export default {
   sessionResult: {
     title: 'Session Results',
     back: 'Back',
+    starsEarned: (n: number) =>
+      n === 0 ? 'No stars this time' : `Earned ${n} ${n === 1 ? 'star' : 'stars'}`,
+    bestSoFar: (score: number) => `Best so far: ${score}%`,
     aiSummaryTitle: 'AI Summary',
     aiSummaryRetry: 'Retry',
     aiSummaryGenerate: 'Generate Summary',

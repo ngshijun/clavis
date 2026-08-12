@@ -67,6 +67,7 @@ export default {
     failedGenerateSummary: 'Failed to generate AI summary.',
     failedFetchSession: 'Failed to load session.',
     failedFetchSessionHistory: 'Failed to load session history.',
+    failedFetchSubTopicStats: 'Failed to load your learning progress.',
     // Curriculum (admin)
     failedFetchCurriculum: 'Failed to load curriculum.',
     failedAddGradeLevel: 'Failed to add grade level.',

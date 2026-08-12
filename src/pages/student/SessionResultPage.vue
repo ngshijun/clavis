@@ -3,11 +3,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticeStore } from '@/stores/practice'
 import { usePracticeHistoryStore } from '@/stores/practice-history'
+import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
 import type { PracticeSession } from '@/lib/practiceHelpers'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { buildSessionSummary, type SummarizableSession } from '@/lib/sessionResult'
+import { starsForScore } from '@/lib/learningMap'
 import SessionResultContent from '@/components/session/SessionResultContent.vue'
+import StarRating from '@/components/student/StarRating.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Loader2, BotMessageSquare, RefreshCw, AlertCircle } from 'lucide-vue-next'
@@ -16,6 +19,7 @@ const route = useRoute()
 const router = useRouter()
 const practiceStore = usePracticeStore()
 const historyStore = usePracticeHistoryStore()
+const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
 
 const sessionId = computed(() => route.params.sessionId as string)
@@ -31,6 +35,19 @@ const summary = computed(() =>
   session.value ? buildSessionSummary(session.value as SummarizableSession) : null,
 )
 
+// Stars for this session's score (decision 19: derived, never stored).
+// buildSessionSummary rounds the same way the DB does, so these stars match
+// what the map will show once the refetched stats arrive.
+const sessionStars = computed(() => (summary.value ? starsForScore(summary.value.score) : 0))
+
+// Best-so-far for this sub-topic, from the stats refetched after completion
+const bestStats = computed(() =>
+  session.value ? statsStore.getStats(session.value.subTopicId) : null,
+)
+const bestStars = computed(() =>
+  bestStats.value ? starsForScore(bestStats.value.bestScorePercent) : 0,
+)
+
 onMounted(async () => {
   const result = await historyStore.getSessionById(sessionId.value)
 
@@ -38,6 +55,12 @@ onMounted(async () => {
     session.value = result.session
 
     isCurrentSession.value = practiceStore.currentSession?.id === result.session.id
+
+    // Refetch map stats so best-so-far includes this completion (non-blocking;
+    // the stars card fills in reactively when the fetch lands)
+    if (result.session.completedAt) {
+      void statsStore.fetchStats()
+    }
 
     if (result.session.aiSummary) {
       aiSummaryStatus.value = 'success'
@@ -98,6 +121,28 @@ async function generateAiSummary() {
           </div>
         </div>
       </div>
+
+      <!-- Stars earned this session + best-so-far for the sub-topic -->
+      <Card
+        v-if="session.completedAt"
+        class="mb-6 border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20"
+      >
+        <CardContent class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
+          <div class="flex items-center gap-3">
+            <StarRating :stars="sessionStars" size="md" />
+            <div>
+              <p class="text-sm font-semibold">
+                {{ t.student.sessionResult.starsEarned(sessionStars) }}
+              </p>
+              <p class="text-xs text-muted-foreground">{{ session.subTopicName }}</p>
+            </div>
+          </div>
+          <div v-if="bestStats" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{{ t.student.sessionResult.bestSoFar(bestStats.bestScorePercent) }}</span>
+            <StarRating :stars="bestStars" size="sm" :arc="false" />
+          </div>
+        </CardContent>
+      </Card>
 
       <SessionResultContent
         :summary="summary"

@@ -66,6 +66,7 @@ export default {
     failedGenerateSummary: '生成 AI 总结失败。',
     failedFetchSession: '加载练习记录失败。',
     failedFetchSessionHistory: '加载练习记录失败。',
+    failedFetchSubTopicStats: '加载学习进度失败。',
     // Curriculum (admin)
     failedFetchCurriculum: '加载课程内容失败。',
     failedAddGradeLevel: '添加年级失败。',

@@ -4,19 +4,18 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { usePracticeStore } from '@/stores/practice'
+import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
 import { usePracticeProgress } from '@/composables/usePracticeProgress'
 import { useT } from '@/composables/useT'
-import { Loader2, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+  starsForScore,
+  nodeStateForStats,
+  recommendedNodeId,
+  type LearningMapNode,
+} from '@/lib/learningMap'
+import { Loader2, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
+import LearningMapPath from '@/components/student/LearningMapPath.vue'
+import SubTopicNodeDialog from '@/components/student/SubTopicNodeDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -26,14 +25,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
 const practiceStore = usePracticeStore()
+const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
-const {
-  isSubTopicFullyPracticed,
-  getTopicProgress,
-  isTopicFullyPracticed,
-  getSubjectProgress,
-  isSubjectFullyPracticed,
-} = usePracticeProgress()
+const { getTopicProgress, isTopicFullyPracticed, getSubjectProgress, isSubjectFullyPracticed } =
+  usePracticeProgress()
 
 // Navigation state (from store for persistence)
 const selectedSubjectId = computed({
@@ -46,16 +41,18 @@ const selectedTopicId = computed({
 })
 const isStartingSession = ref(false)
 
-// Confirmation dialog state
-const showConfirmDialog = ref(false)
+// Node detail dialog state
+const showNodeDialog = ref(false)
 const pendingSubTopicId = ref<string | null>(null)
 
-// Fetch curriculum and sub-topic progress on mount
+// Fetch curriculum, sub-topic progress, and map stats on mount.
+// A stats fetch failure is non-fatal: the map renders with every node
+// defaulting to not-started (the store logs the error).
 onMounted(async () => {
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
-  await practiceStore.fetchSubTopicProgress()
+  await Promise.all([practiceStore.fetchSubTopicProgress(), statsStore.fetchStats()])
 })
 
 // Get student's grade level ID
@@ -92,11 +89,37 @@ const selectedTopic = computed(() => {
   return selectedSubject.value.topics.find((t) => t.id === selectedTopicId.value) ?? null
 })
 
-// Get pending sub-topic for confirmation dialog
-const pendingSubTopic = computed(() => {
-  if (!selectedTopic.value || !pendingSubTopicId.value) return null
-  return selectedTopic.value.subTopics.find((st) => st.id === pendingSubTopicId.value) ?? null
+// Learning-map nodes for the selected topic, in path order (decision 17:
+// the admin-authored `display_order` IS the path). Legacy rows may carry
+// gaps or duplicate orders, so sort by displayOrder — never index into it.
+const mapNodes = computed<LearningMapNode[]>(() => {
+  if (!selectedTopic.value) return []
+  return [...selectedTopic.value.subTopics]
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((subTopic) => {
+      const stats = statsStore.getStats(subTopic.id)
+      return {
+        id: subTopic.id,
+        name: subTopic.name,
+        questionCount: subTopic.questionCount,
+        stars: stats ? starsForScore(stats.bestScorePercent) : 0,
+        state: nodeStateForStats(stats),
+      }
+    })
 })
+
+// "Continue here" hint: first node with <1★. A highlight, never a lock.
+const recommendedId = computed(() => recommendedNodeId(mapNodes.value))
+
+// Node shown in the detail dialog
+const pendingNode = computed(() => {
+  if (!pendingSubTopicId.value) return null
+  return mapNodes.value.find((node) => node.id === pendingSubTopicId.value) ?? null
+})
+
+const pendingStats = computed(() =>
+  pendingSubTopicId.value ? statsStore.getStats(pendingSubTopicId.value) : null,
+)
 
 function getImageUrl(coverImagePath: string | null): string {
   if (!coverImagePath) return ''
@@ -109,9 +132,9 @@ function getImageUrl(coverImagePath: string | null): string {
 function selectSubTopic(subTopicId: string) {
   if (!selectedTopic.value || isStartingSession.value) return
 
-  // Show confirmation dialog
+  // Show node detail dialog
   pendingSubTopicId.value = subTopicId
-  showConfirmDialog.value = true
+  showNodeDialog.value = true
 }
 
 function goBack() {
@@ -125,7 +148,7 @@ function goBack() {
 async function confirmStartSession() {
   if (!pendingSubTopicId.value) return
 
-  showConfirmDialog.value = false
+  showNodeDialog.value = false
   isStartingSession.value = true
 
   try {
@@ -162,7 +185,7 @@ async function confirmStartSession() {
         <p class="text-muted-foreground">
           {{
             selectedTopic
-              ? t.student.practice.subtitleSubTopic
+              ? t.student.practice.subtitleMap
               : selectedSubject
                 ? t.student.practice.subtitleTopic
                 : t.student.practice.subtitleSubject
@@ -314,69 +337,17 @@ async function confirmStartSession() {
         </div>
       </div>
 
-      <!-- Sub-Topic Selection -->
+      <!-- Learning map: sub-topics as stops along a winding path -->
       <div v-else>
-        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card
-            v-for="subTopic in selectedTopic.subTopics"
-            :key="subTopic.id"
-            class="flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg"
-            :class="{
-              'opacity-50 pointer-events-none': isStartingSession,
-              'border-2 border-green-500 bg-green-50 dark:bg-green-950/30':
-                subTopic.questionCount > 0 &&
-                practiceStore.getSubTopicAnsweredCount(subTopic.id) >= subTopic.questionCount,
-            }"
-            @click="selectSubTopic(subTopic.id)"
-          >
-            <div v-if="subTopic.coverImagePath" class="aspect-video w-full overflow-hidden">
-              <img
-                :src="getImageUrl(subTopic.coverImagePath)"
-                :alt="subTopic.name"
-                loading="lazy"
-                class="size-full object-cover"
-              />
-            </div>
-            <CardContent class="mt-auto p-4">
-              <div class="flex items-center gap-2">
-                <h3 class="text-lg font-semibold">{{ subTopic.name }}</h3>
-                <CircleCheck
-                  v-if="isSubTopicFullyPracticed(subTopic)"
-                  class="size-5 text-green-600"
-                />
-              </div>
-              <p
-                class="text-sm"
-                :class="
-                  subTopic.questionCount > 0 &&
-                  practiceStore.getSubTopicAnsweredCount(subTopic.id) >= subTopic.questionCount
-                    ? 'text-green-600'
-                    : 'text-muted-foreground'
-                "
-              >
-                {{
-                  t.student.practice.questionsCompleted(
-                    practiceStore.getSubTopicAnsweredCount(subTopic.id),
-                    subTopic.questionCount,
-                  )
-                }}
-              </p>
-              <Progress
-                :model-value="
-                  subTopic.questionCount > 0
-                    ? (practiceStore.getSubTopicAnsweredCount(subTopic.id) /
-                        subTopic.questionCount) *
-                      100
-                    : 0
-                "
-                class="mt-2 h-1.5"
-                :class="isSubTopicFullyPracticed(subTopic) ? '[&>div]:bg-green-500' : ''"
-              />
-            </CardContent>
-          </Card>
-        </div>
+        <LearningMapPath
+          v-if="mapNodes.length > 0"
+          :nodes="mapNodes"
+          :recommended-id="recommendedId"
+          :class="{ 'pointer-events-none opacity-60': isStartingSession }"
+          @select="selectSubTopic"
+        />
 
-        <div v-if="selectedTopic.subTopics.length === 0" class="py-12 text-center">
+        <div v-else class="py-12 text-center">
           <p class="text-muted-foreground">{{ t.student.practice.noSubTopics }}</p>
         </div>
       </div>
@@ -393,22 +364,13 @@ async function confirmStartSession() {
       </div>
     </div>
 
-    <!-- Start Session Confirmation Dialog -->
-    <AlertDialog v-model:open="showConfirmDialog">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{{ t.student.practice.startSession }}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {{ t.student.practice.startSessionDesc(pendingSubTopic?.name ?? '') }}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{{ t.student.practice.cancel }}</AlertDialogCancel>
-          <AlertDialogAction @click="confirmStartSession">{{
-            t.student.practice.startSessionConfirm
-          }}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <!-- Node detail dialog: stars, best score, start CTA -->
+    <SubTopicNodeDialog
+      v-model:open="showNodeDialog"
+      :node="pendingNode"
+      :stats="pendingStats"
+      :is-starting="isStartingSession"
+      @start="confirmStartSession"
+    />
   </div>
 </template>
