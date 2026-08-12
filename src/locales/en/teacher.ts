@@ -1,46 +1,15 @@
 export default {
   students: {
     title: 'My Students',
-    subtitle: 'Student accounts you created',
-    addStudentBtn: 'Add Student',
+    subtitle: 'Students in your classrooms',
     searchPlaceholder: 'Search by name or username...',
     nameCol: 'Name',
     usernameCol: 'Username',
     gradeCol: 'Grade',
     joinedCol: 'Joined',
     noStudents: 'No Students Yet',
-    noStudentsDesc: 'Create your first student account to get started.',
+    noStudentsDesc: 'Students appear here once your manager assigns them to your classrooms.',
     noStudentsMatchSearch: 'No students match your search criteria.',
     toastLoadFailed: 'Failed to load students',
-  },
-
-  studentForm: {
-    title: 'Add Student',
-    description: 'Create a student account. The student signs in with a username and password.',
-    nameLabel: 'Full Name',
-    namePlaceholder: "Student's full name",
-    usernameLabel: 'Username',
-    usernamePlaceholder: 'e.g. sam.lee',
-    usernameHint: '3-30 characters: letters, numbers, dot, underscore or hyphen.',
-    passwordLabel: 'Password',
-    passwordPlaceholder: 'At least 8 characters',
-    generate: 'Generate',
-    gradeLabel: 'Grade Level',
-    gradePlaceholder: 'Select a grade level',
-    cancel: 'Cancel',
-    create: 'Create Student',
-  },
-
-  studentCredentials: {
-    title: 'Student Account Created',
-    description: (name: string) =>
-      `Hand these sign-in details to ${name}. The password is shown only once.`,
-    usernameLabel: 'Username',
-    passwordLabel: 'Password',
-    copy: 'Copy',
-    copyAll: 'Copy Both',
-    done: 'Done',
-    toastCopied: 'Copied to clipboard',
-    toastCopyFailed: 'Failed to copy to clipboard',
   },
 } as const

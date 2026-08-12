@@ -30,13 +30,21 @@ function studentRouteGuard() {
 
 // Manager routes: fire-and-forget data preloading (non-blocking)
 function managerRouteGuard() {
-  import('@/stores/manager-teachers').then((teachersMod) => {
-    const teachersStore = teachersMod.useManagerTeachersStore()
+  Promise.all([import('@/stores/manager-teachers'), import('@/stores/curriculum')]).then(
+    ([teachersMod, curriculumMod]) => {
+      const teachersStore = teachersMod.useManagerTeachersStore()
+      const curriculumStore = curriculumMod.useCurriculumStore()
 
-    if (teachersStore.teachers.length === 0 && !teachersStore.isLoading) {
-      teachersStore.fetchTeachers()
-    }
-  })
+      if (teachersStore.teachers.length === 0 && !teachersStore.isLoading) {
+        teachersStore.fetchTeachers()
+      }
+
+      // Classroom + student provisioning forms need grade levels/subjects.
+      if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+        curriculumStore.fetchCurriculum()
+      }
+    },
+  )
 }
 
 // Teacher routes: fire-and-forget data preloading (non-blocking)
@@ -192,9 +200,14 @@ const router = createRouter({
           component: () => import('@/pages/manager/TeachersPage.vue'),
         },
         {
-          path: 'classes',
-          name: 'manager-classes',
-          component: () => import('@/pages/shared/ClassesPage.vue'),
+          path: 'students',
+          name: 'manager-students',
+          component: () => import('@/pages/manager/StudentsPage.vue'),
+        },
+        {
+          path: 'classrooms',
+          name: 'manager-classrooms',
+          component: () => import('@/pages/shared/ClassroomsPage.vue'),
         },
         {
           path: 'assessments',
@@ -236,9 +249,9 @@ const router = createRouter({
           component: () => import('@/pages/teacher/StudentsPage.vue'),
         },
         {
-          path: 'classes',
-          name: 'teacher-classes',
-          component: () => import('@/pages/shared/ClassesPage.vue'),
+          path: 'classrooms',
+          name: 'teacher-classrooms',
+          component: () => import('@/pages/shared/ClassroomsPage.vue'),
         },
         {
           path: 'assessments',

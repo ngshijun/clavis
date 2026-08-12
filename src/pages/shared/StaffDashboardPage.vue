@@ -3,7 +3,7 @@ import { ref, h, computed, onMounted } from 'vue'
 import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
 import {
   useStaffDashboardStore,
-  type ClassRollup,
+  type ClassroomRollup,
   type StudentRollup,
 } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
@@ -35,33 +35,33 @@ onMounted(async () => {
   }
 })
 
-// ── Class drill-down ─────────────────────────────
-const selectedClass = ref<ClassRollup | null>(null)
-const classStudents = ref<StudentRollup[]>([])
-const isLoadingClassStudents = ref(false)
+// ── Classroom drill-down ─────────────────────────
+const selectedClassroom = ref<ClassroomRollup | null>(null)
+const classroomStudents = ref<StudentRollup[]>([])
+const isLoadingClassroomStudents = ref(false)
 
-async function selectClass(rollup: ClassRollup) {
-  selectedClass.value = rollup
-  isLoadingClassStudents.value = true
+async function selectClassroom(rollup: ClassroomRollup) {
+  selectedClassroom.value = rollup
+  isLoadingClassroomStudents.value = true
 
-  const { students, error } = await dashboardStore.fetchClassStudents(rollup.classId)
-  isLoadingClassStudents.value = false
+  const { students, error } = await dashboardStore.fetchClassroomStudents(rollup.classroomId)
+  isLoadingClassroomStudents.value = false
 
   if (error) {
     toast.error(t.value.staff.dashboard.toastLoadFailed)
-    selectedClass.value = null
+    selectedClassroom.value = null
     return
   }
-  classStudents.value = students
+  classroomStudents.value = students
 }
 
-function clearSelectedClass() {
-  selectedClass.value = null
-  classStudents.value = []
+function clearSelectedClassroom() {
+  selectedClassroom.value = null
+  classroomStudents.value = []
 }
 
 const displayedStudents = computed(() =>
-  selectedClass.value ? classStudents.value : dashboardStore.studentRollups,
+  selectedClassroom.value ? classroomStudents.value : dashboardStore.studentRollups,
 )
 
 // ── Formatting helpers ───────────────────────────
@@ -81,36 +81,46 @@ function sortableHeader<TData>(label: () => string) {
     )
 }
 
-// ── Classes table ────────────────────────────────
-const classColumns = computed<ColumnDef<ClassRollup>[]>(() => [
+// ── Classrooms table ─────────────────────────────
+const classroomColumns = computed<ColumnDef<ClassroomRollup>[]>(() => [
   {
-    accessorKey: 'className',
-    header: sortableHeader<ClassRollup>(() => t.value.staff.dashboard.classes.nameCol),
-    cell: ({ row }) => h('div', { class: 'font-medium' }, row.original.className),
+    accessorKey: 'classroomName',
+    header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.nameCol),
+    cell: ({ row }) => h('div', { class: 'font-medium' }, row.original.classroomName),
+  },
+  {
+    accessorKey: 'gradeLevelName',
+    header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.gradeCol),
+    cell: ({ row }) => h('div', { class: 'text-muted-foreground' }, row.original.gradeLevelName),
+  },
+  {
+    accessorKey: 'subjectName',
+    header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.subjectCol),
+    cell: ({ row }) => h('div', { class: 'text-muted-foreground' }, row.original.subjectName),
   },
   ...(authStore.isManager
     ? [
         {
-          accessorKey: 'teacherName',
-          header: () => t.value.staff.dashboard.classes.teacherCol,
-          cell: ({ row }) => h('div', { class: 'text-muted-foreground' }, row.original.teacherName),
-        } satisfies ColumnDef<ClassRollup>,
+          accessorKey: 'teacherCount',
+          header: () => t.value.staff.dashboard.classrooms.teachersCol,
+          cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.original.teacherCount),
+        } satisfies ColumnDef<ClassroomRollup>,
       ]
     : []),
   {
     accessorKey: 'studentCount',
-    header: () => t.value.staff.dashboard.classes.studentsCol,
+    header: () => t.value.staff.dashboard.classrooms.studentsCol,
     cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.original.studentCount),
   },
   {
     accessorKey: 'avgMapMastery',
-    header: sortableHeader<ClassRollup>(() => t.value.staff.dashboard.classes.masteryCol),
+    header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.masteryCol),
     cell: ({ row }) =>
       h('div', { class: 'tabular-nums' }, formatPercent(row.original.avgMapMastery)),
   },
   {
     id: 'completion',
-    header: () => t.value.staff.dashboard.classes.completionCol,
+    header: () => t.value.staff.dashboard.classrooms.completionCol,
     // Meter: primary fill on a lighter step of the same hue (dataviz meter spec).
     cell: ({ row }) => {
       const { assignedAttempts, completedAttempts } = row.original
@@ -133,7 +143,7 @@ const classColumns = computed<ColumnDef<ClassRollup>[]>(() => [
   },
   {
     accessorKey: 'avgAssessmentScore',
-    header: sortableHeader<ClassRollup>(() => t.value.staff.dashboard.classes.avgScoreCol),
+    header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.avgScoreCol),
     cell: ({ row }) =>
       h('div', { class: 'tabular-nums' }, formatPercent(row.original.avgAssessmentScore)),
   },
@@ -228,8 +238,8 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
       <!-- KPI tiles -->
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          :label="t.staff.dashboard.tiles.classes"
-          :value="dashboardStore.classRollups.length"
+          :label="t.staff.dashboard.tiles.classrooms"
+          :value="dashboardStore.classroomRollups.length"
           :icon="School"
         />
         <StatTile
@@ -252,20 +262,20 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         />
       </div>
 
-      <!-- Classes -->
+      <!-- Classrooms -->
       <section>
-        <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.classes.sectionTitle }}</h2>
+        <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.classrooms.sectionTitle }}</h2>
 
-        <div v-if="dashboardStore.classRollups.length === 0" class="py-10 text-center">
+        <div v-if="dashboardStore.classroomRollups.length === 0" class="py-10 text-center">
           <School class="mx-auto size-12 text-muted-foreground/50" />
-          <p class="mt-3 text-muted-foreground">{{ t.staff.dashboard.classes.noClasses }}</p>
+          <p class="mt-3 text-muted-foreground">{{ t.staff.dashboard.classrooms.noClassrooms }}</p>
         </div>
 
         <DataTable
           v-else
-          :columns="classColumns"
-          :data="dashboardStore.classRollups"
-          :on-row-click="selectClass"
+          :columns="classroomColumns"
+          :data="dashboardStore.classroomRollups"
+          :on-row-click="selectClassroom"
         />
       </section>
 
@@ -273,20 +283,20 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
       <section>
         <div class="mb-3 flex items-center gap-3">
           <h2 class="text-lg font-semibold">{{ t.staff.dashboard.students.sectionTitle }}</h2>
-          <Badge v-if="selectedClass" variant="outline" class="gap-1">
-            {{ t.staff.dashboard.students.classFilter(selectedClass.className) }}
+          <Badge v-if="selectedClassroom" variant="outline" class="gap-1">
+            {{ t.staff.dashboard.students.classroomFilter(selectedClassroom.classroomName) }}
             <button
               type="button"
               class="ml-1 rounded-sm hover:text-foreground"
-              :aria-label="t.staff.dashboard.students.clearClassFilter"
-              @click="clearSelectedClass"
+              :aria-label="t.staff.dashboard.students.clearClassroomFilter"
+              @click="clearSelectedClassroom"
             >
               <X class="size-3" />
             </button>
           </Badge>
         </div>
 
-        <div v-if="isLoadingClassStudents" class="flex items-center justify-center py-10">
+        <div v-if="isLoadingClassroomStudents" class="flex items-center justify-center py-10">
           <Loader2 class="size-6 animate-spin text-muted-foreground" />
         </div>
 

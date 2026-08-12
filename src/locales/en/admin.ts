@@ -10,7 +10,8 @@ export default {
     teachers: 'Teachers',
     teachersHint: (managers: number) => `Plus ${managers} manager${managers === 1 ? '' : 's'}`,
     assessments: 'Assessments',
-    assessmentsHint: (classes: number) => `Across ${classes} class${classes === 1 ? '' : 'es'}`,
+    assessmentsHint: (classrooms: number) =>
+      `Across ${classrooms} classroom${classrooms === 1 ? '' : 's'}`,
     activeStudentsToday: 'Active Students Today',
     studentsPractisedToday: 'Students who practised today',
     practiceSessionsToday: 'Practice Sessions Today',
@@ -21,7 +22,7 @@ export default {
     managersCol: 'Managers',
     teachersCol: 'Teachers',
     seatsCol: 'Seats',
-    classesCol: 'Classes',
+    classesCol: 'Classrooms',
     assessmentsCol: 'Assessments',
     lastActivityCol: 'Last activity',
     totalsRow: 'All organizations',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
-import { useClassesStore } from '@/stores/classes'
+import { useClassroomsStore } from '@/stores/classrooms'
 import { Info, Loader2, X } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import StudentPickList from './StudentPickList.vue'
+import MemberPickList, { type PickableMember } from './MemberPickList.vue'
 import { toast } from 'vue-sonner'
 import { formatDateTime } from '@/lib/date'
 import { useT } from '@/composables/useT'
@@ -31,7 +31,7 @@ import { useLanguageStore } from '@/stores/language'
 const t = useT()
 const languageStore = useLanguageStore()
 const assessmentsStore = useAssessmentsStore()
-const classesStore = useClassesStore()
+const classroomsStore = useClassroomsStore()
 
 const props = defineProps<{
   assessment: AssessmentListItem | null
@@ -41,8 +41,8 @@ const open = defineModel<boolean>('open', { default: false })
 
 const isLoading = ref(false)
 const isSaving = ref(false)
-const targetType = ref<'class' | 'student'>('class')
-const classId = ref('')
+const targetType = ref<'classroom' | 'student'>('classroom')
+const classroomId = ref('')
 const selectedStudentIds = ref<string[]>([])
 const dueAtLocal = ref('')
 const targetMissing = ref(false)
@@ -50,8 +50,8 @@ const targetMissing = ref(false)
 watch(open, async (isOpen) => {
   if (!isOpen || !props.assessment) return
 
-  targetType.value = 'class'
-  classId.value = ''
+  targetType.value = 'classroom'
+  classroomId.value = ''
   selectedStudentIds.value = []
   dueAtLocal.value = ''
   targetMissing.value = false
@@ -59,8 +59,10 @@ watch(open, async (isOpen) => {
   isLoading.value = true
   const [assignmentsResult] = await Promise.all([
     assessmentsStore.fetchAssignments(props.assessment.id),
-    classesStore.classes.length === 0 ? classesStore.fetchClasses() : Promise.resolve(null),
-    classesStore.fetchOrgStudents(),
+    classroomsStore.classrooms.length === 0
+      ? classroomsStore.fetchClassrooms()
+      : Promise.resolve(null),
+    classroomsStore.fetchOrgStudents(),
   ])
   isLoading.value = false
 
@@ -70,11 +72,11 @@ watch(open, async (isOpen) => {
   }
 })
 
-const assignedClassIds = computed(
+const assignedClassroomIds = computed(
   () =>
     new Set(
       assessmentsStore.currentAssignments
-        .map((assignment) => assignment.classId)
+        .map((assignment) => assignment.classroomId)
         .filter((id): id is string => Boolean(id)),
     ),
 )
@@ -84,8 +86,16 @@ const assignedStudentIds = computed(() =>
     .filter((id): id is string => Boolean(id)),
 )
 
-const availableClasses = computed(() =>
-  classesStore.classes.filter((item) => !assignedClassIds.value.has(item.id)),
+const availableClassrooms = computed(() =>
+  classroomsStore.classrooms.filter((item) => !assignedClassroomIds.value.has(item.id)),
+)
+
+const orgStudentPicks = computed<PickableMember[]>(() =>
+  classroomsStore.orgStudents.map((student) => ({
+    id: student.id,
+    name: student.name,
+    detail: [student.username, student.gradeLevelName].filter(Boolean).join(' · ') || null,
+  })),
 )
 
 async function handleAssign() {
@@ -93,9 +103,9 @@ async function handleAssign() {
 
   const studentId = selectedStudentIds.value[0]
   const target =
-    targetType.value === 'class'
-      ? classId.value
-        ? { classId: classId.value }
+    targetType.value === 'classroom'
+      ? classroomId.value
+        ? { classroomId: classroomId.value }
         : null
       : studentId
         ? { studentId }
@@ -121,7 +131,7 @@ async function handleAssign() {
   }
 
   toast.success(t.value.staff.assign.toastAssigned)
-  classId.value = ''
+  classroomId.value = ''
   selectedStudentIds.value = []
 }
 
@@ -176,10 +186,14 @@ async function handleRemove(assignmentId: string) {
               class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
             >
               <Badge variant="secondary">
-                {{ assignment.classId ? t.staff.assign.classBadge : t.staff.assign.studentBadge }}
+                {{
+                  assignment.classroomId
+                    ? t.staff.assign.classroomBadge
+                    : t.staff.assign.studentBadge
+                }}
               </Badge>
               <span class="min-w-0 flex-1 truncate font-medium">
-                {{ assignment.className ?? assignment.studentName ?? '' }}
+                {{ assignment.classroomName ?? assignment.studentName ?? '' }}
               </span>
               <span class="shrink-0 text-xs text-muted-foreground">
                 {{
@@ -212,7 +226,7 @@ async function handleRemove(assignmentId: string) {
               :disabled="isSaving"
               @update:model-value="
                 (value) => {
-                  targetType = value as 'class' | 'student'
+                  targetType = value as 'classroom' | 'student'
                   targetMissing = false
                 }
               "
@@ -221,39 +235,39 @@ async function handleRemove(assignmentId: string) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="class">{{ t.staff.assign.targetClass }}</SelectItem>
+                <SelectItem value="classroom">{{ t.staff.assign.targetClassroom }}</SelectItem>
                 <SelectItem value="student">{{ t.staff.assign.targetStudent }}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
 
-          <Field v-if="targetType === 'class'" :data-invalid="targetMissing">
-            <FieldLabel>{{ t.staff.assign.classLabel }}</FieldLabel>
+          <Field v-if="targetType === 'classroom'" :data-invalid="targetMissing">
+            <FieldLabel>{{ t.staff.assign.classroomLabel }}</FieldLabel>
             <Select
               :key="languageStore.language"
-              v-model="classId"
+              v-model="classroomId"
               :disabled="isSaving"
               @update:model-value="targetMissing = false"
             >
               <SelectTrigger class="w-full" :class="{ 'border-destructive': targetMissing }">
-                <SelectValue :placeholder="t.staff.assign.classPlaceholder" />
+                <SelectValue :placeholder="t.staff.assign.classroomPlaceholder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="item in availableClasses" :key="item.id" :value="item.id">
-                  {{ item.name }}
+                <SelectItem v-for="item in availableClassrooms" :key="item.id" :value="item.id">
+                  {{ item.name }} · {{ item.gradeLevelName }} · {{ item.subjectName }}
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p v-if="availableClasses.length === 0" class="text-sm text-muted-foreground">
-              {{ t.staff.assign.noClasses }}
+            <p v-if="availableClassrooms.length === 0" class="text-sm text-muted-foreground">
+              {{ t.staff.assign.noClassrooms }}
             </p>
           </Field>
 
           <Field v-else :data-invalid="targetMissing">
             <FieldLabel>{{ t.staff.assign.studentLabel }}</FieldLabel>
-            <StudentPickList
+            <MemberPickList
               v-model:selected-ids="selectedStudentIds"
-              :students="classesStore.orgStudents"
+              :members="orgStudentPicks"
               :disabled-ids="assignedStudentIds"
               :disabled-label="t.staff.assign.alreadyAssigned"
               single

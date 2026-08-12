@@ -3,18 +3,25 @@ import { ref, computed } from 'vue'
 import { Search } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import type { ClassStudent } from '@/stores/classes'
+
+export interface PickableMember {
+  id: string
+  name: string
+  /** Secondary line, e.g. "username · grade" for students or an email. */
+  detail: string | null
+}
 
 /**
- * Searchable student picker used by the class-members dialog (multi-select)
- * and the assign dialog (single-select). Selection state lives in the parent.
+ * Searchable person picker used by the classroom-members dialog (multi-select,
+ * students and teachers) and the assign dialog (single-select). Selection
+ * state lives in the parent.
  */
 const props = defineProps<{
-  students: ClassStudent[]
-  /** Rows that cannot be picked (e.g. already in the class), with a badge. */
+  members: PickableMember[]
+  /** Rows that cannot be picked (e.g. already in the classroom), with a badge. */
   disabledIds?: string[]
   disabledLabel?: string
-  /** Single-select mode: picking a student replaces the selection. */
+  /** Single-select mode: picking a member replaces the selection. */
   single?: boolean
   searchPlaceholder: string
   emptyText: string
@@ -26,13 +33,13 @@ const search = ref('')
 
 const disabledSet = computed(() => new Set(props.disabledIds ?? []))
 
-const filteredStudents = computed(() => {
+const filteredMembers = computed(() => {
   const query = search.value.toLowerCase().trim()
-  if (!query) return props.students
-  return props.students.filter(
-    (student) =>
-      student.name.toLowerCase().includes(query) ||
-      (student.username?.toLowerCase().includes(query) ?? false),
+  if (!query) return props.members
+  return props.members.filter(
+    (member) =>
+      member.name.toLowerCase().includes(query) ||
+      (member.detail?.toLowerCase().includes(query) ?? false),
   )
 })
 
@@ -56,30 +63,30 @@ function toggle(id: string) {
     </div>
 
     <div class="max-h-64 space-y-1 overflow-y-auto rounded-md border p-1">
-      <p v-if="filteredStudents.length === 0" class="p-4 text-center text-sm text-muted-foreground">
+      <p v-if="filteredMembers.length === 0" class="p-4 text-center text-sm text-muted-foreground">
         {{ emptyText }}
       </p>
       <button
-        v-for="student in filteredStudents"
-        :key="student.id"
+        v-for="member in filteredMembers"
+        :key="member.id"
         type="button"
         class="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="disabledSet.has(student.id)"
-        @click="toggle(student.id)"
+        :disabled="disabledSet.has(member.id)"
+        @click="toggle(member.id)"
       >
         <Checkbox
           class="pointer-events-none"
-          :model-value="selectedIds.includes(student.id) || disabledSet.has(student.id)"
-          :disabled="disabledSet.has(student.id)"
+          :model-value="selectedIds.includes(member.id) || disabledSet.has(member.id)"
+          :disabled="disabledSet.has(member.id)"
           tabindex="-1"
         />
         <span class="min-w-0 flex-1">
-          <span class="block truncate font-medium">{{ student.name }}</span>
-          <span class="block truncate text-xs text-muted-foreground">
-            {{ [student.username, student.gradeLevelName].filter(Boolean).join(' · ') }}
+          <span class="block truncate font-medium">{{ member.name }}</span>
+          <span v-if="member.detail" class="block truncate text-xs text-muted-foreground">
+            {{ member.detail }}
           </span>
         </span>
-        <span v-if="disabledSet.has(student.id)" class="shrink-0 text-xs text-muted-foreground">
+        <span v-if="disabledSet.has(member.id)" class="shrink-0 text-xs text-muted-foreground">
           {{ disabledLabel }}
         </span>
       </button>

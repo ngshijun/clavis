@@ -78,20 +78,20 @@ const handleCreate = handleSubmit(async (values) => {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>{{ t.teacher.studentForm.title }}</DialogTitle>
-        <DialogDescription>{{ t.teacher.studentForm.description }}</DialogDescription>
+        <DialogTitle>{{ t.manager.studentForm.title }}</DialogTitle>
+        <DialogDescription>{{ t.manager.studentForm.description }}</DialogDescription>
       </DialogHeader>
 
       <form class="space-y-4 py-4" @submit="handleCreate">
         <VeeField v-slot="{ field, errors }" name="name">
           <Field :data-invalid="!!errors.length">
             <FieldLabel for="student-name"
-              >{{ t.teacher.studentForm.nameLabel }}
+              >{{ t.manager.studentForm.nameLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
             <Input
               id="student-name"
-              :placeholder="t.teacher.studentForm.namePlaceholder"
+              :placeholder="t.manager.studentForm.namePlaceholder"
               :disabled="isSubmitting"
               :aria-invalid="!!errors.length"
               v-bind="field"
@@ -103,18 +103,18 @@ const handleCreate = handleSubmit(async (values) => {
         <VeeField v-slot="{ field, errors }" name="username">
           <Field :data-invalid="!!errors.length">
             <FieldLabel for="student-username"
-              >{{ t.teacher.studentForm.usernameLabel }}
+              >{{ t.manager.studentForm.usernameLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
             <Input
               id="student-username"
               autocomplete="off"
-              :placeholder="t.teacher.studentForm.usernamePlaceholder"
+              :placeholder="t.manager.studentForm.usernamePlaceholder"
               :disabled="isSubmitting"
               :aria-invalid="!!errors.length"
               v-bind="field"
             />
-            <FieldDescription>{{ t.teacher.studentForm.usernameHint }}</FieldDescription>
+            <FieldDescription>{{ t.manager.studentForm.usernameHint }}</FieldDescription>
             <FieldError :errors="errors" />
           </Field>
         </VeeField>
@@ -122,7 +122,7 @@ const handleCreate = handleSubmit(async (values) => {
         <VeeField v-slot="{ field, errors }" name="password">
           <Field :data-invalid="!!errors.length">
             <FieldLabel for="student-password"
-              >{{ t.teacher.studentForm.passwordLabel }}
+              >{{ t.manager.studentForm.passwordLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
             <div class="flex items-center gap-2">
@@ -130,7 +130,7 @@ const handleCreate = handleSubmit(async (values) => {
                 id="student-password"
                 autocomplete="off"
                 class="flex-1"
-                :placeholder="t.teacher.studentForm.passwordPlaceholder"
+                :placeholder="t.manager.studentForm.passwordPlaceholder"
                 :disabled="isSubmitting"
                 :aria-invalid="!!errors.length"
                 v-bind="field"
@@ -143,7 +143,7 @@ const handleCreate = handleSubmit(async (values) => {
                 @click="fillGeneratedPassword"
               >
                 <RefreshCw class="mr-2 size-4" />
-                {{ t.teacher.studentForm.generate }}
+                {{ t.manager.studentForm.generate }}
               </Button>
             </div>
             <FieldError :errors="errors" />
@@ -153,7 +153,7 @@ const handleCreate = handleSubmit(async (values) => {
         <VeeField v-slot="{ handleChange, value, errors }" name="gradeLevelId">
           <Field :data-invalid="!!errors.length">
             <FieldLabel
-              >{{ t.teacher.studentForm.gradeLabel }}
+              >{{ t.manager.studentForm.gradeLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
             <Select
@@ -162,7 +162,7 @@ const handleCreate = handleSubmit(async (values) => {
               @update:model-value="handleChange"
             >
               <SelectTrigger class="w-full" :class="{ 'border-destructive': !!errors.length }">
-                <SelectValue :placeholder="t.teacher.studentForm.gradePlaceholder" />
+                <SelectValue :placeholder="t.manager.studentForm.gradePlaceholder" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem
@@ -180,11 +180,11 @@ const handleCreate = handleSubmit(async (values) => {
 
         <DialogFooter>
           <Button type="button" variant="outline" :disabled="isSubmitting" @click="open = false">
-            {{ t.teacher.studentForm.cancel }}
+            {{ t.manager.studentForm.cancel }}
           </Button>
           <Button type="submit" :disabled="isSubmitting">
             <Loader2 v-if="isSubmitting" class="mr-2 size-4 animate-spin" />
-            {{ t.teacher.studentForm.create }}
+            {{ t.manager.studentForm.create }}
           </Button>
         </DialogFooter>
       </form>

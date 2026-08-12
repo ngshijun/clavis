@@ -17,7 +17,7 @@ export interface OrgOverviewRow {
   teacherCount: number
   /** Seats in use = student profiles in the org (decision 34). */
   studentCount: number
-  classCount: number
+  classroomCount: number
   assessmentCount: number
   lastActivityAt: string | null
 }
@@ -30,7 +30,7 @@ export interface PlatformTotals {
   /** Total seats in use across the platform. */
   studentCount: number
   assessmentCount: number
-  classCount: number
+  classroomCount: number
   lastActivityAt: string | null
 }
 
@@ -40,7 +40,7 @@ interface PlatformTotalsJson {
   teacher_count: number
   student_count: number
   assessment_count: number
-  class_count: number
+  classroom_count: number
   last_activity_at: string | null
 }
 
@@ -101,7 +101,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         managerCount: row.manager_count,
         teacherCount: row.teacher_count,
         studentCount: row.student_count,
-        classCount: row.class_count,
+        classroomCount: row.classroom_count,
         assessmentCount: row.assessment_count,
         lastActivityAt: row.last_activity_at ?? null,
       }))
@@ -113,7 +113,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
         teacherCount: rawTotals.teacher_count,
         studentCount: rawTotals.student_count,
         assessmentCount: rawTotals.assessment_count,
-        classCount: rawTotals.class_count,
+        classroomCount: rawTotals.classroom_count,
         lastActivityAt: rawTotals.last_activity_at ?? null,
       }
 
