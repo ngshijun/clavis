@@ -71,6 +71,17 @@ export const organizationFormSchema = z.object({
 })
 export type OrganizationFormValues = z.infer<typeof organizationFormSchema>
 
+// Staff classes & assessments
+export const classFormSchema = z.object({
+  name: requiredStringSchema('Class name').max(120, 'Name must be 120 characters or less'),
+})
+export type ClassFormValues = z.infer<typeof classFormSchema>
+
+export const assessmentCreateFormSchema = z.object({
+  title: requiredStringSchema('Title').max(200, 'Title must be 200 characters or less'),
+})
+export type AssessmentCreateFormValues = z.infer<typeof assessmentCreateFormSchema>
+
 // Account provisioning forms.
 // Mirrors the server-side rules in supabase/functions/create-user/provisioning.ts.
 export const provisionedPasswordSchema = passwordSchema.max(
