@@ -1274,6 +1274,8 @@ export type Database = {
         }
         Returns: string
       }
+      get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
+      get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
       get_question_statistics: {
         Args: never
         Returns: {
