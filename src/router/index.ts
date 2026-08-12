@@ -49,13 +49,13 @@ function managerRouteGuard() {
 
 // Teacher routes: fire-and-forget data preloading (non-blocking)
 function teacherRouteGuard() {
-  Promise.all([import('@/stores/teacher-students'), import('@/stores/curriculum')]).then(
-    ([studentsMod, curriculumMod]) => {
-      const studentsStore = studentsMod.useTeacherStudentsStore()
+  Promise.all([import('@/stores/classrooms'), import('@/stores/curriculum')]).then(
+    ([classroomsMod, curriculumMod]) => {
+      const classroomsStore = classroomsMod.useClassroomsStore()
       const curriculumStore = curriculumMod.useCurriculumStore()
 
-      if (studentsStore.students.length === 0 && !studentsStore.isLoading) {
-        studentsStore.fetchStudents()
+      if (classroomsStore.classrooms.length === 0 && !classroomsStore.isLoading) {
+        classroomsStore.fetchClassrooms()
       }
 
       if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
@@ -242,11 +242,6 @@ const router = createRouter({
           path: 'dashboard',
           name: 'teacher-dashboard',
           component: () => import('@/pages/shared/StaffDashboardPage.vue'),
-        },
-        {
-          path: 'students',
-          name: 'teacher-students',
-          component: () => import('@/pages/teacher/StudentsPage.vue'),
         },
         {
           path: 'classrooms',

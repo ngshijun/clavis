@@ -604,7 +604,6 @@ export default {
         },
         teacher: {
           dashboard: '主页',
-          students: '学生',
           classrooms: '班级',
           assessments: '测评',
         },

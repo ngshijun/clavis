@@ -32,7 +32,6 @@ export const sidebarNavConfig: SidebarNavConfig = {
   ],
   teacher: [
     { title: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { title: 'Students', path: '/teacher/students', icon: Users },
     { title: 'Classrooms', path: '/teacher/classrooms', icon: School },
     { title: 'Assessments', path: '/teacher/assessments', icon: ClipboardList },
   ],

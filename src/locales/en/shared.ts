@@ -613,7 +613,6 @@ export default {
         },
         teacher: {
           dashboard: 'Dashboard',
-          students: 'Students',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
         },
