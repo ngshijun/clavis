@@ -116,6 +116,378 @@ export type Database = {
           },
         ]
       }
+      assessment_assignments: {
+        Row: {
+          assessment_id: string
+          assigned_by: string
+          class_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          student_id: string | null
+        }
+        Insert: {
+          assessment_id: string
+          assigned_by: string
+          class_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          assigned_by?: string
+          class_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessment_assignments_assessment_id_fkey'
+            columns: ['assessment_id']
+            isOneToOne: false
+            referencedRelation: 'assessments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_assignments_assigned_by_fkey'
+            columns: ['assigned_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_assignments_class_id_fkey'
+            columns: ['class_id']
+            isOneToOne: false
+            referencedRelation: 'classes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_assignments_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'student_profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      assessment_attempts: {
+        Row: {
+          assessment_id: string
+          completed_at: string | null
+          correct_count: number
+          current_question_index: number
+          id: string
+          score_percent: number
+          started_at: string
+          student_id: string
+          total_questions: number
+        }
+        Insert: {
+          assessment_id: string
+          completed_at?: string | null
+          correct_count?: number
+          current_question_index?: number
+          id?: string
+          score_percent?: number
+          started_at?: string
+          student_id: string
+          total_questions?: number
+        }
+        Update: {
+          assessment_id?: string
+          completed_at?: string | null
+          correct_count?: number
+          current_question_index?: number
+          id?: string
+          score_percent?: number
+          started_at?: string
+          student_id?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessment_attempts_assessment_id_fkey'
+            columns: ['assessment_id']
+            isOneToOne: false
+            referencedRelation: 'assessments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_attempts_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'student_profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      assessment_questions: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          payload: Json | null
+          points: number
+          position: number
+          question_id: string | null
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          points?: number
+          position: number
+          question_id?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          points?: number
+          position?: number
+          question_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessment_questions_assessment_id_fkey'
+            columns: ['assessment_id']
+            isOneToOne: false
+            referencedRelation: 'assessments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_questions_question_id_fkey'
+            columns: ['question_id']
+            isOneToOne: false
+            referencedRelation: 'question_statistics'
+            referencedColumns: ['question_id']
+          },
+          {
+            foreignKeyName: 'assessment_questions_question_id_fkey'
+            columns: ['question_id']
+            isOneToOne: false
+            referencedRelation: 'questions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          organization_id: string
+          shuffle_questions: boolean
+          status: Database['public']['Enums']['assessment_status']
+          time_limit_seconds: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          shuffle_questions?: boolean
+          status?: Database['public']['Enums']['assessment_status']
+          time_limit_seconds?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          shuffle_questions?: boolean
+          status?: Database['public']['Enums']['assessment_status']
+          time_limit_seconds?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessments_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessments_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      attempt_answers: {
+        Row: {
+          answered_at: string
+          assessment_question_id: string
+          attempt_id: string
+          id: string
+          is_correct: boolean
+          selected_options: number[] | null
+          text_answer: string | null
+          time_spent_seconds: number | null
+        }
+        Insert: {
+          answered_at?: string
+          assessment_question_id: string
+          attempt_id: string
+          id?: string
+          is_correct?: boolean
+          selected_options?: number[] | null
+          text_answer?: string | null
+          time_spent_seconds?: number | null
+        }
+        Update: {
+          answered_at?: string
+          assessment_question_id?: string
+          attempt_id?: string
+          id?: string
+          is_correct?: boolean
+          selected_options?: number[] | null
+          text_answer?: string | null
+          time_spent_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'attempt_answers_assessment_question_id_fkey'
+            columns: ['assessment_question_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attempt_answers_attempt_id_fkey'
+            columns: ['attempt_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_attempts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      attempt_questions: {
+        Row: {
+          assessment_question_id: string
+          attempt_id: string
+          question_order: number
+        }
+        Insert: {
+          assessment_question_id: string
+          attempt_id: string
+          question_order: number
+        }
+        Update: {
+          assessment_question_id?: string
+          attempt_id?: string
+          question_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'attempt_questions_assessment_question_id_fkey'
+            columns: ['assessment_question_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attempt_questions_attempt_id_fkey'
+            columns: ['attempt_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_attempts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      class_members: {
+        Row: {
+          class_id: string
+          created_at: string
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'class_members_class_id_fkey'
+            columns: ['class_id']
+            isOneToOne: false
+            referencedRelation: 'classes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'class_members_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'student_profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'classes_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'classes_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       grade_levels: {
         Row: {
           created_at: string | null
@@ -883,6 +1255,10 @@ export type Database = {
       }
     }
     Functions: {
+      complete_assessment_attempt: {
+        Args: { p_attempt_id: string }
+        Returns: Json
+      }
       complete_practice_session: {
         Args: { p_session_id: string }
         Returns: Json
@@ -898,6 +1274,8 @@ export type Database = {
         }
         Returns: string
       }
+      get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
+      get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
       get_question_statistics: {
         Args: never
         Returns: {
@@ -917,9 +1295,14 @@ export type Database = {
       }
       get_unread_announcement_count: { Args: never; Returns: number }
       refresh_question_statistics: { Args: never; Returns: undefined }
+      start_assessment_attempt: {
+        Args: { p_assessment_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       announcement_audience: 'all' | 'students_only' | 'parents_only'
+      assessment_status: 'draft' | 'published'
       feedback_category:
         | 'question_error'
         | 'image_error'
@@ -1058,6 +1441,7 @@ export const Constants = {
   public: {
     Enums: {
       announcement_audience: ['all', 'students_only', 'parents_only'],
+      assessment_status: ['draft', 'published'],
       feedback_category: [
         'question_error',
         'image_error',

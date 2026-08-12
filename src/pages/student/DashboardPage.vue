@@ -6,6 +6,7 @@ import { useT } from '@/composables/useT'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
+import AssessmentsTodoCard from '@/components/dashboard/AssessmentsTodoCard.vue'
 
 const BestSubjectCard = defineAsyncComponent(
   () => import('@/components/dashboard/BestSubjectCard.vue'),
@@ -62,6 +63,9 @@ watch(
       <div data-tour="dashboard-stats">
         <BestSubjectCard />
       </div>
+
+      <!-- Assessments to-do -->
+      <AssessmentsTodoCard />
 
       <!-- In-Progress Sessions -->
       <InProgressSessionsCard />

@@ -192,6 +192,26 @@ const router = createRouter({
           component: () => import('@/pages/manager/DashboardPage.vue'),
         },
         {
+          path: 'classes',
+          name: 'manager-classes',
+          component: () => import('@/pages/shared/ClassesPage.vue'),
+        },
+        {
+          path: 'assessments',
+          name: 'manager-assessments',
+          component: () => import('@/pages/shared/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId',
+          name: 'manager-assessment-builder',
+          component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId/results',
+          name: 'manager-assessment-results',
+          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
+        },
+        {
           path: 'profile',
           name: 'manager-profile',
           component: () => import('@/pages/shared/StaffProfilePage.vue'),
@@ -209,6 +229,26 @@ const router = createRouter({
           path: 'dashboard',
           name: 'teacher-dashboard',
           component: () => import('@/pages/teacher/DashboardPage.vue'),
+        },
+        {
+          path: 'classes',
+          name: 'teacher-classes',
+          component: () => import('@/pages/shared/ClassesPage.vue'),
+        },
+        {
+          path: 'assessments',
+          name: 'teacher-assessments',
+          component: () => import('@/pages/shared/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId',
+          name: 'teacher-assessment-builder',
+          component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId/results',
+          name: 'teacher-assessment-results',
+          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
         },
         {
           path: 'profile',
@@ -243,6 +283,21 @@ const router = createRouter({
           path: 'session/:sessionId',
           name: 'student-session-result',
           component: () => import('@/pages/student/SessionResultPage.vue'),
+        },
+        {
+          path: 'assessments',
+          name: 'student-assessments',
+          component: () => import('@/pages/student/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId/attempt',
+          name: 'student-assessment-attempt',
+          component: () => import('@/pages/student/AssessmentRunnerPage.vue'),
+        },
+        {
+          path: 'assessments/attempts/:attemptId/result',
+          name: 'student-assessment-result',
+          component: () => import('@/pages/student/AssessmentResultPage.vue'),
         },
         {
           path: 'statistics',
