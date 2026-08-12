@@ -602,11 +602,13 @@ export default {
           students: '学生',
         },
         manager: {
+          dashboard: '主页',
           teachers: '教师',
           classes: '班级',
           assessments: '测评',
         },
         teacher: {
+          dashboard: '主页',
           students: '学生',
           classes: '班级',
           assessments: '测评',

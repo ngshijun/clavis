@@ -189,7 +189,12 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'manager-dashboard',
-          component: () => import('@/pages/manager/DashboardPage.vue'),
+          component: () => import('@/pages/shared/StaffDashboardPage.vue'),
+        },
+        {
+          path: 'teachers',
+          name: 'manager-teachers',
+          component: () => import('@/pages/manager/TeachersPage.vue'),
         },
         {
           path: 'classes',
@@ -228,7 +233,12 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'teacher-dashboard',
-          component: () => import('@/pages/teacher/DashboardPage.vue'),
+          component: () => import('@/pages/shared/StaffDashboardPage.vue'),
+        },
+        {
+          path: 'students',
+          name: 'teacher-students',
+          component: () => import('@/pages/teacher/StudentsPage.vue'),
         },
         {
           path: 'classes',
