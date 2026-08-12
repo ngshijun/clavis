@@ -285,6 +285,21 @@ const router = createRouter({
           component: () => import('@/pages/student/SessionResultPage.vue'),
         },
         {
+          path: 'assessments',
+          name: 'student-assessments',
+          component: () => import('@/pages/student/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId/attempt',
+          name: 'student-assessment-attempt',
+          component: () => import('@/pages/student/AssessmentRunnerPage.vue'),
+        },
+        {
+          path: 'assessments/attempts/:attemptId/result',
+          name: 'student-assessment-result',
+          component: () => import('@/pages/student/AssessmentResultPage.vue'),
+        },
+        {
           path: 'statistics',
           name: 'student-statistics',
           component: () => import('@/pages/student/StatisticsPage.vue'),

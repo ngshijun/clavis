@@ -44,6 +44,7 @@ const pathToNavKey: Record<string, string> = {
   '/student/dashboard': 'dashboard',
   '/student/announcements': 'announcements',
   '/student/practice': 'practice',
+  '/student/assessments': 'assessments',
   '/student/statistics': 'statistics',
 }
 

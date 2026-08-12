@@ -39,6 +39,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
     { title: 'Announcements', path: '/student/announcements', icon: Megaphone },
     { title: 'Practice', path: '/student/practice', icon: PenTool },
+    { title: 'Assessments', path: '/student/assessments', icon: ClipboardList },
     { title: 'Statistics', path: '/student/statistics', icon: PieChart },
   ],
 }
