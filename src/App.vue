@@ -23,7 +23,7 @@ const t = useT()
 
 useHead({
   titleTemplate: (title) =>
-    title ? `${title} — Clavis` : 'Clavis — Where Learning Feels Like Play',
+    title ? `${title} — Clavis` : 'Clavis — The Operating Platform for Tuition Centers',
 })
 
 const showUpdateNotice = ref(false)

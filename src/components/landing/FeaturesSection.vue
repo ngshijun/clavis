@@ -1,28 +1,12 @@
 <script setup lang="ts">
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import {
-  BookOpen,
-  BarChart3,
-  Trophy,
-  Users,
-  GraduationCap,
-  MessageSquareText,
-} from 'lucide-vue-next'
+import { Map, ClipboardList, CheckCircle2, Users, BarChart3, GraduationCap } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useLanguageStore } from '@/stores/language'
 
 const { t } = storeToRefs(useLanguageStore())
 
-const featureIcons = [GraduationCap, BookOpen, MessageSquareText, BarChart3, Trophy, Users]
-
-const featureScreenshots = [
-  '/screenshots/built-for-sjkc-students.webp',
-  '/screenshots/practice-5-10-minutes.webp',
-  '/screenshots/learn-from-mistakes.webp',
-  '/screenshots/see-where-they-stand.webp',
-  '/screenshots/kids-want-to-study.webp',
-  '/screenshots/stay-in-the-loop.webp',
-]
+const featureIcons = [Map, ClipboardList, CheckCircle2, Users, BarChart3, GraduationCap]
 </script>
 
 <template>
@@ -48,17 +32,6 @@ const featureScreenshots = [
             <CardTitle class="text-xl">{{ feature.title }}</CardTitle>
             <CardDescription class="text-base">{{ feature.description }}</CardDescription>
           </CardHeader>
-          <div class="mt-auto px-6 pb-2">
-            <img
-              :src="featureScreenshots[index]"
-              :alt="feature.title"
-              width="1440"
-              height="810"
-              class="aspect-video w-full"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
         </Card>
       </div>
     </div>
