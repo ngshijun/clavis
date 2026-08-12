@@ -274,8 +274,8 @@ export type Database = {
           grade_level_id: string | null
           id: string
           student_id: string
+          sub_topic_id: string
           subject_id: string | null
-          topic_id: string
           total_questions: number
           total_time_seconds: number | null
         }
@@ -288,8 +288,8 @@ export type Database = {
           grade_level_id?: string | null
           id?: string
           student_id: string
+          sub_topic_id: string
           subject_id?: string | null
-          topic_id: string
           total_questions: number
           total_time_seconds?: number | null
         }
@@ -302,8 +302,8 @@ export type Database = {
           grade_level_id?: string | null
           id?: string
           student_id?: string
+          sub_topic_id?: string
           subject_id?: string | null
-          topic_id?: string
           total_questions?: number
           total_time_seconds?: number | null
         }
@@ -323,17 +323,17 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'practice_sessions_sub_topic_id_fkey'
+            columns: ['sub_topic_id']
+            isOneToOne: false
+            referencedRelation: 'sub_topics'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'practice_sessions_subject_id_fkey'
             columns: ['subject_id']
             isOneToOne: false
             referencedRelation: 'subjects'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'practice_sessions_topic_id_fkey'
-            columns: ['topic_id']
-            isOneToOne: false
-            referencedRelation: 'sub_topics'
             referencedColumns: ['id']
           },
         ]
@@ -456,8 +456,8 @@ export type Database = {
           option_4_is_correct: boolean | null
           option_4_text: string | null
           question: string
+          sub_topic_id: string
           subject_id: string | null
-          topic_id: string
           type: Database['public']['Enums']['question_type']
           updated_at: string
         }
@@ -482,8 +482,8 @@ export type Database = {
           option_4_is_correct?: boolean | null
           option_4_text?: string | null
           question: string
+          sub_topic_id: string
           subject_id?: string | null
-          topic_id: string
           type: Database['public']['Enums']['question_type']
           updated_at?: string
         }
@@ -508,8 +508,8 @@ export type Database = {
           option_4_is_correct?: boolean | null
           option_4_text?: string | null
           question?: string
+          sub_topic_id?: string
           subject_id?: string | null
-          topic_id?: string
           type?: Database['public']['Enums']['question_type']
           updated_at?: string
         }
@@ -522,17 +522,17 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'questions_sub_topic_id_fkey'
+            columns: ['sub_topic_id']
+            isOneToOne: false
+            referencedRelation: 'sub_topics'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'questions_subject_id_fkey'
             columns: ['subject_id']
             isOneToOne: false
             referencedRelation: 'subjects'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'questions_topic_id_fkey'
-            columns: ['topic_id']
-            isOneToOne: false
-            referencedRelation: 'sub_topics'
             referencedColumns: ['id']
           },
         ]
@@ -667,7 +667,7 @@ export type Database = {
           id: string
           question_id: string
           student_id: string
-          topic_id: string
+          sub_topic_id: string
         }
         Insert: {
           created_at?: string
@@ -675,7 +675,7 @@ export type Database = {
           id?: string
           question_id: string
           student_id: string
-          topic_id: string
+          sub_topic_id: string
         }
         Update: {
           created_at?: string
@@ -683,7 +683,7 @@ export type Database = {
           id?: string
           question_id?: string
           student_id?: string
-          topic_id?: string
+          sub_topic_id?: string
         }
         Relationships: [
           {
@@ -708,8 +708,47 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'student_question_progress_topic_id_fkey'
-            columns: ['topic_id']
+            foreignKeyName: 'student_question_progress_sub_topic_id_fkey'
+            columns: ['sub_topic_id']
+            isOneToOne: false
+            referencedRelation: 'sub_topics'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      student_sub_topic_stats: {
+        Row: {
+          best_score_percent: number
+          last_completed_at: string | null
+          sessions_completed: number
+          student_id: string
+          sub_topic_id: string
+        }
+        Insert: {
+          best_score_percent?: number
+          last_completed_at?: string | null
+          sessions_completed?: number
+          student_id: string
+          sub_topic_id: string
+        }
+        Update: {
+          best_score_percent?: number
+          last_completed_at?: string | null
+          sessions_completed?: number
+          student_id?: string
+          sub_topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'student_sub_topic_stats_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'student_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'student_sub_topic_stats_sub_topic_id_fkey'
+            columns: ['sub_topic_id']
             isOneToOne: false
             referencedRelation: 'sub_topics'
             referencedColumns: ['id']
@@ -854,8 +893,8 @@ export type Database = {
           p_grade_level_id: string
           p_questions: Json
           p_student_id: string
+          p_sub_topic_id: string
           p_subject_id: string
-          p_topic_id: string
         }
         Returns: string
       }
@@ -873,7 +912,7 @@ export type Database = {
         Args: never
         Returns: {
           answered_count: number
-          topic_id: string
+          sub_topic_id: string
         }[]
       }
       get_unread_announcement_count: { Args: never; Returns: number }

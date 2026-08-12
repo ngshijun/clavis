@@ -378,7 +378,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Prod has 1,200+ questions — this is a small sample for testing.
 
 INSERT INTO public.questions (
-  id, type, question, topic_id, explanation, answer,
+  id, type, question, sub_topic_id, explanation, answer,
   option_1_text, option_1_is_correct,
   option_2_text, option_2_is_correct,
   option_3_text, option_3_is_correct,
@@ -522,7 +522,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
 
 INSERT INTO public.practice_sessions (
-  id, student_id, topic_id, total_questions, current_question_index,
+  id, student_id, sub_topic_id, total_questions, current_question_index,
   completed_at, correct_count, total_time_seconds
 ) VALUES (
   '70000000-0000-0000-0000-000000000001',
