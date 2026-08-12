@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch session with sub_topic chain (sub_topics -> topics -> subjects -> grade_levels)
-    // Note: topic_id column now references sub_topics table
+    // via practice_sessions.sub_topic_id
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('practice_sessions')
       .select(`

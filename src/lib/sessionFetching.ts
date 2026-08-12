@@ -1,9 +1,8 @@
 /**
- * Shared session-fetching logic for parent and admin statistics stores.
+ * Shared session-fetching logic for the statistics stores.
  *
- * Both child-statistics (parent) and admin-student-stats (admin) need to
- * fetch sessions with curriculum hierarchy. This module extracts that
- * duplicated pattern.
+ * Fetches practice sessions with their curriculum hierarchy, resolved through
+ * `practice_sessions.sub_topic_id`.
  */
 
 import { supabase } from '@/lib/supabaseClient'
@@ -19,9 +18,8 @@ import {
 
 /**
  * Fetch practice sessions with scores for a student.
- * Shared by child-statistics (parent view) and admin-student-stats (admin view).
  *
- * Callers are responsible for auth guards and child-link validation before calling.
+ * Callers are responsible for auth guards before calling.
  */
 export async function fetchSessionSummaries(studentId: string): Promise<PracticeSessionSummary[]> {
   // Fetch all practice sessions with curriculum hierarchy
@@ -31,7 +29,7 @@ export async function fetchSessionSummaries(studentId: string): Promise<Practice
       `
       id,
       student_id,
-      topic_id,
+      sub_topic_id,
       total_questions,
       correct_count,
       total_time_seconds,
@@ -108,7 +106,7 @@ export async function fetchFullSessionDetails(
         `
         id,
         student_id,
-        topic_id,
+        sub_topic_id,
         total_questions,
         created_at,
         completed_at,

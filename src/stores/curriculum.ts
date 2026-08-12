@@ -762,6 +762,71 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  /**
+   * Persist a new learning-path order for one topic's sub-topics.
+   *
+   * `sub_topics.display_order` IS the order students walk on the learning map,
+   * so this is the only place the path is authored. The whole new order ships
+   * in a single upsert (one request = one transaction), applied optimistically
+   * and rolled back if the write fails.
+   */
+  async function reorderSubTopics(
+    gradeLevelId: string,
+    subjectId: string,
+    topicId: string,
+    orderedSubTopicIds: string[],
+  ): Promise<{ success: boolean; error: string | null }> {
+    const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
+    const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
+    const topic = subject?.topics.find((t) => t.id === topicId)
+    if (!topic) {
+      return { success: false, error: errorMessages().topicNotFound }
+    }
+
+    const previous = topic.subTopics.slice()
+    const previousOrders = previous.map((st) => st.displayOrder)
+    const byId = new Map(previous.map((st) => [st.id, st]))
+    const reordered = orderedSubTopicIds
+      .map((id) => byId.get(id))
+      .filter((st): st is SubTopic => st !== undefined)
+
+    // The caller must send a permutation of the current list, nothing else.
+    if (reordered.length !== previous.length) {
+      return { success: false, error: errorMessages().failedReorderSubTopics }
+    }
+
+    // Optimistic apply — display_order is 1-based and gap-free after a reorder.
+    reordered.forEach((st, index) => {
+      st.displayOrder = index + 1
+    })
+    topic.subTopics = reordered
+
+    try {
+      const { error: upsertError } = await supabase.from('sub_topics').upsert(
+        reordered.map((st, index) => ({
+          id: st.id,
+          topic_id: topicId,
+          name: st.name,
+          display_order: index + 1,
+        })),
+        { onConflict: 'id' },
+      )
+
+      if (upsertError) throw upsertError
+
+      return { success: true, error: null }
+    } catch (err) {
+      // Rollback to the pre-drag order
+      previous.forEach((st, index) => {
+        st.displayOrder = previousOrders[index] ?? 0
+      })
+      topic.subTopics = previous
+
+      console.error('Error reordering sub_topics:', err)
+      return { success: false, error: handleError(err, 'failedReorderSubTopics') }
+    }
+  }
+
   function uploadCurriculumImage(
     file: File,
     type: 'subject' | 'topic' | 'subtopic',
@@ -860,6 +925,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     updateSubTopic,
     updateSubTopicCoverImage,
     deleteSubTopic,
+    reorderSubTopics,
     uploadCurriculumImage,
     getCurriculumImageUrl,
     getOptimizedImageUrl,

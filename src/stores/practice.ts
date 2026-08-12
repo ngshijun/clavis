@@ -79,7 +79,6 @@ export const usePracticeStore = defineStore('practice', () => {
 
   /**
    * Start a new practice session
-   * Note: subTopicId parameter corresponds to topic_id column which now references sub_topics table
    */
   async function startSession(
     subTopicId: string,
@@ -123,7 +122,7 @@ export const usePracticeStore = defineStore('practice', () => {
         .from('student_question_progress')
         .select('question_id, cycle_number')
         .eq('student_id', authStore.user.id)
-        .eq('topic_id', subTopicId)
+        .eq('sub_topic_id', subTopicId)
         .order('cycle_number', { ascending: false })
 
       // Determine current cycle (highest cycle number, or 1 if no progress)
@@ -187,7 +186,7 @@ export const usePracticeStore = defineStore('practice', () => {
         'create_practice_session',
         {
           p_student_id: authStore.user.id,
-          p_topic_id: subTopicId,
+          p_sub_topic_id: subTopicId,
           p_grade_level_id: hierarchy.gradeLevel.id,
           p_subject_id: hierarchy.subject.id,
           p_questions: questionsPayload,
@@ -589,7 +588,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
       const countMap = new Map<string, number>()
       for (const row of data ?? []) {
-        countMap.set(row.topic_id, row.answered_count)
+        countMap.set(row.sub_topic_id, row.answered_count)
       }
       subTopicProgress.value = countMap
     } catch (err) {

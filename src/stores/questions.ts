@@ -22,7 +22,7 @@ export interface Question {
   type: QuestionType
   question: string
   imagePath: string | null
-  subTopicId: string // topic_id column now references sub_topics
+  subTopicId: string
   gradeLevelId: string | null
   subjectId: string | null
   explanation: string | null
@@ -54,7 +54,7 @@ export interface CreateQuestionInput {
   type: QuestionType
   question: string
   imagePath?: string | null
-  subTopicId: string // topic_id column now references sub_topics
+  subTopicId: string
   gradeLevelId?: string | null
   subjectId?: string | null
   explanation?: string | null
@@ -67,7 +67,7 @@ export interface UpdateQuestionInput {
   type?: QuestionType
   question?: string
   imagePath?: string | null
-  subTopicId?: string // topic_id column now references sub_topics
+  subTopicId?: string
   gradeLevelId?: string | null
   subjectId?: string | null
   explanation?: string | null
@@ -78,7 +78,6 @@ export interface UpdateQuestionInput {
 
 /**
  * Convert database row to Question interface
- * Note: topic_id in DB now references sub_topics table
  */
 export function rowToQuestion(
   row: QuestionRow,
@@ -117,8 +116,7 @@ export function rowToQuestion(
   let topicName = ''
   let subTopicName = ''
 
-  // topic_id now references sub_topics, so use getSubTopicWithHierarchy
-  const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.topic_id)
+  const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)
   if (hierarchy) {
     gradeLevelName = hierarchy.gradeLevel.name
     subjectName = hierarchy.subject.name
@@ -131,7 +129,7 @@ export function rowToQuestion(
     type: row.type,
     question: row.question,
     imagePath: row.image_path,
-    subTopicId: row.topic_id, // topic_id column references sub_topics
+    subTopicId: row.sub_topic_id,
     gradeLevelId: row.grade_level_id,
     subjectId: row.subject_id,
     explanation: row.explanation,
@@ -302,7 +300,7 @@ export const useQuestionsStore = defineStore('questions', () => {
       let query = supabase.from('questions').select('*', { count: 'exact', head: false })
 
       if (subTopicIds !== null) {
-        query = query.in('topic_id', subTopicIds)
+        query = query.in('sub_topic_id', subTopicIds)
       }
       if (search) {
         query = query.ilike('question', `%${escapeLikePattern(search)}%`)
@@ -357,7 +355,7 @@ export const useQuestionsStore = defineStore('questions', () => {
       let query = supabase.from('questions').select('*')
 
       if (subTopicIds !== null) {
-        query = query.in('topic_id', subTopicIds)
+        query = query.in('sub_topic_id', subTopicIds)
       }
       if (search) {
         query = query.ilike('question', `%${escapeLikePattern(search)}%`)
@@ -417,7 +415,6 @@ export const useQuestionsStore = defineStore('questions', () => {
 
   /**
    * Fetch questions for a specific sub-topic
-   * Note: topic_id column in DB now references sub_topics table
    */
   async function fetchQuestionsBySubTopic(
     subTopicId: string,
@@ -431,7 +428,7 @@ export const useQuestionsStore = defineStore('questions', () => {
       const { data, error: fetchError } = await supabase
         .from('questions')
         .select('*')
-        .eq('topic_id', subTopicId)
+        .eq('sub_topic_id', subTopicId)
         .order('created_at', { ascending: false })
 
       if (fetchError) {
@@ -460,7 +457,7 @@ export const useQuestionsStore = defineStore('questions', () => {
         type: input.type,
         question: input.question,
         image_path: input.imagePath ?? null,
-        topic_id: input.subTopicId,
+        sub_topic_id: input.subTopicId,
         grade_level_id: input.gradeLevelId ?? null,
         subject_id: input.subjectId ?? null,
         explanation: input.explanation ?? null,
@@ -525,7 +522,7 @@ export const useQuestionsStore = defineStore('questions', () => {
       if (input.type !== undefined) updateData.type = input.type
       if (input.question !== undefined) updateData.question = input.question
       if (input.imagePath !== undefined) updateData.image_path = input.imagePath
-      if (input.subTopicId !== undefined) updateData.topic_id = input.subTopicId
+      if (input.subTopicId !== undefined) updateData.sub_topic_id = input.subTopicId
       if (input.gradeLevelId !== undefined) updateData.grade_level_id = input.gradeLevelId
       if (input.subjectId !== undefined) updateData.subject_id = input.subjectId
       if (input.explanation !== undefined) updateData.explanation = input.explanation
