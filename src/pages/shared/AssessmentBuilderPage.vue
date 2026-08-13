@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BarChart3,
   ClipboardList,
+  Copy,
   Info,
   Loader2,
   Lock,
@@ -71,8 +72,15 @@ const isPublished = computed(() => assessment.value?.status === 'published')
  * apply — a template stays editable regardless of its status.
  */
 const isTemplate = computed(() => assessment.value?.isTemplate ?? false)
+/**
+ * Org staff previewing a platform template: EXPLICITLY read-only.
+ * `canEdit()` alone would pass for any manager (it mirrors the org-scoped
+ * RLS), but template writes are admin-only — every edit would 403 — so the
+ * template case is gated here instead of relying on canEdit.
+ */
+const isTemplatePreview = computed(() => isTemplate.value && !authStore.isAdmin)
 const canEdit = computed(() =>
-  assessment.value ? assessmentsStore.canEdit(assessment.value) : false,
+  assessment.value && !isTemplatePreview.value ? assessmentsStore.canEdit(assessment.value) : false,
 )
 /**
  * Published assessments are locked: `attempt_questions` snapshots reference
@@ -98,13 +106,22 @@ function syncSettings() {
   shuffleQuestions.value = current.shuffleQuestions
 }
 
-onMounted(async () => {
+async function loadAssessment() {
+  notFound.value = false
   const { error } = await assessmentsStore.fetchAssessmentDetail(assessmentId.value)
   if (error || !assessmentsStore.currentAssessment) {
     notFound.value = true
     return
   }
   syncSettings()
+}
+
+onMounted(loadAssessment)
+
+// Same route record, new id (template preview → its fresh clone): remount
+// does not happen, so refetch on the param change.
+watch(assessmentId, () => {
+  if (route.params.assessmentId) loadAssessment()
 })
 
 watch(assessment, syncSettings)
@@ -161,6 +178,27 @@ async function handlePublish() {
   }
 }
 
+// Staff template preview: "Use Template" clones into the caller's org and
+// lands in the (now editable) clone — same route record, param watch reloads.
+const showUseTemplateDialog = ref(false)
+const isCloning = ref(false)
+
+async function handleUseTemplate() {
+  isCloning.value = true
+  try {
+    const { id, error } = await assessmentsStore.cloneTemplate(assessmentId.value)
+    if (error || !id) {
+      toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
+      return
+    }
+    toast.success(t.value.staff.assessments.toastCloned)
+    showUseTemplateDialog.value = false
+    router.push(`${basePath.value}/assessments/${id}`)
+  } finally {
+    isCloning.value = false
+  }
+}
+
 function openAdhocAdd() {
   editingQuestion.value = null
   showAdhocDialog.value = true
@@ -202,10 +240,16 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
       variant="ghost"
       size="sm"
       class="-ml-2 mb-4"
-      @click="router.push(`${basePath}/assessments`)"
+      @click="router.push(isTemplatePreview ? `${basePath}/templates` : `${basePath}/assessments`)"
     >
       <ArrowLeft class="mr-2 size-4" />
-      {{ authStore.isAdmin ? t.staff.builder.backToTemplates : t.staff.builder.backToList }}
+      {{
+        isTemplatePreview
+          ? t.staff.builder.backToLibrary
+          : authStore.isAdmin
+            ? t.staff.builder.backToTemplates
+            : t.staff.builder.backToList
+      }}
     </Button>
 
     <!-- Loading -->
@@ -242,7 +286,13 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
             <Badge v-else variant="secondary">{{ t.staff.assessments.statusDraft }}</Badge>
           </div>
         </div>
-        <div v-if="!isTemplate" class="flex shrink-0 items-center gap-2">
+        <div v-if="isTemplatePreview" class="flex shrink-0 items-center gap-2">
+          <Button @click="showUseTemplateDialog = true">
+            <Copy class="mr-2 size-4" />
+            {{ t.staff.assessments.useTemplate }}
+          </Button>
+        </div>
+        <div v-else-if="!isTemplate" class="flex shrink-0 items-center gap-2">
           <Button variant="outline" @click="showAssignDialog = true">
             <UserPlus class="mr-2 size-4" />
             {{ t.staff.builder.assign }}
@@ -267,7 +317,14 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
 
       <!-- Read-only notices -->
       <div
-        v-if="!canEdit"
+        v-if="isTemplatePreview"
+        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+      >
+        <Info class="mt-0.5 size-4 shrink-0" />
+        {{ t.staff.builder.templatePreviewBanner }}
+      </div>
+      <div
+        v-else-if="!canEdit"
         class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Info class="mt-0.5 size-4 shrink-0" />
@@ -417,6 +474,27 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
       />
 
       <AssignDialog v-if="!isTemplate" v-model:open="showAssignDialog" :assessment="assessment" />
+
+      <!-- Use template confirmation (staff preview only) -->
+      <Dialog v-if="isTemplatePreview" v-model:open="showUseTemplateDialog">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{{ t.staff.assessments.useTemplateTitle }}</DialogTitle>
+            <DialogDescription>{{
+              t.staff.assessments.useTemplateDesc(assessment.title)
+            }}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" :disabled="isCloning" @click="showUseTemplateDialog = false">
+              {{ t.staff.assessments.cancel }}
+            </Button>
+            <Button :disabled="isCloning" @click="handleUseTemplate">
+              <Loader2 v-if="isCloning" class="mr-2 size-4 animate-spin" />
+              {{ t.staff.assessments.useTemplateConfirm }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <!-- Publish confirmation -->
       <Dialog v-model:open="showPublishDialog">

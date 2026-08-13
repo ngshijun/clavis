@@ -134,6 +134,8 @@ export default {
     failedFetchAssignments: '加载分配记录失败。',
     failedCreateAssignment: '分配测评失败。',
     failedRemoveAssignment: '移除分配失败。',
+    failedFetchTemplates: '加载模板失败。',
+    failedCloneTemplate: '复制模板失败。',
     failedFetchAttempts: '加载作答记录失败。',
     failedFetchAttemptResult: '加载作答详情失败。',
     failedStartAttempt: '开始测评失败。',
@@ -617,11 +619,13 @@ export default {
           students: '学生',
           classrooms: '班级',
           assessments: '测评',
+          templateLibrary: '模板库',
         },
         teacher: {
           dashboard: '主页',
           classrooms: '班级',
           assessments: '测评',
+          templateLibrary: '模板库',
         },
         student: {
           dashboard: '主页',

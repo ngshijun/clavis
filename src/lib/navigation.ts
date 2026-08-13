@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardList,
   BarChart3,
+  Library,
   MessageSquare,
   PenTool,
   School,
@@ -32,11 +33,13 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Students', path: '/manager/students', icon: Users },
     { title: 'Classrooms', path: '/manager/classrooms', icon: School },
     { title: 'Assessments', path: '/manager/assessments', icon: ClipboardList },
+    { title: 'Template Library', path: '/manager/templates', icon: Library },
   ],
   teacher: [
     { title: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
     { title: 'Classrooms', path: '/teacher/classrooms', icon: School },
     { title: 'Assessments', path: '/teacher/assessments', icon: ClipboardList },
+    { title: 'Template Library', path: '/teacher/templates', icon: Library },
   ],
   student: [
     { title: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },

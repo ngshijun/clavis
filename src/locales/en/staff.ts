@@ -155,6 +155,22 @@ export default {
     deleteTemplateTitle: 'Delete Template',
     deleteTemplateDesc: (title: string) =>
       `Delete the template "${title}"? Copies centers have already cloned are not affected. This cannot be undone.`,
+    // Staff template library (browse + clone platform templates)
+    libraryTitle: 'Template Library',
+    librarySubtitle: 'Platform templates — using one creates your own editable copy',
+    descriptionCol: 'Description',
+    searchTemplatesPlaceholder: 'Search by title...',
+    libraryEmpty: 'No Templates Available',
+    libraryEmptyDesc: 'The platform has not published any templates yet.',
+    noTemplatesMatchSearch: 'No templates match your search criteria.',
+    previewAction: 'Preview',
+    useTemplate: 'Use Template',
+    useTemplateTitle: 'Use this template?',
+    useTemplateDesc: (title: string) =>
+      `"${title}" is copied into your assessments as a new editable draft. You can change its questions and assign it to your students — the template itself stays unchanged.`,
+    useTemplateConfirm: 'Create My Copy',
+    toastCloned: 'Template copied — this draft is now your own assessment',
+    toastTemplatesLoadFailed: 'Failed to load templates',
   },
 
   assessmentCreate: {
@@ -171,9 +187,12 @@ export default {
   builder: {
     backToList: 'Assessments',
     backToTemplates: 'Templates',
+    backToLibrary: 'Template Library',
     templateBadge: 'Platform template',
     templateBanner:
       'This is a platform-wide template. Every center can browse it and clone an editable copy into their own assessments — the template itself can never be assigned to students.',
+    templatePreviewBanner:
+      'This is a read-only platform template. "Use Template" creates your own editable copy that you can edit and assign to your students.',
     notFound: 'Assessment not found.',
     readOnly: 'Only the creating teacher or a manager can edit this assessment.',
     publishedLocked:

@@ -240,6 +240,11 @@ const router = createRouter({
           component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
         },
         {
+          path: 'templates',
+          name: 'manager-template-library',
+          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
+        },
+        {
           path: 'profile',
           name: 'manager-profile',
           component: () => import('@/pages/shared/StaffProfilePage.vue'),
@@ -277,6 +282,11 @@ const router = createRouter({
           path: 'assessments/:assessmentId/results',
           name: 'teacher-assessment-results',
           component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
+        },
+        {
+          path: 'templates',
+          name: 'teacher-template-library',
+          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
         },
         {
           path: 'profile',

@@ -174,6 +174,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
+  // Staff template library (platform templates, cross-center read-only)
+  const templates = ref<AssessmentListItem[]>([])
+  const isLoadingTemplates = ref(false)
+
   const filters = ref({ search: '' })
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
@@ -278,6 +282,59 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       return { error: message }
     } finally {
       isLoading.value = false
+    }
+  }
+
+  /**
+   * The platform template library, for org staff (manager/teacher).
+   * DELIBERATELY separate from `fetchAssessments` — that one hard-filters
+   * staff to `is_template=false` so templates never pollute the org list.
+   * Templates are read-only for staff; "using" one goes through
+   * `cloneTemplate`.
+   */
+  async function fetchTemplates(): Promise<{ error: string | null }> {
+    isLoadingTemplates.value = true
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('assessments')
+        .select(ASSESSMENT_SELECT)
+        .eq('is_template', true)
+        .order('title')
+
+      if (fetchError) throw fetchError
+
+      templates.value = ((data ?? []) as unknown as AssessmentSelectRow[]).map(rowToListItem)
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedFetchTemplates') }
+    } finally {
+      isLoadingTemplates.value = false
+    }
+  }
+
+  /**
+   * Clone a platform template into the caller's org (P7a RPC): the clone is
+   * a normal editable draft assessment owned by the caller; the template is
+   * untouched. Returns the new assessment id.
+   */
+  async function cloneTemplate(
+    templateId: string,
+  ): Promise<{ id: string | null; error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('clone_assessment_template', {
+        p_template_id: templateId,
+      })
+
+      if (rpcError) throw rpcError
+
+      // The clone now belongs in the caller's assessments list.
+      await fetchAssessments()
+
+      return { id: data, error: null }
+    } catch (err) {
+      return { id: null, error: handleError(err, 'failedCloneTemplate') }
     }
   }
 
@@ -815,6 +872,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     assessments.value = []
     isLoading.value = false
     error.value = null
+    templates.value = []
+    isLoadingTemplates.value = false
     currentAssessment.value = null
     currentQuestions.value = []
     currentAssignments.value = []
@@ -842,6 +901,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAttempts,
     isLoadingCurrent,
     isSavingOrder,
+    templates,
+    isLoadingTemplates,
+    fetchTemplates,
+    cloneTemplate,
     fetchAssessments,
     createAssessment,
     updateAssessment,

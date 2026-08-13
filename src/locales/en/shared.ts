@@ -136,6 +136,8 @@ export default {
     failedFetchAssignments: 'Failed to load assignments.',
     failedCreateAssignment: 'Failed to assign assessment.',
     failedRemoveAssignment: 'Failed to remove assignment.',
+    failedFetchTemplates: 'Failed to load templates.',
+    failedCloneTemplate: 'Failed to copy the template.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
     failedStartAttempt: 'Failed to start the assessment.',
@@ -628,11 +630,13 @@ export default {
           students: 'Students',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
+          templateLibrary: 'Template Library',
         },
         teacher: {
           dashboard: 'Dashboard',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
+          templateLibrary: 'Template Library',
         },
         student: {
           dashboard: 'Dashboard',
