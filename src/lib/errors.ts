@@ -101,6 +101,19 @@ function mapAuthError(err: AuthError, errors: ErrorMessages): string {
 // Postgrest / database error mapping
 // ──────────────────────────────────────────────
 
+/**
+ * Exact RAISE strings from the P8a assignment-scope trigger
+ * (`enforce_assignment_scope`) and `clone_assessment_template`, mapped to
+ * localized error copy (P8A-HANDOFF §4-5).
+ */
+const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
+  'Cannot assign a template assessment': 'assignTemplateBlocked',
+  'Classroom does not match the assessment grade and subject': 'assignClassroomScopeMismatch',
+  'Student is not in a classroom matching the assessment grade and subject':
+    'assignStudentScopeMismatch',
+  'No classroom matches this template grade and subject': 'cloneNoMatchingClassroom',
+}
+
 function isPostgrestError(err: unknown): err is PostgrestError {
   if (typeof err !== 'object' || err === null) return false
   return 'code' in err && 'message' in err && 'details' in err
@@ -122,10 +135,13 @@ function mapPostgrestError(err: PostgrestError, errors: ErrorMessages): string {
     case '42703':
       return errors.dbServerError
     // PL/pgSQL raise exceptions surface as user-facing messages from the DB.
-    // These are intentional, deliberately-worded messages from RPC functions
-    // (e.g. business rule violations) and remain in DB-language for now.
-    case 'P0001':
+    // Known guard messages (P8a assignment-scope trigger + clone RPC) map to
+    // localized copy; other intentional RPC messages remain in DB-language.
+    case 'P0001': {
+      const key = DB_RAISE_MESSAGE_KEYS[err.message]
+      if (key) return errors[key]
       return err.message || errors.dbGeneric
+    }
   }
 
   if (err.code?.startsWith('PGRST')) {

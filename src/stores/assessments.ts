@@ -17,6 +17,15 @@ export interface AssessmentListItem {
   status: AssessmentStatus
   /** Platform-wide template (admin-authored, org-less, never assignable). */
   isTemplate: boolean
+  /**
+   * Grade+subject scope (P8a). Templates always carry both; a clone inherits
+   * them (scoped — restricted assignment); a staff-built assessment has both
+   * NULL (unscoped — assignable anywhere). Never half-set (DB CHECK).
+   */
+  gradeLevelId: string | null
+  gradeLevelName: string | null
+  subjectId: string | null
+  subjectName: string | null
   timeLimitSeconds: number | null
   shuffleQuestions: boolean
   createdBy: string
@@ -214,12 +223,16 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     description,
     status,
     is_template,
+    grade_level_id,
+    subject_id,
     time_limit_seconds,
     shuffle_questions,
     created_by,
     created_at,
     updated_at,
     profiles!assessments_created_by_fkey (name),
+    grade_levels!assessments_grade_level_id_fkey (name),
+    subjects!assessments_subject_id_fkey (name),
     assessment_questions (count)
   `
 
@@ -229,12 +242,16 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     description: string | null
     status: AssessmentStatus
     is_template: boolean
+    grade_level_id: string | null
+    subject_id: string | null
     time_limit_seconds: number | null
     shuffle_questions: boolean
     created_by: string
     created_at: string
     updated_at: string
     profiles: { name: string } | null
+    grade_levels: { name: string } | null
+    subjects: { name: string } | null
     assessment_questions: { count: number }[]
   }
 
@@ -245,6 +262,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       description: row.description,
       status: row.status,
       isTemplate: row.is_template,
+      gradeLevelId: row.grade_level_id,
+      gradeLevelName: row.grade_levels?.name ?? null,
+      subjectId: row.subject_id,
+      subjectName: row.subjects?.name ?? null,
       timeLimitSeconds: row.time_limit_seconds,
       shuffleQuestions: row.shuffle_questions,
       createdBy: row.created_by,
@@ -340,16 +361,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
   /**
    * Admin creates a platform TEMPLATE (is_template=true, no org — the DB
-   * CHECK requires org NULL for templates); org staff create a normal
-   * org-scoped assessment.
+   * CHECK requires org NULL for templates; a template must also carry a
+   * grade+subject pairing, P8a CHECK); org staff create a normal, unscoped
+   * org assessment.
    */
-  async function createAssessment(
-    title: string,
-  ): Promise<{ id: string | null; error: string | null }> {
+  async function createAssessment(input: {
+    title: string
+    /** REQUIRED for admin templates (the DB CHECK rejects an unpaired template). */
+    gradeLevelId?: string
+    subjectId?: string
+  }): Promise<{ id: string | null; error: string | null }> {
     const userId = authStore.user?.id
     const organizationId = authStore.organizationId
     if (!userId || (!authStore.isAdmin && !organizationId)) {
       return { id: null, error: errorMessages().notAuthenticated }
+    }
+    if (authStore.isAdmin && (!input.gradeLevelId || !input.subjectId)) {
+      return { id: null, error: errorMessages().dbMissingField }
     }
 
     try {
@@ -357,8 +385,14 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         .from('assessments')
         .insert(
           authStore.isAdmin
-            ? { title, is_template: true, created_by: userId }
-            : { title, organization_id: organizationId, created_by: userId },
+            ? {
+                title: input.title,
+                is_template: true,
+                grade_level_id: input.gradeLevelId,
+                subject_id: input.subjectId,
+                created_by: userId,
+              }
+            : { title: input.title, organization_id: organizationId, created_by: userId },
         )
         .select('id')
         .single()
@@ -378,6 +412,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       description?: string | null
       timeLimitSeconds?: number | null
       shuffleQuestions?: boolean
+      /**
+       * Template pairing edit (admin). Always pass BOTH — the DB CHECK
+       * forbids a half-set pairing and a template without one.
+       */
+      gradeLevelId?: string
+      subjectId?: string
     },
   ): Promise<{ error: string | null }> {
     try {
@@ -390,6 +430,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       if (updates.shuffleQuestions !== undefined) {
         updateData.shuffle_questions = updates.shuffleQuestions
       }
+      if (updates.gradeLevelId !== undefined && updates.subjectId !== undefined) {
+        updateData.grade_level_id = updates.gradeLevelId
+        updateData.subject_id = updates.subjectId
+      }
 
       const { error: updateError } = await supabase
         .from('assessments')
@@ -398,20 +442,19 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
       if (updateError) throw updateError
 
+      // Re-read through the plain SELECT path rather than a mutation-returning
+      // representation: ASSESSMENT_SELECT carries an aggregate embed, which is
+      // not a shape we rely on PostgREST supporting on a mutation.
       if (currentAssessment.value?.id === id) {
-        currentAssessment.value = {
-          ...currentAssessment.value,
-          title: updates.title ?? currentAssessment.value.title,
-          description:
-            updates.description !== undefined
-              ? updates.description
-              : currentAssessment.value.description,
-          timeLimitSeconds:
-            updates.timeLimitSeconds !== undefined
-              ? updates.timeLimitSeconds
-              : currentAssessment.value.timeLimitSeconds,
-          shuffleQuestions: updates.shuffleQuestions ?? currentAssessment.value.shuffleQuestions,
-        }
+        const { data, error: refetchError } = await supabase
+          .from('assessments')
+          .select(ASSESSMENT_SELECT)
+          .eq('id', id)
+          .single()
+
+        if (refetchError) throw refetchError
+
+        currentAssessment.value = rowToListItem(data as unknown as AssessmentSelectRow)
       }
 
       return { error: null }

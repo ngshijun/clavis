@@ -283,11 +283,13 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          grade_level_id: string | null
           id: string
           is_template: boolean
           organization_id: string | null
           shuffle_questions: boolean
           status: Database['public']['Enums']['assessment_status']
+          subject_id: string | null
           time_limit_seconds: number | null
           title: string
           updated_at: string
@@ -296,11 +298,13 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          grade_level_id?: string | null
           id?: string
           is_template?: boolean
           organization_id?: string | null
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
+          subject_id?: string | null
           time_limit_seconds?: number | null
           title: string
           updated_at?: string
@@ -309,11 +313,13 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          grade_level_id?: string | null
           id?: string
           is_template?: boolean
           organization_id?: string | null
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
+          subject_id?: string | null
           time_limit_seconds?: number | null
           title?: string
           updated_at?: string
@@ -327,10 +333,24 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'assessments_grade_level_id_fkey'
+            columns: ['grade_level_id']
+            isOneToOne: false
+            referencedRelation: 'grade_levels'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'assessments_organization_id_fkey'
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessments_subject_id_fkey'
+            columns: ['subject_id']
+            isOneToOne: false
+            referencedRelation: 'subjects'
             referencedColumns: ['id']
           },
         ]

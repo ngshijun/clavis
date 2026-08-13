@@ -131,9 +131,25 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         row.original.title,
       ),
   },
-  // Templates carry no meaningful status (never assigned/attempted)
+  // Templates carry no meaningful status (never assigned/attempted), but
+  // always carry a grade+subject pairing that gates which centers see them.
   ...(isTemplateMode.value
-    ? []
+    ? [
+        {
+          id: 'scope',
+          accessorFn: (row: AssessmentListItem) =>
+            `${row.gradeLevelName ?? ''} ${row.subjectName ?? ''}`,
+          header: () => t.value.staff.assessments.scopeCol,
+          cell: ({ row }) =>
+            h(
+              'div',
+              { class: 'text-muted-foreground' },
+              row.original.gradeLevelName && row.original.subjectName
+                ? `${row.original.gradeLevelName} · ${row.original.subjectName}`
+                : '—',
+            ),
+        } satisfies ColumnDef<AssessmentListItem>,
+      ]
     : [
         {
           accessorKey: 'status',

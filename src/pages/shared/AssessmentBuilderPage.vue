@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
+import { useCurriculumStore } from '@/stores/curriculum'
 import {
   ArrowLeft,
   BarChart3,
@@ -30,6 +31,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
 import AdhocQuestionDialog from '@/components/staff/AdhocQuestionDialog.vue'
 import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
@@ -42,6 +50,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
+const curriculumStore = useCurriculumStore()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
 const basePath = computed(() => `/${authStore.userType}`)
@@ -53,6 +62,10 @@ const title = ref('')
 const description = ref('')
 const timeLimitMinutes = ref('')
 const shuffleQuestions = ref(false)
+// Template pairing (admin template mode only): both required, never
+// half-set — the P8a DB CHECK forbids clearing one side of the pairing.
+const scopeGradeLevelId = ref('')
+const scopeSubjectId = ref('')
 const settingsError = ref<string | null>(null)
 const isSavingSettings = ref(false)
 
@@ -89,6 +102,29 @@ const canEdit = computed(() =>
  * Templates are exempt — they have no attempts to corrupt.
  */
 const isEditable = computed(() => canEdit.value && (isTemplate.value || !isPublished.value))
+/**
+ * Admin editing a template's grade+subject pairing (P8a): the pairing decides
+ * which centers can see the template and where clones can be assigned.
+ */
+const canEditScope = computed(() => isTemplate.value && authStore.isAdmin && isEditable.value)
+/** Non-null pairing (template OR scoped clone) shown in the header. */
+const scopeLabel = computed(() =>
+  assessment.value?.gradeLevelName && assessment.value?.subjectName
+    ? `${assessment.value.gradeLevelName} · ${assessment.value.subjectName}`
+    : null,
+)
+
+// Cascading selectors: subjects belong to the selected grade level.
+const scopeSubjects = computed(
+  () =>
+    curriculumStore.gradeLevels.find((grade) => grade.id === scopeGradeLevelId.value)?.subjects ??
+    [],
+)
+
+function handleScopeGradeChange(gradeLevelId: unknown) {
+  scopeGradeLevelId.value = String(gradeLevelId ?? '')
+  scopeSubjectId.value = ''
+}
 
 const existingBankQuestionIds = computed(() =>
   assessmentsStore.currentQuestions
@@ -104,6 +140,16 @@ function syncSettings() {
   timeLimitMinutes.value =
     current.timeLimitSeconds !== null ? String(Math.round(current.timeLimitSeconds / 60)) : ''
   shuffleQuestions.value = current.shuffleQuestions
+  scopeGradeLevelId.value = current.gradeLevelId ?? ''
+  scopeSubjectId.value = current.subjectId ?? ''
+
+  if (
+    canEditScope.value &&
+    curriculumStore.gradeLevels.length === 0 &&
+    !curriculumStore.isLoading
+  ) {
+    curriculumStore.fetchCurriculum()
+  }
 }
 
 async function loadAssessment() {
@@ -142,6 +188,11 @@ async function handleSaveSettings() {
     }
     timeLimitSeconds = minutes * 60
   }
+
+  if (canEditScope.value && (!scopeGradeLevelId.value || !scopeSubjectId.value)) {
+    settingsError.value = t.value.staff.builder.validationScope
+    return
+  }
   settingsError.value = null
 
   isSavingSettings.value = true
@@ -151,6 +202,9 @@ async function handleSaveSettings() {
       description: description.value.trim() || null,
       timeLimitSeconds,
       shuffleQuestions: shuffleQuestions.value,
+      ...(canEditScope.value
+        ? { gradeLevelId: scopeGradeLevelId.value, subjectId: scopeSubjectId.value }
+        : {}),
     })
 
     if (error) {
@@ -284,7 +338,11 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
               {{ t.staff.assessments.statusPublished }}
             </Badge>
             <Badge v-else variant="secondary">{{ t.staff.assessments.statusDraft }}</Badge>
+            <Badge v-if="scopeLabel" variant="outline">{{ scopeLabel }}</Badge>
           </div>
+          <p v-if="scopeLabel && !isTemplate" class="mt-1 text-sm text-muted-foreground">
+            {{ t.staff.builder.scopedAssessmentHint }}
+          </p>
         </div>
         <div v-if="isTemplatePreview" class="flex shrink-0 items-center gap-2">
           <Button @click="showUseTemplateDialog = true">
@@ -445,6 +503,56 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
                 :disabled="!isEditable || isSavingSettings"
               />
             </Field>
+
+            <!-- Template pairing (admin template mode): both always required -->
+            <template v-if="canEditScope">
+              <Field>
+                <FieldLabel
+                  >{{ t.staff.builder.gradeLabel }}
+                  <span class="text-destructive">*</span></FieldLabel
+                >
+                <Select
+                  :model-value="scopeGradeLevelId"
+                  :disabled="isSavingSettings || curriculumStore.isLoading"
+                  @update:model-value="handleScopeGradeChange"
+                >
+                  <SelectTrigger class="w-full">
+                    <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="gradeLevel in curriculumStore.gradeLevels"
+                      :key="gradeLevel.id"
+                      :value="gradeLevel.id"
+                    >
+                      {{ gradeLevel.name }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel
+                  >{{ t.staff.builder.subjectLabel }}
+                  <span class="text-destructive">*</span></FieldLabel
+                >
+                <Select v-model="scopeSubjectId" :disabled="isSavingSettings || !scopeGradeLevelId">
+                  <SelectTrigger class="w-full">
+                    <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="subject in scopeSubjects"
+                      :key="subject.id"
+                      :value="subject.id"
+                    >
+                      {{ subject.name }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>{{ t.staff.builder.scopeHint }}</FieldDescription>
+              </Field>
+            </template>
 
             <FieldError :errors="settingsError ? [settingsError] : []" />
 

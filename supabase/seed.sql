@@ -658,6 +658,9 @@ ON CONFLICT DO NOTHING;
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- Created by Ms Lee (teacher), two bank questions, assigned to Classroom A so
 -- the many-to-many assignment flow is testable end to end.
+-- Revamp 2.4: deliberately left UNSCOPED (grade_level_id/subject_id NULL) —
+-- it is the fixture for "an unscoped assessment keeps today's assignment
+-- behaviour" (decision 60/62). Scoped assessments come from cloning a template.
 
 INSERT INTO public.assessments (id, organization_id, created_by, title, description, status)
 SELECT
@@ -685,26 +688,44 @@ ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9d. ADMIN ASSESSMENT TEMPLATES (Revamp 2.3 — decision 54-56/59)          ║
+-- ║ 9d. ADMIN ASSESSMENT TEMPLATES (Revamp 2.3/2.4 — decisions 54-56, 60-61) ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- Platform-wide templates authored by the admin (000001): is_template = true,
 -- organization_id NULL (enforced by assessments_template_org_check). They are
--- read-only cross-center library items; any center clones one via
+-- read-only library items; a center clones one via
 -- clone_assessment_template(id) to get an editable, org-scoped copy.
 -- Section 8's DELETE FROM assessment_questions clears the template questions on
--- a re-run (assessments rows persist via ON CONFLICT), so both re-create here.
+-- a re-run (assessments rows persist via ON CONFLICT), so all re-create here.
+--
+-- Revamp 2.4 (decision 60): every template carries a grade+subject pairing,
+-- and decision 61 makes a template visible ONLY to staff who have a matching
+-- classroom. The seeded classrooms (9b) are Year 1 + Year 1 Mathematics, so:
+--   * templates 1 and 3 (Year 1 Math)     -> VISIBLE to Ms Lee + Mr Wong
+--   * template 2 (Year 2 English)         -> HIDDEN from them (deliberate:
+--     it makes the matching filter observable on staging; the admin sees all)
 
 INSERT INTO public.assessments (
-  id, organization_id, created_by, title, description, status, is_template
+  id, organization_id, created_by, title, description, status, is_template,
+  grade_level_id, subject_id
 ) VALUES
   ('a5000000-0000-4000-8000-000000000002', NULL,
    '00000000-0000-0000-0000-000000000001',
    'Template: Year 1 Math Basics',
-   '100 以内的整数 — starter quiz any center can clone.', 'published', true),
+   '100 以内的整数 — starter quiz any center can clone.', 'published', true,
+   '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1'),  -- Year 1 Mathematics  (MATCHES 9b)
   ('a5000000-0000-4000-8000-000000000003', NULL,
    '00000000-0000-0000-0000-000000000001',
    'Template: Year 2 English Grammar',
-   'Verbs warm-up — bank questions plus one ad-hoc item.', 'published', true)
+   'Verbs warm-up — bank questions plus one ad-hoc item.', 'published', true,
+   'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a',   -- Year 2
+   'f73988ca-1c4e-4b22-8455-eb32c5c1e1c8'),  -- Year 2 English      (NO match)
+  ('a5000000-0000-4000-8000-000000000004', NULL,
+   '00000000-0000-0000-0000-000000000001',
+   'Template: Year 1 Math — Numbers & Counting',
+   '双数、比较大小与加法 — second Year 1 Math library item.', 'published', true,
+   '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1')   -- Year 1 Mathematics  (MATCHES 9b)
 ON CONFLICT (id) DO NOTHING;
 
 -- Template 1: three bank questions.
@@ -733,6 +754,19 @@ VALUES
   ('a9200000-0000-4000-8000-000000000006', 'a5000000-0000-4000-8000-000000000003',
    '{"type":"mcq","question":"Choose the correct verb: She ___ to school every day.","options":[{"text":"walk","is_correct":false},{"text":"walks","is_correct":true},{"text":"walking","is_correct":false},{"text":"walked","is_correct":false}],"explanation":"Third person singular takes -s."}'::jsonb,
    2, 1)
+ON CONFLICT (id) DO NOTHING;
+
+-- Template 3: three bank questions (MCQ + MRQ + short answer), same Year 1
+-- Math pairing as template 1 — so a matched teacher/manager sees TWO library
+-- items and template 2 stays hidden.
+INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+VALUES
+  ('a9200000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000004',
+   '11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 0, 1),
+  ('a9200000-0000-4000-8000-000000000008', 'a5000000-0000-4000-8000-000000000004',
+   'a1000000-0000-4000-8000-000000000001', 1, 2),
+  ('a9200000-0000-4000-8000-000000000009', 'a5000000-0000-4000-8000-000000000004',
+   'a1000000-0000-4000-8000-000000000002', 2, 1)
 ON CONFLICT (id) DO NOTHING;
 
 
