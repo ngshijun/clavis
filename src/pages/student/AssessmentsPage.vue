@@ -25,6 +25,24 @@ function isOverdue(item: AssignedAssessment): boolean {
   return item.dueAt !== null && Date.parse(item.dueAt) < Date.now()
 }
 
+/** Submitted but with answers still awaiting the teacher's marking (P9b). */
+function isAwaitingMarking(item: AssignedAssessment): boolean {
+  return item.status === 'completed' && item.pendingManualCount > 0
+}
+
+/**
+ * Whether the stored score may be shown (decision 70): always once marking is
+ * done; while pending only when the teacher enabled the auto subtotal — and
+ * then never presented as final (the awaiting-marking badge qualifies it).
+ */
+function showScore(item: AssignedAssessment): boolean {
+  return (
+    item.status === 'completed' &&
+    item.scorePercent !== null &&
+    (!isAwaitingMarking(item) || item.showAutoScoreWhilePending)
+  )
+}
+
 /** Not started and every assignment's due date has passed — cannot start. */
 function isClosed(item: AssignedAssessment): boolean {
   return item.status === 'not_started' && !item.canStart
@@ -87,6 +105,13 @@ function ctaLabel(item: AssignedAssessment): string {
               >
                 {{ t.student.assessments.statusCompleted }}
               </Badge>
+              <Badge
+                v-if="isAwaitingMarking(item)"
+                variant="outline"
+                class="border-amber-500 text-amber-600 dark:border-amber-600 dark:text-amber-400"
+              >
+                {{ t.student.assessments.awaitingMarking }}
+              </Badge>
               <Badge v-if="isClosed(item)" variant="outline" class="text-muted-foreground">
                 {{ t.student.assessments.closed }}
               </Badge>
@@ -115,17 +140,17 @@ function ctaLabel(item: AssignedAssessment): string {
                 <AlarmClock class="size-3.5" />
                 {{ t.student.assessments.timeLimit(Math.round(item.timeLimitSeconds / 60)) }}
               </span>
-              <span
-                v-if="item.status === 'completed' && item.scorePercent !== null"
-                class="font-medium text-foreground"
-              >
+              <span v-if="showScore(item)" class="font-medium text-foreground">
                 {{
                   t.student.assessments.scoreFmt(
                     item.correctCount ?? 0,
                     item.totalQuestions ?? 0,
-                    item.scorePercent,
+                    item.scorePercent ?? 0,
                   )
                 }}
+                <template v-if="isAwaitingMarking(item)">
+                  · {{ t.student.assessments.provisional }}
+                </template>
               </span>
             </div>
             <p v-if="isClosed(item)" class="text-sm text-muted-foreground">

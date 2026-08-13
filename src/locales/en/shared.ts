@@ -148,6 +148,8 @@ export default {
       'You need a classroom with the grade and subject of this template before you can use it.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
+    resultNotAuthorized: 'You do not have access to this attempt result.',
+    resultNotSubmitted: 'Results are available after the assessment is submitted.',
     // P9b manual marking + answer release (exact DB RAISE strings mapped in errors.ts)
     failedMarkAnswer: 'Failed to save the mark.',
     failedReleaseAnswers: 'Failed to update the answer release.',
@@ -368,6 +370,47 @@ export default {
     deleted: 'Deleted',
     deletedNotice: 'This question has been deleted from the question bank.',
     tipLabel: 'Tip',
+  },
+  /** True/false values shared by the runner input and the review card. */
+  answerBool: {
+    trueLabel: 'True',
+    falseLabel: 'False',
+  },
+  numericAnswerInput: {
+    placeholder: 'Enter a number...',
+  },
+  clozeAnswerInput: {
+    blankLabel: (n: number) => `Blank ${n}`,
+  },
+  matchingAnswerInput: {
+    hint: 'Choose a match for each item.',
+    placeholder: 'Select...',
+  },
+  orderingAnswerInput: {
+    hint: 'Drag the items into the correct order.',
+    dragHandleLabel: 'Drag to reorder',
+  },
+  assessmentReviewCard: {
+    questionLabel: (n: number) => `Question ${n}`,
+    points: (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`,
+    pointsAwarded: (awarded: string, total: number) => `${awarded}/${total} pts`,
+    correct: 'Correct',
+    incorrect: 'Incorrect',
+    partial: 'Partial credit',
+    awaitingMarking: 'Awaiting marking',
+    unanswered: 'Not answered',
+    yourAnswer: 'Your answer',
+    noAnswer: 'No answer given',
+    correctAnswer: 'Correct answer',
+    acceptedAnswers: 'Accepted answers',
+    blankLabel: (n: number) => `Blank ${n}`,
+    notMatched: 'Not matched',
+    correctMatch: 'Correct match',
+    yourOrder: 'Your order',
+    correctOrder: 'Correct order',
+    rubric: 'Marking guide',
+    teacherComment: "Teacher's comment",
+    explanation: 'Explanation',
   },
   announcementDetailDialog: {
     expiresOn: (date: string) => `Expires on ${date}`,

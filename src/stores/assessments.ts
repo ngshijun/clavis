@@ -5,6 +5,9 @@ import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
 import { payloadPrompt, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
+import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
+
+export type { AttemptAnswerResponse }
 
 export type AssessmentStatus = Database['public']['Enums']['assessment_status']
 export type QuestionType = Database['public']['Enums']['question_type']
@@ -87,14 +90,6 @@ export interface AssessmentAttempt {
   scorePercent: number
   /** Answers still awaiting manual marking (P9b) — > 0 means the score is a floor. */
   pendingManualCount: number
-}
-
-/** Structured student response for the P9a question types (one shape, keys per type). */
-export interface AttemptAnswerResponse {
-  value?: boolean
-  blanks?: { index: number; value: string }[]
-  pairs?: { left_id: string; right_id: string }[]
-  order?: string[]
 }
 
 export interface AttemptResultQuestion {
@@ -958,7 +953,13 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         error: null,
       }
     } catch (err) {
-      return { result: null, error: handleError(err, 'failedFetchAttemptResult') }
+      // The RPC's known RAISE strings map to localized copy; anything else
+      // (e.g. "Attempt not found: %") falls back to the localized generic
+      // instead of surfacing raw DB English (P9d verifier finding).
+      return {
+        result: null,
+        error: handleError(err, 'failedFetchAttemptResult', { localizeRaise: true }),
+      }
     }
   }
 

@@ -71,6 +71,8 @@ export default {
     timeLimit: (minutes: number) => `${minutes} min`,
     statusInProgress: 'In progress',
     statusCompleted: 'Completed',
+    awaitingMarking: 'Awaiting marking',
+    provisional: 'provisional',
     scoreFmt: (correct: number, total: number, percent: number) =>
       `${correct}/${total} (${percent}%)`,
     start: 'Start',
@@ -83,9 +85,7 @@ export default {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
     answeredCount: (answered: number, total: number) => `${answered}/${total} answered`,
     points: (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`,
-    multipleChoice: 'Multiple Choice',
-    multipleResponse: 'Multiple Response',
-    shortAnswer: 'Short Answer',
+    longAnswerPlaceholder: 'Type your answer here...',
     previous: 'Previous',
     next: 'Next',
     submit: 'Submit',
@@ -114,8 +114,16 @@ export default {
     back: 'Back to Assessments',
     scoreLabel: 'Score',
     correctLabel: 'Correct',
+    pointsLabel: 'Points',
     completedLabel: 'Completed',
-    keyHiddenNote: 'Correct answers are not shown for assessments.',
+    provisional: 'provisional',
+    pendingBanner: (n: number) =>
+      `${n} ${n === 1 ? 'answer is' : 'answers are'} awaiting your teacher's marking — your score may still change.`,
+    withheldTitle: 'Awaiting marking',
+    withheldDesc:
+      'Your teacher is still marking this assessment. Your score will appear here once marking is complete.',
+    keyHiddenNote: 'Correct answers are shown after your teacher releases them.',
+    answersShownNote: 'Correct answers are shown below each question.',
   },
   sessionResult: {
     title: 'Session Results',

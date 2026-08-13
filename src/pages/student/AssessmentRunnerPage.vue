@@ -6,6 +6,17 @@ import { useQuestionsStore } from '@/stores/questions'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { shuffle } from '@/lib/practiceHelpers'
+import {
+  buildTrueFalseResponse,
+  buildClozeResponse,
+  buildMatchingResponse,
+  buildOrderingResponse,
+  trueFalseFromResponse,
+  clozeValuesFromResponse,
+  matchingSelectionFromResponse,
+  orderingIdsFromResponse,
+  type AttemptAnswerResponse,
+} from '@/lib/attemptResponse'
 import type { RunnerOption } from '@/stores/student-assessments'
 import { AlarmClock, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -13,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +39,11 @@ import QuestionOptionsList, {
   type DisplayOption,
 } from '@/components/session/QuestionOptionsList.vue'
 import ShortAnswerInput from '@/components/session/ShortAnswerInput.vue'
+import TrueFalseAnswerInput from '@/components/session/TrueFalseAnswerInput.vue'
+import NumericAnswerInput from '@/components/session/NumericAnswerInput.vue'
+import ClozeAnswerInput from '@/components/session/ClozeAnswerInput.vue'
+import MatchingAnswerInput from '@/components/session/MatchingAnswerInput.vue'
+import OrderingAnswerInput from '@/components/session/OrderingAnswerInput.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -34,8 +51,14 @@ const store = useStudentAssessmentsStore()
 const questionsStore = useQuestionsStore()
 const t = useT()
 
+// Per-question input state, hydrated from the saved answer on navigation.
 const selectedNumbers = ref<Set<number>>(new Set())
 const textAnswer = ref('')
+const trueFalseValue = ref<boolean | null>(null)
+const clozeValues = ref<Record<number, string>>({})
+const matchingSelection = ref<Record<string, string | null>>({})
+const orderingIds = ref<string[]>([])
+
 const isSaving = ref(false)
 const isCompleting = ref(false)
 const showSubmitDialog = ref(false)
@@ -51,6 +74,8 @@ const questionStartTime = ref<number>(Date.now())
 
 // Client-side option shuffle (decision 31), cached per question so navigating
 // back shows the same order. Question order itself is the frozen snapshot.
+// The new types need no client shuffle: matching `right` and ordering `items`
+// arrive pre-scrambled per attempt from the server (do NOT re-shuffle).
 const shuffledOptionsCache = new Map<string, RunnerOption[]>()
 
 const currentQuestion = computed(() => store.currentQuestion)
@@ -60,6 +85,9 @@ const progress = computed(() =>
 )
 const unansweredCount = computed(() => totalQuestions.value - store.answeredCount)
 
+/** True for the types whose answer is flushed on navigation/submit (text-like inputs). */
+const FLUSHED_TYPES = new Set(['short_answer', 'numeric', 'long_answer', 'cloze'])
+
 /**
  * Options adapted for the shared QuestionOptionsList. The option id carries the
  * grader's 1-based option number (as a string) so the selection round-trips
@@ -68,7 +96,7 @@ const unansweredCount = computed(() => totalQuestions.value - store.answeredCoun
  */
 const displayOptions = computed<DisplayOption[]>(() => {
   const question = currentQuestion.value
-  if (!question || question.type === 'short_answer') return []
+  if (!question || (question.type !== 'mcq' && question.type !== 'mrq')) return []
 
   let options = shuffledOptionsCache.get(question.assessmentQuestionId)
   if (!options) {
@@ -91,12 +119,6 @@ const isImageOnlyOptions = computed(() => {
   return question.options.every((option) => option.imagePath && !option.text.trim())
 })
 
-function typeLabel(type: 'mcq' | 'mrq' | 'short_answer'): string {
-  if (type === 'mcq') return t.value.student.assessmentRunner.multipleChoice
-  if (type === 'mrq') return t.value.student.assessmentRunner.multipleResponse
-  return t.value.student.assessmentRunner.shortAnswer
-}
-
 function formatCountdown(seconds: number): string {
   const clamped = Math.max(0, seconds)
   const hours = Math.floor(clamped / 3600)
@@ -115,11 +137,25 @@ watch(
     if (!question) {
       selectedNumbers.value = new Set()
       textAnswer.value = ''
+      trueFalseValue.value = null
+      clozeValues.value = {}
+      matchingSelection.value = {}
+      orderingIds.value = []
       return
     }
     const saved = store.getAnswer(question.assessmentQuestionId)
     selectedNumbers.value = new Set(saved?.selectedOptions ?? [])
     textAnswer.value = saved?.textAnswer ?? ''
+    trueFalseValue.value = trueFalseFromResponse(saved?.response ?? null)
+    clozeValues.value = clozeValuesFromResponse(saved?.response ?? null)
+    matchingSelection.value = matchingSelectionFromResponse(
+      question.matchingLeft.map((item) => item.id),
+      saved?.response ?? null,
+    )
+    orderingIds.value = orderingIdsFromResponse(
+      question.orderingItems.map((item) => item.id),
+      saved?.response ?? null,
+    )
   },
   { immediate: true },
 )
@@ -163,10 +199,11 @@ function updateRemaining() {
   }
 }
 
-/** Persist the current selection/text for one question (server grades it). */
+/** Persist the current input for one question (server grades it). */
 async function persistAnswer(payload: {
   selectedOptions?: number[] | null
   textAnswer?: string | null
+  response?: AttemptAnswerResponse | null
 }): Promise<void> {
   const question = currentQuestion.value
   if (!question) return
@@ -221,20 +258,58 @@ function handleOptionClick(optionId: string) {
   persistAnswer({ selectedOptions: [...selectedNumbers.value].sort((a, b) => a - b) })
 }
 
-/** Save a non-empty, changed short answer (Enter, navigation, submit). */
-async function flushTextAnswer(): Promise<void> {
+function handleTrueFalseSelect(value: boolean) {
+  if (isSaving.value || isCompleting.value) return
+  trueFalseValue.value = value
+  persistAnswer({ response: buildTrueFalseResponse(value) })
+}
+
+function handleMatchingSelect(leftId: string, rightId: string) {
   const question = currentQuestion.value
-  if (!question || question.type !== 'short_answer') return
+  if (!question || isCompleting.value) return
+
+  matchingSelection.value = { ...matchingSelection.value, [leftId]: rightId }
+  const response = buildMatchingResponse(
+    question.matchingLeft.map((item) => item.id),
+    matchingSelection.value,
+  )
+  if (response) persistAnswer({ response })
+}
+
+function handleOrderingChange(ids: string[]) {
+  if (isCompleting.value) return
+  orderingIds.value = ids
+  persistAnswer({ response: buildOrderingResponse(ids) })
+}
+
+/**
+ * Save a non-empty, changed flushed-type answer (Enter, navigation, submit).
+ * short_answer / numeric / long_answer carry `text_answer`; cloze carries a
+ * `response` with exactly one entry per filled blank.
+ */
+async function flushPendingAnswer(): Promise<void> {
+  const question = currentQuestion.value
+  if (!question || !FLUSHED_TYPES.has(question.type)) return
+
+  const saved = store.getAnswer(question.assessmentQuestionId)
+
+  if (question.type === 'cloze') {
+    const response = buildClozeResponse(clozeValues.value)
+    if (!response) return
+    if (saved?.response && JSON.stringify(saved.response) === JSON.stringify(response)) return
+    await persistAnswer({ response })
+    return
+  }
 
   const trimmed = textAnswer.value.trim()
   if (!trimmed) return
-  if (store.getAnswer(question.assessmentQuestionId)?.textAnswer === trimmed) return
+  if (saved?.textAnswer === trimmed) return
 
   await persistAnswer({ textAnswer: trimmed })
 }
 
 async function goToQuestion(index: number) {
-  await flushTextAnswer()
+  await flushPendingAnswer()
   await store.goToQuestion(index)
 }
 
@@ -246,7 +321,7 @@ async function submitAttempt() {
 
   isCompleting.value = true
   try {
-    await flushTextAnswer()
+    await flushPendingAnswer()
 
     const { result, error } = await store.completeAttempt()
     if (!result) {
@@ -352,11 +427,14 @@ onBeforeRouteLeave((to) => {
         <CardHeader>
           <div class="flex items-start justify-between gap-4">
             <div
+              v-if="currentQuestion.question"
               class="text-lg font-semibold leading-relaxed"
               v-html="parseSimpleMarkdown(currentQuestion.question)"
             />
+            <!-- A promptless cloze has no question text — the cloze text below is the prompt. -->
+            <div v-else />
             <div class="flex shrink-0 flex-col items-end gap-1">
-              <Badge variant="secondary">{{ typeLabel(currentQuestion.type) }}</Badge>
+              <Badge variant="secondary">{{ t.shared.questionTypes[currentQuestion.type] }}</Badge>
               <span class="text-xs text-muted-foreground">
                 {{ t.student.assessmentRunner.points(currentQuestion.points) }}
               </span>
@@ -376,8 +454,9 @@ onBeforeRouteLeave((to) => {
             />
           </div>
 
-          <!-- MCQ/MRQ options: never reveal correctness,
-               selection is revisable until submission -->
+          <!-- Inputs per type. Mid-attempt there is NO correctness feedback of
+               any kind (deferred-feedback contract) — every input is neutral
+               and revisable until submission. -->
           <QuestionOptionsList
             v-if="currentQuestion.type === 'mcq' || currentQuestion.type === 'mrq'"
             :options="displayOptions"
@@ -389,11 +468,60 @@ onBeforeRouteLeave((to) => {
             @select="handleOptionClick"
           />
 
-          <!-- Short answer: no correctness feedback until submission -->
           <ShortAnswerInput
-            v-if="currentQuestion.type === 'short_answer'"
+            v-else-if="currentQuestion.type === 'short_answer'"
             v-model="textAnswer"
-            @submit="flushTextAnswer"
+            :disabled="isCompleting"
+            @submit="flushPendingAnswer"
+          />
+
+          <TrueFalseAnswerInput
+            v-else-if="currentQuestion.type === 'true_false'"
+            :model-value="trueFalseValue"
+            :disabled="isSaving || isCompleting"
+            @select="handleTrueFalseSelect"
+          />
+
+          <NumericAnswerInput
+            v-else-if="currentQuestion.type === 'numeric'"
+            v-model="textAnswer"
+            :unit="currentQuestion.unit"
+            :disabled="isCompleting"
+            @submit="flushPendingAnswer"
+          />
+
+          <ClozeAnswerInput
+            v-else-if="currentQuestion.type === 'cloze' && currentQuestion.clozeText"
+            v-model="clozeValues"
+            :text="currentQuestion.clozeText"
+            :blank-indices="currentQuestion.clozeBlankIndices"
+            :disabled="isCompleting"
+          />
+
+          <MatchingAnswerInput
+            v-else-if="currentQuestion.type === 'matching'"
+            :left="currentQuestion.matchingLeft"
+            :right="currentQuestion.matchingRight"
+            :model-value="matchingSelection"
+            :disabled="isCompleting"
+            @select="handleMatchingSelect"
+          />
+
+          <OrderingAnswerInput
+            v-else-if="currentQuestion.type === 'ordering'"
+            :items="currentQuestion.orderingItems"
+            :model-value="orderingIds"
+            :disabled="isCompleting"
+            @change="handleOrderingChange"
+          />
+
+          <Textarea
+            v-else-if="currentQuestion.type === 'long_answer'"
+            v-model="textAnswer"
+            :placeholder="t.student.assessmentRunner.longAnswerPlaceholder"
+            :disabled="isCompleting"
+            rows="6"
+            class="text-base"
           />
         </CardContent>
 

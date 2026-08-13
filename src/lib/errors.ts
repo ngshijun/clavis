@@ -136,6 +136,8 @@ const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Only submitted attempts can be marked': 'markAttemptOpen',
   'Only long-answer questions are marked by hand': 'markNotManual',
   'Not authorized to release answers for this assessment': 'releaseNotAuthorized',
+  'Not authorized to view this attempt result': 'resultNotAuthorized',
+  'Results are available after the attempt is submitted': 'resultNotSubmitted',
 }
 
 function isPostgrestError(err: unknown): err is PostgrestError {

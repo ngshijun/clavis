@@ -143,6 +143,8 @@ export default {
     cloneNoMatchingClassroom: '需要先拥有与此模板年级和科目匹配的班级，才能使用该模板。',
     failedFetchAttempts: '加载作答记录失败。',
     failedFetchAttemptResult: '加载作答详情失败。',
+    resultNotAuthorized: '你无权查看此作答详情。',
+    resultNotSubmitted: '提交测评后才能查看结果。',
     // P9b 人工批改与答案公布（errors.ts 中映射的 DB RAISE 字符串）
     failedMarkAnswer: '保存批改失败。',
     failedReleaseAnswers: '更新答案公布状态失败。',
@@ -360,6 +362,47 @@ export default {
     deleted: '已删除',
     deletedNotice: '此题已从题库中删除。',
     tipLabel: '提示',
+  },
+  /** 判断题的取值文案——作答输入与结果卡片共用。 */
+  answerBool: {
+    trueLabel: '正确',
+    falseLabel: '错误',
+  },
+  numericAnswerInput: {
+    placeholder: '请输入数字...',
+  },
+  clozeAnswerInput: {
+    blankLabel: (n: number) => `第 ${n} 空`,
+  },
+  matchingAnswerInput: {
+    hint: '为每一项选择对应的答案。',
+    placeholder: '请选择...',
+  },
+  orderingAnswerInput: {
+    hint: '拖动条目，排成正确的顺序。',
+    dragHandleLabel: '拖动以排序',
+  },
+  assessmentReviewCard: {
+    questionLabel: (n: number) => `第 ${n} 题`,
+    points: (n: number) => `${n} 分`,
+    pointsAwarded: (awarded: string, total: number) => `${awarded}/${total} 分`,
+    correct: '正确',
+    incorrect: '错误',
+    partial: '部分得分',
+    awaitingMarking: '等待批改',
+    unanswered: '未作答',
+    yourAnswer: '你的答案',
+    noAnswer: '未作答',
+    correctAnswer: '正确答案',
+    acceptedAnswers: '可接受的答案',
+    blankLabel: (n: number) => `第 ${n} 空`,
+    notMatched: '未配对',
+    correctMatch: '正确配对',
+    yourOrder: '你的顺序',
+    correctOrder: '正确顺序',
+    rubric: '评分标准',
+    teacherComment: '老师评语',
+    explanation: '解析',
   },
   announcementDetailDialog: {
     expiresOn: (date: string) => `到期于 ${date}`,
