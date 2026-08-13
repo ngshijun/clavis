@@ -851,6 +851,123 @@ ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9f. MARKING + RELEASE FIXTURES (Revamp 2.5 — decisions 69-71)            ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Two SUBMITTED attempts so the P9b gates are visible on staging without
+-- anyone having to sit an assessment first:
+--
+--   * Alice on Quiz 1 (9c)  — fully auto-graded, and Quiz 1's answers are
+--     RELEASED, so her result shows the correct answers (the released path).
+--   * Ben on the Showcase (9e) — every type answered, the long_answer left
+--     AWAITING MARKING, and the Showcase is NOT released (the default), so
+--     his result shows the provisional score, "1 awaiting marking", and no
+--     key at all. Ms Lee (teacher of Classroom A) may mark it.
+--
+-- Flip the Showcase to the "no score while pending" variant with:
+--   UPDATE public.assessments SET show_auto_score_while_pending = false
+--   WHERE id = 'a5000000-0000-4000-8000-000000000005';
+
+-- Release state (written directly here — the app path is
+-- release_assessment_answers(); the seed runs as postgres).
+UPDATE public.assessments
+SET answers_released_at = now() - interval '1 day',
+    answers_released_by = '00000000-0000-0000-0000-000000000006'
+WHERE id = 'a5000000-0000-4000-8000-000000000001';
+
+UPDATE public.assessments
+SET answers_released_at = NULL,
+    answers_released_by = NULL,
+    show_auto_score_while_pending = true
+WHERE id = 'a5000000-0000-4000-8000-000000000005';
+
+-- The attempts. Section 8 wipes attempt_questions/attempt_answers on every
+-- run but assessment_attempts survives, so reopen the attempts first: the
+-- time-limit trigger rejects answer writes to a submitted attempt.
+INSERT INTO public.assessment_attempts (id, assessment_id, student_id, started_at)
+VALUES
+  ('a8000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
+   '00000000-0000-0000-0000-000000000002', now() - interval '2 days'),
+  ('a8000000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
+   '00000000-0000-0000-0000-000000000003', now() - interval '1 day')
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE public.assessment_attempts
+SET completed_at = NULL
+WHERE id IN ('a8000000-0000-4000-8000-000000000001',
+             'a8000000-0000-4000-8000-000000000002');
+
+-- Frozen snapshots (start_assessment_attempt's job in the app).
+INSERT INTO public.attempt_questions (attempt_id, assessment_question_id, question_order)
+VALUES
+  ('a8000000-0000-4000-8000-000000000001', 'a9100000-0000-4000-8000-000000000001', 1),
+  ('a8000000-0000-4000-8000-000000000001', 'a9100000-0000-4000-8000-000000000002', 2),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000001', 1),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000002', 2),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000003', 3),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000004', 4),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000005', 5),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000006', 6),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000007', 7),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000008', 8),
+  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000009', 9)
+ON CONFLICT DO NOTHING;
+
+-- The answers. is_correct / awarded_points below are NOT written: the
+-- grade_attempt_answer trigger computes both (long_answer -> NULL/NULL).
+INSERT INTO public.attempt_answers
+  (id, attempt_id, assessment_question_id, selected_options, text_answer, response, time_spent_seconds)
+VALUES
+  -- Alice, Quiz 1: Q1 right (option 2 = "35"), Q2 wrong (correct is 2).
+  ('ab000000-0000-4000-8000-000000000001', 'a8000000-0000-4000-8000-000000000001',
+   'a9100000-0000-4000-8000-000000000001', '{2}', NULL, NULL, 24),
+  ('ab000000-0000-4000-8000-000000000002', 'a8000000-0000-4000-8000-000000000001',
+   'a9100000-0000-4000-8000-000000000002', '{1}', NULL, NULL, 41),
+
+  -- Ben, Showcase: 14 of the 16 auto points, plus one essay to mark.
+  -- 1. mcq  -> option 3 ("21")                                    1/1
+  ('ab000000-0000-4000-8000-000000000011', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000001', '{3}', NULL, NULL, 30),
+  -- 2. mrq  -> options 2 + 4 (8 and 14)                           2/2
+  ('ab000000-0000-4000-8000-000000000012', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000002', '{2,4}', NULL, NULL, 45),
+  -- 3. true_false -> true                                         1/1
+  ('ab000000-0000-4000-8000-000000000013', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000003', NULL, NULL, '{"value": true}'::jsonb, 12),
+  -- 4. numeric -> 29 (exact)                                      1/1
+  ('ab000000-0000-4000-8000-000000000014', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000004', NULL, '29', NULL, 33),
+  -- 5. short_answer -> "Triangle" (case-insensitive match)        1/1
+  ('ab000000-0000-4000-8000-000000000015', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000005', NULL, 'Triangle', NULL, 20),
+  -- 6. cloze -> blank 3 wrong ("odd")                             2/3
+  ('ab000000-0000-4000-8000-000000000016', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000006', NULL, NULL,
+   '{"blanks":[{"index":1,"value":"7"},{"index":2,"value":"eight"},{"index":3,"value":"odd"}]}'::jsonb, 70),
+  -- 7. matching -> l3 paired with the distractor r4               2/3
+  ('ab000000-0000-4000-8000-000000000017', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000007', NULL, NULL,
+   '{"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r4"}]}'::jsonb, 88),
+  -- 8. ordering -> fully correct                                  4/4
+  ('ab000000-0000-4000-8000-000000000018', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000008', NULL, NULL,
+   '{"order":["i2","i4","i1","i3"]}'::jsonb, 95),
+  -- 9. long_answer -> AWAITING MARKING (0 of 5 until Ms Lee marks it)
+  ('ab000000-0000-4000-8000-000000000019', 'a8000000-0000-4000-8000-000000000002',
+   'a9300000-0000-4000-8000-000000000009', NULL,
+   'I add 38 + 2 to make 40, then I add the other 25, so 40 + 25 = 65.', NULL, 150)
+ON CONFLICT (id) DO NOTHING;
+
+-- Submit + score both attempts exactly as complete_assessment_attempt would.
+UPDATE public.assessment_attempts
+SET completed_at = started_at + interval '18 minutes'
+WHERE id IN ('a8000000-0000-4000-8000-000000000001',
+             'a8000000-0000-4000-8000-000000000002');
+
+SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000001');
+SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000002');
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 10. ANNOUNCEMENT                                                         ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 

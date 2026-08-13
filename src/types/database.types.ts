@@ -182,6 +182,7 @@ export type Database = {
           correct_count: number
           current_question_index: number
           id: string
+          pending_manual_count: number
           score_percent: number
           started_at: string
           student_id: string
@@ -193,6 +194,7 @@ export type Database = {
           correct_count?: number
           current_question_index?: number
           id?: string
+          pending_manual_count?: number
           score_percent?: number
           started_at?: string
           student_id: string
@@ -204,6 +206,7 @@ export type Database = {
           correct_count?: number
           current_question_index?: number
           id?: string
+          pending_manual_count?: number
           score_percent?: number
           started_at?: string
           student_id?: string
@@ -280,6 +283,8 @@ export type Database = {
       }
       assessments: {
         Row: {
+          answers_released_at: string | null
+          answers_released_by: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -287,6 +292,7 @@ export type Database = {
           id: string
           is_template: boolean
           organization_id: string | null
+          show_auto_score_while_pending: boolean
           shuffle_questions: boolean
           status: Database['public']['Enums']['assessment_status']
           subject_id: string | null
@@ -295,6 +301,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          answers_released_at?: string | null
+          answers_released_by?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -302,6 +310,7 @@ export type Database = {
           id?: string
           is_template?: boolean
           organization_id?: string | null
+          show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
           subject_id?: string | null
@@ -310,6 +319,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          answers_released_at?: string | null
+          answers_released_by?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -317,6 +328,7 @@ export type Database = {
           id?: string
           is_template?: boolean
           organization_id?: string | null
+          show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
           subject_id?: string | null
@@ -325,6 +337,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'assessments_answers_released_by_fkey'
+            columns: ['answers_released_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'assessments_created_by_fkey'
             columns: ['created_by']
@@ -363,6 +382,9 @@ export type Database = {
           awarded_points: number | null
           id: string
           is_correct: boolean | null
+          marked_at: string | null
+          marked_by: string | null
+          marker_comment: string | null
           response: Json | null
           selected_options: number[] | null
           text_answer: string | null
@@ -375,6 +397,9 @@ export type Database = {
           awarded_points?: number | null
           id?: string
           is_correct?: boolean | null
+          marked_at?: string | null
+          marked_by?: string | null
+          marker_comment?: string | null
           response?: Json | null
           selected_options?: number[] | null
           text_answer?: string | null
@@ -387,6 +412,9 @@ export type Database = {
           awarded_points?: number | null
           id?: string
           is_correct?: boolean | null
+          marked_at?: string | null
+          marked_by?: string | null
+          marker_comment?: string | null
           response?: Json | null
           selected_options?: number[] | null
           text_answer?: string | null
@@ -405,6 +433,13 @@ export type Database = {
             columns: ['attempt_id']
             isOneToOne: false
             referencedRelation: 'assessment_attempts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attempt_answers_marked_by_fkey'
+            columns: ['marked_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -1500,7 +1535,15 @@ export type Database = {
         }[]
       }
       get_unread_announcement_count: { Args: never; Returns: number }
+      mark_attempt_answer: {
+        Args: { p_answer_id: string; p_comment?: string; p_points: number }
+        Returns: Json
+      }
       refresh_question_statistics: { Args: never; Returns: undefined }
+      release_assessment_answers: {
+        Args: { p_assessment_id: string; p_released?: boolean }
+        Returns: Json
+      }
       reorder_assessment_questions: {
         Args: { p_assessment_id: string; p_ids: string[] }
         Returns: undefined
