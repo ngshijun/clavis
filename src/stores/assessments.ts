@@ -15,6 +15,8 @@ export interface AssessmentListItem {
   title: string
   description: string | null
   status: AssessmentStatus
+  /** Platform-wide template (admin-authored, org-less, never assignable). */
+  isTemplate: boolean
   timeLimitSeconds: number | null
   shuffleQuestions: boolean
   createdBy: string
@@ -172,6 +174,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
+  // Staff template library (platform templates, cross-center read-only)
+  const templates = ref<AssessmentListItem[]>([])
+  const isLoadingTemplates = ref(false)
+
   const filters = ref({ search: '' })
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
@@ -194,9 +200,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     )
   })
 
-  /** Managers may edit any org assessment; teachers only their own (RLS mirror). */
+  /**
+   * Managers may edit any org assessment; teachers only their own (RLS
+   * mirror). Admins may edit any template (admin FOR ALL policy).
+   */
   function canEdit(item: Pick<AssessmentListItem, 'createdBy'>): boolean {
-    return authStore.isManager || item.createdBy === authStore.user?.id
+    return authStore.isAdmin || authStore.isManager || item.createdBy === authStore.user?.id
   }
 
   const ASSESSMENT_SELECT = `
@@ -204,6 +213,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title,
     description,
     status,
+    is_template,
     time_limit_seconds,
     shuffle_questions,
     created_by,
@@ -218,6 +228,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title: string
     description: string | null
     status: AssessmentStatus
+    is_template: boolean
     time_limit_seconds: number | null
     shuffle_questions: boolean
     created_by: string
@@ -233,6 +244,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       title: row.title,
       description: row.description,
       status: row.status,
+      isTemplate: row.is_template,
       timeLimitSeconds: row.time_limit_seconds,
       shuffleQuestions: row.shuffle_questions,
       createdBy: row.created_by,
@@ -243,6 +255,11 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Admin lists platform templates; org staff list their org's assessments.
+   * The `is_template` filter is load-bearing for staff: templates are
+   * RLS-readable cross-center (P7a) and would otherwise pollute the org list.
+   */
   async function fetchAssessments(): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
@@ -251,6 +268,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       const { data, error: fetchError } = await supabase
         .from('assessments')
         .select(ASSESSMENT_SELECT)
+        .eq('is_template', authStore.isAdmin)
         .order('updated_at', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -267,19 +285,81 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * The platform template library, for org staff (manager/teacher).
+   * DELIBERATELY separate from `fetchAssessments` — that one hard-filters
+   * staff to `is_template=false` so templates never pollute the org list.
+   * Templates are read-only for staff; "using" one goes through
+   * `cloneTemplate`.
+   */
+  async function fetchTemplates(): Promise<{ error: string | null }> {
+    isLoadingTemplates.value = true
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('assessments')
+        .select(ASSESSMENT_SELECT)
+        .eq('is_template', true)
+        .order('title')
+
+      if (fetchError) throw fetchError
+
+      templates.value = ((data ?? []) as unknown as AssessmentSelectRow[]).map(rowToListItem)
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedFetchTemplates') }
+    } finally {
+      isLoadingTemplates.value = false
+    }
+  }
+
+  /**
+   * Clone a platform template into the caller's org (P7a RPC): the clone is
+   * a normal editable draft assessment owned by the caller; the template is
+   * untouched. Returns the new assessment id.
+   */
+  async function cloneTemplate(
+    templateId: string,
+  ): Promise<{ id: string | null; error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('clone_assessment_template', {
+        p_template_id: templateId,
+      })
+
+      if (rpcError) throw rpcError
+
+      // The clone now belongs in the caller's assessments list.
+      await fetchAssessments()
+
+      return { id: data, error: null }
+    } catch (err) {
+      return { id: null, error: handleError(err, 'failedCloneTemplate') }
+    }
+  }
+
+  /**
+   * Admin creates a platform TEMPLATE (is_template=true, no org — the DB
+   * CHECK requires org NULL for templates); org staff create a normal
+   * org-scoped assessment.
+   */
   async function createAssessment(
     title: string,
   ): Promise<{ id: string | null; error: string | null }> {
     const userId = authStore.user?.id
     const organizationId = authStore.organizationId
-    if (!userId || !organizationId) {
+    if (!userId || (!authStore.isAdmin && !organizationId)) {
       return { id: null, error: errorMessages().notAuthenticated }
     }
 
     try {
       const { data, error: insertError } = await supabase
         .from('assessments')
-        .insert({ title, organization_id: organizationId, created_by: userId })
+        .insert(
+          authStore.isAdmin
+            ? { title, is_template: true, created_by: userId }
+            : { title, organization_id: organizationId, created_by: userId },
+        )
         .select('id')
         .single()
 
@@ -792,6 +872,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     assessments.value = []
     isLoading.value = false
     error.value = null
+    templates.value = []
+    isLoadingTemplates.value = false
     currentAssessment.value = null
     currentQuestions.value = []
     currentAssignments.value = []
@@ -819,6 +901,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAttempts,
     isLoadingCurrent,
     isSavingOrder,
+    templates,
+    isLoadingTemplates,
+    fetchTemplates,
+    cloneTemplate,
     fetchAssessments,
     createAssessment,
     updateAssessment,

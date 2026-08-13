@@ -396,6 +396,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
           subjectId: session.subjectId,
           answer: null,
           options: [],
+          tags: [],
           createdAt: null,
           updatedAt: null,
           imageHash: null,

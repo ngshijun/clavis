@@ -141,6 +141,21 @@ const router = createRouter({
           component: () => import('@/pages/admin/CurriculumPage.vue'),
         },
         {
+          path: 'assessments',
+          name: 'admin-assessment-templates',
+          component: () => import('@/pages/shared/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId',
+          name: 'admin-assessment-template-builder',
+          component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
+        },
+        {
+          path: 'tags',
+          name: 'admin-tags',
+          component: () => import('@/pages/admin/TagsPage.vue'),
+        },
+        {
           path: 'question-statistics',
           name: 'admin-question-statistics',
           component: () => import('@/pages/admin/QuestionStatisticsPage.vue'),
@@ -225,6 +240,11 @@ const router = createRouter({
           component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
         },
         {
+          path: 'templates',
+          name: 'manager-template-library',
+          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
+        },
+        {
           path: 'profile',
           name: 'manager-profile',
           component: () => import('@/pages/shared/StaffProfilePage.vue'),
@@ -262,6 +282,11 @@ const router = createRouter({
           path: 'assessments/:assessmentId/results',
           name: 'teacher-assessment-results',
           component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
+        },
+        {
+          path: 'templates',
+          name: 'teacher-template-library',
+          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
         },
         {
           path: 'profile',

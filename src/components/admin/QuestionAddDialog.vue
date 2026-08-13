@@ -106,6 +106,7 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       subjectId: hierarchy?.subject.id ?? null,
       answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
       imageHash,
+      tagIds: form.selectedTagIds.value,
       options:
         formValues.type === 'mcq' || formValues.type === 'mrq'
           ? (formValues.options || []).map((opt) => ({

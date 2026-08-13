@@ -129,6 +129,12 @@ export function useQuestionForm() {
 
   const isSaving = ref(false)
 
+  /**
+   * Learning-point tag ids attached to the question. Kept outside the
+   * vee-validate schema — tags are optional metadata with no validation.
+   */
+  const selectedTagIds = ref<string[]>([])
+
   const { handleSubmit, values, setFieldValue, resetForm, errors, setFieldTouched, setValues } =
     useForm({
       validationSchema: questionFormSchema,
@@ -277,9 +283,11 @@ export function useQuestionForm() {
     })
     questionImage.value = { ...defaultQuestionImage }
     optionImages.value = freshOptionImages()
+    selectedTagIds.value = []
   }
 
   function initializeEditForm(question: Question) {
+    selectedTagIds.value = question.tags.map((tag) => tag.id)
     // Store original image paths for cleanup
     questionImage.value = {
       displayUrl: question.imagePath
@@ -335,6 +343,7 @@ export function useQuestionForm() {
     setFieldValue,
     errors,
     isSaving,
+    selectedTagIds,
 
     // Consolidated image state
     questionImage,

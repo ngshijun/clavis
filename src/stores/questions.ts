@@ -10,6 +10,19 @@ import { useCascadingFilters } from '@/composables/useCascadingFilters'
 export type QuestionRow = Database['public']['Tables']['questions']['Row']
 export type QuestionType = Database['public']['Enums']['question_type']
 
+/** A learning point attached to a question (from the global tags library). */
+export interface QuestionTag {
+  id: string
+  name: string
+}
+
+/** Row shape when the question is selected with its tags embedded. */
+export type QuestionRowWithTags = QuestionRow & {
+  question_tags?: { tags: QuestionTag | null }[]
+}
+
+const QUESTION_WITH_TAGS_SELECT = '*, question_tags (tags (id, name))'
+
 export interface MCQOption {
   id: 'a' | 'b' | 'c' | 'd'
   text: string | null
@@ -29,6 +42,8 @@ export interface Question {
   subjectId: string | null
   answer: string | null // For short_answer type
   options: MCQOption[] // For MCQ/MRQ type (each option carries its own tip)
+  /** Learning points this question practises (empty when not embedded). */
+  tags: QuestionTag[]
   createdAt: string | null
   updatedAt: string | null
   imageHash: string | null // SHA-256 hash of all images for duplicate detection
@@ -61,6 +76,7 @@ export interface CreateQuestionInput {
   answer?: string | null
   options?: MCQOption[]
   imageHash?: string | null // SHA-256 hash of all images for duplicate detection
+  tagIds?: string[] // Learning-point tags to attach
 }
 
 export interface UpdateQuestionInput {
@@ -70,13 +86,14 @@ export interface UpdateQuestionInput {
   answer?: string | null
   options?: MCQOption[]
   imageHash?: string | null // SHA-256 hash of all images for duplicate detection
+  tagIds?: string[] // Full desired tag set; diffed against the stored set
 }
 
 /**
  * Convert database row to Question interface
  */
 export function rowToQuestion(
-  row: QuestionRow,
+  row: QuestionRowWithTags,
   curriculumStore: ReturnType<typeof useCurriculumStore>,
 ): Question {
   const options: MCQOption[] = [
@@ -134,6 +151,10 @@ export function rowToQuestion(
     subjectId: row.subject_id,
     answer: row.answer,
     options,
+    tags: (row.question_tags ?? [])
+      .map((link) => link.tags)
+      .filter((tag): tag is QuestionTag => tag !== null)
+      .sort((a, b) => a.name.localeCompare(b.name)),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     imageHash: row.image_hash,
@@ -258,14 +279,14 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
 
       const BATCH_SIZE = 1000
-      const allRows: QuestionRow[] = []
+      const allRows: QuestionRowWithTags[] = []
       let from = 0
       let hasMore = true
 
       while (hasMore) {
         const { data, error: fetchError } = await supabase
           .from('questions')
-          .select('*')
+          .select(QUESTION_WITH_TAGS_SELECT)
           .order('created_at', { ascending: false })
           .range(from, from + BATCH_SIZE - 1)
 
@@ -297,7 +318,7 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       const { data, error: fetchError } = await supabase
         .from('questions')
-        .select('*')
+        .select(QUESTION_WITH_TAGS_SELECT)
         .eq('sub_topic_id', subTopicId)
         .order('created_at', { ascending: false })
 
@@ -312,6 +333,40 @@ export const useQuestionsStore = defineStore('questions', () => {
     } catch (err) {
       const message = handleError(err, 'failedFetchQuestions')
       return { questions: [], error: message }
+    }
+  }
+
+  /**
+   * Make a question's stored tag set equal `tagIds` (diff add/remove on
+   * `question_tags` — the table has no UPDATE grant, only INSERT/DELETE).
+   */
+  async function applyTagSet(questionId: string, tagIds: string[]): Promise<void> {
+    const { data, error: fetchError } = await supabase
+      .from('question_tags')
+      .select('tag_id')
+      .eq('question_id', questionId)
+
+    if (fetchError) throw fetchError
+
+    const current = new Set((data ?? []).map((row) => row.tag_id))
+    const desired = new Set(tagIds)
+    const toAdd = tagIds.filter((id) => !current.has(id))
+    const toRemove = [...current].filter((id) => !desired.has(id))
+
+    if (toAdd.length > 0) {
+      const { error: insertError } = await supabase
+        .from('question_tags')
+        .insert(toAdd.map((tagId) => ({ question_id: questionId, tag_id: tagId })))
+      if (insertError) throw insertError
+    }
+
+    if (toRemove.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('question_tags')
+        .delete()
+        .eq('question_id', questionId)
+        .in('tag_id', toRemove)
+      if (deleteError) throw deleteError
     }
   }
 
@@ -347,6 +402,10 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       if (insertError) throw insertError
 
+      if (input.tagIds && input.tagIds.length > 0) {
+        await applyTagSet(data.id, input.tagIds)
+      }
+
       return { error: null, id: data.id }
     } catch (err) {
       const message = handleError(err, 'failedAddQuestion')
@@ -375,14 +434,21 @@ export const useQuestionsStore = defineStore('questions', () => {
         applyOptionsToRow(updateData, input.options)
       }
 
-      const { error: updateError } = await supabase
-        .from('questions')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single()
+      // Tag-only edits are valid (updateData may be empty otherwise)
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('questions')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single()
 
-      if (updateError) throw updateError
+        if (updateError) throw updateError
+      }
+
+      if (input.tagIds !== undefined) {
+        await applyTagSet(id, input.tagIds)
+      }
 
       return { error: null }
     } catch (err) {
@@ -422,7 +488,7 @@ export const useQuestionsStore = defineStore('questions', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('questions')
-        .select('*')
+        .select(QUESTION_WITH_TAGS_SELECT)
         .eq('id', id)
         .single()
 

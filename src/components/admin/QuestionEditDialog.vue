@@ -116,6 +116,7 @@ const onSubmit = form.handleSubmit(async (formValues) => {
       imagePath: questionImagePath,
       answer: formValues.type === 'short_answer' ? formValues.answer || null : null,
       options: updateOptions,
+      tagIds: form.selectedTagIds.value,
     })
 
     if (result.error) {

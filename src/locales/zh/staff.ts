@@ -145,11 +145,38 @@ export default {
     deleteConfirm: '删除',
     cancel: '取消',
     toastDeleted: '测评已删除',
+    // Admin template variant (platform-wide template library)
+    templatesTitle: '测评模板',
+    templatesSubtitle: '平台级模板，所有机构均可浏览并克隆使用',
+    createTemplateBtn: '新建模板',
+    noTemplates: '尚无模板',
+    noTemplatesDesc: '创建第一个平台级模板。',
+    deleteTemplateTitle: '删除模板',
+    deleteTemplateDesc: (title: string) =>
+      `确定删除模板「${title}」？各机构已克隆的副本不受影响。此操作无法撤销。`,
+    // Staff template library (browse + clone platform templates)
+    libraryTitle: '模板库',
+    librarySubtitle: '平台模板——使用后即会生成属于你自己的可编辑副本',
+    descriptionCol: '说明',
+    searchTemplatesPlaceholder: '按标题搜索...',
+    libraryEmpty: '暂无模板',
+    libraryEmptyDesc: '平台尚未发布任何模板。',
+    noTemplatesMatchSearch: '没有符合搜索条件的模板。',
+    previewAction: '预览',
+    useTemplate: '使用模板',
+    useTemplateTitle: '使用此模板？',
+    useTemplateDesc: (title: string) =>
+      `「${title}」将复制为你自己的可编辑草稿测评。你可以修改题目并分配给学生——模板本身不会改变。`,
+    useTemplateConfirm: '创建我的副本',
+    toastCloned: '模板已复制——这份草稿现在是你自己的测评',
+    toastTemplatesLoadFailed: '加载模板失败',
   },
 
   assessmentCreate: {
     title: '新建测评',
     description: '先为测评命名，接下来添加题目。',
+    templateTitle: '新建模板',
+    templateDescription: '先为平台级模板命名，接下来添加题目。',
     titleLabel: '标题',
     titlePlaceholder: '例如：五年级分数——第二学期测验',
     cancel: '取消',
@@ -158,6 +185,13 @@ export default {
 
   builder: {
     backToList: '测评',
+    backToTemplates: '模板',
+    backToLibrary: '模板库',
+    templateBadge: '平台模板',
+    templateBanner:
+      '这是平台级模板。所有机构均可浏览并克隆出可编辑的副本到自己的测评列表——模板本身不能直接分配给学生。',
+    templatePreviewBanner:
+      '这是只读的平台模板。「使用模板」会生成属于你自己的可编辑副本，你可以编辑并分配给学生。',
     notFound: '未找到该测评。',
     readOnly: '只有创建该测评的老师或管理员可以编辑。',
     publishedLocked: '此测评已发布。为保证学生作答的一致性，题目和设置已锁定。',

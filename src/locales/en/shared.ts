@@ -101,6 +101,11 @@ export default {
     failedAddQuestion: 'Failed to add question.',
     failedUpdateQuestion: 'Failed to update question.',
     failedDeleteQuestion: 'Failed to delete question.',
+    // Learning-point tags
+    failedFetchTags: 'Failed to load tags.',
+    failedCreateTag: 'Failed to create tag.',
+    failedUpdateTag: 'Failed to rename tag.',
+    failedDeleteTag: 'Failed to delete tag.',
     // Admin students
     failedFetchStudents: 'Failed to load students.',
     // Organizations & staff
@@ -131,6 +136,8 @@ export default {
     failedFetchAssignments: 'Failed to load assignments.',
     failedCreateAssignment: 'Failed to assign assessment.',
     failedRemoveAssignment: 'Failed to remove assignment.',
+    failedFetchTemplates: 'Failed to load templates.',
+    failedCloneTemplate: 'Failed to copy the template.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
     failedStartAttempt: 'Failed to start the assessment.',
@@ -418,6 +425,7 @@ export default {
     allSubTopics: 'All Sub-Topics',
     questionCol: 'Question',
     typeCol: 'Type',
+    tagsCol: 'Learning Points',
     typeMultipleChoice: 'Multiple Choice',
     typeMultipleResponse: 'Multiple Response',
     typeShortAnswer: 'Short Answer',
@@ -446,6 +454,16 @@ export default {
     shortAnswerType: 'Short Answer',
     optionPlaceholder: (letter: string) => `Option ${letter} text`,
     optionValidation: 'At least 2 options must have text or an image',
+    tagsLabel: 'Learning Points',
+    tagsHint:
+      'Tag each learning point this question practises. Pick from the library or create a new tag.',
+  },
+  tagMultiSelect: {
+    addBtn: 'Add learning points',
+    searchPlaceholder: 'Search or create...',
+    noTags: 'No tags found.',
+    createTag: (name: string) => `Create "${name}"`,
+    removeTag: (name: string) => `Remove ${name}`,
   },
   questionAddDialog: {
     title: 'Add Question',
@@ -600,6 +618,8 @@ export default {
           announcements: 'Announcements',
           organizations: 'Organizations',
           curriculum: 'Curriculum',
+          assessmentTemplates: 'Templates',
+          learningPoints: 'Learning Points',
           questionStatistics: 'Question Statistics',
           questionFeedback: 'Question Feedback',
           students: 'Students',
@@ -610,11 +630,13 @@ export default {
           students: 'Students',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
+          templateLibrary: 'Template Library',
         },
         teacher: {
           dashboard: 'Dashboard',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
+          templateLibrary: 'Template Library',
         },
         student: {
           dashboard: 'Dashboard',
