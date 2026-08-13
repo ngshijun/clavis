@@ -57,6 +57,11 @@ onMounted(async () => {
   if (error) {
     toast.error(t.value.staff.assessments.toastLoadFailed)
   }
+  // Marking queue entry point (P9b): flag org assessments with submitted
+  // attempts still awaiting manual marking. Templates are never attempted.
+  if (!isTemplateMode.value) {
+    void assessmentsStore.fetchPendingMarkingCounts()
+  }
 })
 
 const showCreateDialog = ref(false)
@@ -154,7 +159,21 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         {
           accessorKey: 'status',
           header: () => t.value.staff.assessments.statusCol,
-          cell: ({ row }) => statusBadge(row.original.status),
+          cell: ({ row }) => {
+            const pending = assessmentsStore.pendingMarkingCounts.get(row.original.id) ?? 0
+            if (pending === 0) return statusBadge(row.original.status)
+            return h('div', { class: 'flex items-center gap-1' }, [
+              statusBadge(row.original.status),
+              h(
+                Badge,
+                {
+                  variant: 'secondary',
+                  class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+                },
+                () => t.value.staff.results.toMarkBadge(pending),
+              ),
+            ])
+          },
         } satisfies ColumnDef<AssessmentListItem>,
       ]),
   {

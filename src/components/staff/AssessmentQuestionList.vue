@@ -46,9 +46,7 @@ const list = computed({
 })
 
 function typeLabel(item: AssessmentQuestionItem): string {
-  if (item.type === 'mcq') return t.value.shared.questionBankTable.typeMultipleChoice
-  if (item.type === 'mrq') return t.value.shared.questionBankTable.typeMultipleResponse
-  return t.value.shared.questionBankTable.typeShortAnswer
+  return t.value.shared.questionTypes[item.type]
 }
 
 function onPointsChange(item: AssessmentQuestionItem, event: Event) {

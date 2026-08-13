@@ -148,6 +148,14 @@ export default {
       'You need a classroom with the grade and subject of this template before you can use it.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
+    // P9b manual marking + answer release (exact DB RAISE strings mapped in errors.ts)
+    failedMarkAnswer: 'Failed to save the mark.',
+    failedReleaseAnswers: 'Failed to update the answer release.',
+    markNotAuthorized: 'Only a teacher of an assigned classroom can mark this answer.',
+    markAttemptOpen: 'This attempt has not been submitted yet, so it cannot be marked.',
+    markNotManual: 'Only long-answer questions are marked by hand.',
+    releaseNotAuthorized:
+      'Only a teacher of an assigned classroom or a manager can release the answers.',
     failedStartAttempt: 'Failed to start the assessment.',
     failedSaveAnswer: 'Failed to save your answer.',
     failedCompleteAttempt: 'Failed to submit the assessment.',
@@ -428,6 +436,18 @@ export default {
     cancel: 'Cancel',
     add: 'Add',
     toastAdded: (label: string) => `${label} added successfully`,
+  },
+  /** Labels for every question type — bank (mcq/mrq/short_answer) + ad-hoc P9a types. */
+  questionTypes: {
+    mcq: 'Multiple Choice',
+    mrq: 'Multiple Response',
+    short_answer: 'Short Answer',
+    true_false: 'True / False',
+    numeric: 'Numeric',
+    cloze: 'Fill in the Blanks',
+    matching: 'Matching',
+    ordering: 'Ordering',
+    long_answer: 'Long Answer',
   },
   questionBankTable: {
     searchPlaceholder: 'Search questions...',

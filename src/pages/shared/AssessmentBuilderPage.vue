@@ -9,6 +9,8 @@ import {
   BarChart3,
   ClipboardList,
   Copy,
+  Eye,
+  EyeOff,
   Info,
   Loader2,
   Lock,
@@ -45,6 +47,7 @@ import AssignDialog from '@/components/staff/AssignDialog.vue'
 import OrderSaveStatusPill from '@/components/shared/OrderSaveStatusPill.vue'
 import { toast } from 'vue-sonner'
 import { useOrderPersistence } from '@/composables/useOrderPersistence'
+import { useMarkingAuthz } from '@/composables/useMarkingAuthz'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -64,6 +67,30 @@ const title = ref('')
 const description = ref('')
 const timeLimitMinutes = ref('')
 const shuffleQuestions = ref(false)
+const showAutoScoreWhilePending = ref(true)
+const isSavingPendingVisibility = ref(false)
+
+/**
+ * Decision 70 toggle — saved immediately: marking happens AFTER publish,
+ * when the rest of the settings card (and its save button) is locked.
+ */
+async function handlePendingVisibilityChange(value: boolean) {
+  showAutoScoreWhilePending.value = value
+  isSavingPendingVisibility.value = true
+  try {
+    const { error } = await assessmentsStore.updateAssessment(assessmentId.value, {
+      showAutoScoreWhilePending: value,
+    })
+    if (error) {
+      showAutoScoreWhilePending.value = !value
+      toast.error(error)
+      return
+    }
+    toast.success(t.value.staff.builder.toastSettingsSaved)
+  } finally {
+    isSavingPendingVisibility.value = false
+  }
+}
 // Template pairing (admin template mode only): both required, never
 // half-set — the P8a DB CHECK forbids clearing one side of the pairing.
 const scopeGradeLevelId = ref('')
@@ -116,6 +143,37 @@ const scopeLabel = computed(() =>
     : null,
 )
 
+// Manual answer release (decision 71): client mirror of the RPC authz —
+// admin/manager always; a teacher only when the assessment reaches one of
+// their classrooms/students. Templates are never assigned, so no release.
+const { canMark, loadMarkingAuthz } = useMarkingAuthz()
+const isReleased = computed(() => Boolean(assessment.value?.answersReleasedAt))
+const canRelease = computed(() => !isTemplate.value && isPublished.value && canMark.value)
+const showReleaseDialog = ref(false)
+const isReleasing = ref(false)
+
+async function handleToggleRelease() {
+  isReleasing.value = true
+  try {
+    const { error } = await assessmentsStore.releaseAssessmentAnswers(
+      assessmentId.value,
+      !isReleased.value,
+    )
+    if (error) {
+      toast.error(error)
+      return
+    }
+    toast.success(
+      isReleased.value
+        ? t.value.staff.builder.toastReleased
+        : t.value.staff.builder.toastUnreleased,
+    )
+    showReleaseDialog.value = false
+  } finally {
+    isReleasing.value = false
+  }
+}
+
 // Cascading selectors: subjects belong to the selected grade level.
 const scopeSubjects = computed(
   () =>
@@ -142,6 +200,7 @@ function syncSettings() {
   timeLimitMinutes.value =
     current.timeLimitSeconds !== null ? String(Math.round(current.timeLimitSeconds / 60)) : ''
   shuffleQuestions.value = current.shuffleQuestions
+  showAutoScoreWhilePending.value = current.showAutoScoreWhilePending
   scopeGradeLevelId.value = current.gradeLevelId ?? ''
   scopeSubjectId.value = current.subjectId ?? ''
 
@@ -162,6 +221,10 @@ async function loadAssessment() {
     return
   }
   syncSettings()
+  // Teacher branch of the release authz (admin/manager short-circuit).
+  if (!assessmentsStore.currentAssessment.isTemplate) {
+    void loadMarkingAuthz(assessmentId.value)
+  }
 }
 
 onMounted(loadAssessment)
@@ -354,6 +417,15 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
             </Badge>
             <Badge v-else variant="secondary">{{ t.staff.assessments.statusDraft }}</Badge>
             <Badge v-if="scopeLabel" variant="outline">{{ scopeLabel }}</Badge>
+            <!-- Release state (decision 71) — driven by answers_released_at -->
+            <Badge
+              v-if="isReleased"
+              variant="secondary"
+              class="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+            >
+              <Eye class="mr-1 size-3" />
+              {{ t.staff.builder.answersReleasedBadge }}
+            </Badge>
           </div>
           <p v-if="scopeLabel && !isTemplate" class="mt-1 text-sm text-muted-foreground">
             {{ t.staff.builder.scopedAssessmentHint }}
@@ -366,6 +438,11 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
           </Button>
         </div>
         <div v-else-if="!isTemplate" class="flex shrink-0 items-center gap-2">
+          <Button v-if="canRelease" variant="outline" @click="showReleaseDialog = true">
+            <EyeOff v-if="isReleased" class="mr-2 size-4" />
+            <Eye v-else class="mr-2 size-4" />
+            {{ isReleased ? t.staff.builder.unreleaseAnswers : t.staff.builder.releaseAnswers }}
+          </Button>
           <Button variant="outline" @click="showAssignDialog = true">
             <UserPlus class="mr-2 size-4" />
             {{ t.staff.builder.assign }}
@@ -521,6 +598,23 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
               />
             </Field>
 
+            <!-- Pending-score visibility (decision 70). Hidden on templates:
+                 they are never attempted and the clone RPC does not copy it. -->
+            <Field v-if="!isTemplate" orientation="horizontal">
+              <div>
+                <FieldLabel for="builder-pending-visibility">{{
+                  t.staff.builder.pendingVisibilityLabel
+                }}</FieldLabel>
+                <FieldDescription>{{ t.staff.builder.pendingVisibilityHint }}</FieldDescription>
+              </div>
+              <Switch
+                id="builder-pending-visibility"
+                :model-value="showAutoScoreWhilePending"
+                :disabled="!canEdit || isSavingPendingVisibility"
+                @update:model-value="handlePendingVisibilityChange"
+              />
+            </Field>
+
             <!-- Template pairing (admin template mode): both always required -->
             <template v-if="canEditScope">
               <Field>
@@ -616,6 +710,29 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
             <Button :disabled="isCloning" @click="handleUseTemplate">
               <Loader2 v-if="isCloning" class="mr-2 size-4 animate-spin" />
               {{ t.staff.assessments.useTemplateConfirm }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Release / un-release answers confirmation (decision 71) -->
+      <Dialog v-model:open="showReleaseDialog">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{{
+              isReleased ? t.staff.builder.unreleaseTitle : t.staff.builder.releaseTitle
+            }}</DialogTitle>
+            <DialogDescription>{{
+              isReleased ? t.staff.builder.unreleaseDesc : t.staff.builder.releaseDesc
+            }}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" :disabled="isReleasing" @click="showReleaseDialog = false">
+              {{ t.staff.builder.cancel }}
+            </Button>
+            <Button :disabled="isReleasing" @click="handleToggleRelease">
+              <Loader2 v-if="isReleasing" class="mr-2 size-4 animate-spin" />
+              {{ isReleased ? t.staff.builder.unreleaseConfirm : t.staff.builder.releaseConfirm }}
             </Button>
           </DialogFooter>
         </DialogContent>

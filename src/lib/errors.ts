@@ -121,8 +121,9 @@ function mapAuthError(err: AuthError, errors: ErrorMessages): string {
 
 /**
  * Exact RAISE strings from the P8a assignment-scope trigger
- * (`enforce_assignment_scope`) and `clone_assessment_template`, mapped to
- * localized error copy (P8A-HANDOFF §4-5).
+ * (`enforce_assignment_scope`) and `clone_assessment_template`, plus the
+ * P9b marking/release RPCs, mapped to localized error copy
+ * (P8A-HANDOFF §4-5, P9B-HANDOFF §1-2).
  */
 const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Cannot assign a template assessment': 'assignTemplateBlocked',
@@ -130,6 +131,11 @@ const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Student is not in a classroom matching the assessment grade and subject':
     'assignStudentScopeMismatch',
   'No classroom matches this template grade and subject': 'cloneNoMatchingClassroom',
+  'Not authenticated': 'notAuthenticated',
+  'Not authorized to mark this answer': 'markNotAuthorized',
+  'Only submitted attempts can be marked': 'markAttemptOpen',
+  'Only long-answer questions are marked by hand': 'markNotManual',
+  'Not authorized to release answers for this assessment': 'releaseNotAuthorized',
 }
 
 function isPostgrestError(err: unknown): err is PostgrestError {

@@ -143,6 +143,13 @@ export default {
     cloneNoMatchingClassroom: '需要先拥有与此模板年级和科目匹配的班级，才能使用该模板。',
     failedFetchAttempts: '加载作答记录失败。',
     failedFetchAttemptResult: '加载作答详情失败。',
+    // P9b 人工批改与答案公布（errors.ts 中映射的 DB RAISE 字符串）
+    failedMarkAnswer: '保存批改失败。',
+    failedReleaseAnswers: '更新答案公布状态失败。',
+    markNotAuthorized: '只有被分配班级的老师才能批改此作答。',
+    markAttemptOpen: '此作答尚未提交，无法批改。',
+    markNotManual: '只有问答题需要人工批改。',
+    releaseNotAuthorized: '只有被分配班级的老师或管理员才能公布答案。',
     failedStartAttempt: '开始测评失败。',
     failedSaveAnswer: '保存答案失败。',
     failedCompleteAttempt: '提交测评失败。',
@@ -421,6 +428,18 @@ export default {
     cancel: '取消',
     add: '添加',
     toastAdded: (label: string) => `${label}已成功添加`,
+  },
+  /** 所有题型的名称——题库题型（单选/多选/简答）+ P9a 新增的自编题型。 */
+  questionTypes: {
+    mcq: '单选题',
+    mrq: '多选题',
+    short_answer: '简答题',
+    true_false: '判断题',
+    numeric: '数值题',
+    cloze: '填空题',
+    matching: '配对题',
+    ordering: '排序题',
+    long_answer: '问答题',
   },
   questionBankTable: {
     searchPlaceholder: '搜索题目...',

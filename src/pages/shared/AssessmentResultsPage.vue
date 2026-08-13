@@ -9,6 +9,7 @@ import {
   ArrowUpDown,
   BarChart3,
   CheckCircle2,
+  Clock,
   Loader2,
   Timer,
   Users,
@@ -22,6 +23,7 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import AttemptResultDialog from '@/components/staff/AttemptResultDialog.vue'
 import { toast } from 'vue-sonner'
 import { formatDateTime } from '@/lib/date'
+import { useMarkingAuthz } from '@/composables/useMarkingAuthz'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -39,6 +41,10 @@ const showResultDialog = ref(false)
 const selectedAttempt = ref<AssessmentAttempt | null>(null)
 const completion = ref<AssessmentCompletion | null>(null)
 
+// Marking queue authz (P9b): decides whether the breakdown dialog shows the
+// per-answer award + comment inputs. Same matrix as the release action.
+const { canMark, loadMarkingAuthz } = useMarkingAuthz()
+
 onMounted(async () => {
   // Assessment + questions (for the per-question breakdown labels) + attempts
   // + the aggregated completion summary (assigned vs completed, distribution).
@@ -46,6 +52,7 @@ onMounted(async () => {
     assessmentsStore.fetchAssessmentDetail(assessmentId.value),
     assessmentsStore.fetchAttempts(assessmentId.value),
     staffDashboardStore.fetchAssessmentCompletion(assessmentId.value),
+    loadMarkingAuthz(assessmentId.value),
   ])
   isLoading.value = false
   completion.value = completionResult.completion
@@ -54,6 +61,14 @@ onMounted(async () => {
     toast.error(t.value.staff.results.toastLoadFailed)
   }
 })
+
+/** Submitted attempts that still contain unmarked long answers. */
+const pendingMarkingTotal = computed(
+  () =>
+    assessmentsStore.currentAttempts.filter(
+      (attempt) => attempt.completedAt !== null && attempt.pendingManualCount > 0,
+    ).length,
+)
 
 // Fixed band order, aligned to the star thresholds (60/80) — single-hue bars.
 const BUCKET_KEYS = ['0-49', '50-59', '60-79', '80-100'] as const
@@ -99,17 +114,35 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
   {
     id: 'status',
     header: () => t.value.staff.results.statusCol,
-    cell: ({ row }) =>
-      row.original.completedAt
-        ? h(
+    cell: ({ row }) => {
+      if (!row.original.completedAt) {
+        return h(Badge, { variant: 'secondary' }, () => t.value.staff.results.inProgress)
+      }
+      const badges = [
+        h(
+          Badge,
+          {
+            variant: 'secondary',
+            class: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+          },
+          () => t.value.staff.results.completed,
+        ),
+      ]
+      // Marking queue marker: this attempt still needs the teacher's marking.
+      if (row.original.pendingManualCount > 0) {
+        badges.push(
+          h(
             Badge,
             {
               variant: 'secondary',
-              class: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+              class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
             },
-            () => t.value.staff.results.completed,
-          )
-        : h(Badge, { variant: 'secondary' }, () => t.value.staff.results.inProgress),
+            () => t.value.staff.results.toMarkBadge(row.original.pendingManualCount),
+          ),
+        )
+      }
+      return h('div', { class: 'flex items-center gap-1' }, badges)
+    },
   },
   {
     accessorKey: 'scorePercent',
@@ -123,19 +156,27 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
         () => [t.value.staff.results.scoreCol, h(ArrowUpDown, { class: 'ml-2 size-4' })],
       ),
     // An open attempt's stored score columns are still zero — never render
-    // them as a final score (decision 30 / P3A-HANDOFF §9).
-    cell: ({ row }) =>
-      row.original.completedAt
-        ? h(
-            'div',
-            {},
-            t.value.staff.results.scoreFmt(
-              row.original.correctCount,
-              row.original.totalQuestions,
-              row.original.scorePercent,
-            ),
-          )
-        : h('div', { class: 'text-muted-foreground' }, '—'),
+    // them as a final score (decision 30 / P3A-HANDOFF §9). A pending
+    // attempt's stored score is a FLOOR — flagged as provisional (P9b §4).
+    cell: ({ row }) => {
+      if (!row.original.completedAt) return h('div', { class: 'text-muted-foreground' }, '—')
+      const score = t.value.staff.results.scoreFmt(
+        row.original.correctCount,
+        row.original.totalQuestions,
+        row.original.scorePercent,
+      )
+      if (row.original.pendingManualCount > 0) {
+        return h('div', {}, [
+          score,
+          h(
+            'span',
+            { class: 'ml-1 text-xs text-amber-600 dark:text-amber-400' },
+            `(${t.value.staff.results.provisionalScore})`,
+          ),
+        ])
+      }
+      return h('div', {}, score)
+    },
   },
   {
     accessorKey: 'startedAt',
@@ -184,8 +225,8 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
         </p>
       </div>
 
-      <!-- Completion summary (get_assessment_completion) -->
-      <div v-if="completion" class="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <!-- Completion summary (get_assessment_completion) + marking queue -->
+      <div v-if="completion" class="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatTile
           :label="t.staff.results.assignedTile"
           :value="completion.assignedCount"
@@ -201,6 +242,12 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
           :label="t.staff.results.inProgressTile"
           :value="completion.inProgressCount"
           :icon="Timer"
+        />
+        <StatTile
+          :label="t.staff.results.pendingTile"
+          :value="pendingMarkingTotal"
+          :icon="Clock"
+          :subtitle="t.staff.results.pendingTileHint"
         />
         <StatTile
           :label="t.staff.results.avgScoreTile"
@@ -254,6 +301,7 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
       v-model:open="showResultDialog"
       :attempt="selectedAttempt"
       :questions="assessmentsStore.currentQuestions"
+      :can-mark="canMark"
     />
   </div>
 </template>
