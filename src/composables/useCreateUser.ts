@@ -55,7 +55,7 @@ function messageForCode(code: string): string {
 
 /**
  * Wraps the `create-user` Edge Function so the three provisioning surfaces
- * (admin → manager, manager → teacher, teacher → student) share one code path.
+ * (admin → manager, manager → teacher, manager → student) share one code path.
  * The caller hierarchy itself is enforced server-side from the caller's JWT.
  */
 export function useCreateUser() {

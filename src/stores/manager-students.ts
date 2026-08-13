@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
 
-export interface TeacherStudent {
+export interface ManagedStudent {
   id: string
   name: string
   username: string | null
@@ -13,12 +13,13 @@ export interface TeacherStudent {
 }
 
 /**
- * The students the signed-in teacher created (`student_profiles.created_by`).
+ * The student accounts of the signed-in manager's organization (decision 46:
+ * the manager provisions students). RLS already scopes the read to the org.
  */
-export const useTeacherStudentsStore = defineStore('teacherStudents', () => {
+export const useManagerStudentsStore = defineStore('managerStudents', () => {
   const authStore = useAuthStore()
 
-  const students = ref<TeacherStudent[]>([])
+  const students = ref<ManagedStudent[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -37,8 +38,7 @@ export const useTeacherStudentsStore = defineStore('teacherStudents', () => {
   })
 
   async function fetchStudents(): Promise<{ error: string | null }> {
-    const teacherId = authStore.user?.id
-    if (!authStore.isTeacher || !teacherId) {
+    if (!authStore.isManager || !authStore.organizationId) {
       return { error: errorMessages().notAuthenticated }
     }
 
@@ -46,17 +46,14 @@ export const useTeacherStudentsStore = defineStore('teacherStudents', () => {
     error.value = null
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('student_profiles')
-        .select(
-          `
+      const { data, error: fetchError } = await supabase.from('student_profiles').select(
+        `
           id,
           username,
           grade_levels (name),
           profiles!student_profiles_id_fkey (name, created_at)
         `,
-        )
-        .eq('created_by', teacherId)
+      )
 
       if (fetchError) throw fetchError
 

@@ -107,13 +107,13 @@ export default {
     failedCreateOrganization: '创建机构失败。',
     failedUpdateOrganization: '更新机构失败。',
     failedFetchTeachers: '加载教师失败。',
-    // Classes
-    failedFetchClasses: '加载班级失败。',
-    failedCreateClass: '创建班级失败。',
-    failedUpdateClass: '更新班级失败。',
-    failedDeleteClass: '删除班级失败。',
-    failedFetchClassMembers: '加载班级学生失败。',
-    failedUpdateClassMembers: '更新班级学生失败。',
+    // Classrooms
+    failedFetchClassrooms: '加载班级失败。',
+    failedCreateClassroom: '创建班级失败。',
+    failedUpdateClassroom: '更新班级失败。',
+    failedDeleteClassroom: '删除班级失败。',
+    failedFetchClassroomMembers: '加载班级成员失败。',
+    failedUpdateClassroomMembers: '更新班级成员失败。',
     failedFetchOrgStudents: '加载学生失败。',
     // Assessments
     failedFetchAssessments: '加载测评失败。',
@@ -598,13 +598,13 @@ export default {
         manager: {
           dashboard: '主页',
           teachers: '教师',
-          classes: '班级',
+          students: '学生',
+          classrooms: '班级',
           assessments: '测评',
         },
         teacher: {
           dashboard: '主页',
-          students: '学生',
-          classes: '班级',
+          classrooms: '班级',
           assessments: '测评',
         },
         student: {

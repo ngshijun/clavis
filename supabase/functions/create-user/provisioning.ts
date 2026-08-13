@@ -60,9 +60,7 @@ export interface ProvisionError {
   detail: string
 }
 
-export function isProvisionError(
-  result: ProvisionPlan | ProvisionError,
-): result is ProvisionError {
+export function isProvisionError(result: ProvisionPlan | ProvisionError): result is ProvisionError {
   return 'code' in result
 }
 
@@ -79,22 +77,23 @@ function asTrimmedString(value: unknown): string {
 }
 
 /**
- * Which role each caller role is allowed to create. Every other pairing is a 403.
- * admin → manager, manager → teacher, teacher → student.
+ * Which roles each caller role is allowed to create. Every other pairing is a 403.
+ * admin → manager, manager → { teacher, student }. Teachers and students
+ * create nobody (student provisioning moved to the manager in Revamp 2.2).
  */
-const CREATABLE_ROLE: Record<UserRole, Exclude<UserRole, 'admin'> | null> = {
-  admin: 'manager',
-  manager: 'teacher',
-  teacher: 'student',
-  student: null,
+const CREATABLE_ROLES: Record<UserRole, ReadonlyArray<Exclude<UserRole, 'admin'>>> = {
+  admin: ['manager'],
+  manager: ['teacher', 'student'],
+  teacher: [],
+  student: [],
 }
 
 /**
  * Enforce the caller hierarchy and validate the payload.
  *
  * The organization is never taken from the request except when a platform admin
- * creates a manager: managers and teachers always provision inside the caller's
- * own organization.
+ * creates a manager: teachers and students always provision inside the manager
+ * caller's own organization.
  */
 export function planProvisioning(
   caller: CallerProfile,
@@ -105,11 +104,10 @@ export function planProvisioning(
     return invalid(`unsupported role "${requestedRole}"`)
   }
 
-  const allowedRole = CREATABLE_ROLE[caller.role]
-  if (allowedRole === null || allowedRole !== requestedRole) {
+  if (!CREATABLE_ROLES[caller.role].includes(requestedRole as Exclude<UserRole, 'admin'>)) {
     return forbidden(`${caller.role} may not create ${requestedRole}`)
   }
-  const role = allowedRole
+  const role = requestedRole as Exclude<UserRole, 'admin'>
 
   const name = asTrimmedString(body.name)
   if (!name || name.length > MAX_NAME_LENGTH) {

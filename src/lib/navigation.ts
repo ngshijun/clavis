@@ -26,13 +26,13 @@ export const sidebarNavConfig: SidebarNavConfig = {
   manager: [
     { title: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
     { title: 'Teachers', path: '/manager/teachers', icon: Users },
-    { title: 'Classes', path: '/manager/classes', icon: School },
+    { title: 'Students', path: '/manager/students', icon: Users },
+    { title: 'Classrooms', path: '/manager/classrooms', icon: School },
     { title: 'Assessments', path: '/manager/assessments', icon: ClipboardList },
   ],
   teacher: [
     { title: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
-    { title: 'Students', path: '/teacher/students', icon: Users },
-    { title: 'Classes', path: '/teacher/classes', icon: School },
+    { title: 'Classrooms', path: '/teacher/classrooms', icon: School },
     { title: 'Assessments', path: '/teacher/assessments', icon: ClipboardList },
   ],
   student: [

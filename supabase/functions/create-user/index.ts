@@ -13,7 +13,7 @@ import {
 /**
  * Hierarchical account provisioning (service role).
  *
- * admin → manager · manager → teacher · teacher → student.
+ * admin → manager · manager → { teacher, student }.
  * The caller is identified from their JWT and re-read from `profiles`; nothing
  * about the caller (role, organization) is trusted from the request body.
  *

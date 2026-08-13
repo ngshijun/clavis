@@ -120,7 +120,7 @@ export type Database = {
         Row: {
           assessment_id: string
           assigned_by: string
-          class_id: string | null
+          classroom_id: string | null
           created_at: string
           due_at: string | null
           id: string
@@ -129,7 +129,7 @@ export type Database = {
         Insert: {
           assessment_id: string
           assigned_by: string
-          class_id?: string | null
+          classroom_id?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
@@ -138,7 +138,7 @@ export type Database = {
         Update: {
           assessment_id?: string
           assigned_by?: string
-          class_id?: string | null
+          classroom_id?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
@@ -160,10 +160,10 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'assessment_assignments_class_id_fkey'
-            columns: ['class_id']
+            foreignKeyName: 'assessment_assignments_classroom_id_fkey'
+            columns: ['classroom_id']
             isOneToOne: false
-            referencedRelation: 'classes'
+            referencedRelation: 'classrooms'
             referencedColumns: ['id']
           },
           {
@@ -413,32 +413,32 @@ export type Database = {
           },
         ]
       }
-      class_members: {
+      classroom_students: {
         Row: {
-          class_id: string
+          classroom_id: string
           created_at: string
           student_id: string
         }
         Insert: {
-          class_id: string
+          classroom_id: string
           created_at?: string
           student_id: string
         }
         Update: {
-          class_id?: string
+          classroom_id?: string
           created_at?: string
           student_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'class_members_class_id_fkey'
-            columns: ['class_id']
+            foreignKeyName: 'classroom_students_classroom_id_fkey'
+            columns: ['classroom_id']
             isOneToOne: false
-            referencedRelation: 'classes'
+            referencedRelation: 'classrooms'
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'class_members_student_id_fkey'
+            foreignKeyName: 'classroom_students_student_id_fkey'
             columns: ['student_id']
             isOneToOne: false
             referencedRelation: 'student_profiles'
@@ -446,44 +446,97 @@ export type Database = {
           },
         ]
       }
-      classes: {
+      classroom_teachers: {
+        Row: {
+          classroom_id: string
+          created_at: string
+          teacher_id: string
+        }
+        Insert: {
+          classroom_id: string
+          created_at?: string
+          teacher_id: string
+        }
+        Update: {
+          classroom_id?: string
+          created_at?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'classroom_teachers_classroom_id_fkey'
+            columns: ['classroom_id']
+            isOneToOne: false
+            referencedRelation: 'classrooms'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'classroom_teachers_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      classrooms: {
         Row: {
           created_at: string
+          created_by: string
+          grade_level_id: string
           id: string
           name: string
           organization_id: string
-          teacher_id: string
+          subject_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by: string
+          grade_level_id: string
           id?: string
           name: string
           organization_id: string
-          teacher_id: string
+          subject_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string
+          grade_level_id?: string
           id?: string
           name?: string
           organization_id?: string
-          teacher_id?: string
+          subject_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'classes_organization_id_fkey'
+            foreignKeyName: 'classrooms_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'classrooms_grade_level_id_fkey'
+            columns: ['grade_level_id']
+            isOneToOne: false
+            referencedRelation: 'grade_levels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'classrooms_organization_id_fkey'
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'classes_teacher_id_fkey'
-            columns: ['teacher_id']
+            foreignKeyName: 'classrooms_subject_id_fkey'
+            columns: ['subject_id']
             isOneToOne: false
-            referencedRelation: 'profiles'
+            referencedRelation: 'subjects'
             referencedColumns: ['id']
           },
         ]
@@ -1295,19 +1348,22 @@ export type Database = {
           assigned_attempts: number
           avg_assessment_score: number
           avg_map_mastery: number
-          class_id: string
-          class_name: string
+          classroom_id: string
+          classroom_name: string
           completed_attempts: number
+          grade_level_id: string
+          grade_level_name: string
           student_count: number
-          teacher_id: string
-          teacher_name: string
+          subject_id: string
+          subject_name: string
+          teacher_count: number
         }[]
       }
       get_org_overview: {
         Args: never
         Returns: {
           assessment_count: number
-          class_count: number
+          classroom_count: number
           last_activity_at: string
           manager_count: number
           organization_id: string
@@ -1329,7 +1385,7 @@ export type Database = {
       }
       get_session_result: { Args: { p_session_id: string }; Returns: Json }
       get_student_rollups: {
-        Args: { p_class_id?: string; p_organization_id?: string }
+        Args: { p_classroom_id?: string; p_organization_id?: string }
         Returns: {
           assigned_count: number
           at_risk: boolean

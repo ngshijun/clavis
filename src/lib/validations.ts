@@ -69,11 +69,13 @@ export const organizationFormSchema = z.object({
 })
 export type OrganizationFormValues = z.infer<typeof organizationFormSchema>
 
-// Staff classes & assessments
-export const classFormSchema = z.object({
-  name: requiredStringSchema('Class name').max(120, 'Name must be 120 characters or less'),
+// Classrooms & assessments (staff)
+export const classroomFormSchema = z.object({
+  name: requiredStringSchema('Classroom name').max(120, 'Name must be 120 characters or less'),
+  gradeLevelId: requiredStringSchema('Grade level'),
+  subjectId: requiredStringSchema('Subject'),
 })
-export type ClassFormValues = z.infer<typeof classFormSchema>
+export type ClassroomFormValues = z.infer<typeof classroomFormSchema>
 
 export const assessmentCreateFormSchema = z.object({
   title: requiredStringSchema('Title').max(200, 'Title must be 200 characters or less'),

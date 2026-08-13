@@ -4,14 +4,15 @@ import { supabase } from '@/lib/supabaseClient'
 import { handleError } from '@/lib/errors'
 import type { Database } from '@/types/database.types'
 
-type ClassRollupRow = Database['public']['Functions']['get_class_rollups']['Returns'][number]
+type ClassroomRollupRow = Database['public']['Functions']['get_class_rollups']['Returns'][number]
 type StudentRollupRow = Database['public']['Functions']['get_student_rollups']['Returns'][number]
 
-export interface ClassRollup {
-  classId: string
-  className: string
-  teacherId: string
-  teacherName: string
+export interface ClassroomRollup {
+  classroomId: string
+  classroomName: string
+  gradeLevelName: string
+  subjectName: string
+  teacherCount: number
   studentCount: number
   avgMapMastery: number | null
   avgAssessmentScore: number | null
@@ -57,12 +58,13 @@ interface AssessmentCompletionJson {
   buckets: Record<string, number>
 }
 
-function mapClassRollup(row: ClassRollupRow): ClassRollup {
+function mapClassroomRollup(row: ClassroomRollupRow): ClassroomRollup {
   return {
-    classId: row.class_id,
-    className: row.class_name,
-    teacherId: row.teacher_id,
-    teacherName: row.teacher_name,
+    classroomId: row.classroom_id,
+    classroomName: row.classroom_name,
+    gradeLevelName: row.grade_level_name,
+    subjectName: row.subject_name,
+    teacherCount: row.teacher_count,
     studentCount: row.student_count,
     avgMapMastery: row.avg_map_mastery ?? null,
     avgAssessmentScore: row.avg_assessment_score ?? null,
@@ -88,13 +90,13 @@ function mapStudentRollup(row: StudentRollupRow): StudentRollup {
 }
 
 /**
- * Teacher/manager dashboard data. Everything is served by the P4a
- * SECURITY DEFINER aggregation RPCs — the DB scopes by role (teacher = own
- * classes/students, manager = whole org), so no arguments and no client-side
- * aggregation are needed here.
+ * Teacher/manager dashboard data. Everything is served by the SECURITY
+ * DEFINER aggregation RPCs (P4a, reworked in P6a for classrooms) — the DB
+ * scopes by role (teacher = classrooms they teach, manager = whole org), so
+ * no arguments and no client-side aggregation are needed here.
  */
 export const useStaffDashboardStore = defineStore('staffDashboard', () => {
-  const classRollups = ref<ClassRollup[]>([])
+  const classroomRollups = ref<ClassroomRollup[]>([])
   const studentRollups = ref<StudentRollup[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -110,21 +112,21 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
     return Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
   })
 
-  /** Class grid + full student roster (scoped by role inside the RPCs). */
+  /** Classroom grid + full student roster (scoped by role inside the RPCs). */
   async function fetchDashboard(): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
 
     try {
-      const [classesResult, studentsResult] = await Promise.all([
+      const [classroomsResult, studentsResult] = await Promise.all([
         supabase.rpc('get_class_rollups'),
         supabase.rpc('get_student_rollups'),
       ])
 
-      const firstError = classesResult.error ?? studentsResult.error
+      const firstError = classroomsResult.error ?? studentsResult.error
       if (firstError) throw firstError
 
-      classRollups.value = (classesResult.data ?? []).map(mapClassRollup)
+      classroomRollups.value = (classroomsResult.data ?? []).map(mapClassroomRollup)
       studentRollups.value = (studentsResult.data ?? []).map(mapStudentRollup)
 
       return { error: null }
@@ -138,15 +140,15 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   }
 
   /**
-   * Roster of one class. Returned (not stored) — the dashboard's class
-   * drill-down owns the lifetime of this data.
+   * Roster of one classroom. Returned (not stored) — the dashboard's
+   * classroom drill-down owns the lifetime of this data.
    */
-  async function fetchClassStudents(
-    classId: string,
+  async function fetchClassroomStudents(
+    classroomId: string,
   ): Promise<{ students: StudentRollup[]; error: string | null }> {
     try {
       const { data, error: fetchError } = await supabase.rpc('get_student_rollups', {
-        p_class_id: classId,
+        p_classroom_id: classroomId,
       })
 
       if (fetchError) throw fetchError
@@ -191,21 +193,21 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   }
 
   function $reset() {
-    classRollups.value = []
+    classroomRollups.value = []
     studentRollups.value = []
     isLoading.value = false
     error.value = null
   }
 
   return {
-    classRollups,
+    classroomRollups,
     studentRollups,
     isLoading,
     error,
     atRiskCount,
     avgMapMastery,
     fetchDashboard,
-    fetchClassStudents,
+    fetchClassroomStudents,
     fetchAssessmentCompletion,
     $reset,
   }

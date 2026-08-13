@@ -55,6 +55,7 @@
     "tailwindcss": "^4.2.2",
     "vee-validate": "5.0.0-beta.0",
     "vue": "^3.5.32",
+    "vue-draggable-plus": "^0.6.1",
     "vue-router": "^5.0.4",
     "vue-sonner": "^2.0.9",
     "zod": "^4.3.6"

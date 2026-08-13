@@ -213,8 +213,6 @@ export default {
     pathOrderSaving: '正在保存顺序…',
     pathOrderSaved: '学习路径顺序已保存',
     orderSaved: '顺序已保存',
-    moveUp: '上移',
-    moveDown: '下移',
     dragToReorder: '拖动以调整顺序',
     editName: '重命名',
     editImage: '更换图片',

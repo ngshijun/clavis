@@ -108,13 +108,13 @@ export default {
     failedCreateOrganization: 'Failed to create organization.',
     failedUpdateOrganization: 'Failed to update organization.',
     failedFetchTeachers: 'Failed to load teachers.',
-    // Classes
-    failedFetchClasses: 'Failed to load classes.',
-    failedCreateClass: 'Failed to create class.',
-    failedUpdateClass: 'Failed to update class.',
-    failedDeleteClass: 'Failed to delete class.',
-    failedFetchClassMembers: 'Failed to load class students.',
-    failedUpdateClassMembers: 'Failed to update class students.',
+    // Classrooms
+    failedFetchClassrooms: 'Failed to load classrooms.',
+    failedCreateClassroom: 'Failed to create classroom.',
+    failedUpdateClassroom: 'Failed to update classroom.',
+    failedDeleteClassroom: 'Failed to delete classroom.',
+    failedFetchClassroomMembers: 'Failed to load classroom members.',
+    failedUpdateClassroomMembers: 'Failed to update classroom members.',
     failedFetchOrgStudents: 'Failed to load students.',
     // Assessments
     failedFetchAssessments: 'Failed to load assessments.',
@@ -607,13 +607,13 @@ export default {
         manager: {
           dashboard: 'Dashboard',
           teachers: 'Teachers',
-          classes: 'Classes',
+          students: 'Students',
+          classrooms: 'Classrooms',
           assessments: 'Assessments',
         },
         teacher: {
           dashboard: 'Dashboard',
-          students: 'Students',
-          classes: 'Classes',
+          classrooms: 'Classrooms',
           assessments: 'Assessments',
         },
         student: {

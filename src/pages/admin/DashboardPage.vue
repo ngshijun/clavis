@@ -79,7 +79,7 @@ function formatActivity(dateString: string | null): string {
           :label="t.admin.dashboard.assessments"
           :value="dashboardStore.totals.assessmentCount"
           :icon="ClipboardList"
-          :subtitle="t.admin.dashboard.assessmentsHint(dashboardStore.totals.classCount)"
+          :subtitle="t.admin.dashboard.assessmentsHint(dashboardStore.totals.classroomCount)"
         />
         <StatTile
           :label="t.admin.dashboard.activeStudentsToday"
@@ -126,7 +126,7 @@ function formatActivity(dateString: string | null): string {
                   <TableCell class="text-right tabular-nums">{{ org.managerCount }}</TableCell>
                   <TableCell class="text-right tabular-nums">{{ org.teacherCount }}</TableCell>
                   <TableCell class="text-right tabular-nums">{{ org.studentCount }}</TableCell>
-                  <TableCell class="text-right tabular-nums">{{ org.classCount }}</TableCell>
+                  <TableCell class="text-right tabular-nums">{{ org.classroomCount }}</TableCell>
                   <TableCell class="text-right tabular-nums">{{ org.assessmentCount }}</TableCell>
                   <TableCell class="text-muted-foreground">
                     {{ formatActivity(org.lastActivityAt) }}
@@ -146,7 +146,7 @@ function formatActivity(dateString: string | null): string {
                     {{ dashboardStore.totals.studentCount }}
                   </TableCell>
                   <TableCell class="text-right tabular-nums">
-                    {{ dashboardStore.totals.classCount }}
+                    {{ dashboardStore.totals.classroomCount }}
                   </TableCell>
                   <TableCell class="text-right tabular-nums">
                     {{ dashboardStore.totals.assessmentCount }}

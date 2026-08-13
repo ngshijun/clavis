@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import {
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
   GripVertical,
   ImagePlus,
   Loader2,
@@ -19,8 +18,8 @@ import type { SubTopic } from '@/stores/curriculum'
  * The admin learning-path builder.
  *
  * Renders a topic's sub-topics as the ordered path students walk on their
- * learning map (`sub_topics.display_order`). Reordering is native HTML5
- * drag-and-drop, with move up/down buttons as the keyboard and touch path.
+ * learning map (`sub_topics.display_order`). Reordering is vue-draggable-plus
+ * (SortableJS) via the grip handle, with built-in touch support.
  * Clicking a row opens that sub-topic's question management (decision 42).
  * The parent owns persistence — this component only emits the new id order.
  */
@@ -44,50 +43,19 @@ const emit = defineEmits<{
 
 const t = useT()
 
-const dragIndex = ref<number | null>(null)
-const overIndex = ref<number | null>(null)
-
-function resetDrag() {
-  dragIndex.value = null
-  overIndex.value = null
-}
-
-function emitMove(from: number, to: number) {
-  const ids = props.items.map((item) => item.id)
-  const [moved] = ids.splice(from, 1)
-  if (moved === undefined) return
-  ids.splice(to, 0, moved)
-  emit('reorder', ids)
-}
-
-function onDragStart(index: number, event: DragEvent) {
-  dragIndex.value = index
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    // Firefox requires payload on the transfer for the drag to start at all.
-    event.dataTransfer.setData('text/plain', props.items[index]?.id ?? '')
-  }
-}
-
-function onDragOver(index: number, event: DragEvent) {
-  if (dragIndex.value === null) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-  overIndex.value = index
-}
-
-function onDrop(index: number) {
-  const from = dragIndex.value
-  resetDrag()
-  if (from === null || from === index) return
-  emitMove(from, index)
-}
-
-function move(index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= props.items.length) return
-  emitMove(index, target)
-}
+/**
+ * VueDraggable writes the post-drop order here; the getter keeps rendering
+ * from props so the parent (via the store's optimistic apply) stays the
+ * single source of truth for the list.
+ */
+const list = computed({
+  get: () => props.items,
+  set: (value: SubTopic[]) =>
+    emit(
+      'reorder',
+      value.map((item) => item.id),
+    ),
+})
 </script>
 
 <template>
@@ -108,25 +76,27 @@ function move(index: number, delta: number) {
         </p>
       </div>
 
-      <ol class="space-y-2" :class="isSaving && 'pointer-events-none opacity-60'">
+      <VueDraggable
+        v-model="list"
+        tag="ol"
+        handle="[data-drag-handle]"
+        ghost-class="opacity-50"
+        :animation="150"
+        :disabled="isSaving"
+        class="space-y-2"
+        :class="isSaving && 'pointer-events-none opacity-60'"
+      >
         <li
           v-for="(item, index) in items"
           :key="item.id"
-          :draggable="!isSaving"
           class="group flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
-          :class="[
-            dragIndex === index && 'opacity-50',
-            overIndex === index && dragIndex !== index && 'border-primary bg-accent',
-          ]"
           @click="emit('select', item)"
-          @dragstart="onDragStart(index, $event)"
-          @dragover="onDragOver(index, $event)"
-          @dragend="resetDrag"
-          @drop.prevent="onDrop(index)"
         >
           <GripVertical
+            data-drag-handle
             class="size-5 shrink-0 cursor-grab text-muted-foreground"
             :aria-label="t.admin.curriculum.dragToReorder"
+            @click.stop
           />
 
           <span
@@ -150,26 +120,6 @@ function move(index: number, delta: number) {
           </div>
 
           <div class="flex shrink-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              class="size-8"
-              :disabled="index === 0"
-              :aria-label="t.admin.curriculum.moveUp"
-              @click.stop="move(index, -1)"
-            >
-              <ChevronUp class="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="size-8"
-              :disabled="index === items.length - 1"
-              :aria-label="t.admin.curriculum.moveDown"
-              @click.stop="move(index, 1)"
-            >
-              <ChevronDown class="size-4" />
-            </Button>
             <Button
               variant="secondary"
               size="icon"
@@ -200,7 +150,7 @@ function move(index: number, delta: number) {
             <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
           </div>
         </li>
-      </ol>
+      </VueDraggable>
     </template>
 
     <div v-else class="rounded-lg border border-dashed p-12 text-center">

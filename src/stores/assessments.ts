@@ -57,8 +57,8 @@ export interface AssessmentQuestionItem {
 export interface AssessmentAssignment {
   id: string
   assessmentId: string
-  classId: string | null
-  className: string | null
+  classroomId: string | null
+  classroomName: string | null
   studentId: string | null
   studentName: string | null
   dueAt: string | null
@@ -590,11 +590,11 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           `
           id,
           assessment_id,
-          class_id,
+          classroom_id,
           student_id,
           due_at,
           created_at,
-          classes (name),
+          classrooms (name),
           student_profiles (profiles!student_profiles_id_fkey (name))
         `,
         )
@@ -606,8 +606,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       currentAssignments.value = (data ?? []).map((row) => ({
         id: row.id,
         assessmentId: row.assessment_id,
-        classId: row.class_id,
-        className: (row.classes as { name: string } | null)?.name ?? null,
+        classroomId: row.classroom_id,
+        classroomName: (row.classrooms as { name: string } | null)?.name ?? null,
         studentId: row.student_id,
         studentName:
           (row.student_profiles as { profiles: { name: string } | null } | null)?.profiles?.name ??
@@ -624,7 +624,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
   async function createAssignment(input: {
     assessmentId: string
-    classId?: string
+    classroomId?: string
     studentId?: string
     dueAt?: string | null
   }): Promise<{ error: string | null }> {
@@ -634,7 +634,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     try {
       const { error: insertError } = await supabase.from('assessment_assignments').insert({
         assessment_id: input.assessmentId,
-        class_id: input.classId ?? null,
+        classroom_id: input.classroomId ?? null,
         student_id: input.studentId ?? null,
         due_at: input.dueAt ?? null,
         assigned_by: userId,
