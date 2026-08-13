@@ -530,6 +530,49 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 8b. QUESTION LEARNING-POINT TAGS (Revamp 2.3 — decision 57/59)           ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Platform-global, admin-managed vocabulary (names lowercased + trimmed).
+-- question_tags cascades from questions, so section 8's DELETE FROM questions
+-- clears the join rows on a re-run; both inserts below re-create them.
+
+INSERT INTO public.tags (id, name)
+VALUES
+  ('a7000000-0000-4000-8000-000000000001', 'place value'),
+  ('a7000000-0000-4000-8000-000000000002', 'counting'),
+  ('a7000000-0000-4000-8000-000000000003', 'even and odd numbers'),
+  ('a7000000-0000-4000-8000-000000000004', 'addition'),
+  ('a7000000-0000-4000-8000-000000000005', 'verbs'),
+  ('a7000000-0000-4000-8000-000000000006', 'days of the week')
+ON CONFLICT (id) DO NOTHING;
+
+-- Tag several seeded questions (a question may carry multiple tags).
+INSERT INTO public.question_tags (question_id, tag_id)
+VALUES
+  -- 15,20,25,30 -> next  (counting)
+  ('073d50c7-22e1-43c1-be30-ba53e7b04e66', 'a7000000-0000-4000-8000-000000000002'),
+  -- ones digit of 7  (place value)
+  ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 'a7000000-0000-4000-8000-000000000001'),
+  -- largest number  (place value)
+  ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 'a7000000-0000-4000-8000-000000000001'),
+  -- which are even (MRQ)  (even/odd + counting)
+  ('a1000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000003'),
+  ('a1000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002'),
+  -- 10 + 10  (addition)
+  ('a1000000-0000-4000-8000-000000000002', 'a7000000-0000-4000-8000-000000000004'),
+  -- 3 thousands 14 tens 5 ones  (place value + addition)
+  ('0183618e-b41f-42c4-b838-c7caa9647fa6', 'a7000000-0000-4000-8000-000000000001'),
+  ('0183618e-b41f-42c4-b838-c7caa9647fa6', 'a7000000-0000-4000-8000-000000000004'),
+  -- brush my teeth  (verbs)
+  ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', 'a7000000-0000-4000-8000-000000000005'),
+  -- read books  (verbs)
+  ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 'a7000000-0000-4000-8000-000000000005'),
+  -- days order  (days of the week)
+  ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', 'a7000000-0000-4000-8000-000000000006')
+ON CONFLICT DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 9. PRACTICE SESSION (completed, for Alice)                               ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
@@ -639,6 +682,58 @@ VALUES
    'c1000000-0000-4000-8000-000000000001', now() + interval '7 days',
    '00000000-0000-0000-0000-000000000006')
 ON CONFLICT DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9d. ADMIN ASSESSMENT TEMPLATES (Revamp 2.3 — decision 54-56/59)          ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Platform-wide templates authored by the admin (000001): is_template = true,
+-- organization_id NULL (enforced by assessments_template_org_check). They are
+-- read-only cross-center library items; any center clones one via
+-- clone_assessment_template(id) to get an editable, org-scoped copy.
+-- Section 8's DELETE FROM assessment_questions clears the template questions on
+-- a re-run (assessments rows persist via ON CONFLICT), so both re-create here.
+
+INSERT INTO public.assessments (
+  id, organization_id, created_by, title, description, status, is_template
+) VALUES
+  ('a5000000-0000-4000-8000-000000000002', NULL,
+   '00000000-0000-0000-0000-000000000001',
+   'Template: Year 1 Math Basics',
+   '100 以内的整数 — starter quiz any center can clone.', 'published', true),
+  ('a5000000-0000-4000-8000-000000000003', NULL,
+   '00000000-0000-0000-0000-000000000001',
+   'Template: Year 2 English Grammar',
+   'Verbs warm-up — bank questions plus one ad-hoc item.', 'published', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Template 1: three bank questions.
+INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+VALUES
+  ('a9200000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000002',
+   '073d50c7-22e1-43c1-be30-ba53e7b04e66', 0, 1),
+  ('a9200000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000002',
+   '0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 1, 1),
+  ('a9200000-0000-4000-8000-000000000003', 'a5000000-0000-4000-8000-000000000002',
+   'a1000000-0000-4000-8000-000000000002', 2, 1)
+ON CONFLICT (id) DO NOTHING;
+
+-- Template 2: two bank questions + one ad-hoc payload question (demonstrates
+-- the payload branch survives cloning).
+INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+VALUES
+  ('a9200000-0000-4000-8000-000000000004', 'a5000000-0000-4000-8000-000000000003',
+   '49f16772-57a6-44a8-8d27-76d8f29eb8bc', 0, 1),
+  ('a9200000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000003',
+   'bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 1, 1)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
+VALUES
+  ('a9200000-0000-4000-8000-000000000006', 'a5000000-0000-4000-8000-000000000003',
+   '{"type":"mcq","question":"Choose the correct verb: She ___ to school every day.","options":[{"text":"walk","is_correct":false},{"text":"walks","is_correct":true},{"text":"walking","is_correct":false},{"text":"walked","is_correct":false}],"explanation":"Third person singular takes -s."}'::jsonb,
+   2, 1)
+ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗

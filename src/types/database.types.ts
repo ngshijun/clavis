@@ -284,7 +284,8 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
-          organization_id: string
+          is_template: boolean
+          organization_id: string | null
           shuffle_questions: boolean
           status: Database['public']['Enums']['assessment_status']
           time_limit_seconds: number | null
@@ -296,7 +297,8 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
-          organization_id: string
+          is_template?: boolean
+          organization_id?: string | null
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
           time_limit_seconds?: number | null
@@ -308,7 +310,8 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
-          organization_id?: string
+          is_template?: boolean
+          organization_id?: string | null
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
           time_limit_seconds?: number | null
@@ -859,6 +862,46 @@ export type Database = {
           },
         ]
       }
+      question_tags: {
+        Row: {
+          created_at: string
+          question_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          question_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          question_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'question_tags_question_id_fkey'
+            columns: ['question_id']
+            isOneToOne: false
+            referencedRelation: 'question_statistics'
+            referencedColumns: ['question_id']
+          },
+          {
+            foreignKeyName: 'question_tags_question_id_fkey'
+            columns: ['question_id']
+            isOneToOne: false
+            referencedRelation: 'questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'question_tags_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       questions: {
         Row: {
           answer: string | null
@@ -1265,6 +1308,24 @@ export type Database = {
           },
         ]
       }
+      tags: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           cover_image_path: string | null
@@ -1317,6 +1378,10 @@ export type Database = {
       }
     }
     Functions: {
+      clone_assessment_template: {
+        Args: { p_template_id: string }
+        Returns: string
+      }
       complete_assessment_attempt: {
         Args: { p_attempt_id: string }
         Returns: Json
