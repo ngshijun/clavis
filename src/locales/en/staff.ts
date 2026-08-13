@@ -235,7 +235,6 @@ export default {
     dragToReorder: 'Drag to reorder',
     editQuestion: 'Edit question',
     removeQuestion: 'Remove question',
-    savingOrder: 'Saving order…',
     toastQuestionsAdded: (n: number) => `${n} question${n === 1 ? '' : 's'} added`,
     toastQuestionAdded: 'Question added',
     toastQuestionUpdated: 'Question updated',

@@ -205,6 +205,10 @@ export default {
     delete: '删除',
     add: '添加',
   },
+  orderStatus: {
+    saving: '保存中…',
+    saved: '已保存',
+  },
   statsFilterBar: {
     dateRangePlaceholder: '日期范围',
     allGrades: '所有年级',

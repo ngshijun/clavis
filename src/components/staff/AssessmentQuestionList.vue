@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { GripVertical, Loader2, Pencil, Trash2 } from 'lucide-vue-next'
+import { GripVertical, Pencil, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -11,12 +11,12 @@ import type { AssessmentQuestionItem } from '@/stores/assessments'
 /**
  * The assessment question composer list. Reordering is vue-draggable-plus
  * (SortableJS) via the grip handle, with built-in touch support (same pattern
- * as the admin SubTopicPathList). The parent owns persistence — this
- * component only emits intents.
+ * as the admin SubTopicPathList). The parent owns persistence (debounced +
+ * non-blocking, decision 72b) — this component only emits intents and never
+ * locks dragging; `disabled` reflects edit permission, not save state.
  */
 const props = defineProps<{
   items: AssessmentQuestionItem[]
-  isSaving: boolean
   disabled: boolean
 }>()
 
@@ -29,7 +29,7 @@ const emit = defineEmits<{
 
 const t = useT()
 
-const interactive = computed(() => !props.disabled && !props.isSaving)
+const interactive = computed(() => !props.disabled)
 
 /**
  * VueDraggable writes the post-drop order here; the getter keeps rendering
@@ -64,15 +64,6 @@ function onPointsChange(item: AssessmentQuestionItem, event: Event) {
 
 <template>
   <div>
-    <div
-      v-if="isSaving"
-      class="mb-3 flex items-center gap-2 text-sm text-muted-foreground"
-      role="status"
-    >
-      <Loader2 class="size-4 animate-spin" />
-      {{ t.staff.builder.savingOrder }}
-    </div>
-
     <VueDraggable
       v-model="list"
       tag="ol"
@@ -81,7 +72,6 @@ function onPointsChange(item: AssessmentQuestionItem, event: Event) {
       :animation="150"
       :disabled="!interactive"
       class="space-y-2"
-      :class="isSaving && 'pointer-events-none opacity-60'"
     >
       <li
         v-for="(item, index) in items"

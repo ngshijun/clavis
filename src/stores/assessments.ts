@@ -196,7 +196,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   const currentAssignments = ref<AssessmentAssignment[]>([])
   const currentAttempts = ref<AssessmentAttempt[]>([])
   const isLoadingCurrent = ref(false)
-  const isSavingOrder = ref(false)
 
   const filteredAssessments = computed(() => {
     const query = filters.value.search.toLowerCase().trim()
@@ -657,52 +656,59 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   /**
-   * Persist a new question order. Optimistic apply, one all-or-nothing upsert
-   * (PostgREST runs one request in one transaction), rollback on error —
-   * mirrors `curriculum.reorderSubTopics`. The upsert re-sends the full row
-   * because `assessment_id` is NOT NULL without a default and the payload/
-   * question_id CHECK is evaluated on the proposed row.
+   * Optimistic local question reorder (decision 72b). `position` is rewritten
+   * 1-based to mirror what `reorder_assessment_questions` writes. Persistence
+   * is decoupled: the builder page debounces/coalesces saves through
+   * `useOrderPersistence` and calls `persistQuestionOrder`, rolling back via
+   * this same function on final failure.
+   *
+   * Returns the pre-drag id order (the rollback baseline), or null when
+   * `orderedIds` is not a duplicate-free permutation of the current list —
+   * a cheap pre-check; the RPC enforces the same server-side.
    */
-  async function reorderQuestions(
+  function applyQuestionOrder(orderedIds: string[]): string[] | null {
+    const previousIds = currentQuestions.value.map((q) => q.id)
+    const byId = new Map(currentQuestions.value.map((q) => [q.id, q]))
+    const uniqueIds = new Set(orderedIds)
+    if (
+      orderedIds.length !== currentQuestions.value.length ||
+      uniqueIds.size !== orderedIds.length ||
+      orderedIds.some((id) => !byId.has(id))
+    ) {
+      return null
+    }
+
+    currentQuestions.value = orderedIds.map((id, index) => ({
+      ...byId.get(id)!,
+      position: index + 1,
+    }))
+    return previousIds
+  }
+
+  /**
+   * Persist a question order via the positional RPC (P9a): sends ONLY the
+   * ordered id array — atomic, minimal payload, and it cannot overwrite a
+   * concurrent edit to payload/points/name the way the old full-row upsert
+   * could.
+   */
+  async function persistQuestionOrder(
     assessmentId: string,
     orderedIds: string[],
   ): Promise<{ error: string | null }> {
-    const byId = new Map(currentQuestions.value.map((q) => [q.id, q]))
-    if (
-      orderedIds.length !== currentQuestions.value.length ||
-      orderedIds.some((id) => !byId.has(id))
-    ) {
-      return { error: errorMessages().failedReorderAssessmentQuestions }
+    const { error: rpcError } = await supabase.rpc('reorder_assessment_questions', {
+      p_assessment_id: assessmentId,
+      p_ids: orderedIds,
+    })
+
+    if (rpcError) {
+      // Internal/parameterized RAISE text from the reorder RPC — localize.
+      return {
+        error: handleError(rpcError, 'failedReorderAssessmentQuestions', {
+          localizeRaise: true,
+        }),
+      }
     }
-
-    const previous = currentQuestions.value
-
-    isSavingOrder.value = true
-    // Optimistic apply
-    currentQuestions.value = orderedIds.map((id, index) => ({ ...byId.get(id)!, position: index }))
-
-    try {
-      const { error: upsertError } = await supabase.from('assessment_questions').upsert(
-        currentQuestions.value.map((q) => ({
-          id: q.id,
-          assessment_id: assessmentId,
-          question_id: q.questionId,
-          payload: q.payload as unknown as Json,
-          position: q.position,
-          points: q.points,
-        })),
-        { onConflict: 'id' },
-      )
-
-      if (upsertError) throw upsertError
-
-      return { error: null }
-    } catch (err) {
-      currentQuestions.value = previous
-      return { error: handleError(err, 'failedReorderAssessmentQuestions') }
-    } finally {
-      isSavingOrder.value = false
-    }
+    return { error: null }
   }
 
   async function fetchAssignments(assessmentId: string): Promise<{ error: string | null }> {
@@ -922,7 +928,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAssignments.value = []
     currentAttempts.value = []
     isLoadingCurrent.value = false
-    isSavingOrder.value = false
     filters.value = { search: '' }
     pagination.value = { pageIndex: 0, pageSize: 10 }
   }
@@ -943,7 +948,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAssignments,
     currentAttempts,
     isLoadingCurrent,
-    isSavingOrder,
     templates,
     isLoadingTemplates,
     fetchTemplates,
@@ -960,7 +964,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     updateAdhocQuestion,
     updateQuestionPoints,
     removeQuestion,
-    reorderQuestions,
+    applyQuestionOrder,
+    persistQuestionOrder,
     fetchAssignments,
     createAssignment,
     removeAssignment,

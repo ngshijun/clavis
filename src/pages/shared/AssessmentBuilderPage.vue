@@ -42,7 +42,9 @@ import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vu
 import AdhocQuestionDialog from '@/components/staff/AdhocQuestionDialog.vue'
 import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
 import AssignDialog from '@/components/staff/AssignDialog.vue'
+import OrderSaveStatusPill from '@/components/shared/OrderSaveStatusPill.vue'
 import { toast } from 'vue-sonner'
+import { useOrderPersistence } from '@/composables/useOrderPersistence'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -263,9 +265,22 @@ function openAdhocEdit(item: AssessmentQuestionItem) {
   showAdhocDialog.value = true
 }
 
-async function handleReorder(orderedIds: string[]) {
-  const { error } = await assessmentsStore.reorderQuestions(assessmentId.value, orderedIds)
-  if (error) toast.error(error)
+// Seamless reorder (decision 72b): the drag applies instantly in the store;
+// persistence is debounced/coalesced fire-and-forget via the positional RPC.
+// Dragging is never blocked — the pill next to the heading is the affordance.
+const { status: orderSaveStatus, enqueue: enqueueOrderSave } = useOrderPersistence({
+  onError: (message) => toast.error(message),
+})
+
+function handleReorder(orderedIds: string[]) {
+  const id = assessmentId.value
+  const previousIds = assessmentsStore.applyQuestionOrder(orderedIds)
+  if (!previousIds) return
+  enqueueOrderSave(`questions:${id}`, orderedIds, {
+    previousIds,
+    save: (ids) => assessmentsStore.persistQuestionOrder(id, ids),
+    rollback: (ids) => void assessmentsStore.applyQuestionOrder(ids),
+  })
 }
 
 async function handleRemove(item: AssessmentQuestionItem) {
@@ -408,7 +423,10 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
         <div>
           <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-lg font-semibold">{{ t.staff.builder.questionsTitle }}</h2>
+              <div class="flex items-center gap-3">
+                <h2 class="text-lg font-semibold">{{ t.staff.builder.questionsTitle }}</h2>
+                <OrderSaveStatusPill :status="orderSaveStatus" />
+              </div>
               <p class="text-sm text-muted-foreground">
                 {{ t.staff.builder.questionsDesc(assessmentsStore.currentQuestions.length) }}
               </p>
@@ -439,7 +457,6 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
           <AssessmentQuestionList
             v-else
             :items="assessmentsStore.currentQuestions"
-            :is-saving="assessmentsStore.isSavingOrder"
             :disabled="!isEditable"
             @reorder="handleReorder"
             @edit="openAdhocEdit"

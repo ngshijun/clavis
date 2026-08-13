@@ -23,7 +23,22 @@ export function errorMessages(): ErrorMessages {
  * @param fallbackKey - Key into shared.errors for unknown error shapes
  * @returns A localized, user-friendly error string
  */
-export function handleError(err: unknown, fallbackKey: ErrorKey): string {
+export interface HandleErrorOptions {
+  /**
+   * Use the caller's localized fallback for an unrecognized PL/pgSQL RAISE
+   * (P0001) instead of passing the DB's English message through. Set this
+   * where the RAISE text is internal/parameterized and never fit to show a
+   * user — e.g. the positional reorder RPCs, whose permutation message
+   * embeds counts and cannot be exact-matched in DB_RAISE_MESSAGE_KEYS.
+   */
+  localizeRaise?: boolean
+}
+
+export function handleError(
+  err: unknown,
+  fallbackKey: ErrorKey,
+  options: HandleErrorOptions = {},
+): string {
   console.error('[Error]', err)
 
   const errors = errorMessages()
@@ -34,6 +49,9 @@ export function handleError(err: unknown, fallbackKey: ErrorKey): string {
   }
 
   if (isPostgrestError(err)) {
+    if (options.localizeRaise && err.code === 'P0001' && !DB_RAISE_MESSAGE_KEYS[err.message]) {
+      return fallback
+    }
     return mapPostgrestError(err, errors)
   }
 

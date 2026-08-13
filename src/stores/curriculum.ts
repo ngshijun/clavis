@@ -764,189 +764,139 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Shared reorder core for every curriculum level (decision 43).
+   * Optimistic local reorder for one curriculum level (decision 43).
    *
    * `display_order` is what every level sorts by (and, for sub-topics, IS the
-   * learning-map order). The whole new order ships in a single upsert
-   * (one request = one transaction), applied optimistically to the local list
-   * and rolled back if the write fails. `display_order` is rewritten 1-based
-   * and gap-free on every drop.
+   * learning-map order); it is rewritten 1-based and gap-free on every drop.
+   * Persistence is decoupled (decision 72b): the page debounces/coalesces
+   * saves through `useOrderPersistence` and calls the `persist*Order` RPC
+   * wrappers below, rolling back via this same function on final failure.
+   *
+   * Returns the pre-drag id order (the rollback baseline), or null when
+   * `orderedIds` is not a duplicate-free permutation of the current list —
+   * a cheap pre-check; the RPC enforces the same server-side.
    */
-  async function applyReorder<T extends { id: string; displayOrder: number }>(opts: {
-    list: T[]
-    orderedIds: string[]
-    setList: (items: T[]) => void
-    persist: (items: T[]) => PromiseLike<{ error: unknown }>
+  function applyOrderLocal<T extends { id: string; displayOrder: number }>(
+    list: T[],
+    orderedIds: string[],
+    setList: (items: T[]) => void,
+  ): string[] | null {
+    const previousIds = list.map((item) => item.id)
+    const byId = new Map(list.map((item) => [item.id, item]))
+    const reordered = orderedIds
+      .map((id) => byId.get(id))
+      .filter((item): item is T => item !== undefined)
+
+    // Guard length AND uniqueness: a duplicated id would survive the length
+    // check (mapping the same item twice) while silently dropping another.
+    const uniqueIds = new Set(orderedIds)
+    if (reordered.length !== list.length || uniqueIds.size !== orderedIds.length) {
+      return null
+    }
+
+    reordered.forEach((item, index) => {
+      item.displayOrder = index + 1
+    })
+    setList(reordered)
+    return previousIds
+  }
+
+  /** RPC persist wrapper: sends ONLY the ordered id array (+ parent id). */
+  async function persistOrder(
+    rpc: () => PromiseLike<{ error: unknown }>,
     errorKey:
       | 'failedReorderGradeLevels'
       | 'failedReorderSubjects'
       | 'failedReorderTopics'
-      | 'failedReorderSubTopics'
-  }): Promise<{ success: boolean; error: string | null }> {
-    const previous = opts.list.slice()
-    const previousOrders = previous.map((item) => item.displayOrder)
-    const byId = new Map(previous.map((item) => [item.id, item]))
-    const reordered = opts.orderedIds
-      .map((id) => byId.get(id))
-      .filter((item): item is T => item !== undefined)
-
-    // The caller must send a permutation of the current list, nothing else.
-    // Guard length AND uniqueness: a duplicated id would survive the length
-    // check (mapping the same item twice) while silently dropping another.
-    const uniqueIds = new Set(opts.orderedIds)
-    if (reordered.length !== previous.length || uniqueIds.size !== opts.orderedIds.length) {
-      return { success: false, error: errorMessages()[opts.errorKey] }
+      | 'failedReorderSubTopics',
+  ): Promise<{ error: string | null }> {
+    const { error: rpcError } = await rpc()
+    if (rpcError) {
+      // The reorder RPCs RAISE internal, parameterized text (permutation
+      // counts, authz wording) that must never reach a user — localize.
+      return { error: handleError(rpcError, errorKey, { localizeRaise: true }) }
     }
-
-    // Optimistic apply
-    reordered.forEach((item, index) => {
-      item.displayOrder = index + 1
-    })
-    opts.setList(reordered)
-
-    try {
-      const { error: upsertError } = await opts.persist(reordered)
-      if (upsertError) throw upsertError
-
-      return { success: true, error: null }
-    } catch (err) {
-      // Rollback to the pre-drag order
-      previous.forEach((item, index) => {
-        item.displayOrder = previousOrders[index] ?? 0
-      })
-      opts.setList(previous)
-
-      console.error('Error reordering curriculum level:', err)
-      return { success: false, error: handleError(err, opts.errorKey) }
-    }
+    return { error: null }
   }
 
-  /**
-   * Persist a new grade-level order.
-   */
-  async function reorderGradeLevels(
-    orderedGradeLevelIds: string[],
-  ): Promise<{ success: boolean; error: string | null }> {
-    return applyReorder({
-      list: gradeLevels.value,
-      orderedIds: orderedGradeLevelIds,
-      setList: (items) => {
-        gradeLevels.value = items
-      },
-      persist: (items) =>
-        supabase.from('grade_levels').upsert(
-          items.map((g, index) => ({
-            id: g.id,
-            name: g.name,
-            display_order: index + 1,
-          })),
-          { onConflict: 'id' },
-        ),
-      errorKey: 'failedReorderGradeLevels',
+  function applyGradeLevelOrder(orderedIds: string[]): string[] | null {
+    return applyOrderLocal(gradeLevels.value, orderedIds, (items) => {
+      gradeLevels.value = items
     })
   }
 
-  /**
-   * Persist a new subject order within one grade level.
-   */
-  async function reorderSubjects(
-    gradeLevelId: string,
-    orderedSubjectIds: string[],
-  ): Promise<{ success: boolean; error: string | null }> {
+  function persistGradeLevelOrder(orderedIds: string[]): Promise<{ error: string | null }> {
+    return persistOrder(
+      () => supabase.rpc('reorder_grade_levels', { p_ids: orderedIds }),
+      'failedReorderGradeLevels',
+    )
+  }
+
+  function applySubjectOrder(gradeLevelId: string, orderedIds: string[]): string[] | null {
     const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-    if (!gradeLevel) {
-      return { success: false, error: errorMessages().gradeLevelNotFound }
-    }
-
-    return applyReorder({
-      list: gradeLevel.subjects,
-      orderedIds: orderedSubjectIds,
-      setList: (items) => {
-        gradeLevel.subjects = items
-      },
-      persist: (items) =>
-        supabase.from('subjects').upsert(
-          items.map((s, index) => ({
-            id: s.id,
-            grade_level_id: gradeLevelId,
-            name: s.name,
-            display_order: index + 1,
-          })),
-          { onConflict: 'id' },
-        ),
-      errorKey: 'failedReorderSubjects',
+    if (!gradeLevel) return null
+    return applyOrderLocal(gradeLevel.subjects, orderedIds, (items) => {
+      gradeLevel.subjects = items
     })
   }
 
-  /**
-   * Persist a new topic order within one subject.
-   */
-  async function reorderTopics(
+  function persistSubjectOrder(
+    gradeLevelId: string,
+    orderedIds: string[],
+  ): Promise<{ error: string | null }> {
+    return persistOrder(
+      () => supabase.rpc('reorder_subjects', { p_grade_level_id: gradeLevelId, p_ids: orderedIds }),
+      'failedReorderSubjects',
+    )
+  }
+
+  function applyTopicOrder(
     gradeLevelId: string,
     subjectId: string,
-    orderedTopicIds: string[],
-  ): Promise<{ success: boolean; error: string | null }> {
+    orderedIds: string[],
+  ): string[] | null {
     const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
     const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-    if (!subject) {
-      return { success: false, error: errorMessages().subjectNotFound }
-    }
-
-    return applyReorder({
-      list: subject.topics,
-      orderedIds: orderedTopicIds,
-      setList: (items) => {
-        subject.topics = items
-      },
-      persist: (items) =>
-        supabase.from('topics').upsert(
-          items.map((topic, index) => ({
-            id: topic.id,
-            subject_id: subjectId,
-            name: topic.name,
-            display_order: index + 1,
-          })),
-          { onConflict: 'id' },
-        ),
-      errorKey: 'failedReorderTopics',
+    if (!subject) return null
+    return applyOrderLocal(subject.topics, orderedIds, (items) => {
+      subject.topics = items
     })
   }
 
-  /**
-   * Persist a new learning-path order for one topic's sub-topics.
-   * `sub_topics.display_order` IS the order students walk on the learning map.
-   */
-  async function reorderSubTopics(
+  function persistTopicOrder(
+    subjectId: string,
+    orderedIds: string[],
+  ): Promise<{ error: string | null }> {
+    return persistOrder(
+      () => supabase.rpc('reorder_topics', { p_subject_id: subjectId, p_ids: orderedIds }),
+      'failedReorderTopics',
+    )
+  }
+
+  /** `sub_topics.display_order` IS the order students walk on the learning map. */
+  function applySubTopicOrder(
     gradeLevelId: string,
     subjectId: string,
     topicId: string,
-    orderedSubTopicIds: string[],
-  ): Promise<{ success: boolean; error: string | null }> {
+    orderedIds: string[],
+  ): string[] | null {
     const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
     const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
     const topic = subject?.topics.find((t) => t.id === topicId)
-    if (!topic) {
-      return { success: false, error: errorMessages().topicNotFound }
-    }
-
-    return applyReorder({
-      list: topic.subTopics,
-      orderedIds: orderedSubTopicIds,
-      setList: (items) => {
-        topic.subTopics = items
-      },
-      persist: (items) =>
-        supabase.from('sub_topics').upsert(
-          items.map((st, index) => ({
-            id: st.id,
-            topic_id: topicId,
-            name: st.name,
-            display_order: index + 1,
-          })),
-          { onConflict: 'id' },
-        ),
-      errorKey: 'failedReorderSubTopics',
+    if (!topic) return null
+    return applyOrderLocal(topic.subTopics, orderedIds, (items) => {
+      topic.subTopics = items
     })
+  }
+
+  function persistSubTopicOrder(
+    topicId: string,
+    orderedIds: string[],
+  ): Promise<{ error: string | null }> {
+    return persistOrder(
+      () => supabase.rpc('reorder_sub_topics', { p_topic_id: topicId, p_ids: orderedIds }),
+      'failedReorderSubTopics',
+    )
   }
 
   function uploadCurriculumImage(
@@ -1059,10 +1009,14 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     updateSubTopic,
     updateSubTopicCoverImage,
     deleteSubTopic,
-    reorderGradeLevels,
-    reorderSubjects,
-    reorderTopics,
-    reorderSubTopics,
+    applyGradeLevelOrder,
+    persistGradeLevelOrder,
+    applySubjectOrder,
+    persistSubjectOrder,
+    applyTopicOrder,
+    persistTopicOrder,
+    applySubTopicOrder,
+    persistSubTopicOrder,
     uploadCurriculumImage,
     getCurriculumImageUrl,
     getOptimizedImageUrl,

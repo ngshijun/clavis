@@ -212,6 +212,10 @@ export default {
     delete: 'Delete',
     add: 'Add',
   },
+  orderStatus: {
+    saving: 'Saving…',
+    saved: 'Saved',
+  },
   statsFilterBar: {
     dateRangePlaceholder: 'Date range',
     allGrades: 'All Grades',

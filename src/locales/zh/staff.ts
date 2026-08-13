@@ -230,7 +230,6 @@ export default {
     dragToReorder: '拖动以调整顺序',
     editQuestion: '编辑题目',
     removeQuestion: '移除题目',
-    savingOrder: '正在保存顺序…',
     toastQuestionsAdded: (n: number) => `已添加 ${n} 道题`,
     toastQuestionAdded: '题目已添加',
     toastQuestionUpdated: '题目已更新',
