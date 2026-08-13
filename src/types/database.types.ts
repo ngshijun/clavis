@@ -360,8 +360,10 @@ export type Database = {
           answered_at: string
           assessment_question_id: string
           attempt_id: string
+          awarded_points: number | null
           id: string
-          is_correct: boolean
+          is_correct: boolean | null
+          response: Json | null
           selected_options: number[] | null
           text_answer: string | null
           time_spent_seconds: number | null
@@ -370,8 +372,10 @@ export type Database = {
           answered_at?: string
           assessment_question_id: string
           attempt_id: string
+          awarded_points?: number | null
           id?: string
-          is_correct?: boolean
+          is_correct?: boolean | null
+          response?: Json | null
           selected_options?: number[] | null
           text_answer?: string | null
           time_spent_seconds?: number | null
@@ -380,8 +384,10 @@ export type Database = {
           answered_at?: string
           assessment_question_id?: string
           attempt_id?: string
+          awarded_points?: number | null
           id?: string
-          is_correct?: boolean
+          is_correct?: boolean | null
+          response?: Json | null
           selected_options?: number[] | null
           text_answer?: string | null
           time_spent_seconds?: number | null
@@ -1398,6 +1404,7 @@ export type Database = {
       }
     }
     Functions: {
+      assessment_payload_is_valid: { Args: { p: Json }; Returns: boolean }
       clone_assessment_template: {
         Args: { p_template_id: string }
         Returns: string
@@ -1494,6 +1501,23 @@ export type Database = {
       }
       get_unread_announcement_count: { Args: never; Returns: number }
       refresh_question_statistics: { Args: never; Returns: undefined }
+      reorder_assessment_questions: {
+        Args: { p_assessment_id: string; p_ids: string[] }
+        Returns: undefined
+      }
+      reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_sub_topics: {
+        Args: { p_ids: string[]; p_topic_id: string }
+        Returns: undefined
+      }
+      reorder_subjects: {
+        Args: { p_grade_level_id: string; p_ids: string[] }
+        Returns: undefined
+      }
+      reorder_topics: {
+        Args: { p_ids: string[]; p_subject_id: string }
+        Returns: undefined
+      }
       start_assessment_attempt: {
         Args: { p_assessment_id: string }
         Returns: Json

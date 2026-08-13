@@ -771,6 +771,86 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9e. QUESTION-TYPE SHOWCASE ASSESSMENT (Revamp 2.5 — decisions 65-68)     ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- One published assessment that exercises EVERY ad-hoc question type, so the
+-- P9c/d/e surfaces (and a human on staging) can see authoring, running,
+-- auto-grading with partial credit, and the pending manual-marking state end
+-- to end. Created by Ms Lee, assigned to Classroom A (Alice + Ben).
+-- Deliberately UNSCOPED (grade_level_id/subject_id NULL) like 9c.
+--
+-- Point budget: 1+2+1+1+1+3+3+4+5 = 21. Question 9 (long_answer) grades to
+-- is_correct NULL / awarded_points NULL until a teacher marks it (P9b), so a
+-- fully-correct submission scores 16/21 = 76% until then.
+
+INSERT INTO public.assessments (id, organization_id, created_by, title, description, status)
+SELECT
+  'a5000000-0000-4000-8000-000000000005', o.id,
+  '00000000-0000-0000-0000-000000000006',
+  'Year 1 Math — Question Type Showcase',
+  '题型示范 — one question of every supported type (auto-graded + one manually marked).',
+  'published'
+FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
+VALUES
+  -- 1. MCQ (single correct)
+  ('a9300000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"mcq","question":"12 + 9 = ?","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true},{"text":"22","is_correct":false}]}'::jsonb,
+   1, 1),
+
+  -- 2. MRQ (several correct — all or nothing)
+  ('a9300000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"mrq","question":"Which of these are even numbers? 哪些是双数？","options":[{"text":"3","is_correct":false},{"text":"8","is_correct":true},{"text":"11","is_correct":false},{"text":"14","is_correct":true}]}'::jsonb,
+   2, 2),
+
+  -- 3. TRUE / FALSE  (response: {"value": true|false})
+  ('a9300000-0000-4000-8000-000000000003', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"true_false","question":"100 is greater than 99. 100 比 99 大。","answer":true}'::jsonb,
+   3, 1),
+
+  -- 4. NUMERIC with tolerance + unit  (answer goes in text_answer)
+  ('a9300000-0000-4000-8000-000000000004', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"numeric","question":"A pencil is 14.5 cm long. How long are two pencils end to end?","answer":29,"tolerance":0.5,"unit":"cm"}'::jsonb,
+   4, 1),
+
+  -- 5. SHORT ANSWER, several accepted spellings
+  ('a9300000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"short_answer","question":"What is the name of the shape with three sides?","accepted_answers":["triangle","三角形","tri-angle"]}'::jsonb,
+   5, 1),
+
+  -- 6. CLOZE, 3 blanks, partial credit per blank
+  ('a9300000-0000-4000-8000-000000000006', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"5 + {{1}} = 12, and 12 - 4 = {{2}}, so 12 is an {{3}} number.","blanks":[{"index":1,"accepted":["7","seven"]},{"index":2,"accepted":["8","eight"]},{"index":3,"accepted":["even","双数"]}]}'::jsonb,
+   6, 3),
+
+  -- 7. MATCHING, 3 pairs + 1 distractor on the right, partial credit per pair
+  ('a9300000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"matching","question":"Match each sum to its answer. 配对。","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
+   7, 3),
+
+  -- 8. ORDERING, 4 items, partial credit per position
+  ('a9300000-0000-4000-8000-000000000008', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
+   8, 4),
+
+  -- 9. LONG ANSWER — never auto-graded; stays pending until a teacher marks it
+  ('a9300000-0000-4000-8000-000000000009', 'a5000000-0000-4000-8000-000000000005',
+   '{"type":"long_answer","question":"Explain how you would add 38 + 27 in your head. 说说你怎么心算 38 + 27。","rubric":"5 pts: 2 for a workable strategy, 2 for correct steps, 1 for the right answer (65)."}'::jsonb,
+   9, 5)
+ON CONFLICT (id) DO NOTHING;
+
+-- Assigned to Classroom A, due in 14 days, by Ms Lee.
+INSERT INTO public.assessment_assignments (id, assessment_id, classroom_id, due_at, assigned_by)
+VALUES
+  ('a6000000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
+   'c1000000-0000-4000-8000-000000000001', now() + interval '14 days',
+   '00000000-0000-0000-0000-000000000006')
+ON CONFLICT DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 10. ANNOUNCEMENT                                                         ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 
