@@ -287,6 +287,63 @@ export const useClassroomsStore = defineStore('classrooms', () => {
   }
 
   /**
+   * The distinct students across the given classrooms. Returned (not stored) —
+   * the assignment dialog owns the lifetime of this data. Used for a SCOPED
+   * assessment (P8a): only students belonging to at least one classroom
+   * matching the assessment's grade+subject may be assigned individually, so
+   * the picker draws from the matching classrooms' rosters. RLS additionally
+   * narrows the read (manager: org rosters; teacher: rosters they teach).
+   */
+  async function fetchStudentsInClassrooms(
+    classroomIds: string[],
+  ): Promise<{ students: ClassroomStudent[]; error: string | null }> {
+    if (classroomIds.length === 0) return { students: [], error: null }
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('classroom_students')
+        .select(
+          `
+          student_id,
+          student_profiles (
+            id,
+            username,
+            grade_levels (name),
+            profiles!student_profiles_id_fkey (name)
+          )
+        `,
+        )
+        .in('classroom_id', classroomIds)
+
+      if (fetchError) throw fetchError
+
+      const byId = new Map<string, ClassroomStudent>()
+      for (const row of data ?? []) {
+        const student = row.student_profiles as {
+          id: string
+          username: string | null
+          grade_levels: { name: string } | null
+          profiles: { name: string } | null
+        } | null
+        const id = student?.id ?? row.student_id
+        if (byId.has(id)) continue
+        byId.set(id, {
+          id,
+          name: student?.profiles?.name ?? '',
+          username: student?.username ?? null,
+          gradeLevelName: student?.grade_levels?.name ?? null,
+        })
+      }
+
+      const students = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+      return { students, error: null }
+    } catch (err) {
+      return { students: [], error: handleError(err, 'failedFetchOrgStudents') }
+    }
+  }
+
+  /**
    * Teachers of one classroom. Returned (not stored) — the members dialog owns
    * the lifetime of this data.
    */
@@ -513,6 +570,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
     updateClassroom,
     deleteClassroom,
     fetchClassroomStudents,
+    fetchStudentsInClassrooms,
     addClassroomStudents,
     removeClassroomStudent,
     fetchClassroomTeachers,

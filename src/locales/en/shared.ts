@@ -138,6 +138,14 @@ export default {
     failedRemoveAssignment: 'Failed to remove assignment.',
     failedFetchTemplates: 'Failed to load templates.',
     failedCloneTemplate: 'Failed to copy the template.',
+    // P8a assignment-scope guard + clone RPC (exact DB RAISE strings mapped in errors.ts)
+    assignTemplateBlocked: 'A template cannot be assigned to students. Create your own copy first.',
+    assignClassroomScopeMismatch:
+      'This classroom does not match the grade and subject of the assessment.',
+    assignStudentScopeMismatch:
+      'This student is not in any classroom matching the grade and subject of the assessment.',
+    cloneNoMatchingClassroom:
+      'You need a classroom with the grade and subject of this template before you can use it.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
     failedStartAttempt: 'Failed to start the assessment.',

@@ -104,6 +104,22 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       ),
   },
   {
+    // The grade+subject pairing a template is scoped to: it explains why the
+    // template is visible here (a matching classroom exists) and what a clone
+    // will be locked to when assigning.
+    id: 'scope',
+    accessorFn: (row: AssessmentListItem) => `${row.gradeLevelName ?? ''} ${row.subjectName ?? ''}`,
+    header: () => t.value.staff.assessments.scopeCol,
+    cell: ({ row }) =>
+      h(
+        'div',
+        { class: 'text-muted-foreground' },
+        row.original.gradeLevelName && row.original.subjectName
+          ? `${row.original.gradeLevelName} · ${row.original.subjectName}`
+          : '—',
+      ),
+  },
+  {
     accessorKey: 'description',
     header: () => t.value.staff.assessments.descriptionCol,
     cell: ({ row }) =>

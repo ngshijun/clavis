@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useForm, Field as VeeField } from 'vee-validate'
-import { assessmentCreateFormSchema } from '@/lib/validations'
+import { assessmentCreateFormSchema, assessmentTemplateCreateFormSchema } from '@/lib/validations'
 import { useAssessmentsStore } from '@/stores/assessments'
+import { useCurriculumStore } from '@/stores/curriculum'
 import { Loader2 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -15,13 +16,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
 const t = useT()
 const assessmentsStore = useAssessmentsStore()
+const curriculumStore = useCurriculumStore()
 
-/** Template copy for the admin templates surface (creation itself is role-driven in the store). */
+/**
+ * Template variant (admin): a platform template always carries a REQUIRED
+ * grade+subject pairing (P8a DB CHECK) that also controls which centers can
+ * see it, so the dialog gains cascading grade → subject selectors.
+ * Creation itself stays role-driven in the store.
+ */
 const props = withDefaults(defineProps<{ isTemplate?: boolean }>(), { isTemplate: false })
 
 const open = defineModel<boolean>('open', { default: false })
@@ -32,19 +46,48 @@ const emit = defineEmits<{
 
 const isSaving = ref(false)
 
-const { handleSubmit, resetForm } = useForm({
-  validationSchema: assessmentCreateFormSchema,
-  initialValues: { title: '' },
+const { handleSubmit, resetForm, setFieldValue, values } = useForm({
+  // The non-template schema simply skips the grade/subject rules; the cast
+  // keeps the form values uniformly typed with the pairing fields present.
+  validationSchema: (props.isTemplate
+    ? assessmentTemplateCreateFormSchema
+    : assessmentCreateFormSchema) as typeof assessmentTemplateCreateFormSchema,
+  initialValues: { title: '', gradeLevelId: '', subjectId: '' },
 })
+
+// Cascading selectors: subjects belong to the selected grade level.
+const subjects = computed(
+  () =>
+    curriculumStore.gradeLevels.find((grade) => grade.id === values.gradeLevelId)?.subjects ?? [],
+)
+
+function handleGradeChange(gradeLevelId: unknown) {
+  setFieldValue('gradeLevelId', String(gradeLevelId ?? ''))
+  setFieldValue('subjectId', '')
+}
 
 watch(open, (isOpen) => {
-  if (isOpen) resetForm()
+  if (!isOpen) return
+
+  resetForm()
+
+  if (props.isTemplate && curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+    curriculumStore.fetchCurriculum()
+  }
 })
 
-const handleCreate = handleSubmit(async (values) => {
+const handleCreate = handleSubmit(async (formValues) => {
   isSaving.value = true
   try {
-    const { id, error } = await assessmentsStore.createAssessment(values.title)
+    const { id, error } = await assessmentsStore.createAssessment(
+      props.isTemplate
+        ? {
+            title: formValues.title,
+            gradeLevelId: formValues.gradeLevelId,
+            subjectId: formValues.subjectId,
+          }
+        : { title: formValues.title },
+    )
 
     if (error || !id) {
       toast.error(error ?? '')
@@ -90,6 +133,64 @@ const handleCreate = handleSubmit(async (values) => {
             <FieldError :errors="errors" />
           </Field>
         </VeeField>
+
+        <template v-if="props.isTemplate">
+          <VeeField v-slot="{ value, errors }" name="gradeLevelId">
+            <Field :data-invalid="!!errors.length">
+              <FieldLabel
+                >{{ t.staff.assessmentCreate.gradeLabel }}
+                <span class="text-destructive">*</span></FieldLabel
+              >
+              <Select
+                :model-value="value"
+                :disabled="isSaving || curriculumStore.isLoading"
+                @update:model-value="handleGradeChange"
+              >
+                <SelectTrigger class="w-full" :class="{ 'border-destructive': !!errors.length }">
+                  <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="gradeLevel in curriculumStore.gradeLevels"
+                    :key="gradeLevel.id"
+                    :value="gradeLevel.id"
+                  >
+                    {{ gradeLevel.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
+
+          <VeeField v-slot="{ value, handleChange, errors }" name="subjectId">
+            <Field :data-invalid="!!errors.length">
+              <FieldLabel
+                >{{ t.staff.assessmentCreate.subjectLabel }}
+                <span class="text-destructive">*</span></FieldLabel
+              >
+              <Select
+                :model-value="value"
+                :disabled="isSaving || !values.gradeLevelId"
+                @update:model-value="handleChange"
+              >
+                <SelectTrigger class="w-full" :class="{ 'border-destructive': !!errors.length }">
+                  <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                    {{ subject.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
+
+          <p class="text-sm text-muted-foreground">
+            {{ t.staff.assessmentCreate.scopeHint }}
+          </p>
+        </template>
 
         <DialogFooter>
           <Button type="button" variant="outline" :disabled="isSaving" @click="open = false">
