@@ -45,6 +45,13 @@ const assessmentsStore = useAssessmentsStore()
 
 const basePath = computed(() => `/${authStore.userType}`)
 
+/**
+ * Admin variant: this page lists platform-wide TEMPLATES (is_template=true,
+ * org-less). Templates are never assigned or attempted, so there is no
+ * results surface and no status column — they are always editable.
+ */
+const isTemplateMode = computed(() => authStore.isAdmin)
+
 onMounted(async () => {
   const { error } = await assessmentsStore.fetchAssessments()
   if (error) {
@@ -124,11 +131,16 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         row.original.title,
       ),
   },
-  {
-    accessorKey: 'status',
-    header: () => t.value.staff.assessments.statusCol,
-    cell: ({ row }) => statusBadge(row.original.status),
-  },
+  // Templates carry no meaningful status (never assigned/attempted)
+  ...(isTemplateMode.value
+    ? []
+    : [
+        {
+          accessorKey: 'status',
+          header: () => t.value.staff.assessments.statusCol,
+          cell: ({ row }) => statusBadge(row.original.status),
+        } satisfies ColumnDef<AssessmentListItem>,
+      ]),
   {
     accessorKey: 'questionCount',
     header: () => t.value.staff.assessments.questionsCol,
@@ -167,17 +179,21 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
           },
           () => [h(Pencil, { class: 'mr-2 size-4' }), t.value.staff.assessments.openBuilder],
         ),
-        h(
-          DropdownMenuItem,
-          {
-            onClick: (event: Event) => {
-              event.stopPropagation()
-              openResults(item)
-            },
-          },
-          () => [h(BarChart3, { class: 'mr-2 size-4' }), t.value.staff.assessments.viewResults],
-        ),
       ]
+      if (!isTemplateMode.value) {
+        items.push(
+          h(
+            DropdownMenuItem,
+            {
+              onClick: (event: Event) => {
+                event.stopPropagation()
+                openResults(item)
+              },
+            },
+            () => [h(BarChart3, { class: 'mr-2 size-4' }), t.value.staff.assessments.viewResults],
+          ),
+        )
+      }
       if (assessmentsStore.canEdit(item)) {
         items.push(
           h(
@@ -223,12 +239,18 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
   <div class="p-6">
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">{{ t.staff.assessments.title }}</h1>
-        <p class="text-muted-foreground">{{ t.staff.assessments.subtitle }}</p>
+        <h1 class="text-2xl font-bold">
+          {{ isTemplateMode ? t.staff.assessments.templatesTitle : t.staff.assessments.title }}
+        </h1>
+        <p class="text-muted-foreground">
+          {{
+            isTemplateMode ? t.staff.assessments.templatesSubtitle : t.staff.assessments.subtitle
+          }}
+        </p>
       </div>
       <Button :disabled="assessmentsStore.isLoading" @click="showCreateDialog = true">
         <Plus class="mr-2 size-4" />
-        {{ t.staff.assessments.createBtn }}
+        {{ isTemplateMode ? t.staff.assessments.createTemplateBtn : t.staff.assessments.createBtn }}
       </Button>
     </div>
 
@@ -254,12 +276,16 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       <!-- Empty State -->
       <div v-if="assessmentsStore.filteredAssessments.length === 0" class="py-16 text-center">
         <ClipboardList class="mx-auto size-16 text-muted-foreground/50" />
-        <h2 class="mt-4 text-lg font-semibold">{{ t.staff.assessments.noAssessments }}</h2>
+        <h2 class="mt-4 text-lg font-semibold">
+          {{ isTemplateMode ? t.staff.assessments.noTemplates : t.staff.assessments.noAssessments }}
+        </h2>
         <p class="mt-2 text-muted-foreground">
           {{
             assessmentsStore.filters.search
               ? t.staff.assessments.noAssessmentsMatchSearch
-              : t.staff.assessments.noAssessmentsDesc
+              : isTemplateMode
+                ? t.staff.assessments.noTemplatesDesc
+                : t.staff.assessments.noAssessmentsDesc
           }}
         </p>
       </div>
@@ -277,15 +303,25 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       />
     </template>
 
-    <AssessmentCreateDialog v-model:open="showCreateDialog" @created="handleCreated" />
+    <AssessmentCreateDialog
+      v-model:open="showCreateDialog"
+      :is-template="isTemplateMode"
+      @created="handleCreated"
+    />
 
     <!-- Delete confirmation -->
     <Dialog v-model:open="showDeleteDialog">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{{ t.staff.assessments.deleteTitle }}</DialogTitle>
+          <DialogTitle>{{
+            isTemplateMode
+              ? t.staff.assessments.deleteTemplateTitle
+              : t.staff.assessments.deleteTitle
+          }}</DialogTitle>
           <DialogDescription>{{
-            t.staff.assessments.deleteDesc(selectedAssessment?.title ?? '')
+            isTemplateMode
+              ? t.staff.assessments.deleteTemplateDesc(selectedAssessment?.title ?? '')
+              : t.staff.assessments.deleteDesc(selectedAssessment?.title ?? '')
           }}</DialogDescription>
         </DialogHeader>
         <DialogFooter>

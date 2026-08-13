@@ -65,6 +65,12 @@ const isPublishing = ref(false)
 
 const assessment = computed(() => assessmentsStore.currentAssessment)
 const isPublished = computed(() => assessment.value?.status === 'published')
+/**
+ * Platform template (admin-authored): never assigned or attempted, so the
+ * assign/results/publish surfaces are hidden and the publish lock does not
+ * apply — a template stays editable regardless of its status.
+ */
+const isTemplate = computed(() => assessment.value?.isTemplate ?? false)
 const canEdit = computed(() =>
   assessment.value ? assessmentsStore.canEdit(assessment.value) : false,
 )
@@ -72,8 +78,9 @@ const canEdit = computed(() =>
  * Published assessments are locked: `attempt_questions` snapshots reference
  * `assessment_questions` rows (ON DELETE CASCADE), so editing or removing a
  * question after publish would silently corrupt in-flight attempts.
+ * Templates are exempt — they have no attempts to corrupt.
  */
-const isEditable = computed(() => canEdit.value && !isPublished.value)
+const isEditable = computed(() => canEdit.value && (isTemplate.value || !isPublished.value))
 
 const existingBankQuestionIds = computed(() =>
   assessmentsStore.currentQuestions
@@ -198,7 +205,7 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
       @click="router.push(`${basePath}/assessments`)"
     >
       <ArrowLeft class="mr-2 size-4" />
-      {{ t.staff.builder.backToList }}
+      {{ authStore.isAdmin ? t.staff.builder.backToTemplates : t.staff.builder.backToList }}
     </Button>
 
     <!-- Loading -->
@@ -219,7 +226,14 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
           <div class="flex items-center gap-3">
             <h1 class="truncate text-2xl font-bold">{{ assessment.title }}</h1>
             <Badge
-              v-if="isPublished"
+              v-if="isTemplate"
+              variant="secondary"
+              class="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+            >
+              {{ t.staff.builder.templateBadge }}
+            </Badge>
+            <Badge
+              v-else-if="isPublished"
               variant="secondary"
               class="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
             >
@@ -228,7 +242,7 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
             <Badge v-else variant="secondary">{{ t.staff.assessments.statusDraft }}</Badge>
           </div>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div v-if="!isTemplate" class="flex shrink-0 items-center gap-2">
           <Button variant="outline" @click="showAssignDialog = true">
             <UserPlus class="mr-2 size-4" />
             {{ t.staff.builder.assign }}
@@ -258,6 +272,13 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
       >
         <Info class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.readOnly }}
+      </div>
+      <div
+        v-else-if="isTemplate"
+        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+      >
+        <Info class="mt-0.5 size-4 shrink-0" />
+        {{ t.staff.builder.templateBanner }}
       </div>
       <div
         v-else-if="isPublished"
@@ -395,7 +416,7 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
         :edit-item="editingQuestion"
       />
 
-      <AssignDialog v-model:open="showAssignDialog" :assessment="assessment" />
+      <AssignDialog v-if="!isTemplate" v-model:open="showAssignDialog" :assessment="assessment" />
 
       <!-- Publish confirmation -->
       <Dialog v-model:open="showPublishDialog">

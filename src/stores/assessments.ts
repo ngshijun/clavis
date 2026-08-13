@@ -15,6 +15,8 @@ export interface AssessmentListItem {
   title: string
   description: string | null
   status: AssessmentStatus
+  /** Platform-wide template (admin-authored, org-less, never assignable). */
+  isTemplate: boolean
   timeLimitSeconds: number | null
   shuffleQuestions: boolean
   createdBy: string
@@ -194,9 +196,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     )
   })
 
-  /** Managers may edit any org assessment; teachers only their own (RLS mirror). */
+  /**
+   * Managers may edit any org assessment; teachers only their own (RLS
+   * mirror). Admins may edit any template (admin FOR ALL policy).
+   */
   function canEdit(item: Pick<AssessmentListItem, 'createdBy'>): boolean {
-    return authStore.isManager || item.createdBy === authStore.user?.id
+    return authStore.isAdmin || authStore.isManager || item.createdBy === authStore.user?.id
   }
 
   const ASSESSMENT_SELECT = `
@@ -204,6 +209,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title,
     description,
     status,
+    is_template,
     time_limit_seconds,
     shuffle_questions,
     created_by,
@@ -218,6 +224,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title: string
     description: string | null
     status: AssessmentStatus
+    is_template: boolean
     time_limit_seconds: number | null
     shuffle_questions: boolean
     created_by: string
@@ -233,6 +240,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       title: row.title,
       description: row.description,
       status: row.status,
+      isTemplate: row.is_template,
       timeLimitSeconds: row.time_limit_seconds,
       shuffleQuestions: row.shuffle_questions,
       createdBy: row.created_by,
@@ -243,6 +251,11 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Admin lists platform templates; org staff list their org's assessments.
+   * The `is_template` filter is load-bearing for staff: templates are
+   * RLS-readable cross-center (P7a) and would otherwise pollute the org list.
+   */
   async function fetchAssessments(): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
@@ -251,6 +264,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       const { data, error: fetchError } = await supabase
         .from('assessments')
         .select(ASSESSMENT_SELECT)
+        .eq('is_template', authStore.isAdmin)
         .order('updated_at', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -267,19 +281,28 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Admin creates a platform TEMPLATE (is_template=true, no org — the DB
+   * CHECK requires org NULL for templates); org staff create a normal
+   * org-scoped assessment.
+   */
   async function createAssessment(
     title: string,
   ): Promise<{ id: string | null; error: string | null }> {
     const userId = authStore.user?.id
     const organizationId = authStore.organizationId
-    if (!userId || !organizationId) {
+    if (!userId || (!authStore.isAdmin && !organizationId)) {
       return { id: null, error: errorMessages().notAuthenticated }
     }
 
     try {
       const { data, error: insertError } = await supabase
         .from('assessments')
-        .insert({ title, organization_id: organizationId, created_by: userId })
+        .insert(
+          authStore.isAdmin
+            ? { title, is_template: true, created_by: userId }
+            : { title, organization_id: organizationId, created_by: userId },
+        )
         .select('id')
         .single()
 

@@ -101,6 +101,10 @@ export default {
     failedUpdateQuestion: '更新题目失败。',
     failedDeleteQuestion: '删除题目失败。',
     // Admin students
+    failedFetchTags: '加载标签失败。',
+    failedCreateTag: '创建标签失败。',
+    failedUpdateTag: '重命名标签失败。',
+    failedDeleteTag: '删除标签失败。',
     failedFetchStudents: '加载学生失败。',
     // 机构与教职员
     failedFetchOrganizations: '加载机构失败。',
@@ -415,6 +419,7 @@ export default {
     allSubTopics: '所有子课题',
     questionCol: '题目',
     typeCol: '类型',
+    tagsCol: '学习点',
     typeMultipleChoice: '单选题',
     typeMultipleResponse: '多选题',
     typeShortAnswer: '简答题',
@@ -441,6 +446,15 @@ export default {
     shortAnswerType: '简答题',
     optionPlaceholder: (letter: string) => `选项 ${letter} 文字`,
     optionValidation: '至少2个选项需要有文字或图片',
+    tagsLabel: '学习点',
+    tagsHint: '为该题目标注其练习的每个学习点。可从标签库中选择，或新建标签。',
+  },
+  tagMultiSelect: {
+    addBtn: '添加学习点',
+    searchPlaceholder: '搜索或新建...',
+    noTags: '未找到标签。',
+    createTag: (name: string) => `新建「${name}」`,
+    removeTag: (name: string) => `移除 ${name}`,
   },
   questionAddDialog: {
     title: '添加题目',
@@ -591,6 +605,8 @@ export default {
           announcements: '公告',
           organizations: '机构',
           curriculum: '课程',
+          assessmentTemplates: '测评模板',
+          learningPoints: '学习点',
           questionStatistics: '题目统计',
           questionFeedback: '题目反馈',
           students: '学生',

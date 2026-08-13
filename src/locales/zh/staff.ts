@@ -145,11 +145,22 @@ export default {
     deleteConfirm: '删除',
     cancel: '取消',
     toastDeleted: '测评已删除',
+    // Admin template variant (platform-wide template library)
+    templatesTitle: '测评模板',
+    templatesSubtitle: '平台级模板，所有机构均可浏览并克隆使用',
+    createTemplateBtn: '新建模板',
+    noTemplates: '尚无模板',
+    noTemplatesDesc: '创建第一个平台级模板。',
+    deleteTemplateTitle: '删除模板',
+    deleteTemplateDesc: (title: string) =>
+      `确定删除模板「${title}」？各机构已克隆的副本不受影响。此操作无法撤销。`,
   },
 
   assessmentCreate: {
     title: '新建测评',
     description: '先为测评命名，接下来添加题目。',
+    templateTitle: '新建模板',
+    templateDescription: '先为平台级模板命名，接下来添加题目。',
     titleLabel: '标题',
     titlePlaceholder: '例如：五年级分数——第二学期测验',
     cancel: '取消',
@@ -158,6 +169,10 @@ export default {
 
   builder: {
     backToList: '测评',
+    backToTemplates: '模板',
+    templateBadge: '平台模板',
+    templateBanner:
+      '这是平台级模板。所有机构均可浏览并克隆出可编辑的副本到自己的测评列表——模板本身不能直接分配给学生。',
     notFound: '未找到该测评。',
     readOnly: '只有创建该测评的老师或管理员可以编辑。',
     publishedLocked: '此测评已发布。为保证学生作答的一致性，题目和设置已锁定。',

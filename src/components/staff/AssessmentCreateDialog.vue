@@ -21,6 +21,9 @@ import { useT } from '@/composables/useT'
 const t = useT()
 const assessmentsStore = useAssessmentsStore()
 
+/** Template copy for the admin templates surface (creation itself is role-driven in the store). */
+const props = withDefaults(defineProps<{ isTemplate?: boolean }>(), { isTemplate: false })
+
 const open = defineModel<boolean>('open', { default: false })
 
 const emit = defineEmits<{
@@ -60,8 +63,14 @@ const handleCreate = handleSubmit(async (values) => {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>{{ t.staff.assessmentCreate.title }}</DialogTitle>
-        <DialogDescription>{{ t.staff.assessmentCreate.description }}</DialogDescription>
+        <DialogTitle>{{
+          props.isTemplate ? t.staff.assessmentCreate.templateTitle : t.staff.assessmentCreate.title
+        }}</DialogTitle>
+        <DialogDescription>{{
+          props.isTemplate
+            ? t.staff.assessmentCreate.templateDescription
+            : t.staff.assessmentCreate.description
+        }}</DialogDescription>
       </DialogHeader>
 
       <form class="space-y-4 py-4" @submit="handleCreate">

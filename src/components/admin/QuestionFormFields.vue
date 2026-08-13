@@ -7,7 +7,7 @@ import { ImagePlus, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Field, FieldLabel, FieldError } from '@/components/ui/field'
+import { Field, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import TagMultiSelect from './TagMultiSelect.vue'
 
 const t = useT()
 const languageStore = useLanguageStore()
@@ -91,6 +92,13 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
       <FieldError :errors="fieldErrors" />
     </Field>
   </VeeField>
+
+  <!-- Learning points (tags from the global library) -->
+  <Field>
+    <FieldLabel>{{ t.shared.questionFormFields.tagsLabel }}</FieldLabel>
+    <FieldDescription>{{ t.shared.questionFormFields.tagsHint }}</FieldDescription>
+    <TagMultiSelect v-model="f.selectedTagIds.value" :disabled="f.isSaving.value" />
+  </Field>
 
   <!-- Question Image -->
   <Field>

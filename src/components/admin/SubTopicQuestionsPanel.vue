@@ -143,6 +143,21 @@ const columns = computed<ColumnDef<Question>[]>(() => [
     },
   },
   {
+    id: 'tags',
+    header: () => t.value.shared.questionBankTable.tagsCol,
+    cell: ({ row }) => {
+      const tags = row.original.tags
+      if (tags.length === 0) {
+        return h('span', { class: 'text-muted-foreground' }, '—')
+      }
+      return h(
+        'div',
+        { class: 'flex max-w-[16rem] flex-wrap gap-1' },
+        tags.map((tag) => h(Badge, { key: tag.id, variant: 'outline' }, () => tag.name)),
+      )
+    },
+  },
+  {
     id: 'actions',
     cell: ({ row }) => {
       const question = row.original

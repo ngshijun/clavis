@@ -146,11 +146,22 @@ export default {
     deleteConfirm: 'Delete',
     cancel: 'Cancel',
     toastDeleted: 'Assessment deleted',
+    // Admin template variant (platform-wide template library)
+    templatesTitle: 'Assessment Templates',
+    templatesSubtitle: 'Platform-wide templates every center can browse and clone',
+    createTemplateBtn: 'New Template',
+    noTemplates: 'No Templates Yet',
+    noTemplatesDesc: 'Create the first platform-wide template.',
+    deleteTemplateTitle: 'Delete Template',
+    deleteTemplateDesc: (title: string) =>
+      `Delete the template "${title}"? Copies centers have already cloned are not affected. This cannot be undone.`,
   },
 
   assessmentCreate: {
     title: 'New Assessment',
     description: 'Give the assessment a title. You can add questions next.',
+    templateTitle: 'New Template',
+    templateDescription: 'Give the platform-wide template a title. You can add questions next.',
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. P5 Fractions — Term 2 Quiz',
     cancel: 'Cancel',
@@ -159,6 +170,10 @@ export default {
 
   builder: {
     backToList: 'Assessments',
+    backToTemplates: 'Templates',
+    templateBadge: 'Platform template',
+    templateBanner:
+      'This is a platform-wide template. Every center can browse it and clone an editable copy into their own assessments — the template itself can never be assigned to students.',
     notFound: 'Assessment not found.',
     readOnly: 'Only the creating teacher or a manager can edit this assessment.',
     publishedLocked:

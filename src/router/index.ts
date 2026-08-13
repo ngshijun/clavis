@@ -141,6 +141,21 @@ const router = createRouter({
           component: () => import('@/pages/admin/CurriculumPage.vue'),
         },
         {
+          path: 'assessments',
+          name: 'admin-assessment-templates',
+          component: () => import('@/pages/shared/AssessmentsPage.vue'),
+        },
+        {
+          path: 'assessments/:assessmentId',
+          name: 'admin-assessment-template-builder',
+          component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
+        },
+        {
+          path: 'tags',
+          name: 'admin-tags',
+          component: () => import('@/pages/admin/TagsPage.vue'),
+        },
+        {
           path: 'question-statistics',
           name: 'admin-question-statistics',
           component: () => import('@/pages/admin/QuestionStatisticsPage.vue'),
