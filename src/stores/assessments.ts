@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
+import { payloadPrompt, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
+import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
+
+export type { AttemptAnswerResponse }
 
 export type AssessmentStatus = Database['public']['Enums']['assessment_status']
 export type QuestionType = Database['public']['Enums']['question_type']
@@ -28,24 +32,24 @@ export interface AssessmentListItem {
   subjectName: string | null
   timeLimitSeconds: number | null
   shuffleQuestions: boolean
+  /**
+   * Decision 70: while a submitted attempt still has unmarked long answers,
+   * `true` shows the student their auto-marked subtotal, `false` withholds
+   * the score entirely ("awaiting marking"). Ordinary authoring setting —
+   * editable through the normal assessment update path.
+   */
+  showAutoScoreWhilePending: boolean
+  /**
+   * Decision 71: non-null once a teacher released the answer keys to
+   * students. Written ONLY by the `release_assessment_answers` RPC — the
+   * column is not client-writable.
+   */
+  answersReleasedAt: string | null
   createdBy: string
   createdByName: string
   questionCount: number
   createdAt: string
   updatedAt: string
-}
-
-/**
- * The EXACT ad-hoc question payload shape graded by the DB
- * (P3A-HANDOFF §2). `options[].is_correct` MUST be a JSON boolean —
- * the grader treats the string "true" as not correct.
- */
-export interface AdhocPayload {
-  type: QuestionType
-  question: string
-  options?: { text: string; is_correct: boolean }[]
-  answer?: string
-  explanation?: string
 }
 
 export interface AssessmentQuestionItem {
@@ -55,13 +59,11 @@ export interface AssessmentQuestionItem {
   points: number
   source: 'bank' | 'adhoc'
   questionId: string | null
-  type: QuestionType
+  type: AdhocQuestionType
   question: string
-  /** Display options; `number` is the 1-based ordinal the grader expects. */
+  /** Display options (mcq/mrq); `number` is the 1-based ordinal the grader expects. */
   options: { number: number; text: string }[]
-  answer: string | null
-  explanation: string | null
-  /** Raw payload for ad-hoc edit round-trips; null for bank questions. */
+  /** Raw payload for ad-hoc edit round-trips and result rendering; null for bank questions. */
   payload: AdhocPayload | null
 }
 
@@ -86,15 +88,25 @@ export interface AssessmentAttempt {
   correctCount: number
   totalQuestions: number
   scorePercent: number
+  /** Answers still awaiting manual marking (P9b) — > 0 means the score is a floor. */
+  pendingManualCount: number
 }
 
 export interface AttemptResultQuestion {
   assessmentQuestionId: string
   questionOrder: number
   points: number
-  isCorrect: boolean
+  /** `attempt_answers.id` — what `mark_attempt_answer` takes; null when unanswered. */
+  answerId: string | null
+  /** false = wrong or unanswered, null = answered but AWAITING MARKING. */
+  isCorrect: boolean | null
+  /** Server-computed partial credit; null when unanswered or pending. */
+  awardedPoints: number | null
+  markerComment: string | null
+  markedAt: string | null
   selectedOptions: number[] | null
   textAnswer: string | null
+  response: AttemptAnswerResponse | null
   answeredAt: string | null
 }
 
@@ -107,7 +119,25 @@ export interface AttemptResult {
   correctCount: number
   totalQuestions: number
   scorePercent: number
+  /** Live count of answers awaiting manual marking. */
+  pendingCount: number
+  pointsAwarded: number | null
+  pointsTotal: number | null
+  answersReleasedAt: string | null
   questions: AttemptResultQuestion[]
+}
+
+/** `mark_attempt_answer` return — attempt totals AFTER the server recompute. */
+export interface MarkAnswerResult {
+  answerId: string
+  attemptId: string
+  awardedPoints: number
+  isCorrect: boolean
+  markedAt: string
+  correctCount: number
+  totalQuestions: number
+  scorePercent: number
+  pendingCount: number
 }
 
 function rowToAssessmentQuestion(
@@ -139,10 +169,6 @@ function rowToAssessmentQuestion(
                 const source = bankOptions[index]
                 return Boolean(source?.text) || Boolean(source?.imagePath)
               }),
-      answer: bank.answer,
-      // The bank carries per-option tips now, not an explanation; the ad-hoc
-      // payload shape has no slot for tips, so bank copies carry none.
-      explanation: null,
       payload: null,
     }
   }
@@ -156,13 +182,11 @@ function rowToAssessmentQuestion(
     source: 'adhoc',
     questionId: null,
     type: payload.type ?? 'mcq',
-    question: payload.question ?? '',
-    options: (payload.options ?? []).map((option, index) => ({
-      number: index + 1,
-      text: option.text,
-    })),
-    answer: payload.answer ?? null,
-    explanation: payload.explanation ?? null,
+    question: payloadPrompt(payload) ?? '',
+    options:
+      payload.type === 'mcq' || payload.type === 'mrq'
+        ? payload.options.map((option, index) => ({ number: index + 1, text: option.text }))
+        : [],
     payload,
   }
 }
@@ -196,7 +220,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   const currentAssignments = ref<AssessmentAssignment[]>([])
   const currentAttempts = ref<AssessmentAttempt[]>([])
   const isLoadingCurrent = ref(false)
-  const isSavingOrder = ref(false)
 
   const filteredAssessments = computed(() => {
     const query = filters.value.search.toLowerCase().trim()
@@ -227,6 +250,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     subject_id,
     time_limit_seconds,
     shuffle_questions,
+    show_auto_score_while_pending,
+    answers_released_at,
     created_by,
     created_at,
     updated_at,
@@ -246,6 +271,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     subject_id: string | null
     time_limit_seconds: number | null
     shuffle_questions: boolean
+    show_auto_score_while_pending: boolean
+    answers_released_at: string | null
     created_by: string
     created_at: string
     updated_at: string
@@ -268,6 +295,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       subjectName: row.subjects?.name ?? null,
       timeLimitSeconds: row.time_limit_seconds,
       shuffleQuestions: row.shuffle_questions,
+      showAutoScoreWhilePending: row.show_auto_score_while_pending,
+      answersReleasedAt: row.answers_released_at,
       createdBy: row.created_by,
       createdByName: row.profiles?.name ?? '',
       questionCount: row.assessment_questions[0]?.count ?? 0,
@@ -412,6 +441,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       description?: string | null
       timeLimitSeconds?: number | null
       shuffleQuestions?: boolean
+      showAutoScoreWhilePending?: boolean
       /**
        * Template pairing edit (admin). Always pass BOTH — the DB CHECK
        * forbids a half-set pairing and a template without one.
@@ -429,6 +459,9 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       }
       if (updates.shuffleQuestions !== undefined) {
         updateData.shuffle_questions = updates.shuffleQuestions
+      }
+      if (updates.showAutoScoreWhilePending !== undefined) {
+        updateData.show_auto_score_while_pending = updates.showAutoScoreWhilePending
       }
       if (updates.gradeLevelId !== undefined && updates.subjectId !== undefined) {
         updateData.grade_level_id = updates.gradeLevelId
@@ -657,52 +690,59 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   /**
-   * Persist a new question order. Optimistic apply, one all-or-nothing upsert
-   * (PostgREST runs one request in one transaction), rollback on error —
-   * mirrors `curriculum.reorderSubTopics`. The upsert re-sends the full row
-   * because `assessment_id` is NOT NULL without a default and the payload/
-   * question_id CHECK is evaluated on the proposed row.
+   * Optimistic local question reorder (decision 72b). `position` is rewritten
+   * 1-based to mirror what `reorder_assessment_questions` writes. Persistence
+   * is decoupled: the builder page debounces/coalesces saves through
+   * `useOrderPersistence` and calls `persistQuestionOrder`, rolling back via
+   * this same function on final failure.
+   *
+   * Returns the pre-drag id order (the rollback baseline), or null when
+   * `orderedIds` is not a duplicate-free permutation of the current list —
+   * a cheap pre-check; the RPC enforces the same server-side.
    */
-  async function reorderQuestions(
+  function applyQuestionOrder(orderedIds: string[]): string[] | null {
+    const previousIds = currentQuestions.value.map((q) => q.id)
+    const byId = new Map(currentQuestions.value.map((q) => [q.id, q]))
+    const uniqueIds = new Set(orderedIds)
+    if (
+      orderedIds.length !== currentQuestions.value.length ||
+      uniqueIds.size !== orderedIds.length ||
+      orderedIds.some((id) => !byId.has(id))
+    ) {
+      return null
+    }
+
+    currentQuestions.value = orderedIds.map((id, index) => ({
+      ...byId.get(id)!,
+      position: index + 1,
+    }))
+    return previousIds
+  }
+
+  /**
+   * Persist a question order via the positional RPC (P9a): sends ONLY the
+   * ordered id array — atomic, minimal payload, and it cannot overwrite a
+   * concurrent edit to payload/points/name the way the old full-row upsert
+   * could.
+   */
+  async function persistQuestionOrder(
     assessmentId: string,
     orderedIds: string[],
   ): Promise<{ error: string | null }> {
-    const byId = new Map(currentQuestions.value.map((q) => [q.id, q]))
-    if (
-      orderedIds.length !== currentQuestions.value.length ||
-      orderedIds.some((id) => !byId.has(id))
-    ) {
-      return { error: errorMessages().failedReorderAssessmentQuestions }
+    const { error: rpcError } = await supabase.rpc('reorder_assessment_questions', {
+      p_assessment_id: assessmentId,
+      p_ids: orderedIds,
+    })
+
+    if (rpcError) {
+      // Internal/parameterized RAISE text from the reorder RPC — localize.
+      return {
+        error: handleError(rpcError, 'failedReorderAssessmentQuestions', {
+          localizeRaise: true,
+        }),
+      }
     }
-
-    const previous = currentQuestions.value
-
-    isSavingOrder.value = true
-    // Optimistic apply
-    currentQuestions.value = orderedIds.map((id, index) => ({ ...byId.get(id)!, position: index }))
-
-    try {
-      const { error: upsertError } = await supabase.from('assessment_questions').upsert(
-        currentQuestions.value.map((q) => ({
-          id: q.id,
-          assessment_id: assessmentId,
-          question_id: q.questionId,
-          payload: q.payload as unknown as Json,
-          position: q.position,
-          points: q.points,
-        })),
-        { onConflict: 'id' },
-      )
-
-      if (upsertError) throw upsertError
-
-      return { error: null }
-    } catch (err) {
-      currentQuestions.value = previous
-      return { error: handleError(err, 'failedReorderAssessmentQuestions') }
-    } finally {
-      isSavingOrder.value = false
-    }
+    return { error: null }
   }
 
   async function fetchAssignments(assessmentId: string): Promise<{ error: string | null }> {
@@ -800,6 +840,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           correct_count,
           total_questions,
           score_percent,
+          pending_manual_count,
           student_profiles (username, profiles!student_profiles_id_fkey (name))
         `,
         )
@@ -823,6 +864,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           correctCount: row.correct_count,
           totalQuestions: row.total_questions,
           scorePercent: row.score_percent,
+          pendingManualCount: row.pending_manual_count,
         }
       })
 
@@ -857,13 +899,22 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         correct_count: number
         total_questions: number
         score_percent: number
+        pending_count?: number
+        points_awarded?: number | null
+        points_total?: number | null
+        answers_released_at?: string | null
         questions: {
           assessment_question_id: string
           question_order: number
           points: number
-          is_correct: boolean
+          answer_id?: string | null
+          is_correct?: boolean | null
+          awarded_points?: number | null
+          marker_comment?: string | null
+          marked_at?: string | null
           selected_options?: number[] | null
           text_answer?: string | null
+          response?: AttemptAnswerResponse | null
           answered_at?: string | null
         }[]
       }
@@ -878,14 +929,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           correctCount: raw.correct_count,
           totalQuestions: raw.total_questions,
           scorePercent: raw.score_percent,
+          pendingCount: raw.pending_count ?? 0,
+          pointsAwarded: raw.points_awarded ?? null,
+          pointsTotal: raw.points_total ?? null,
+          answersReleasedAt: raw.answers_released_at ?? null,
           questions: (raw.questions ?? [])
             .map((q) => ({
               assessmentQuestionId: q.assessment_question_id,
               questionOrder: q.question_order,
               points: q.points,
-              isCorrect: q.is_correct,
+              answerId: q.answer_id ?? null,
+              isCorrect: q.is_correct ?? null,
+              awardedPoints: q.awarded_points ?? null,
+              markerComment: q.marker_comment ?? null,
+              markedAt: q.marked_at ?? null,
               selectedOptions: q.selected_options ?? null,
               textAnswer: q.text_answer ?? null,
+              response: q.response ?? null,
               answeredAt: q.answered_at ?? null,
             }))
             .sort((a, b) => a.questionOrder - b.questionOrder),
@@ -893,7 +953,134 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         error: null,
       }
     } catch (err) {
-      return { result: null, error: handleError(err, 'failedFetchAttemptResult') }
+      // The RPC's known RAISE strings map to localized copy; anything else
+      // (e.g. "Attempt not found: %") falls back to the localized generic
+      // instead of surfacing raw DB English (P9d verifier finding).
+      return {
+        result: null,
+        error: handleError(err, 'failedFetchAttemptResult', { localizeRaise: true }),
+      }
+    }
+  }
+
+  /**
+   * Manual marking of one long-answer response (P9b). Server-authoritative:
+   * validates 0 <= points <= question points, recomputes the attempt score
+   * and returns the fresh totals. Re-marking simply overwrites.
+   */
+  async function markAttemptAnswer(
+    answerId: string,
+    points: number,
+    comment: string | null,
+  ): Promise<{ result: MarkAnswerResult | null; error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('mark_attempt_answer', {
+        p_answer_id: answerId,
+        p_points: points,
+        ...(comment !== null ? { p_comment: comment } : {}),
+      })
+
+      if (rpcError) throw rpcError
+
+      const raw = data as unknown as {
+        answer_id: string
+        attempt_id: string
+        awarded_points: number
+        is_correct: boolean
+        marked_at: string
+        correct_count: number
+        total_questions: number
+        score_percent: number
+        pending_count: number
+      }
+
+      const result: MarkAnswerResult = {
+        answerId: raw.answer_id,
+        attemptId: raw.attempt_id,
+        awardedPoints: raw.awarded_points,
+        isCorrect: raw.is_correct,
+        markedAt: raw.marked_at,
+        correctCount: raw.correct_count,
+        totalQuestions: raw.total_questions,
+        scorePercent: raw.score_percent,
+        pendingCount: raw.pending_count,
+      }
+
+      // Keep the attempts table in sync without a refetch.
+      const attempt = currentAttempts.value.find((a) => a.id === result.attemptId)
+      if (attempt) {
+        attempt.correctCount = result.correctCount
+        attempt.scorePercent = result.scorePercent
+        attempt.pendingManualCount = result.pendingCount
+      }
+
+      return { result, error: null }
+    } catch (err) {
+      // Fixed RAISE strings map via DB_RAISE_MESSAGE_KEYS; the parameterized
+      // ones ("Awarded points must be between 0 and %") are client-prevented
+      // and fall back to the localized generic through localizeRaise.
+      return {
+        result: null,
+        error: handleError(err, 'failedMarkAnswer', { localizeRaise: true }),
+      }
+    }
+  }
+
+  /**
+   * Manual answer release (decision 71). `released: false` un-releases.
+   * Only the RPC can write the release columns; idempotent server-side.
+   */
+  async function releaseAssessmentAnswers(
+    assessmentId: string,
+    released: boolean,
+  ): Promise<{ error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('release_assessment_answers', {
+        p_assessment_id: assessmentId,
+        p_released: released,
+      })
+
+      if (rpcError) throw rpcError
+
+      const raw = data as unknown as { answers_released_at: string | null }
+      if (currentAssessment.value?.id === assessmentId) {
+        currentAssessment.value = {
+          ...currentAssessment.value,
+          answersReleasedAt: raw.answers_released_at,
+        }
+      }
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedReleaseAnswers', { localizeRaise: true }) }
+    }
+  }
+
+  /**
+   * Marking queue (P9b): attempts across the caller's org that still have
+   * unmarked long answers, keyed by assessment. RLS scopes the read; the
+   * partial index on `pending_manual_count > 0` keeps it cheap.
+   */
+  const pendingMarkingCounts = ref<Map<string, number>>(new Map())
+
+  async function fetchPendingMarkingCounts(): Promise<{ error: string | null }> {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('assessment_attempts')
+        .select('assessment_id')
+        .gt('pending_manual_count', 0)
+
+      if (fetchError) throw fetchError
+
+      const counts = new Map<string, number>()
+      for (const row of data ?? []) {
+        counts.set(row.assessment_id, (counts.get(row.assessment_id) ?? 0) + 1)
+      }
+      pendingMarkingCounts.value = counts
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedFetchAttempts') }
     }
   }
 
@@ -922,7 +1109,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAssignments.value = []
     currentAttempts.value = []
     isLoadingCurrent.value = false
-    isSavingOrder.value = false
+    pendingMarkingCounts.value = new Map()
     filters.value = { search: '' }
     pagination.value = { pageIndex: 0, pageSize: 10 }
   }
@@ -943,7 +1130,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAssignments,
     currentAttempts,
     isLoadingCurrent,
-    isSavingOrder,
     templates,
     isLoadingTemplates,
     fetchTemplates,
@@ -960,12 +1146,17 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     updateAdhocQuestion,
     updateQuestionPoints,
     removeQuestion,
-    reorderQuestions,
+    applyQuestionOrder,
+    persistQuestionOrder,
     fetchAssignments,
     createAssignment,
     removeAssignment,
     fetchAttempts,
     fetchAttemptResult,
+    markAttemptAnswer,
+    releaseAssessmentAnswers,
+    pendingMarkingCounts,
+    fetchPendingMarkingCounts,
     $reset,
   }
 })

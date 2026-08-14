@@ -1,15 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import {
-  ChevronRight,
-  GripVertical,
-  ImagePlus,
-  Loader2,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-vue-next'
+import { ChevronRight, GripVertical, ImagePlus, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/composables/useT'
 import type { SubTopic } from '@/stores/curriculum'
@@ -21,12 +13,12 @@ import type { SubTopic } from '@/stores/curriculum'
  * learning map (`sub_topics.display_order`). Reordering is vue-draggable-plus
  * (SortableJS) via the grip handle, with built-in touch support.
  * Clicking a row opens that sub-topic's question management (decision 42).
- * The parent owns persistence — this component only emits the new id order.
+ * The parent owns persistence (debounced + non-blocking, decision 72b) —
+ * this component only emits the new id order and never locks dragging.
  */
 const props = defineProps<{
   items: SubTopic[]
   getCoverImageUrl: (item: SubTopic) => string | null
-  isSaving: boolean
   emptyTitle: string
   emptyDescription: string
   addLabel: string
@@ -61,19 +53,9 @@ const list = computed({
 <template>
   <div>
     <template v-if="items.length > 0">
-      <div class="mb-3 flex items-center justify-between gap-4">
-        <div>
-          <h2 class="text-sm font-semibold">{{ t.admin.curriculum.pathOrderTitle }}</h2>
-          <p class="text-sm text-muted-foreground">{{ t.admin.curriculum.pathOrderDesc }}</p>
-        </div>
-        <p
-          v-if="isSaving"
-          class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground"
-          role="status"
-        >
-          <Loader2 class="size-4 animate-spin" />
-          {{ t.admin.curriculum.pathOrderSaving }}
-        </p>
+      <div class="mb-3">
+        <h2 class="text-sm font-semibold">{{ t.admin.curriculum.pathOrderTitle }}</h2>
+        <p class="text-sm text-muted-foreground">{{ t.admin.curriculum.pathOrderDesc }}</p>
       </div>
 
       <VueDraggable
@@ -82,9 +64,7 @@ const list = computed({
         handle="[data-drag-handle]"
         ghost-class="opacity-50"
         :animation="150"
-        :disabled="isSaving"
         class="space-y-2"
-        :class="isSaving && 'pointer-events-none opacity-60'"
       >
         <li
           v-for="(item, index) in items"

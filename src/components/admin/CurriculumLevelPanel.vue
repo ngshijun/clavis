@@ -11,13 +11,13 @@ import { useT } from '@/composables/useT'
  *
  * Cards are reorderable via vue-draggable-plus (SortableJS) — drag anywhere
  * on a card; a touch-only hold delay keeps page scrolling working on touch.
- * The parent owns persistence — this component only emits the new id order.
+ * The parent owns persistence (debounced + non-blocking, decision 72b) —
+ * this component only emits the new id order and never locks dragging.
  */
 const props = defineProps<{
   items: T[]
   clickable?: boolean
   hasImage?: boolean
-  isSaving?: boolean
   getCoverImageUrl?: (item: T) => string | null
   getDescription: (item: T) => string
   emptyTitle: string
@@ -59,9 +59,7 @@ const list = computed({
       :animation="150"
       :delay="150"
       :delay-on-touch-only="true"
-      :disabled="isSaving"
       class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-      :class="isSaving && 'pointer-events-none opacity-60'"
     >
       <Card
         v-for="(item, index) in items"

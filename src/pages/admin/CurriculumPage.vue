@@ -8,9 +8,11 @@ import CurriculumEditNameDialog from '@/components/admin/CurriculumEditNameDialo
 import CurriculumLevelPanel from '@/components/admin/CurriculumLevelPanel.vue'
 import SubTopicPathList from '@/components/admin/SubTopicPathList.vue'
 import SubTopicQuestionsPanel from '@/components/admin/SubTopicQuestionsPanel.vue'
+import OrderSaveStatusPill from '@/components/shared/OrderSaveStatusPill.vue'
 import { Plus, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
+import { useOrderPersistence } from '@/composables/useOrderPersistence'
 import { useT } from '@/composables/useT'
 import {
   Breadcrumb,
@@ -233,48 +235,47 @@ function handleDeleted(
   }
 }
 
-// Reorder state — one level is visible at a time, so a single flag suffices
-const isSavingOrder = ref(false)
-
-async function runReorder(
-  persist: () => Promise<{ success: boolean; error: string | null }>,
-  successMessage: string,
-) {
-  isSavingOrder.value = true
-  const { success, error } = await persist()
-  isSavingOrder.value = false
-
-  if (success) {
-    toast.success(successMessage)
-  } else if (error) {
-    toast.error(error)
-  }
-}
+// Seamless reorder (decision 72b): the drag applies instantly in the store;
+// persistence is debounced/coalesced fire-and-forget via the positional RPCs.
+// Dragging is never blocked — the pill in the header is the only affordance.
+// Keys are per parent so different lists never coalesce with each other.
+const { status: orderSaveStatus, enqueue: enqueueOrderSave } = useOrderPersistence({
+  onError: (message) => toast.error(message),
+})
 
 function handleReorderGradeLevels(orderedIds: string[]) {
-  runReorder(
-    () => curriculumStore.reorderGradeLevels(orderedIds),
-    t.value.admin.curriculum.orderSaved,
-  )
+  const previousIds = curriculumStore.applyGradeLevelOrder(orderedIds)
+  if (!previousIds) return
+  enqueueOrderSave('grade-levels', orderedIds, {
+    previousIds,
+    save: (ids) => curriculumStore.persistGradeLevelOrder(ids),
+    rollback: (ids) => void curriculumStore.applyGradeLevelOrder(ids),
+  })
 }
 
 function handleReorderSubjects(orderedIds: string[]) {
   if (!selectedGradeLevel.value) return
   const gradeLevelId = selectedGradeLevel.value.id
-  runReorder(
-    () => curriculumStore.reorderSubjects(gradeLevelId, orderedIds),
-    t.value.admin.curriculum.orderSaved,
-  )
+  const previousIds = curriculumStore.applySubjectOrder(gradeLevelId, orderedIds)
+  if (!previousIds) return
+  enqueueOrderSave(`subjects:${gradeLevelId}`, orderedIds, {
+    previousIds,
+    save: (ids) => curriculumStore.persistSubjectOrder(gradeLevelId, ids),
+    rollback: (ids) => void curriculumStore.applySubjectOrder(gradeLevelId, ids),
+  })
 }
 
 function handleReorderTopics(orderedIds: string[]) {
   if (!selectedGradeLevel.value || !selectedSubject.value) return
   const gradeLevelId = selectedGradeLevel.value.id
   const subjectId = selectedSubject.value.id
-  runReorder(
-    () => curriculumStore.reorderTopics(gradeLevelId, subjectId, orderedIds),
-    t.value.admin.curriculum.orderSaved,
-  )
+  const previousIds = curriculumStore.applyTopicOrder(gradeLevelId, subjectId, orderedIds)
+  if (!previousIds) return
+  enqueueOrderSave(`topics:${subjectId}`, orderedIds, {
+    previousIds,
+    save: (ids) => curriculumStore.persistTopicOrder(subjectId, ids),
+    rollback: (ids) => void curriculumStore.applyTopicOrder(gradeLevelId, subjectId, ids),
+  })
 }
 
 function handleReorderSubTopics(orderedIds: string[]) {
@@ -282,10 +283,19 @@ function handleReorderSubTopics(orderedIds: string[]) {
   const gradeLevelId = selectedGradeLevel.value.id
   const subjectId = selectedSubject.value.id
   const topicId = selectedTopic.value.id
-  runReorder(
-    () => curriculumStore.reorderSubTopics(gradeLevelId, subjectId, topicId, orderedIds),
-    t.value.admin.curriculum.pathOrderSaved,
+  const previousIds = curriculumStore.applySubTopicOrder(
+    gradeLevelId,
+    subjectId,
+    topicId,
+    orderedIds,
   )
+  if (!previousIds) return
+  enqueueOrderSave(`sub-topics:${topicId}`, orderedIds, {
+    previousIds,
+    save: (ids) => curriculumStore.persistSubTopicOrder(topicId, ids),
+    rollback: (ids) =>
+      void curriculumStore.applySubTopicOrder(gradeLevelId, subjectId, topicId, ids),
+  })
 }
 
 // Edit name dialog state
@@ -320,7 +330,10 @@ function openEditNameDialog(
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">{{ t.admin.curriculum.title }}</h1>
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl font-bold">{{ t.admin.curriculum.title }}</h1>
+          <OrderSaveStatusPill :status="orderSaveStatus" />
+        </div>
         <p class="text-muted-foreground">{{ t.admin.curriculum.subtitle }}</p>
       </div>
       <!-- Dynamic Add Button (level 5 has its own question actions) -->
@@ -389,7 +402,6 @@ function openEditNameDialog(
       v-else-if="!selectedGradeLevel"
       :items="curriculumStore.gradeLevels"
       clickable
-      :is-saving="isSavingOrder"
       :get-description="(g) => t.admin.curriculum.subjectCount(g.subjects.length)"
       :empty-title="t.admin.curriculum.noGradeLevels"
       :empty-description="t.admin.curriculum.noGradeLevelsDesc"
@@ -407,7 +419,6 @@ function openEditNameDialog(
       :items="selectedGradeLevel.subjects"
       clickable
       has-image
-      :is-saving="isSavingOrder"
       :get-cover-image-url="(s) => (s.coverImagePath ? getImageUrl(s.coverImagePath) : null)"
       :get-description="(s) => t.admin.curriculum.topicCount(s.topics.length)"
       :empty-title="t.admin.curriculum.noSubjects"
@@ -438,7 +449,6 @@ function openEditNameDialog(
       :items="selectedSubject.topics"
       clickable
       has-image
-      :is-saving="isSavingOrder"
       :get-cover-image-url="(t) => (t.coverImagePath ? getImageUrl(t.coverImagePath) : null)"
       :get-description="(topic) => t.admin.curriculum.subTopicCount(topic.subTopics.length)"
       :empty-title="t.admin.curriculum.noTopics"
@@ -477,7 +487,6 @@ function openEditNameDialog(
       v-else
       :items="selectedTopic.subTopics"
       :get-cover-image-url="(st) => (st.coverImagePath ? getImageUrl(st.coverImagePath) : null)"
-      :is-saving="isSavingOrder"
       :empty-title="t.admin.curriculum.noSubTopics"
       :empty-description="t.admin.curriculum.noSubTopicsDesc(selectedTopic.name)"
       :add-label="t.admin.curriculum.addSubTopic"

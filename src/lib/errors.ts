@@ -23,7 +23,22 @@ export function errorMessages(): ErrorMessages {
  * @param fallbackKey - Key into shared.errors for unknown error shapes
  * @returns A localized, user-friendly error string
  */
-export function handleError(err: unknown, fallbackKey: ErrorKey): string {
+export interface HandleErrorOptions {
+  /**
+   * Use the caller's localized fallback for an unrecognized PL/pgSQL RAISE
+   * (P0001) instead of passing the DB's English message through. Set this
+   * where the RAISE text is internal/parameterized and never fit to show a
+   * user — e.g. the positional reorder RPCs, whose permutation message
+   * embeds counts and cannot be exact-matched in DB_RAISE_MESSAGE_KEYS.
+   */
+  localizeRaise?: boolean
+}
+
+export function handleError(
+  err: unknown,
+  fallbackKey: ErrorKey,
+  options: HandleErrorOptions = {},
+): string {
   console.error('[Error]', err)
 
   const errors = errorMessages()
@@ -34,6 +49,9 @@ export function handleError(err: unknown, fallbackKey: ErrorKey): string {
   }
 
   if (isPostgrestError(err)) {
+    if (options.localizeRaise && err.code === 'P0001' && !DB_RAISE_MESSAGE_KEYS[err.message]) {
+      return fallback
+    }
     return mapPostgrestError(err, errors)
   }
 
@@ -103,8 +121,9 @@ function mapAuthError(err: AuthError, errors: ErrorMessages): string {
 
 /**
  * Exact RAISE strings from the P8a assignment-scope trigger
- * (`enforce_assignment_scope`) and `clone_assessment_template`, mapped to
- * localized error copy (P8A-HANDOFF §4-5).
+ * (`enforce_assignment_scope`) and `clone_assessment_template`, plus the
+ * P9b marking/release RPCs, mapped to localized error copy
+ * (P8A-HANDOFF §4-5, P9B-HANDOFF §1-2).
  */
 const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Cannot assign a template assessment': 'assignTemplateBlocked',
@@ -112,6 +131,13 @@ const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Student is not in a classroom matching the assessment grade and subject':
     'assignStudentScopeMismatch',
   'No classroom matches this template grade and subject': 'cloneNoMatchingClassroom',
+  'Not authenticated': 'notAuthenticated',
+  'Not authorized to mark this answer': 'markNotAuthorized',
+  'Only submitted attempts can be marked': 'markAttemptOpen',
+  'Only long-answer questions are marked by hand': 'markNotManual',
+  'Not authorized to release answers for this assessment': 'releaseNotAuthorized',
+  'Not authorized to view this attempt result': 'resultNotAuthorized',
+  'Results are available after the attempt is submitted': 'resultNotSubmitted',
 }
 
 function isPostgrestError(err: unknown): err is PostgrestError {

@@ -148,6 +148,16 @@ export default {
       'You need a classroom with the grade and subject of this template before you can use it.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
+    resultNotAuthorized: 'You do not have access to this attempt result.',
+    resultNotSubmitted: 'Results are available after the assessment is submitted.',
+    // P9b manual marking + answer release (exact DB RAISE strings mapped in errors.ts)
+    failedMarkAnswer: 'Failed to save the mark.',
+    failedReleaseAnswers: 'Failed to update the answer release.',
+    markNotAuthorized: 'Only a teacher of an assigned classroom can mark this answer.',
+    markAttemptOpen: 'This attempt has not been submitted yet, so it cannot be marked.',
+    markNotManual: 'Only long-answer questions are marked by hand.',
+    releaseNotAuthorized:
+      'Only a teacher of an assigned classroom or a manager can release the answers.',
     failedStartAttempt: 'Failed to start the assessment.',
     failedSaveAnswer: 'Failed to save your answer.',
     failedCompleteAttempt: 'Failed to submit the assessment.',
@@ -211,6 +221,10 @@ export default {
     cancel: 'Cancel',
     delete: 'Delete',
     add: 'Add',
+  },
+  orderStatus: {
+    saving: 'Saving…',
+    saved: 'Saved',
   },
   statsFilterBar: {
     dateRangePlaceholder: 'Date range',
@@ -357,6 +371,47 @@ export default {
     deletedNotice: 'This question has been deleted from the question bank.',
     tipLabel: 'Tip',
   },
+  /** True/false values shared by the runner input and the review card. */
+  answerBool: {
+    trueLabel: 'True',
+    falseLabel: 'False',
+  },
+  numericAnswerInput: {
+    placeholder: 'Enter a number...',
+  },
+  clozeAnswerInput: {
+    blankLabel: (n: number) => `Blank ${n}`,
+  },
+  matchingAnswerInput: {
+    hint: 'Choose a match for each item.',
+    placeholder: 'Select...',
+  },
+  orderingAnswerInput: {
+    hint: 'Drag the items into the correct order.',
+    dragHandleLabel: 'Drag to reorder',
+  },
+  assessmentReviewCard: {
+    questionLabel: (n: number) => `Question ${n}`,
+    points: (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`,
+    pointsAwarded: (awarded: string, total: number) => `${awarded}/${total} pts`,
+    correct: 'Correct',
+    incorrect: 'Incorrect',
+    partial: 'Partial credit',
+    awaitingMarking: 'Awaiting marking',
+    unanswered: 'Not answered',
+    yourAnswer: 'Your answer',
+    noAnswer: 'No answer given',
+    correctAnswer: 'Correct answer',
+    acceptedAnswers: 'Accepted answers',
+    blankLabel: (n: number) => `Blank ${n}`,
+    notMatched: 'Not matched',
+    correctMatch: 'Correct match',
+    yourOrder: 'Your order',
+    correctOrder: 'Correct order',
+    rubric: 'Marking guide',
+    teacherComment: "Teacher's comment",
+    explanation: 'Explanation',
+  },
   announcementDetailDialog: {
     expiresOn: (date: string) => `Expires on ${date}`,
     expiredOn: (date: string) => `Expired on ${date}`,
@@ -424,6 +479,18 @@ export default {
     cancel: 'Cancel',
     add: 'Add',
     toastAdded: (label: string) => `${label} added successfully`,
+  },
+  /** Labels for every question type — bank (mcq/mrq/short_answer) + ad-hoc P9a types. */
+  questionTypes: {
+    mcq: 'Multiple Choice',
+    mrq: 'Multiple Response',
+    short_answer: 'Short Answer',
+    true_false: 'True / False',
+    numeric: 'Numeric',
+    cloze: 'Fill in the Blanks',
+    matching: 'Matching',
+    ordering: 'Ordering',
+    long_answer: 'Long Answer',
   },
   questionBankTable: {
     searchPlaceholder: 'Search questions...',
