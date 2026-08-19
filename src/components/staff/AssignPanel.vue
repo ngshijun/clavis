@@ -32,6 +32,13 @@ const assessmentsStore = useAssessmentsStore()
 const classroomsStore = useClassroomsStore()
 const authStore = useAuthStore()
 
+/**
+ * Managers may read who an assessment is assigned to, but never change it
+ * (decision 80) — the DB rejects the write, so offering the form would be a
+ * control that can only ever fail.
+ */
+const canAssign = computed(() => !authStore.isManager)
+
 const props = defineProps<{
   assessment: AssessmentListItem
 }>()
@@ -185,7 +192,9 @@ async function handleRemove(assignmentId: string) {
   </div>
 
   <div v-else class="mx-auto max-w-2xl space-y-5">
-    <p class="text-sm text-muted-foreground">{{ t.staff.assign.description }}</p>
+    <p class="text-sm text-muted-foreground">
+      {{ canAssign ? t.staff.assign.description : t.staff.assign.descriptionReadOnly }}
+    </p>
 
     <div
       v-if="assessment.status === 'draft'"
@@ -240,6 +249,7 @@ async function handleRemove(assignmentId: string) {
             variant="ghost"
             size="icon"
             class="size-7 shrink-0 text-destructive hover:text-destructive"
+            v-if="canAssign"
             :disabled="isSaving"
             :aria-label="t.staff.assign.removeLabel"
             @click="handleRemove(assignment.id)"
@@ -251,7 +261,7 @@ async function handleRemove(assignmentId: string) {
     </div>
 
     <!-- New assignment -->
-    <div class="space-y-3 rounded-lg border p-3">
+    <div v-if="canAssign" class="space-y-3 rounded-lg border p-3">
       <Field>
         <FieldLabel>{{ t.staff.assign.targetLabel }}</FieldLabel>
         <Select
