@@ -12,6 +12,32 @@ export type { AttemptAnswerResponse }
 export type AssessmentStatus = Database['public']['Enums']['assessment_status']
 export type QuestionType = Database['public']['Enums']['question_type']
 type QuestionRow = Database['public']['Tables']['questions']['Row']
+
+/**
+ * The bank columns a staff member may actually SELECT: `answer`,
+ * `option_N_is_correct` and `option_N_tip` are revoked from `authenticated`
+ * (P11a/decision 76), so the embed MUST name its columns — `questions (*)`
+ * fails with 42501 for teachers, managers and admins alike.
+ */
+const BANK_QUESTION_EMBED =
+  'id, type, question, image_path, option_1_text, option_1_image_path, option_2_text, option_2_image_path, option_3_text, option_3_image_path, option_4_text, option_4_image_path'
+
+/** A bank question as embedded by BANK_QUESTION_EMBED — content only, no key. */
+type BankQuestionContent = Pick<
+  QuestionRow,
+  | 'id'
+  | 'type'
+  | 'question'
+  | 'image_path'
+  | 'option_1_text'
+  | 'option_1_image_path'
+  | 'option_2_text'
+  | 'option_2_image_path'
+  | 'option_3_text'
+  | 'option_3_image_path'
+  | 'option_4_text'
+  | 'option_4_image_path'
+>
 type AssessmentQuestionRow = Database['public']['Tables']['assessment_questions']['Row']
 
 export interface AssessmentListItem {
@@ -169,7 +195,7 @@ function adhocDisplayFields(payload: AdhocPayload): {
 }
 
 function rowToAssessmentQuestion(
-  row: AssessmentQuestionRow & { questions: QuestionRow | null },
+  row: AssessmentQuestionRow & { questions: BankQuestionContent | null },
 ): AssessmentQuestionItem {
   if (row.question_id && row.questions) {
     const bank = row.questions
@@ -592,15 +618,13 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('assessment_questions')
-        .select('*, questions (*)')
+        .select(`*, questions (${BANK_QUESTION_EMBED})`)
         .eq('assessment_id', assessmentId)
         .order('position')
 
       if (fetchError) throw fetchError
 
-      currentQuestions.value = (data ?? []).map((row) =>
-        rowToAssessmentQuestion(row as AssessmentQuestionRow & { questions: QuestionRow | null }),
-      )
+      currentQuestions.value = (data ?? []).map((row) => rowToAssessmentQuestion(row))
 
       return { error: null }
     } catch (err) {

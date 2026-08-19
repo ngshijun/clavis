@@ -143,14 +143,17 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     try {
       // Fetch all data in parallel for better performance
       // Use resource embedding on sub_topics to get question counts efficiently
-      // (avoids Supabase's default 1000-row limit on a separate questions query)
+      // (avoids Supabase's default 1000-row limit on a separate questions query).
+      // The count MUST be a column aggregate (`questions(id.count())`): the
+      // bare `questions(count)` form needs whole-table SELECT on questions,
+      // which `authenticated` no longer has (P11a revoked the key columns).
       const [gradeResult, subjectResult, topicResult, subTopicResult] = await Promise.all([
         supabase.from('grade_levels').select('*').order('display_order', { ascending: true }),
         supabase.from('subjects').select('*').order('display_order', { ascending: true }),
         supabase.from('topics').select('*').order('display_order', { ascending: true }),
         supabase
           .from('sub_topics')
-          .select('*, questions(count)')
+          .select('*, questions(id.count())')
           .order('display_order', { ascending: true }),
       ])
 
@@ -168,7 +171,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
       // Build question count map from embedded counts
       const questionCountMap = new Map<string, number>()
       for (const st of subTopicData ?? []) {
-        const count = (st.questions as unknown as { count: number }[])?.[0]?.count ?? 0
+        const count = st.questions[0]?.count ?? 0
         questionCountMap.set(st.id, count)
       }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, h } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
-import { useQuestionsStore, type Question } from '@/stores/questions'
+import { useQuestionsStore, type BankQuestionSummary } from '@/stores/questions'
 import { useAssessmentsStore } from '@/stores/assessments'
 import { Loader2, Search } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -61,11 +61,13 @@ watch(open, async (isOpen) => {
   selectedIds.value = []
   search.value = ''
 
-  if (questionsStore.questions.length === 0) {
+  // Staff have no answer-key access to the bank (P11a/decision 76): this
+  // picker reads the key-free summary listing, never the admin bank RPC.
+  if (questionsStore.bankSummaries.length === 0) {
     isLoading.value = true
-    await questionsStore.fetchQuestions()
+    const { error } = await questionsStore.fetchBankSummaries()
     isLoading.value = false
-    if (questionsStore.error) {
+    if (error) {
       toast.error(t.value.staff.bankPicker.toastLoadFailed)
     }
   }
@@ -106,7 +108,7 @@ const availableSubTopics = computed(() =>
 )
 
 const filteredQuestions = computed(() => {
-  const base = questionsStore.getFilteredQuestions(
+  const base = questionsStore.getFilteredBankSummaries(
     gradeLevelFilter.value,
     subjectFilter.value,
     topicFilter.value,
@@ -117,20 +119,20 @@ const filteredQuestions = computed(() => {
   return base.filter((question) => question.question.toLowerCase().includes(query))
 })
 
-function toggle(question: Question) {
+function toggle(question: BankQuestionSummary) {
   if (existingSet.value.has(question.id)) return
   selectedIds.value = selectedIds.value.includes(question.id)
     ? selectedIds.value.filter((id) => id !== question.id)
     : [...selectedIds.value, question.id]
 }
 
-function typeLabel(type: Question['type']): string {
+function typeLabel(type: BankQuestionSummary['type']): string {
   if (type === 'mcq') return t.value.shared.questionBankTable.typeMultipleChoice
   if (type === 'mrq') return t.value.shared.questionBankTable.typeMultipleResponse
   return t.value.shared.questionBankTable.typeShortAnswer
 }
 
-const columns = computed<ColumnDef<Question>[]>(() => [
+const columns = computed<ColumnDef<BankQuestionSummary>[]>(() => [
   {
     id: 'select',
     cell: ({ row }) =>

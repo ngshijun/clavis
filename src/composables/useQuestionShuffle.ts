@@ -1,14 +1,13 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import type { Question, MCQOption } from '@/stores/questions'
-import { shuffle } from '@/lib/practiceHelpers'
+import { shuffle, type PracticeQuestion, type PracticeQuestionOption } from '@/lib/practiceHelpers'
 
 /**
  * Composable for shuffling MCQ/MRQ options with per-question caching.
  * Uses Fisher-Yates shuffle and caches results so navigating back
  * shows the same order.
  */
-export function useQuestionShuffle(currentQuestion: Ref<Question | null>) {
-  const shuffledOptionsMap = ref<Map<string, MCQOption[]>>(new Map())
+export function useQuestionShuffle(currentQuestion: Ref<PracticeQuestion | null>) {
+  const shuffledOptionsMap = ref<Map<string, PracticeQuestionOption[]>>(new Map())
 
   // Populate cache when question changes (side effect in a watcher, not computed)
   watch(

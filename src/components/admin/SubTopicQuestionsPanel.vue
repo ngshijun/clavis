@@ -58,7 +58,7 @@ const { status: saveStatus, enqueue } = useAutosave({
 
 async function loadQuestions() {
   isLoading.value = true
-  const result = await questionsStore.fetchQuestionsBySubTopic(props.subTopic.id)
+  const result = await questionsStore.fetchBankQuestionsBySubTopic(props.subTopic.id)
   isLoading.value = false
 
   if (result.error) {

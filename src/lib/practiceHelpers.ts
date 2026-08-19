@@ -1,7 +1,88 @@
 import type { PracticeAnswer } from '@/types/session'
+import type { Database } from '@/types/database.types'
+import { supabase } from '@/lib/supabaseClient'
 
 export type { PracticeAnswer } from '@/types/session'
 export type { DateRangeFilter } from '@/lib/sessionFilters'
+
+type QuestionType = Database['public']['Enums']['question_type']
+
+/** One selectable option of a practice question — content only, no key. */
+export interface PracticeQuestionOption {
+  id: 'a' | 'b' | 'c' | 'd'
+  text: string | null
+  imagePath: string | null
+}
+
+/**
+ * A practice question as the student may see it (decision 76): the bank's
+ * `answer`, `option_N_is_correct` and `option_N_tip` columns are revoked from
+ * `authenticated`, so this shape — served by `get_practice_session_questions`
+ * — carries no correctness whatsoever. Correctness and wrong-option tips reach
+ * the student only after completion, via `get_session_result`.
+ */
+export interface PracticeQuestion {
+  id: string
+  type: QuestionType
+  question: string
+  imagePath: string | null
+  subTopicId: string
+  gradeLevelId: string | null
+  subjectId: string | null
+  options: PracticeQuestionOption[]
+}
+
+const OPTION_IDS = ['a', 'b', 'c', 'd'] as const
+
+/** Raw entry of the `get_practice_session_questions` jsonb array (P11A §2). */
+interface RawSessionQuestion {
+  question_id: string
+  question_order: number
+  type: QuestionType
+  question: string
+  image_path: string | null
+  sub_topic_id: string
+  subject_id: string | null
+  grade_level_id: string | null
+  options: { number: number; text: string | null; image_path: string | null }[]
+}
+
+/**
+ * Fetch the frozen question list of a practice session (owner-only, works both
+ * mid-session and after completion). The RPC returns the entries in stored
+ * `question_order`, so the ARRAY POSITION is the running order — the stored
+ * value itself is not a reliable index (seeded rows are 1-based while
+ * `create_practice_session` writes 0-based).
+ */
+export async function fetchPracticeSessionQuestions(
+  sessionId: string,
+): Promise<{ questions: PracticeQuestion[]; error: unknown }> {
+  const { data, error } = await supabase.rpc('get_practice_session_questions', {
+    p_session_id: sessionId,
+  })
+
+  if (error) return { questions: [], error }
+  if (!Array.isArray(data)) return { questions: [], error: null }
+
+  const questions = (data as unknown as RawSessionQuestion[]).map((entry) => ({
+    id: entry.question_id,
+    type: entry.type,
+    question: entry.question,
+    imagePath: entry.image_path ?? null,
+    subTopicId: entry.sub_topic_id,
+    gradeLevelId: entry.grade_level_id ?? null,
+    subjectId: entry.subject_id ?? null,
+    options: (entry.options ?? [])
+      .map((option) => ({
+        id: OPTION_IDS[option.number - 1],
+        text: option.text ?? null,
+        imagePath: option.image_path ?? null,
+      }))
+      .filter((option): option is PracticeQuestionOption => option.id !== undefined),
+  }))
+
+  return { questions, error: null }
+}
 
 export interface PracticeSession {
   id: string
@@ -21,8 +102,8 @@ export interface PracticeSession {
   createdAt: string | null
   completedAt: string | null
   aiSummary: string | null
-  // Loaded separately
-  questions: import('@/stores/questions').Question[]
+  // Loaded separately (content only — see PracticeQuestion)
+  questions: PracticeQuestion[]
   answers: PracticeAnswer[]
 }
 

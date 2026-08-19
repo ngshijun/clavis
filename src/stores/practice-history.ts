@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
 import { handleError, errorMessages } from '@/lib/errors'
@@ -11,9 +10,14 @@ import {
   filterSessions,
   createSessionLookupMethods,
 } from '@/lib/sessionFilters'
-import { type PracticeSession } from '@/lib/practiceHelpers'
+import {
+  type PracticeQuestion,
+  type PracticeSession,
+  fetchPracticeSessionQuestions,
+  optionIdToNumber,
+} from '@/lib/practiceHelpers'
 import { mapAnswerRow, PRACTICE_ANSWER_COLUMNS } from '@/lib/questionHelpers'
-import type { QuestionRow, QuestionType } from './questions'
+import type { QuestionType } from './questions'
 import { useCascadingFilters } from '@/composables/useCascadingFilters'
 
 export type { DateRangeFilter }
@@ -84,17 +88,13 @@ interface SessionResultPayload {
   }[]
 }
 
-/** Extract display options (number/text/image only) from a bank question row. */
-function extractReviewOptions(q: QuestionRow): PracticeReviewOption[] {
-  const options: PracticeReviewOption[] = []
-  const push = (number: number, text: string | null, imagePath: string | null) => {
-    if (text !== null || imagePath !== null) options.push({ number, text, imagePath })
-  }
-  push(1, q.option_1_text, q.option_1_image_path)
-  push(2, q.option_2_text, q.option_2_image_path)
-  push(3, q.option_3_text, q.option_3_image_path)
-  push(4, q.option_4_text, q.option_4_image_path)
-  return options
+/** Map the session RPC's options onto the review shape (1-based numbers). */
+function toReviewOptions(question: PracticeQuestion): PracticeReviewOption[] {
+  return question.options.map((option) => ({
+    number: optionIdToNumber(option.id),
+    text: option.text,
+    imagePath: option.imagePath,
+  }))
 }
 
 // Cache TTL for session history (new sessions are added in-memory, so stale risk is low)
@@ -217,10 +217,13 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
         await curriculumStore.fetchCurriculum()
       }
 
-      // Include answer count using nested query
+      // Answer count via a nested aggregate. The bare `practice_answers(count)`
+      // form needs whole-table SELECT, which P5a revoked when it column-revoked
+      // `is_correct`; `id.count()` counts a granted column instead. Without this
+      // the whole query 42501s and the student dashboard/statistics render empty.
       const { data, error: fetchError } = await supabase
         .from('practice_sessions')
-        .select('*, practice_answers(count)')
+        .select('*, practice_answers(id.count())')
         .eq('student_id', authStore.user.id)
         .order('created_at', { ascending: false })
 
@@ -364,49 +367,9 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       // available here — the results page reads it from get_session_result.
       session.answers = (answersResult.data ?? []).map((row) => mapAnswerRow(row, false))
 
-      // Get all question IDs from answers (including null for deleted questions)
-      const questionIds = session.answers.map((a) => a.questionId).filter(Boolean) as string[]
-
-      // Fetch existing questions by their IDs directly (not by topic, as question might be deleted)
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('*')
-        .in('id', questionIds)
-
-      const existingQuestions = new Map<string, Question>()
-      if (questionsData) {
-        for (const row of questionsData) {
-          existingQuestions.set(row.id, rowToQuestion(row, curriculumStore))
-        }
-      }
-
-      // Build questions array in order of answers, with placeholders for deleted questions
-      session.questions = session.answers.map((answer, index) => {
-        if (answer.questionId && existingQuestions.has(answer.questionId)) {
-          return existingQuestions.get(answer.questionId)!
-        }
-        // Create placeholder for deleted question
-        return {
-          id: answer.questionId ?? `deleted-${index}`,
-          type: 'mcq' as const,
-          question: '[Question has been deleted]',
-          imagePath: null,
-          subTopicId: session.subTopicId,
-          gradeLevelId: session.gradeLevelId,
-          subjectId: session.subjectId,
-          answer: null,
-          options: [],
-          tags: [],
-          createdAt: null,
-          updatedAt: null,
-          imageHash: null,
-          gradeLevelName: session.gradeLevelName,
-          subjectName: session.subjectName,
-          topicName: session.topicName,
-          subTopicName: session.subTopicName,
-          isDeleted: true,
-        } as Question & { isDeleted?: boolean }
-      })
+      // `session.questions` is deliberately left empty: the only caller
+      // (practice store `resumeSession`) loads the frozen, sanitized question
+      // list from get_practice_session_questions right after this call.
 
       return { session, error: null }
     } catch (err) {
@@ -419,7 +382,8 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
    * Load the deferred-feedback results for a COMPLETED session (decisions
    * 39–41): correctness + wrong-option tips come only from the
    * get_session_result RPC (owner-gated, post-completion); question content
-   * comes from the bank. The correct answer is never part of the result.
+   * comes from get_practice_session_questions (decision 76). The correct
+   * answer is never part of either payload.
    */
   async function getSessionReview(sessionId: string): Promise<{
     review: PracticeSessionReview | null
@@ -479,50 +443,42 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
         return { review: null, notCompleted: false, error: errorMessages().failedFetchSession }
       }
 
-      // Question content from the bank (students may read questions; the
-      // review card renders content only — never option correctness).
-      const questionIds = result.questions
-        .map((q) => q.question_id)
-        .filter((id): id is string => id !== null)
+      // Question content from the sanitizing session RPC (decision 76) — the
+      // bank's key columns are revoked for students, and the review card
+      // renders content only. Questions deleted from the bank since the
+      // session simply do not come back, which drives `isDeleted` below.
+      const { questions: sessionQuestions, error: contentError } =
+        await fetchPracticeSessionQuestions(sessionId)
 
-      const questionsMap = new Map<string, QuestionRow>()
-      if (questionIds.length > 0) {
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('questions')
-          .select('*')
-          .in('id', questionIds)
-
-        if (questionsError) {
-          return {
-            review: null,
-            notCompleted: false,
-            error: handleError(questionsError, 'failedFetchSession'),
-          }
-        }
-        for (const row of questionsData ?? []) {
-          questionsMap.set(row.id, row)
+      if (contentError) {
+        return {
+          review: null,
+          notCompleted: false,
+          error: handleError(contentError, 'failedFetchSession'),
         }
       }
+
+      const questionsMap = new Map(sessionQuestions.map((q) => [q.id, q]))
 
       const names = getCurriculumNames(sessionRow.sub_topic_id)
 
       const questions: PracticeReviewQuestion[] = [...result.questions]
         .sort((a, b) => a.question_order - b.question_order)
         .map((entry) => {
-          const bank = entry.question_id ? questionsMap.get(entry.question_id) : undefined
+          const content = entry.question_id ? questionsMap.get(entry.question_id) : undefined
           return {
             questionId: entry.question_id,
             questionOrder: entry.question_order,
-            type: bank ? (bank.type as QuestionType) : entry.type,
-            question: bank?.question ?? '',
-            imagePath: bank?.image_path ?? null,
-            options: bank ? extractReviewOptions(bank) : [],
+            type: content ? content.type : entry.type,
+            question: content?.question ?? '',
+            imagePath: content?.imagePath ?? null,
+            options: content ? toReviewOptions(content) : [],
             selectedOptions: entry.selected_options,
             textAnswer: entry.text_answer,
             answered: entry.selected_options !== null || entry.text_answer !== null,
             isCorrect: entry.is_correct === true,
             wrongOptionTips: entry.wrong_option_tips ?? [],
-            isDeleted: !bank,
+            isDeleted: !content,
           }
         })
 
