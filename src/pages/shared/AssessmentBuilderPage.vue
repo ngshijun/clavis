@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
 import { removeStorageObjects } from '@/lib/storage'
@@ -64,6 +65,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
+const classroomScope = useClassroomScopeStore()
 const curriculumStore = useCurriculumStore()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
@@ -161,12 +163,20 @@ const isEditable = computed(() => canEdit.value && (isTemplate.value || !isPubli
  * which centers can see the template and where clones can be assigned.
  */
 const canEditScope = computed(() => isTemplate.value && authStore.isAdmin && isEditable.value)
-/** Non-null pairing (template OR scoped clone) shown in the header. */
-const scopeLabel = computed(() =>
-  assessment.value?.gradeLevelName && assessment.value?.subjectName
-    ? `${assessment.value.gradeLevelName} · ${assessment.value.subjectName}`
-    : null,
-)
+/**
+ * What this assessment belongs to, in the header. A template shows its
+ * grade+subject pairing (who may clone it); everything else shows its owning
+ * classroom, which is what actually scopes it (decision 81).
+ */
+const scopeLabel = computed(() => {
+  if (!assessment.value) return null
+  if (assessment.value.isTemplate) {
+    return assessment.value.gradeLevelName && assessment.value.subjectName
+      ? `${assessment.value.gradeLevelName} · ${assessment.value.subjectName}`
+      : null
+  }
+  return classroomScope.classrooms.find((c) => c.id === assessment.value?.classroomId)?.name ?? null
+})
 
 // Manual answer release (decision 71): client mirror of the RPC authz —
 // admin/manager always; a teacher only when the assessment reaches one of
@@ -342,7 +352,12 @@ const isCloning = ref(false)
 async function handleUseTemplate() {
   isCloning.value = true
   try {
-    const { id, error } = await assessmentsStore.cloneTemplate(assessmentId.value)
+    const classroomId = classroomScope.selectedId
+    if (!classroomId) {
+      toast.error(t.value.shared.errors.failedCloneTemplate)
+      return
+    }
+    const { id, error } = await assessmentsStore.cloneTemplate(assessmentId.value, classroomId)
     if (error || !id) {
       toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
       return

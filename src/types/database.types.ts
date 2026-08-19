@@ -285,6 +285,7 @@ export type Database = {
         Row: {
           answers_released_at: string | null
           answers_released_by: string | null
+          classroom_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -303,6 +304,7 @@ export type Database = {
         Insert: {
           answers_released_at?: string | null
           answers_released_by?: string | null
+          classroom_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -321,6 +323,7 @@ export type Database = {
         Update: {
           answers_released_at?: string | null
           answers_released_by?: string | null
+          classroom_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -342,6 +345,13 @@ export type Database = {
             columns: ['answers_released_by']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessments_classroom_id_fkey'
+            columns: ['classroom_id']
+            isOneToOne: false
+            referencedRelation: 'classrooms'
             referencedColumns: ['id']
           },
           {
@@ -1441,7 +1451,7 @@ export type Database = {
     Functions: {
       assessment_payload_is_valid: { Args: { p: Json }; Returns: boolean }
       clone_assessment_template: {
-        Args: { p_template_id: string }
+        Args: { p_classroom_id: string; p_template_id: string }
         Returns: string
       }
       complete_assessment_attempt: {

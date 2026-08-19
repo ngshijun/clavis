@@ -17,10 +17,10 @@ const t = useT()
 
 // Follows the classroom scope, so the count always matches the Assessments page.
 watch(
-  () => scope.selected,
-  (classroom) => {
+  () => scope.selectedId,
+  (classroomId) => {
     if (store.isLoading) return
-    store.fetchAssigned(classroom)
+    store.fetchAssigned(classroomId)
   },
   { immediate: true },
 )

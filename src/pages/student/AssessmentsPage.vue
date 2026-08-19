@@ -18,9 +18,9 @@ const t = useT()
 
 // Re-fetch whenever the classroom changes — the list belongs to one classroom.
 watch(
-  () => scope.selected,
-  async (classroom) => {
-    const { error } = await store.fetchAssigned(classroom)
+  () => scope.selectedId,
+  async (classroomId) => {
+    const { error } = await store.fetchAssigned(classroomId)
     if (error) {
       toast.error(t.value.student.assessments.toastLoadFailed)
     }

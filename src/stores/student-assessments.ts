@@ -316,22 +316,20 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
   }
 
   /**
-   * Assigned list for ONE classroom (decision 79). RLS already scopes
+   * Assigned list for ONE classroom (decisions 79/81). RLS already scopes
    * `assessments` to published + assigned, `assessment_assignments` to rows
    * reaching the caller, and `assessment_attempts` to the caller's own (unique
    * per assessment); the classroom filter narrows that to the classroom the
    * student is currently looking at.
    *
-   * An assessment reaches the student either through the classroom itself or
-   * through an individual assignment. Individually-targeted rows carry no
-   * classroom_id, so they are matched on the assessment's own grade+subject
-   * pairing instead — which P8 already guarantees lines up with a classroom
-   * the student belongs to.
+   * The bound is the assessment's OWN `classroom_id`, which covers both ways
+   * an assessment reaches a student — through the classroom or individually.
+   * It deliberately does not look at the grade+subject pairing: two classrooms
+   * can share one (Year 1 Math Group A and Group B), so a pairing match would
+   * show Group A's work to a student sitting in Group B.
    */
-  async function fetchAssigned(
-    classroom: { id: string; gradeLevelId: string; subjectId: string } | null,
-  ): Promise<{ error: string | null }> {
-    if (!classroom) {
+  async function fetchAssigned(classroomId: string | null): Promise<{ error: string | null }> {
+    if (!classroomId) {
       assigned.value = []
       return { error: null }
     }
@@ -349,8 +347,7 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
           description,
           time_limit_seconds,
           show_auto_score_while_pending,
-          grade_level_id,
-          subject_id,
+          classroom_id,
           assessment_assignments (due_at, classroom_id),
           assessment_attempts (
             id,
@@ -368,20 +365,12 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
 
       const now = Date.now()
 
-      // Keep only the assignments that reach the student *through this
-      // classroom*, so a due date set for another classroom can never gate
-      // this one's CTA.
+      // Only this classroom's assessments, and within each only the
+      // assignments that actually reach this student — so a due date set for
+      // another target can never gate this one's CTA.
       const inScope = (data ?? [])
-        .map((row) => ({
-          row,
-          assignments: row.assessment_assignments.filter(
-            (a) =>
-              a.classroom_id === classroom.id ||
-              (a.classroom_id === null &&
-                row.grade_level_id === classroom.gradeLevelId &&
-                row.subject_id === classroom.subjectId),
-          ),
-        }))
+        .filter((row) => row.classroom_id === classroomId)
+        .map((row) => ({ row, assignments: row.assessment_assignments }))
         .filter((entry) => entry.assignments.length > 0)
 
       assigned.value = inScope.map(({ row, assignments }) => {
