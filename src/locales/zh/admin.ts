@@ -85,40 +85,6 @@ export default {
     toastCreated: (name: string) => `主管 ${name} 已创建`,
   },
 
-  students: {
-    title: '学生',
-    subtitle: '查看和管理所有学生账户',
-    searchPlaceholder: '按姓名或邮箱搜索...',
-    nameCol: '姓名',
-    emailCol: '邮箱',
-    gradeCol: '年级',
-    dobCol: '出生日期',
-    joinedCol: '注册日期',
-    noStudentsFound: '未找到学生',
-    noStudentsMatchSearch: '没有符合搜索条件的学生。',
-    noStudentsRegistered: '尚无学生注册。',
-  },
-
-  studentStatistics: {
-    backToStudents: '返回学生列表',
-    title: '学生统计',
-    subtitle: '查看练习记录与表现',
-    tabInfo: '学生资料',
-    tabPractice: '练习记录',
-    practiceHistoryTitle: '练习记录',
-    practiceHistoryDesc: '查看所有练习次数及得分',
-    noSessionsFound: '所选筛选条件下未找到练习记录。',
-    toastLoadFailed: '加载统计数据失败',
-  },
-
-  studentSessionResult: {
-    backToStatistics: '返回统计页面',
-    title: '练习结果',
-    aiSummary: 'AI 总结',
-    sessionNotFound: '未找到该练习记录',
-    goBack: '返回',
-  },
-
   subTopicQuestions: {
     title: '题目',
     subtitle: (subTopic: string) => `管理学生在「${subTopic}」中练习的题目。`,

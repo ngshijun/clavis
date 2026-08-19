@@ -86,40 +86,6 @@ export default {
     toastCreated: (name: string) => `Manager ${name} created`,
   },
 
-  students: {
-    title: 'Students',
-    subtitle: 'View and manage all student accounts',
-    searchPlaceholder: 'Search by name or email...',
-    nameCol: 'Name',
-    emailCol: 'Email',
-    gradeCol: 'Grade',
-    dobCol: 'Date of Birth',
-    joinedCol: 'Joined',
-    noStudentsFound: 'No Students Found',
-    noStudentsMatchSearch: 'No students match your search criteria.',
-    noStudentsRegistered: 'No students have registered yet.',
-  },
-
-  studentStatistics: {
-    backToStudents: 'Back to Students',
-    title: 'Student Statistics',
-    subtitle: 'View practice history and performance',
-    tabInfo: 'Student Info',
-    tabPractice: 'Practice History',
-    practiceHistoryTitle: 'Practice History',
-    practiceHistoryDesc: 'View all practice sessions and scores',
-    noSessionsFound: 'No practice sessions found for the selected filters.',
-    toastLoadFailed: 'Failed to load statistics',
-  },
-
-  studentSessionResult: {
-    backToStatistics: 'Back to Statistics',
-    title: 'Session Results',
-    aiSummary: 'AI Summary',
-    sessionNotFound: 'Session not found',
-    goBack: 'Go Back',
-  },
-
   subTopicQuestions: {
     title: 'Questions',
     subtitle: (subTopic: string) => `Manage the questions students practise in ${subTopic}.`,

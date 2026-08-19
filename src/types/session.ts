@@ -1,14 +1,7 @@
 /**
  * Shared types for practice session data used across
- * admin-student-stats, child-statistics, and related components.
+ * practice-history and related components.
  */
-
-export interface QuestionOption {
-  id: string // 'a', 'b', 'c', 'd'
-  text: string | null
-  imagePath: string | null
-  isCorrect: boolean
-}
 
 export interface PracticeAnswer {
   questionId: string | null
@@ -17,52 +10,10 @@ export interface PracticeAnswer {
   /**
    * practice_answers.is_correct is column-revoked for students (P5a) — this is
    * only meaningful on staff surfaces, where it is derived from the bank
-   * question (deriveAnswerCorrectness). Mid-session it is always false and
-   * unread; students get correctness from get_session_result after completion.
+   * question. Mid-session it is always false and unread; students get
+   * correctness from get_session_result after completion.
    */
   isCorrect: boolean
   answeredAt: string
   timeSpentSeconds: number | null
-}
-
-export interface SessionQuestion {
-  id: string
-  type: 'mcq' | 'mrq' | 'short_answer'
-  question: string
-  answer: string | null
-  imagePath: string | null
-  options?: QuestionOption[]
-  isDeleted?: boolean
-}
-
-export interface PracticeSessionSummary {
-  id: string
-  gradeLevelName: string
-  subjectName: string
-  topicName: string
-  subTopicName: string
-  score: number | null
-  totalQuestions: number
-  correctAnswers: number
-  durationSeconds: number | null
-  createdAt: string
-  completedAt: string | null
-  status: 'completed' | 'in_progress'
-}
-
-export interface PracticeSessionFull extends Omit<
-  PracticeSessionSummary,
-  'score' | 'durationSeconds' | 'completedAt'
-> {
-  subjectId: string
-  subTopicId: string
-  topicId: string
-  gradeLevelId: string
-  questions: SessionQuestion[]
-  answers: PracticeAnswer[]
-  startedAt: string
-  aiSummary: string | null
-  score: number
-  durationSeconds: number
-  completedAt: string
 }

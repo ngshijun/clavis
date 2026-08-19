@@ -325,21 +325,6 @@ export default {
       other: 'Other',
     },
   },
-  sessionQuestionCard: {
-    questionLabel: (index: number) => `Question ${index + 1}`,
-    deleted: 'Deleted',
-    multipleChoice: 'Multiple Choice',
-    multipleResponse: 'Multiple Response',
-    shortAnswer: 'Short Answer',
-    deletedNotice: 'This question has been deleted from the question bank.',
-    studentAnswer: "Student's answer",
-    studentCorrectAnswer: "Student's Correct Answer:",
-    deletedAnswerWasStudent: "Student's answer was:",
-    correct: 'Correct',
-    incorrect: 'Incorrect',
-    correctAnswer: 'Correct answer',
-    theCorrectAnswerIs: 'The correct answer is:',
-  },
   sessionSummaryCards: {
     score: 'Score',
     correct: 'Correct',
@@ -608,16 +593,6 @@ export default {
     tipLabel: 'Tip:',
     emptyOption: '(Empty option)',
   },
-  studentInfoTab: {
-    title: 'Student Information',
-    personalSection: 'Personal',
-    accountSection: 'Account',
-    nameLabel: 'Name',
-    emailLabel: 'Email',
-    dobLabel: 'Date of Birth',
-    gradeLevelLabel: 'Grade Level',
-    joinedLabel: 'Joined',
-  },
   announcements: {
     audience: {
       all: 'All Users',
@@ -697,7 +672,6 @@ export default {
           learningPoints: 'Learning Points',
           questionStatistics: 'Question Statistics',
           questionFeedback: 'Question Feedback',
-          students: 'Students',
         },
         manager: {
           dashboard: 'Dashboard',

@@ -317,21 +317,6 @@ export default {
       other: '其他',
     },
   },
-  sessionQuestionCard: {
-    questionLabel: (index: number) => `第 ${index + 1} 题`,
-    deleted: '已删除',
-    multipleChoice: '单选题',
-    multipleResponse: '多选题',
-    shortAnswer: '简答题',
-    deletedNotice: '此题已从题库中删除。',
-    studentAnswer: '学生的答案',
-    studentCorrectAnswer: '学生的正确答案：',
-    deletedAnswerWasStudent: '学生的答案为：',
-    correct: '正确',
-    incorrect: '错误',
-    correctAnswer: '正确答案',
-    theCorrectAnswerIs: '正确答案是：',
-  },
   sessionSummaryCards: {
     score: '分数',
     correct: '正确',
@@ -596,16 +581,6 @@ export default {
     tipLabel: '提示：',
     emptyOption: '（空选项）',
   },
-  studentInfoTab: {
-    title: '学生信息',
-    personalSection: '个人',
-    accountSection: '账户',
-    nameLabel: '姓名',
-    emailLabel: '邮箱',
-    dobLabel: '出生日期',
-    gradeLevelLabel: '年级',
-    joinedLabel: '加入时间',
-  },
   announcements: {
     audience: {
       all: '所有用户',
@@ -682,7 +657,6 @@ export default {
           learningPoints: '学习点',
           questionStatistics: '题目统计',
           questionFeedback: '题目反馈',
-          students: '学生',
         },
         manager: {
           dashboard: '主页',

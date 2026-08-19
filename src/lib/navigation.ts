@@ -25,7 +25,6 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Learning Points', path: '/admin/tags', icon: Tags },
     { title: 'Question Statistics', path: '/admin/question-statistics', icon: BarChart3 },
     { title: 'Question Feedback', path: '/admin/question-feedback', icon: MessageSquare },
-    { title: 'Students', path: '/admin/students', icon: Users },
   ],
   manager: [
     { title: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
