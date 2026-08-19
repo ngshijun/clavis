@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useOrderPersistence, type EnqueueOptions } from './useOrderPersistence'
+import { useAutosave, type EnqueueOptions } from './useAutosave'
 
 /** A save the test resolves by hand, so in-flight windows are controllable. */
 function deferredSave() {
@@ -23,7 +23,7 @@ function deferredSave() {
 const DEBOUNCE = 400
 const SAVED_DISPLAY = 2000
 
-describe('useOrderPersistence', () => {
+describe('useAutosave', () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
@@ -32,13 +32,16 @@ describe('useOrderPersistence', () => {
     vi.useRealTimers()
   })
 
-  function makeOpts(save: EnqueueOptions['save'], rollback = vi.fn()): EnqueueOptions {
-    return { previousIds: ['a', 'b', 'c'], save, rollback }
+  function makeOpts(
+    save: EnqueueOptions<string[]>['save'],
+    rollback = vi.fn(),
+  ): EnqueueOptions<string[]> {
+    return { previous: ['a', 'b', 'c'], save, rollback }
   }
 
   it('debounces rapid drags into ONE save carrying only the latest order', async () => {
     const { save, calls, resolveNext } = deferredSave()
-    const { enqueue } = useOrderPersistence()
+    const { enqueue } = useAutosave()
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
     await vi.advanceTimersByTimeAsync(100)
@@ -55,7 +58,7 @@ describe('useOrderPersistence', () => {
 
   it('coalesces drags during an in-flight save into a single follow-up with the final order', async () => {
     const { save, calls, resolveNext } = deferredSave()
-    const { enqueue } = useOrderPersistence()
+    const { enqueue } = useAutosave()
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
     await vi.advanceTimersByTimeAsync(DEBOUNCE)
@@ -82,7 +85,7 @@ describe('useOrderPersistence', () => {
   it('a stale success response never clobbers a newer local order', async () => {
     const { save, calls, resolveNext } = deferredSave()
     const rollback = vi.fn()
-    const { enqueue } = useOrderPersistence()
+    const { enqueue } = useAutosave()
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save, rollback))
     await vi.advanceTimersByTimeAsync(DEBOUNCE)
@@ -103,7 +106,7 @@ describe('useOrderPersistence', () => {
     const { save, calls, resolveNext } = deferredSave()
     const rollback = vi.fn()
     const onError = vi.fn()
-    const { enqueue } = useOrderPersistence({ onError })
+    const { enqueue } = useAutosave({ onError })
 
     // First drag saves fine → confirmed becomes b,a,c.
     enqueue('k', ['b', 'a', 'c'], makeOpts(save, rollback))
@@ -125,7 +128,7 @@ describe('useOrderPersistence', () => {
     const { save, calls, resolveNext } = deferredSave()
     const rollback = vi.fn()
     const onError = vi.fn()
-    const { enqueue } = useOrderPersistence({ onError })
+    const { enqueue } = useAutosave({ onError })
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save, rollback))
     await vi.advanceTimersByTimeAsync(DEBOUNCE)
@@ -146,7 +149,7 @@ describe('useOrderPersistence', () => {
 
   it('skips the round trip when the order returns to the confirmed baseline', async () => {
     const { save, calls } = deferredSave()
-    const { enqueue, status } = useOrderPersistence()
+    const { enqueue, status } = useAutosave()
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
     // Dragged back to the original order before the debounce fired.
@@ -159,7 +162,7 @@ describe('useOrderPersistence', () => {
 
   it('walks the status lifecycle idle → saving → saved → idle', async () => {
     const { save, resolveNext } = deferredSave()
-    const { enqueue, status } = useOrderPersistence()
+    const { enqueue, status } = useAutosave()
 
     expect(status.value).toBe('idle')
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
@@ -177,7 +180,7 @@ describe('useOrderPersistence', () => {
 
   it('returns to idle (no lingering "saving") after a final failure', async () => {
     const { save, resolveNext } = deferredSave()
-    const { enqueue, status } = useOrderPersistence({ onError: vi.fn() })
+    const { enqueue, status } = useAutosave({ onError: vi.fn() })
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
     await vi.advanceTimersByTimeAsync(DEBOUNCE)
@@ -188,7 +191,7 @@ describe('useOrderPersistence', () => {
 
   it('flush dispatches a pending debounced save immediately', async () => {
     const { save, calls, resolveNext } = deferredSave()
-    const { enqueue, flush } = useOrderPersistence()
+    const { enqueue, flush } = useAutosave()
 
     enqueue('k', ['b', 'a', 'c'], makeOpts(save))
     expect(calls).toHaveLength(0)
@@ -201,10 +204,10 @@ describe('useOrderPersistence', () => {
   it('treats a rejected save promise as a failure (rollback + onError)', async () => {
     const rollback = vi.fn()
     const onError = vi.fn()
-    const { enqueue } = useOrderPersistence({ onError })
+    const { enqueue } = useAutosave({ onError })
 
     enqueue('k', ['b', 'a', 'c'], {
-      previousIds: ['a', 'b', 'c'],
+      previous: ['a', 'b', 'c'],
       save: () => Promise.reject(new Error('network down')),
       rollback,
     })
@@ -216,13 +219,36 @@ describe('useOrderPersistence', () => {
     expect(onError).toHaveBeenCalledWith('network down')
   })
 
+  it('persists arbitrary JSON values and snapshots them at enqueue time', async () => {
+    const calls: unknown[] = []
+    const resolvers: ((result: { error: string | null }) => void)[] = []
+    const save = (value: { question: string }): Promise<{ error: string | null }> => {
+      calls.push(value)
+      return new Promise((resolve) => {
+        resolvers.push(resolve)
+      })
+    }
+    const { enqueue } = useAutosave()
+
+    // Caller mutates the object AFTER enqueue — the snapshot must not follow.
+    const payload = { question: 'first' }
+    enqueue('payload:q1', payload, { previous: { question: 'stored' }, save, rollback: vi.fn() })
+    payload.question = 'mutated'
+    await vi.advanceTimersByTimeAsync(DEBOUNCE)
+
+    expect(calls).toEqual([{ question: 'first' }])
+    resolvers.shift()?.({ error: null })
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+
   it('keeps keys independent: saves for different lists never coalesce', async () => {
     const first = deferredSave()
     const second = deferredSave()
-    const { enqueue, status } = useOrderPersistence()
+    const { enqueue, status } = useAutosave()
 
-    enqueue('one', ['b', 'a'], { previousIds: ['a', 'b'], save: first.save, rollback: vi.fn() })
-    enqueue('two', ['d', 'c'], { previousIds: ['c', 'd'], save: second.save, rollback: vi.fn() })
+    enqueue('one', ['b', 'a'], { previous: ['a', 'b'], save: first.save, rollback: vi.fn() })
+    enqueue('two', ['d', 'c'], { previous: ['c', 'd'], save: second.save, rollback: vi.fn() })
     await vi.advanceTimersByTimeAsync(DEBOUNCE)
 
     expect(first.calls).toEqual([['b', 'a']])

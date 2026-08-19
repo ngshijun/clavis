@@ -779,6 +779,11 @@ ON CONFLICT (id) DO NOTHING;
 -- to end. Created by Ms Lee, assigned to Classroom A (Alice + Ben).
 -- Deliberately UNSCOPED (grade_level_id/subject_id NULL) like 9c.
 --
+-- Revamp 2.6 (decision 74): Q1 also carries a question image plus an image on
+-- its third option, and Q7 (matching) a question image — proof that the payload
+-- contract accepts images on EVERY type, not just mcq. The referenced objects
+-- are not uploaded (a seed cannot write binaries); the paths are the contract.
+--
 -- Point budget: 1+2+1+1+1+3+3+4+5 = 21. Question 9 (long_answer) grades to
 -- is_correct NULL / awarded_points NULL until a teacher marks it (P9b), so a
 -- fully-correct submission scores 16/21 = 76% until then.
@@ -795,9 +800,13 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
 VALUES
-  -- 1. MCQ (single correct)
+  -- 1. MCQ (single correct) — carries a question image AND a per-option image
+  --    (Revamp 2.6 decision 74). Both paths point into the `assessment-images`
+  --    bucket under this assessment's id; the objects are NOT uploaded by this
+  --    seed, so staging renders a broken image until someone re-uploads through
+  --    the P10b authoring UI. The payload shape is what matters here.
   ('a9300000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"mcq","question":"12 + 9 = ?","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true},{"text":"22","is_correct":false}]}'::jsonb,
+   '{"type":"mcq","question":"12 + 9 = ?","image_path":"a5000000-0000-4000-8000-000000000005/showcase-q1-ten-frames.webp","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true,"image_path":"a5000000-0000-4000-8000-000000000005/showcase-q1-option-21.webp"},{"text":"22","is_correct":false}]}'::jsonb,
    1, 1),
 
   -- 2. MRQ (several correct — all or nothing)
@@ -827,7 +836,7 @@ VALUES
 
   -- 7. MATCHING, 3 pairs + 1 distractor on the right, partial credit per pair
   ('a9300000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"matching","question":"Match each sum to its answer. 配对。","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
+   '{"type":"matching","question":"Match each sum to its answer. 配对。","image_path":"a5000000-0000-4000-8000-000000000005/showcase-q7-number-line.webp","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
    7, 3),
 
   -- 8. ORDERING, 4 items, partial credit per position

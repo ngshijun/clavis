@@ -1,35 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { GripVertical, Pencil, Trash2 } from 'lucide-vue-next'
+import { Database, ImagePlus, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
 import type { AssessmentQuestionItem } from '@/stores/assessments'
+import type { AdhocPayload } from '@/lib/adhocPayload'
 
 /**
- * The assessment question composer list. Reordering is vue-draggable-plus
- * (SortableJS) via the grip handle, with built-in touch support (same pattern
- * as the admin SubTopicPathList). The parent owns persistence (debounced +
+ * The Google-Forms-style question composer: a vertical stack of
+ * `AssessmentQuestionCard`s (one expanded at a time) with a floating action
+ * toolbar anchored beside the active card. Reordering is vue-draggable-plus
+ * via the card's top grip, with the parent owning persistence (debounced +
  * non-blocking, decision 72b) — this component only emits intents and never
- * locks dragging; `disabled` reflects edit permission, not save state.
+ * locks dragging; `editable` reflects edit permission, not save state.
  */
 const props = defineProps<{
   items: AssessmentQuestionItem[]
-  disabled: boolean
+  editable: boolean
+  assessmentId: string
 }>()
 
 const emit = defineEmits<{
   reorder: [orderedIds: string[]]
-  edit: [item: AssessmentQuestionItem]
+  'payload-change': [item: AssessmentQuestionItem, payload: AdhocPayload]
+  'points-change': [item: AssessmentQuestionItem, points: number]
+  duplicate: [item: AssessmentQuestionItem]
   remove: [item: AssessmentQuestionItem]
-  'update-points': [item: AssessmentQuestionItem, points: number]
+  'add-question': []
+  'add-from-bank': []
 }>()
 
 const t = useT()
 
-const interactive = computed(() => !props.disabled)
+/** One card expanded at a time — v-model so the page can expand a fresh add. */
+const expandedId = defineModel<string | null>('expandedId', { default: null })
 
 /**
  * VueDraggable writes the post-drop order here; the getter keeps rendering
@@ -45,97 +51,141 @@ const list = computed({
     ),
 })
 
-function typeLabel(item: AssessmentQuestionItem): string {
-  return t.value.shared.questionTypes[item.type]
+// ── floating toolbar anchoring ─────────────────────────────
+
+const containerEl = ref<HTMLElement | null>(null)
+type CardInstance = InstanceType<typeof AssessmentQuestionCard>
+const cardRefs = new Map<string, CardInstance>()
+
+function setCardRef(id: string, instance: unknown) {
+  if (instance) cardRefs.set(id, instance as CardInstance)
+  else cardRefs.delete(id)
 }
 
-function onPointsChange(item: AssessmentQuestionItem, event: Event) {
-  const input = event.target as HTMLInputElement
-  const points = Number.parseInt(input.value, 10)
-  if (!Number.isInteger(points) || points < 1) {
-    input.value = String(item.points)
+const toolbarTop = ref(0)
+
+function updateToolbarTop() {
+  const activeId = expandedId.value
+  const active = activeId ? cardRefs.get(activeId) : undefined
+  const el = (active?.$el ?? null) as HTMLElement | null
+  if (!el || !containerEl.value) {
+    toolbarTop.value = 0
     return
   }
-  if (points !== item.points) emit('update-points', item, points)
+  const max = Math.max(0, containerEl.value.offsetHeight - 40)
+  toolbarTop.value = Math.min(el.offsetTop, max)
+}
+
+// The active card's position shifts as cards expand/collapse, type editors
+// change height, or the list reorders — observe the container instead of
+// chasing every cause.
+let resizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => updateToolbarTop())
+  if (containerEl.value) resizeObserver.observe(containerEl.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
+  deep: false,
+  immediate: true,
+})
+
+/** The expanded ad-hoc card, if any — the "add image" target. */
+const activeAdhocCard = computed(() => {
+  const activeId = expandedId.value
+  if (!activeId) return null
+  const item = props.items.find((candidate) => candidate.id === activeId)
+  return item?.source === 'adhoc' ? item : null
+})
+
+function addImageToActiveCard() {
+  const activeId = expandedId.value
+  if (activeId) cardRefs.get(activeId)?.openImagePicker()
 }
 </script>
 
 <template>
-  <div>
+  <div ref="containerEl" class="relative" :class="editable ? 'lg:pr-14' : ''">
     <VueDraggable
       v-model="list"
-      tag="ol"
-      handle="[data-drag-handle]"
+      handle="[data-card-drag-handle]"
       ghost-class="opacity-50"
       :animation="150"
-      :disabled="!interactive"
-      class="space-y-2"
+      :disabled="!editable"
+      class="space-y-3"
     >
-      <li
+      <AssessmentQuestionCard
         v-for="(item, index) in items"
         :key="item.id"
-        class="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors"
-      >
-        <GripVertical
-          v-if="!disabled"
-          data-drag-handle
-          class="size-5 shrink-0 cursor-grab text-muted-foreground"
-          :aria-label="t.staff.builder.dragToReorder"
-        />
-
-        <span
-          class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
-        >
-          {{ index + 1 }}
-        </span>
-
-        <div class="min-w-0 flex-1">
-          <p class="truncate font-medium" :title="item.question">{{ item.question }}</p>
-          <div class="mt-1 flex items-center gap-2">
-            <Badge variant="secondary">{{ typeLabel(item) }}</Badge>
-            <Badge variant="outline">
-              {{ item.source === 'bank' ? t.staff.builder.bankBadge : t.staff.builder.adhocBadge }}
-            </Badge>
-          </div>
-        </div>
-
-        <label class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-          <span class="hidden sm:inline">{{ t.staff.builder.pointsLabel }}</span>
-          <Input
-            type="number"
-            min="1"
-            step="1"
-            class="w-16"
-            :model-value="item.points"
-            :disabled="!interactive"
-            @change="onPointsChange(item, $event)"
-          />
-        </label>
-
-        <div v-if="!disabled" class="flex shrink-0 items-center gap-1">
-          <Button
-            v-if="item.source === 'adhoc'"
-            variant="secondary"
-            size="icon"
-            class="size-8"
-            :disabled="!interactive"
-            :aria-label="t.staff.builder.editQuestion"
-            @click="emit('edit', item)"
-          >
-            <Pencil class="size-4" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            class="size-8"
-            :disabled="!interactive"
-            :aria-label="t.staff.builder.removeQuestion"
-            @click="emit('remove', item)"
-          >
-            <Trash2 class="size-4" />
-          </Button>
-        </div>
-      </li>
+        :ref="(instance) => setCardRef(item.id, instance)"
+        :item="item"
+        :index="index"
+        :expanded="expandedId === item.id"
+        :editable="editable"
+        :assessment-id="assessmentId"
+        @select="expandedId = item.id"
+        @payload-change="(payload) => emit('payload-change', item, payload)"
+        @points-change="(points) => emit('points-change', item, points)"
+        @duplicate="emit('duplicate', item)"
+        @remove="emit('remove', item)"
+      />
     </VueDraggable>
+
+    <!-- Floating action toolbar — moves with the active card (Forms model) -->
+    <div
+      v-if="editable"
+      class="absolute right-0 hidden w-11 flex-col items-center gap-1 rounded-lg border bg-card p-1 shadow-sm transition-[top] duration-200 lg:flex"
+      :style="{ top: `${toolbarTop}px` }"
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        class="size-8"
+        :aria-label="t.staff.builder.addAdhoc"
+        :title="t.staff.builder.addAdhoc"
+        @click="emit('add-question')"
+      >
+        <Plus class="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="size-8"
+        :aria-label="t.staff.builder.addFromBank"
+        :title="t.staff.builder.addFromBank"
+        @click="emit('add-from-bank')"
+      >
+        <Database class="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="size-8"
+        :disabled="!activeAdhocCard"
+        :aria-label="t.staff.adhocForm.addImage"
+        :title="t.staff.adhocForm.addImage"
+        @click="addImageToActiveCard"
+      >
+        <ImagePlus class="size-4" />
+      </Button>
+    </div>
+
+    <!-- Small screens: the same actions as a static bar under the list -->
+    <div v-if="editable" class="mt-3 flex items-center gap-2 lg:hidden">
+      <Button variant="outline" size="sm" @click="emit('add-question')">
+        <Plus class="mr-2 size-4" />
+        {{ t.staff.builder.addAdhoc }}
+      </Button>
+      <Button variant="outline" size="sm" @click="emit('add-from-bank')">
+        <Database class="mr-2 size-4" />
+        {{ t.staff.builder.addFromBank }}
+      </Button>
+    </div>
   </div>
 </template>

@@ -74,7 +74,7 @@ function openBuilder(item: AssessmentListItem) {
 }
 
 function openResults(item: AssessmentListItem) {
-  router.push(`${basePath.value}/assessments/${item.id}/results`)
+  router.push(`${basePath.value}/assessments/${item.id}?tab=results`)
 }
 
 function handleCreated(id: string) {

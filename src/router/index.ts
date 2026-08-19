@@ -176,21 +176,6 @@ const router = createRouter({
           component: () => import('@/pages/admin/OrganizationsPage.vue'),
         },
         {
-          path: 'students',
-          name: 'admin-students',
-          component: () => import('@/pages/admin/StudentsPage.vue'),
-        },
-        {
-          path: 'students/:studentId/statistics',
-          name: 'admin-student-statistics',
-          component: () => import('@/pages/admin/StudentStatisticsPage.vue'),
-        },
-        {
-          path: 'students/:studentId/session/:sessionId',
-          name: 'admin-student-session',
-          component: () => import('@/pages/admin/StudentSessionResultPage.vue'),
-        },
-        {
           path: 'profile',
           name: 'admin-profile',
           component: () => import('@/pages/admin/ProfilePage.vue'),
@@ -235,11 +220,6 @@ const router = createRouter({
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
         },
         {
-          path: 'assessments/:assessmentId/results',
-          name: 'manager-assessment-results',
-          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
-        },
-        {
           path: 'templates',
           name: 'manager-template-library',
           component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
@@ -277,11 +257,6 @@ const router = createRouter({
           path: 'assessments/:assessmentId',
           name: 'teacher-assessment-builder',
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
-        },
-        {
-          path: 'assessments/:assessmentId/results',
-          name: 'teacher-assessment-results',
-          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
         },
         {
           path: 'templates',

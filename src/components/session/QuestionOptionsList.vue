@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useQuestionsStore } from '@/stores/questions'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -12,7 +11,8 @@ const t = useT()
 export interface DisplayOption {
   id: string
   text: string | null
-  imagePath: string | null
+  /** Fully-resolved image URL — the caller owns the bucket resolution (P10a). */
+  imageUrl: string | null
 }
 
 defineProps<{
@@ -27,8 +27,6 @@ defineProps<{
 const emit = defineEmits<{
   select: [optionId: string]
 }>()
-
-const questionsStore = useQuestionsStore()
 </script>
 
 <template>
@@ -66,9 +64,9 @@ const questionsStore = useQuestionsStore()
           {{ String.fromCharCode(65 + index) }}
         </span>
         <img
-          v-if="option.imagePath"
+          v-if="option.imageUrl"
           :key="`${questionId}-${option.id}`"
-          :src="questionsStore.getThumbnailQuestionImageUrl(option.imagePath)"
+          :src="option.imageUrl"
           :alt="`Option ${String.fromCharCode(65 + index)}`"
           class="max-h-32 rounded border object-contain"
           loading="lazy"
@@ -88,9 +86,9 @@ const questionsStore = useQuestionsStore()
         <div class="flex flex-1 items-center gap-2">
           <span v-if="option.text">{{ option.text }}</span>
           <img
-            v-if="option.imagePath"
+            v-if="option.imageUrl"
             :key="`${questionId}-${option.id}`"
-            :src="questionsStore.getThumbnailQuestionImageUrl(option.imagePath)"
+            :src="option.imageUrl"
             :alt="`Option ${String.fromCharCode(65 + index)}`"
             class="max-h-16 rounded border object-contain"
             loading="lazy"

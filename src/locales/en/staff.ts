@@ -233,13 +233,14 @@ export default {
     bankBadge: 'Bank',
     adhocBadge: 'Custom',
     dragToReorder: 'Drag to reorder',
-    editQuestion: 'Edit question',
     removeQuestion: 'Remove question',
+    duplicateQuestion: 'Duplicate question',
+    pointsFmt: (n: number) => `${n} pt${n === 1 ? '' : 's'}`,
+    untitledQuestion: 'Untitled question',
+    notSavedHint: (message: string) => `Not saved yet — ${message}`,
+    tabResults: 'Results',
     toastQuestionsAdded: (n: number) => `${n} question${n === 1 ? '' : 's'} added`,
-    toastQuestionAdded: 'Question added',
-    toastQuestionUpdated: 'Question updated',
     toastQuestionRemoved: 'Question removed',
-    toastPointsUpdated: 'Points updated',
     publish: 'Publish',
     publishTitle: 'Publish Assessment',
     publishDesc:
@@ -247,7 +248,6 @@ export default {
     publishConfirm: 'Publish',
     toastPublished: 'Assessment published',
     assign: 'Assign',
-    viewResults: 'View Results',
     cancel: 'Cancel',
     // Pending-score visibility (decision 70) + manual answer release (decision 71)
     pendingVisibilityLabel: 'Show score while marking is pending',
@@ -268,9 +268,6 @@ export default {
   },
 
   adhocForm: {
-    addTitle: 'Write Question',
-    editTitle: 'Edit Question',
-    description: 'This question lives only in this assessment (not in the question bank).',
     typeLabel: 'Type',
     questionLabel: 'Question',
     questionPlaceholder: 'Type the question text',
@@ -279,6 +276,11 @@ export default {
     correctLabel: 'Correct',
     addOption: 'Add Option',
     removeOption: 'Remove option',
+    addImage: 'Add image',
+    replaceImage: 'Replace image',
+    removeImage: 'Remove image',
+    addOptionImage: 'Add an image to this option',
+    removeOptionImage: 'Remove the option image',
     mrqPartialHint: 'No partial credit: students must select exactly the correct options.',
     // True / False
     trueFalseLabel: 'Correct answer',
@@ -336,7 +338,7 @@ export default {
     explanationLabel: 'Explanation (optional)',
     explanationPlaceholder: 'Shown to students once you release the answers',
     validationQuestion: 'Question text is required',
-    validationOptions: 'At least 2 options with text are required',
+    validationOptions: 'At least 2 options with text or an image are required',
     validationMcqOneCorrect: 'Exactly one option must be marked correct',
     validationMrqCorrect: 'At least one option must be marked correct',
     validationAnswers: 'At least one accepted answer is required',
@@ -348,9 +350,6 @@ export default {
     validationMatchingItems: 'At least one prompt and one answer with text are required',
     validationMatchingPairs: 'Every prompt needs a selected match',
     validationOrderingItems: 'At least 2 items with text are required',
-    cancel: 'Cancel',
-    add: 'Add Question',
-    save: 'Save',
   },
 
   bankPicker: {
@@ -368,7 +367,6 @@ export default {
   },
 
   assign: {
-    title: 'Assign Assessment',
     description: 'Assign to a whole classroom or to individual students.',
     draftWarning: 'This assessment is still a draft — students only see it once it is published.',
     currentTitle: 'Current Assignments',
@@ -398,14 +396,9 @@ export default {
     toastAssigned: 'Assessment assigned',
     toastRemoved: 'Assignment removed',
     toastLoadFailed: 'Failed to load assignments',
-    close: 'Close',
   },
 
   results: {
-    title: 'Results',
-    subtitle: (title: string) => `Student attempts for "${title}"`,
-    backToBuilder: 'Assessment',
-    attemptsTitle: 'Attempts',
     studentCol: 'Student',
     usernameCol: 'Username',
     statusCol: 'Status',
@@ -419,7 +412,6 @@ export default {
     noAttempts: 'No Attempts Yet',
     noAttemptsDesc: 'No student has started this assessment.',
     toastLoadFailed: 'Failed to load results',
-    viewBreakdown: 'View breakdown',
     assignedTile: 'Students assigned',
     assignedTileHint: 'Directly or via a classroom',
     completedTile: 'Completed',

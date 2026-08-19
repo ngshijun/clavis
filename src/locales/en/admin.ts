@@ -86,40 +86,6 @@ export default {
     toastCreated: (name: string) => `Manager ${name} created`,
   },
 
-  students: {
-    title: 'Students',
-    subtitle: 'View and manage all student accounts',
-    searchPlaceholder: 'Search by name or email...',
-    nameCol: 'Name',
-    emailCol: 'Email',
-    gradeCol: 'Grade',
-    dobCol: 'Date of Birth',
-    joinedCol: 'Joined',
-    noStudentsFound: 'No Students Found',
-    noStudentsMatchSearch: 'No students match your search criteria.',
-    noStudentsRegistered: 'No students have registered yet.',
-  },
-
-  studentStatistics: {
-    backToStudents: 'Back to Students',
-    title: 'Student Statistics',
-    subtitle: 'View practice history and performance',
-    tabInfo: 'Student Info',
-    tabPractice: 'Practice History',
-    practiceHistoryTitle: 'Practice History',
-    practiceHistoryDesc: 'View all practice sessions and scores',
-    noSessionsFound: 'No practice sessions found for the selected filters.',
-    toastLoadFailed: 'Failed to load statistics',
-  },
-
-  studentSessionResult: {
-    backToStatistics: 'Back to Statistics',
-    title: 'Session Results',
-    aiSummary: 'AI Summary',
-    sessionNotFound: 'Session not found',
-    goBack: 'Go Back',
-  },
-
   subTopicQuestions: {
     title: 'Questions',
     subtitle: (subTopic: string) => `Manage the questions students practise in ${subTopic}.`,
@@ -133,6 +99,8 @@ export default {
     delete: 'Delete',
     noQuestions: 'No questions yet',
     noQuestionsDesc: (subTopic: string) => `Add the first question to ${subTopic}.`,
+    notSavedHint: 'Not saved yet — complete the highlighted fields',
+    discardDraft: 'Discard draft',
     toastQuestionDeleted: 'Question deleted successfully',
     toastTemplateDownloaded: 'Template downloaded',
     toastTemplateFailed: 'Failed to download template',
@@ -250,8 +218,15 @@ export default {
     pathOrderDesc:
       'Students follow this order on their learning map. Drag a row to reorder, or click one to manage its questions.',
     dragToReorder: 'Drag to reorder',
-    editName: 'Rename',
-    editImage: 'Change image',
+    edit: 'Edit',
+    open: 'Open',
+    collapseEditor: 'Collapse',
+    nameLabel: 'Name',
+    coverImageLabel: 'Cover image',
+    addImage: 'Add image',
+    replaceImage: 'Replace image',
+    removeImage: 'Remove image',
+    notSavedName: 'Not saved yet — the name cannot be empty',
     questionCount: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`,
   },
 

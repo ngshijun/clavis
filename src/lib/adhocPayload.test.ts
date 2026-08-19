@@ -281,6 +281,61 @@ describe('buildAdhocPayload', () => {
       explanation: 'why',
     })
   })
+
+  it('emits a question image_path only when non-blank (every type)', () => {
+    const withImage = buildAdhocPayload(
+      draft({ type: 'true_false', question: 'Q', imagePath: ' a1/pic.webp ' }),
+    )
+    expect(withImage.payload).toEqual({
+      type: 'true_false',
+      question: 'Q',
+      answer: true,
+      image_path: 'a1/pic.webp',
+    })
+
+    // Blank/null paths never emit the key — the DB CHECK rejects "".
+    const blank = buildAdhocPayload(draft({ type: 'long_answer', question: 'Q', imagePath: '  ' }))
+    expect(blank.payload).toEqual({ type: 'long_answer', question: 'Q' })
+    const none = buildAdhocPayload(draft({ type: 'long_answer', question: 'Q', imagePath: null }))
+    expect(none.payload).toEqual({ type: 'long_answer', question: 'Q' })
+  })
+
+  it('keeps image-only options and emits per-option image_path', () => {
+    const result = buildAdhocPayload(
+      draft({
+        type: 'mcq',
+        question: 'Q',
+        options: [
+          { text: '', isCorrect: true, imagePath: 'a1/o1.webp' },
+          { text: 'b', isCorrect: false, imagePath: null },
+          { text: '  ', isCorrect: false }, // no text, no image → dropped
+        ],
+      }),
+    )
+    expect(result.error).toBeNull()
+    expect(result.payload).toEqual({
+      type: 'mcq',
+      question: 'Q',
+      options: [
+        { text: '', is_correct: true, image_path: 'a1/o1.webp' },
+        { text: 'b', is_correct: false },
+      ],
+    })
+  })
+
+  it('still requires 2 countable options when images are absent', () => {
+    const result = buildAdhocPayload(
+      draft({
+        type: 'mcq',
+        question: 'Q',
+        options: [
+          { text: 'a', isCorrect: true },
+          { text: ' ', isCorrect: false, imagePath: '   ' },
+        ],
+      }),
+    )
+    expect(result.error).toBe('optionsMin')
+  })
 })
 
 describe('payloadToDraft round-trips', () => {
@@ -352,6 +407,41 @@ describe('payloadToDraft round-trips', () => {
         expect(rebuilt.payload).toEqual(payload)
       }
     }
+  })
+
+  it('round-trips question and option images', () => {
+    const payload: AdhocPayload = {
+      type: 'mcq',
+      question: 'Q',
+      image_path: 'a1/q.webp',
+      options: [
+        { text: '', is_correct: true, image_path: 'a1/o1.webp' },
+        { text: 'b', is_correct: false },
+      ],
+    }
+    const rebuilt = buildAdhocPayload(payloadToDraft(payload))
+    expect(rebuilt.error).toBeNull()
+    expect(rebuilt.payload).toEqual(payload)
+
+    // A stored JSON null degrades to "no image" on both levels.
+    const withNulls: AdhocPayload = {
+      type: 'mcq',
+      question: 'Q',
+      image_path: null,
+      options: [
+        { text: 'a', is_correct: true, image_path: null },
+        { text: 'b', is_correct: false },
+      ],
+    }
+    const rebuiltNulls = buildAdhocPayload(payloadToDraft(withNulls))
+    expect(rebuiltNulls.payload).toEqual({
+      type: 'mcq',
+      question: 'Q',
+      options: [
+        { text: 'a', is_correct: true },
+        { text: 'b', is_correct: false },
+      ],
+    })
   })
 })
 

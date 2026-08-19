@@ -61,8 +61,14 @@ export interface AssessmentQuestionItem {
   questionId: string | null
   type: AdhocQuestionType
   question: string
+  /**
+   * Question-level image. Bank questions store it in `question-images`;
+   * ad-hoc payload images live in `assessment-images` (P10a) — resolve the
+   * bucket from `source`.
+   */
+  imagePath: string | null
   /** Display options (mcq/mrq); `number` is the 1-based ordinal the grader expects. */
-  options: { number: number; text: string }[]
+  options: { number: number; text: string; imagePath: string | null }[]
   /** Raw payload for ad-hoc edit round-trips and result rendering; null for bank questions. */
   payload: AdhocPayload | null
 }
@@ -140,6 +146,28 @@ export interface MarkAnswerResult {
   pendingCount: number
 }
 
+/** Display fields derived from an ad-hoc payload (list rows, result dialogs). */
+function adhocDisplayFields(payload: AdhocPayload): {
+  type: AdhocQuestionType
+  question: string
+  imagePath: string | null
+  options: { number: number; text: string; imagePath: string | null }[]
+} {
+  return {
+    type: payload.type ?? 'mcq',
+    question: payloadPrompt(payload) ?? '',
+    imagePath: payload.image_path ?? null,
+    options:
+      payload.type === 'mcq' || payload.type === 'mrq'
+        ? payload.options.map((option, index) => ({
+            number: index + 1,
+            text: option.text,
+            imagePath: option.image_path ?? null,
+          }))
+        : [],
+  }
+}
+
 function rowToAssessmentQuestion(
   row: AssessmentQuestionRow & { questions: QuestionRow | null },
 ): AssessmentQuestionItem {
@@ -160,15 +188,17 @@ function rowToAssessmentQuestion(
       questionId: row.question_id,
       type: bank.type,
       question: bank.question,
+      imagePath: bank.image_path,
       options:
         bank.type === 'short_answer'
           ? []
           : bankOptions
-              .map((option, index) => ({ number: index + 1, text: option.text ?? '' }))
-              .filter((option, index) => {
-                const source = bankOptions[index]
-                return Boolean(source?.text) || Boolean(source?.imagePath)
-              }),
+              .map((option, index) => ({
+                number: index + 1,
+                text: option.text ?? '',
+                imagePath: option.imagePath,
+              }))
+              .filter((option) => Boolean(option.text) || Boolean(option.imagePath)),
       payload: null,
     }
   }
@@ -181,12 +211,7 @@ function rowToAssessmentQuestion(
     points: row.points,
     source: 'adhoc',
     questionId: null,
-    type: payload.type ?? 'mcq',
-    question: payloadPrompt(payload) ?? '',
-    options:
-      payload.type === 'mcq' || payload.type === 'mrq'
-        ? payload.options.map((option, index) => ({ number: index + 1, text: option.text }))
-        : [],
+    ...adhocDisplayFields(payload),
     payload,
   }
 }
@@ -611,26 +636,47 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /** Insert an ad-hoc question and return its id (the builder expands it). */
   async function addAdhocQuestion(
     assessmentId: string,
     payload: AdhocPayload,
-  ): Promise<{ error: string | null }> {
+  ): Promise<{ id: string | null; error: string | null }> {
     try {
-      const { error: insertError } = await supabase.from('assessment_questions').insert({
-        assessment_id: assessmentId,
-        payload: payload as unknown as Json,
-        position: nextPosition(),
-      })
+      const { data, error: insertError } = await supabase
+        .from('assessment_questions')
+        .insert({
+          assessment_id: assessmentId,
+          payload: payload as unknown as Json,
+          position: nextPosition(),
+        })
+        .select('id')
+        .single()
 
       if (insertError) throw insertError
 
-      return await fetchAssessmentQuestions(assessmentId)
+      const { error } = await fetchAssessmentQuestions(assessmentId)
+      return { id: data.id, error }
     } catch (err) {
-      return { error: handleError(err, 'failedAddAssessmentQuestions') }
+      return { id: null, error: handleError(err, 'failedAddAssessmentQuestions') }
     }
   }
 
-  async function updateAdhocQuestion(
+  /**
+   * Optimistic local payload update for the Forms-style inline card
+   * (autosave). Rewrites the derived display fields in place and returns the
+   * previous payload (the rollback baseline), or null for an unknown /
+   * bank-sourced question.
+   */
+  function applyAdhocPayload(id: string, payload: AdhocPayload): AdhocPayload | null {
+    const item = currentQuestions.value.find((q) => q.id === id)
+    if (!item || item.source !== 'adhoc' || !item.payload) return null
+    const previous = item.payload
+    Object.assign(item, adhocDisplayFields(payload), { payload })
+    return previous
+  }
+
+  /** Persist an ad-hoc payload (DB only — local state is applied optimistically). */
+  async function persistAdhocPayload(
     id: string,
     payload: AdhocPayload,
   ): Promise<{ error: string | null }> {
@@ -641,18 +687,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         .eq('id', id)
 
       if (updateError) throw updateError
-
-      const item = currentQuestions.value.find((q) => q.id === id)
-      if (item) {
-        return await fetchAssessmentQuestions(item.assessmentId)
-      }
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
     }
   }
 
-  async function updateQuestionPoints(
+  /** Optimistic local points update; returns the previous points, or null. */
+  function applyQuestionPoints(id: string, points: number): number | null {
+    const item = currentQuestions.value.find((q) => q.id === id)
+    if (!item) return null
+    const previous = item.points
+    item.points = points
+    return previous
+  }
+
+  /** Persist a question's points (DB only — local state is applied optimistically). */
+  async function persistQuestionPoints(
     id: string,
     points: number,
   ): Promise<{ error: string | null }> {
@@ -663,10 +714,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
         .eq('id', id)
 
       if (updateError) throw updateError
-
-      const item = currentQuestions.value.find((q) => q.id === id)
-      if (item) item.points = points
-
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
@@ -693,7 +740,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
    * Optimistic local question reorder (decision 72b). `position` is rewritten
    * 1-based to mirror what `reorder_assessment_questions` writes. Persistence
    * is decoupled: the builder page debounces/coalesces saves through
-   * `useOrderPersistence` and calls `persistQuestionOrder`, rolling back via
+   * `useAutosave` and calls `persistQuestionOrder`, rolling back via
    * this same function on final failure.
    *
    * Returns the pre-drag id order (the rollback baseline), or null when
@@ -1143,8 +1190,10 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     fetchAssessmentQuestions,
     addBankQuestions,
     addAdhocQuestion,
-    updateAdhocQuestion,
-    updateQuestionPoints,
+    applyAdhocPayload,
+    persistAdhocPayload,
+    applyQuestionPoints,
+    persistQuestionPoints,
     removeQuestion,
     applyQuestionOrder,
     persistQuestionOrder,

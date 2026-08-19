@@ -257,6 +257,17 @@ export function useQuestionForm() {
     setFieldValue('options', options)
   }
 
+  /**
+   * Synchronously validate the current form values against the same zod
+   * schema `handleSubmit` uses. Returns the parsed values when valid, `null`
+   * otherwise — the single validation source for the autosaving question
+   * card (which has no submit event).
+   */
+  function validateCurrent(): z.infer<typeof questionFormSchema> | null {
+    const parsed = questionFormSchema.safeParse(values)
+    return parsed.success ? parsed.data : null
+  }
+
   // ─── Edit-only: get display URL for option images ─────────────────────────────
   function getOptionImageUrl(optionId: 'a' | 'b' | 'c' | 'd'): string {
     const option = values.options?.find((o) => o.id === optionId)
@@ -341,6 +352,7 @@ export function useQuestionForm() {
     handleSubmit,
     values,
     setFieldValue,
+    validateCurrent,
     errors,
     isSaving,
     selectedTagIds,

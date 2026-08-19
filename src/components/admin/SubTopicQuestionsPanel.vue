@@ -1,23 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, h, watch, onMounted } from 'vue'
-import type { ColumnDef } from '@tanstack/vue-table'
-import { useQuestionsStore, type Question } from '@/stores/questions'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useQuestionsStore, type Question, type UpdateQuestionInput } from '@/stores/questions'
 import { useCurriculumStore, type SubTopic } from '@/stores/curriculum'
+import { useAutosave } from '@/composables/useAutosave'
 import { generateQuestionTemplate } from '@/lib/excel/questionExcel'
-import {
-  Download,
-  Loader2,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
-} from 'lucide-vue-next'
+import { Download, Loader2, Plus, Search, Upload } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { DataTable } from '@/components/ui/data-table'
+import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
 import {
   Dialog,
   DialogContent,
@@ -26,23 +16,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import QuestionAddDialog from './QuestionAddDialog.vue'
-import QuestionEditDialog from './QuestionEditDialog.vue'
-import QuestionPreviewDialog from './QuestionPreviewDialog.vue'
+import BankQuestionCard from './BankQuestionCard.vue'
 import QuestionBulkUploadDialog from './QuestionBulkUploadDialog.vue'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
 /**
- * Question management for ONE sub-topic (decision 42). All CRUD and the bulk
- * Excel import are scoped to the sub-topic the admin drilled into on the
- * curriculum page — there is no global question bank anymore.
+ * Question management for ONE sub-topic (decision 42), in the Google-Forms
+ * card style (P10c): a stack of `BankQuestionCard`s that expand in place for
+ * editing with background autosave, plus a floating action toolbar (add ·
+ * bulk upload · template). All CRUD and the bulk Excel import stay scoped to
+ * the sub-topic the admin drilled into.
  */
 const props = defineProps<{
   subTopic: SubTopic
@@ -56,15 +40,21 @@ const subTopicQuestions = ref<Question[]>([])
 const isLoading = ref(false)
 const search = ref('')
 
-const showAddDialog = ref(false)
-const showEditDialog = ref(false)
+/** One card expanded at a time; 'draft' is the unsaved new-question card. */
+const expandedId = ref<string | null>(null)
+/** True while the new-question draft card is shown. */
+const isAdding = ref(false)
+/** Set once the draft card inserts its row (hidden from the list until the draft closes). */
+const draftCreatedId = ref<string | null>(null)
+
 const showDeleteDialog = ref(false)
-const showPreviewDialog = ref(false)
 const showBulkUploadDialog = ref(false)
 const selectedQuestion = ref<Question | null>(null)
-const editingQuestion = ref<Question | null>(null)
-const previewQuestion = ref<Question | null>(null)
 const isDeleting = ref(false)
+
+const { status: saveStatus, enqueue } = useAutosave({
+  onError: (message) => toast.error(message),
+})
 
 async function loadQuestions() {
   isLoading.value = true
@@ -88,134 +78,97 @@ watch(
   () => props.subTopic.id,
   () => {
     search.value = ''
+    expandedId.value = null
+    isAdding.value = false
+    draftCreatedId.value = null
     loadQuestions()
   },
 )
 
 const filteredQuestions = computed(() => {
   const query = search.value.trim().toLowerCase()
-  if (!query) return subTopicQuestions.value
-  return subTopicQuestions.value.filter((q) => q.question.toLowerCase().includes(query))
+  const base = query
+    ? subTopicQuestions.value.filter((q) => q.question.toLowerCase().includes(query))
+    : subTopicQuestions.value
+  // While the draft card is open its freshly-inserted row is rendered BY the
+  // draft card — hide the duplicate until the draft closes.
+  if (isAdding.value && draftCreatedId.value) {
+    return base.filter((q) => q.id !== draftCreatedId.value)
+  }
+  return base
 })
 
-// Column definitions — no curriculum columns: everything here IS this sub-topic
-const columns = computed<ColumnDef<Question>[]>(() => [
-  {
-    accessorKey: 'question',
-    header: t.value.shared.questionBankTable.questionCol,
-    cell: ({ row }) => {
-      const question = row.original.question
-      return h(
-        'div',
-        { class: 'max-w-[20rem] lg:max-w-[40rem] truncate font-medium', title: question },
-        question,
-      )
-    },
-  },
-  {
-    accessorKey: 'type',
-    header: t.value.shared.questionBankTable.typeCol,
-    cell: ({ row }) => {
-      const type = row.original.type
-      const config: Record<string, { label: string; color: string; bgColor: string }> = {
-        mcq: {
-          label: t.value.shared.questionBankTable.typeMultipleChoice,
-          color: 'text-blue-700 dark:text-blue-300',
-          bgColor: 'bg-blue-100 dark:bg-blue-900/50',
-        },
-        mrq: {
-          label: t.value.shared.questionBankTable.typeMultipleResponse,
-          color: 'text-purple-700 dark:text-purple-300',
-          bgColor: 'bg-purple-100 dark:bg-purple-900/50',
-        },
-        short_answer: {
-          label: t.value.shared.questionBankTable.typeShortAnswer,
-          color: 'text-green-700 dark:text-green-300',
-          bgColor: 'bg-green-100 dark:bg-green-900/50',
-        },
-      }
-      const typeConfig = config[type] ?? config.mcq
-      return h(
-        Badge,
-        { variant: 'secondary', class: `${typeConfig!.bgColor} ${typeConfig!.color}` },
-        () => typeConfig!.label,
-      )
-    },
-  },
-  {
-    id: 'tags',
-    header: () => t.value.shared.questionBankTable.tagsCol,
-    cell: ({ row }) => {
-      const tags = row.original.tags
-      if (tags.length === 0) {
-        return h('span', { class: 'text-muted-foreground' }, '—')
-      }
-      return h(
-        'div',
-        { class: 'flex max-w-[16rem] flex-wrap gap-1' },
-        tags.map((tag) => h(Badge, { key: tag.id, variant: 'outline' }, () => tag.name)),
-      )
-    },
-  },
-  {
-    id: 'actions',
-    cell: ({ row }) => {
-      const question = row.original
-      return h(
-        DropdownMenu,
-        {},
-        {
-          default: () => [
-            h(DropdownMenuTrigger, { asChild: true }, () =>
-              h(
-                Button,
-                {
-                  variant: 'ghost',
-                  size: 'icon',
-                  class: 'size-6',
-                  onClick: (event: Event) => event.stopPropagation(),
-                },
-                () => h(MoreHorizontal, { class: 'size-4' }),
-              ),
-            ),
-            h(DropdownMenuContent, { align: 'end' }, () => [
-              h(
-                DropdownMenuItem,
-                {
-                  onClick: (event: Event) => {
-                    event.stopPropagation()
-                    editingQuestion.value = question
-                    showEditDialog.value = true
-                  },
-                },
-                () => [h(Pencil, { class: 'mr-2 size-4' }), t.value.shared.questionBankTable.edit],
-              ),
-              h(
-                DropdownMenuItem,
-                {
-                  class: 'text-destructive focus:text-destructive',
-                  onClick: (event: Event) => {
-                    event.stopPropagation()
-                    selectedQuestion.value = question
-                    showDeleteDialog.value = true
-                  },
-                },
-                () => [
-                  h(Trash2, { class: 'mr-2 size-4' }),
-                  t.value.shared.questionBankTable.delete,
-                ],
-              ),
-            ]),
-          ],
-        },
-      )
-    },
-  },
-])
+// Closing the draft card (expanding another card, collapsing) finishes the
+// add: a created row becomes a regular card, an invalid draft is discarded.
+watch(expandedId, (id, previous) => {
+  if (previous === 'draft' && id !== 'draft') {
+    isAdding.value = false
+    draftCreatedId.value = null
+  }
+})
 
-function handleRowClick(question: Question) {
-  previewQuestion.value = question
-  showPreviewDialog.value = true
+function startAdd() {
+  if (isAdding.value) {
+    expandedId.value = 'draft'
+    return
+  }
+  isAdding.value = true
+  draftCreatedId.value = null
+  expandedId.value = 'draft'
+}
+
+/**
+ * Apply an autosaved (or rolled-back) input to the local list entry so the
+ * collapsed preview always shows the latest content. Tags are applied by id
+ * only where names are already known — the next refetch trues them up.
+ */
+function applyInputToQuestion(question: Question, input: UpdateQuestionInput) {
+  if (input.type !== undefined) question.type = input.type
+  if (input.question !== undefined) question.question = input.question
+  if (input.imagePath !== undefined) question.imagePath = input.imagePath
+  if (input.answer !== undefined) question.answer = input.answer
+  if (input.options) question.options = input.options.map((option) => ({ ...option }))
+  if (input.imageHash !== undefined) question.imageHash = input.imageHash
+  if (input.tagIds) {
+    question.tags = question.tags.filter((tag) => input.tagIds!.includes(tag.id))
+  }
+}
+
+function handleChange(id: string, input: UpdateQuestionInput, baseline: UpdateQuestionInput) {
+  const question = subTopicQuestions.value.find((q) => q.id === id)
+  if (question) applyInputToQuestion(question, input)
+  enqueue(`question:${id}`, input, {
+    previous: baseline,
+    save: (value) => questionsStore.updateQuestion(id, value),
+    rollback: (confirmed) => {
+      const target = subTopicQuestions.value.find((q) => q.id === id)
+      if (target) applyInputToQuestion(target, confirmed)
+    },
+  })
+}
+
+async function handleDraftCreated(id: string) {
+  draftCreatedId.value = id
+  await loadQuestions()
+}
+
+function handleDraftRemove() {
+  if (draftCreatedId.value) {
+    const created = subTopicQuestions.value.find((q) => q.id === draftCreatedId.value)
+    if (created) {
+      askDelete(created)
+      return
+    }
+  }
+  // Nothing persisted — just discard the draft card.
+  expandedId.value = null
+  isAdding.value = false
+  draftCreatedId.value = null
+}
+
+function askDelete(question: Question) {
+  selectedQuestion.value = question
+  showDeleteDialog.value = true
 }
 
 async function handleDelete() {
@@ -229,19 +182,20 @@ async function handleDelete() {
       return
     }
     toast.success(t.value.admin.subTopicQuestions.toastQuestionDeleted)
+    if (
+      expandedId.value === selectedQuestion.value.id ||
+      selectedQuestion.value.id === draftCreatedId.value
+    ) {
+      expandedId.value = null
+      isAdding.value = false
+      draftCreatedId.value = null
+    }
     showDeleteDialog.value = false
     selectedQuestion.value = null
     await loadQuestions()
   } finally {
     isDeleting.value = false
   }
-}
-
-async function handleSaved() {
-  showAddDialog.value = false
-  showEditDialog.value = false
-  editingQuestion.value = null
-  await loadQuestions()
 }
 
 async function handleBulkUploadComplete() {
@@ -261,31 +215,60 @@ async function downloadTemplate() {
     toast.error(t.value.admin.subTopicQuestions.toastTemplateFailed)
   }
 }
+
+// ── floating toolbar anchoring (P10b pattern) ──────────────────────────────
+
+const containerEl = ref<HTMLElement | null>(null)
+type CardInstance = InstanceType<typeof BankQuestionCard>
+const cardRefs = new Map<string, CardInstance>()
+
+function setCardRef(id: string, instance: unknown) {
+  if (instance) cardRefs.set(id, instance as CardInstance)
+  else cardRefs.delete(id)
+}
+
+const toolbarTop = ref(0)
+
+function updateToolbarTop() {
+  const activeId = expandedId.value
+  const active = activeId ? cardRefs.get(activeId) : undefined
+  const el = (active?.$el ?? null) as HTMLElement | null
+  if (!el || !containerEl.value) {
+    toolbarTop.value = 0
+    return
+  }
+  const max = Math.max(0, containerEl.value.offsetHeight - 40)
+  toolbarTop.value = Math.min(el.offsetTop, max)
+}
+
+let resizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => updateToolbarTop())
+  if (containerEl.value) resizeObserver.observe(containerEl.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+watch([expandedId, filteredQuestions], () => void nextTick(updateToolbarTop), {
+  deep: false,
+  immediate: true,
+})
 </script>
 
 <template>
   <div>
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
-      <div>
+    <div class="mb-4">
+      <div class="flex items-center gap-3">
         <h2 class="text-sm font-semibold">{{ t.admin.subTopicQuestions.title }}</h2>
-        <p class="text-sm text-muted-foreground">
-          {{ t.admin.subTopicQuestions.subtitle(subTopic.name) }}
-        </p>
+        <SaveStatusPill :status="saveStatus" />
       </div>
-      <div class="flex gap-2">
-        <Button variant="outline" :disabled="isLoading" @click="downloadTemplate">
-          <Download class="mr-2 size-4" />
-          {{ t.admin.subTopicQuestions.templateBtn }}
-        </Button>
-        <Button variant="outline" :disabled="isLoading" @click="showBulkUploadDialog = true">
-          <Upload class="mr-2 size-4" />
-          {{ t.admin.subTopicQuestions.bulkUploadBtn }}
-        </Button>
-        <Button :disabled="isLoading" @click="showAddDialog = true">
-          <Plus class="mr-2 size-4" />
-          {{ t.admin.subTopicQuestions.addQuestionBtn }}
-        </Button>
-      </div>
+      <p class="text-sm text-muted-foreground">
+        {{ t.admin.subTopicQuestions.subtitle(subTopic.name) }}
+      </p>
     </div>
 
     <!-- Loading State (initial load only) -->
@@ -298,7 +281,7 @@ async function downloadTemplate() {
 
     <!-- Empty state -->
     <div
-      v-else-if="subTopicQuestions.length === 0"
+      v-else-if="subTopicQuestions.length === 0 && !isAdding"
       class="rounded-lg border border-dashed p-12 text-center"
     >
       <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
@@ -308,10 +291,20 @@ async function downloadTemplate() {
       <p class="mt-2 text-sm text-muted-foreground">
         {{ t.admin.subTopicQuestions.noQuestionsDesc(subTopic.name) }}
       </p>
-      <Button class="mt-4" @click="showAddDialog = true">
-        <Plus class="mr-2 size-4" />
-        {{ t.admin.subTopicQuestions.addQuestionBtn }}
-      </Button>
+      <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <Button @click="startAdd">
+          <Plus class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.addQuestionBtn }}
+        </Button>
+        <Button variant="outline" @click="showBulkUploadDialog = true">
+          <Upload class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.bulkUploadBtn }}
+        </Button>
+        <Button variant="outline" @click="downloadTemplate">
+          <Download class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.templateBtn }}
+        </Button>
+      </div>
     </div>
 
     <template v-else>
@@ -325,26 +318,90 @@ async function downloadTemplate() {
         />
       </div>
 
-      <!-- Data Table -->
-      <DataTable :columns="columns" :data="filteredQuestions" :on-row-click="handleRowClick" />
+      <!-- Card stack + floating toolbar (Forms model) -->
+      <div ref="containerEl" class="relative lg:pr-14">
+        <div class="space-y-3">
+          <BankQuestionCard
+            v-if="isAdding"
+            key="draft"
+            :ref="(instance) => setCardRef('draft', instance)"
+            :question="null"
+            :sub-topic-id="subTopic.id"
+            :index="0"
+            :expanded="expandedId === 'draft'"
+            @select="expandedId = 'draft'"
+            @created="handleDraftCreated"
+            @change="handleChange"
+            @remove="handleDraftRemove"
+          />
+          <BankQuestionCard
+            v-for="(question, index) in filteredQuestions"
+            :key="question.id"
+            :ref="(instance) => setCardRef(question.id, instance)"
+            :question="question"
+            :sub-topic-id="subTopic.id"
+            :index="isAdding ? index + 1 : index"
+            :expanded="expandedId === question.id"
+            @select="expandedId = question.id"
+            @change="handleChange"
+            @remove="askDelete(question)"
+          />
+        </div>
+
+        <!-- Floating action toolbar — moves with the active card -->
+        <div
+          class="absolute right-0 hidden w-11 flex-col items-center gap-1 rounded-lg border bg-card p-1 shadow-sm transition-[top] duration-200 lg:flex"
+          :style="{ top: `${toolbarTop}px` }"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            class="size-8"
+            :aria-label="t.admin.subTopicQuestions.addQuestionBtn"
+            :title="t.admin.subTopicQuestions.addQuestionBtn"
+            @click="startAdd"
+          >
+            <Plus class="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="size-8"
+            :aria-label="t.admin.subTopicQuestions.bulkUploadBtn"
+            :title="t.admin.subTopicQuestions.bulkUploadBtn"
+            @click="showBulkUploadDialog = true"
+          >
+            <Upload class="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="size-8"
+            :aria-label="t.admin.subTopicQuestions.templateBtn"
+            :title="t.admin.subTopicQuestions.templateBtn"
+            @click="downloadTemplate"
+          >
+            <Download class="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      <!-- Small screens: the same actions as a static bar under the list -->
+      <div class="mt-3 flex flex-wrap items-center gap-2 lg:hidden">
+        <Button variant="outline" size="sm" @click="startAdd">
+          <Plus class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.addQuestionBtn }}
+        </Button>
+        <Button variant="outline" size="sm" @click="showBulkUploadDialog = true">
+          <Upload class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.bulkUploadBtn }}
+        </Button>
+        <Button variant="outline" size="sm" @click="downloadTemplate">
+          <Download class="mr-2 size-4" />
+          {{ t.admin.subTopicQuestions.templateBtn }}
+        </Button>
+      </div>
     </template>
-
-    <!-- Add Question Dialog (scoped to this sub-topic) -->
-    <QuestionAddDialog
-      v-model:open="showAddDialog"
-      :sub-topic-id="subTopic.id"
-      @save="handleSaved"
-    />
-
-    <!-- Edit Question Dialog -->
-    <QuestionEditDialog
-      v-model:open="showEditDialog"
-      :question="editingQuestion"
-      @save="handleSaved"
-    />
-
-    <!-- Question Preview Dialog -->
-    <QuestionPreviewDialog v-model:open="showPreviewDialog" :question="previewQuestion" />
 
     <!-- Bulk Upload Dialog (scoped to this sub-topic) -->
     <QuestionBulkUploadDialog

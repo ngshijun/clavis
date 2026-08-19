@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
-import { useQuestionsStore } from '@/stores/questions'
+import { getStorageImageUrl } from '@/lib/storage'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { shuffle } from '@/lib/practiceHelpers'
@@ -48,7 +48,6 @@ import OrderingAnswerInput from '@/components/session/OrderingAnswerInput.vue'
 const router = useRouter()
 const route = useRoute()
 const store = useStudentAssessmentsStore()
-const questionsStore = useQuestionsStore()
 const t = useT()
 
 // Per-question input state, hydrated from the saved answer on navigation.
@@ -107,8 +106,21 @@ const displayOptions = computed<DisplayOption[]>(() => {
   return options.map((option) => ({
     id: String(option.number),
     text: option.text || null,
-    imagePath: option.imagePath,
+    // Resolve against the RPC-provided bucket (P10a): bank images live in
+    // `question-images`, ad-hoc images in `assessment-images`.
+    imageUrl:
+      option.imagePath && option.imageBucket
+        ? getStorageImageUrl(option.imageBucket, option.imagePath)
+        : null,
   }))
+})
+
+/** Question-level image resolved against the RPC-provided bucket (P10a). */
+const questionImageUrl = computed(() => {
+  const question = currentQuestion.value
+  return question?.imagePath && question.imageBucket
+    ? getStorageImageUrl(question.imageBucket, question.imagePath)
+    : null
 })
 
 const selectedOptionIds = computed(() => new Set([...selectedNumbers.value].map(String)))
@@ -444,10 +456,10 @@ onBeforeRouteLeave((to) => {
 
         <CardContent class="space-y-4">
           <!-- Question image -->
-          <div v-if="currentQuestion.imagePath" class="flex justify-center">
+          <div v-if="questionImageUrl" class="flex justify-center">
             <img
               :key="currentQuestion.assessmentQuestionId"
-              :src="questionsStore.getOptimizedQuestionImageUrl(currentQuestion.imagePath)"
+              :src="questionImageUrl"
               :alt="t.shared.questionPreviewDialog.questionImageAlt"
               class="max-h-64 rounded-lg border object-contain"
               loading="eager"

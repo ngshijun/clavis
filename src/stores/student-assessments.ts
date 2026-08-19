@@ -38,6 +38,12 @@ export interface RunnerOption {
   number: number
   text: string
   imagePath: string | null
+  /**
+   * Bucket holding `imagePath`, emitted by the RPC (P10a): bank images live
+   * in `question-images`, ad-hoc images in `assessment-images`. Null when
+   * there is no image.
+   */
+  imageBucket: string | null
 }
 
 export interface RunnerItem {
@@ -53,6 +59,8 @@ export interface RunnerQuestion {
   /** Empty for a promptless cloze — render `clozeText` instead. */
   question: string
   imagePath: string | null
+  /** Bucket holding `imagePath` (P10a, see RunnerOption.imageBucket). */
+  imageBucket: string | null
   /** mcq / mrq only. */
   options: RunnerOption[]
   /** numeric only. */
@@ -189,7 +197,13 @@ function parseRunnerQuestions(raw: unknown): RunnerQuestion[] {
         type: AdhocQuestionType
         question: string | null
         image_path: string | null
-        options: { number: number; text: string | null; image_path: string | null }[]
+        image_bucket: string | null
+        options: {
+          number: number
+          text: string | null
+          image_path: string | null
+          image_bucket: string | null
+        }[]
         unit?: string | null
         text?: string | null
         blanks?: { index: number }[]
@@ -204,10 +218,12 @@ function parseRunnerQuestions(raw: unknown): RunnerQuestion[] {
         type: q.type,
         question: q.question ?? '',
         imagePath: q.image_path ?? null,
+        imageBucket: q.image_bucket ?? null,
         options: (q.options ?? []).map((option) => ({
           number: option.number,
           text: option.text ?? '',
           imagePath: option.image_path ?? null,
+          imageBucket: option.image_bucket ?? null,
         })),
         unit: q.unit ?? null,
         clozeText: q.text ?? null,
