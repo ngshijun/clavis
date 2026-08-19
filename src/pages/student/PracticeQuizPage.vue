@@ -23,7 +23,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import QuestionFeedbackDialog from '@/components/practice/QuestionFeedbackDialog.vue'
-import QuestionOptionsList from '@/components/session/QuestionOptionsList.vue'
+import QuestionOptionsList, {
+  type DisplayOption,
+} from '@/components/session/QuestionOptionsList.vue'
 import ShortAnswerInput from '@/components/session/ShortAnswerInput.vue'
 
 const router = useRouter()
@@ -101,6 +103,18 @@ onMounted(async () => {
 
 const currentQuestion = computed(() => practiceStore.currentQuestion)
 const { displayOptions, clearCache: clearShuffleCache } = useQuestionShuffle(currentQuestion)
+
+// Bank option images live in `question-images`; the shared options list takes
+// fully-resolved URLs (the assessment runner resolves per the RPC's bucket).
+const sessionDisplayOptions = computed<DisplayOption[]>(() =>
+  displayOptions.value.map((option) => ({
+    id: option.id,
+    text: option.text,
+    imageUrl: option.imagePath
+      ? questionsStore.getThumbnailQuestionImageUrl(option.imagePath)
+      : null,
+  })),
+)
 const isAnswered = computed(() => practiceStore.isCurrentQuestionAnswered)
 const progress = computed(() => {
   if (!practiceStore.totalQuestions) return 0
@@ -314,7 +328,7 @@ onBeforeRouteLeave((to) => {
                  the student's own selection only, never correctness -->
             <QuestionOptionsList
               v-if="currentQuestion.type === 'mcq' || currentQuestion.type === 'mrq'"
-              :options="displayOptions"
+              :options="sessionDisplayOptions"
               :question-id="currentQuestion.id"
               :question-type="currentQuestion.type"
               :selected-option-ids="selectedOptionIds"

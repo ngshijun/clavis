@@ -769,7 +769,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
    * `display_order` is what every level sorts by (and, for sub-topics, IS the
    * learning-map order); it is rewritten 1-based and gap-free on every drop.
    * Persistence is decoupled (decision 72b): the page debounces/coalesces
-   * saves through `useOrderPersistence` and calls the `persist*Order` RPC
+   * saves through `useAutosave` and calls the `persist*Order` RPC
    * wrappers below, rolling back via this same function on final failure.
    *
    * Returns the pre-drag id order (the rollback baseline), or null when

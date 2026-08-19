@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useQuestionsStore } from '@/stores/questions'
+import { getStorageImageUrl } from '@/lib/storage'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
 import { clozeSegments } from '@/lib/attemptResponse'
@@ -33,8 +33,20 @@ const props = defineProps<{
   gradesHidden: boolean
 }>()
 
-const questionsStore = useQuestionsStore()
 const t = useT()
+
+/** Question image resolved against the RPC-provided bucket (P10a). */
+const questionImageUrl = computed(() =>
+  props.question.imagePath && props.question.imageBucket
+    ? getStorageImageUrl(props.question.imageBucket, props.question.imagePath)
+    : null,
+)
+
+function optionImageUrl(option: { imagePath: string | null; imageBucket: string | null }): string {
+  return option.imagePath && option.imageBucket
+    ? getStorageImageUrl(option.imageBucket, option.imagePath)
+    : ''
+}
 
 type Status = 'hidden' | 'unanswered' | 'pending' | 'correct' | 'partial' | 'incorrect'
 
@@ -186,8 +198,8 @@ const showAnswerKey = computed(() => props.question.correct !== null)
 
       <!-- Question image -->
       <img
-        v-if="question.imagePath"
-        :src="questionsStore.getOptimizedQuestionImageUrl(question.imagePath)"
+        v-if="questionImageUrl"
+        :src="questionImageUrl"
         :alt="t.shared.questionPreviewDialog.questionImageAlt"
         class="max-h-40 rounded-md object-contain"
         loading="lazy"
@@ -209,8 +221,8 @@ const showAnswerKey = computed(() => props.question.correct !== null)
           <div class="flex flex-1 items-center gap-2">
             <span v-if="option.text">{{ option.text }}</span>
             <img
-              v-if="option.imagePath"
-              :src="questionsStore.getThumbnailQuestionImageUrl(option.imagePath)"
+              v-if="option.imagePath && option.imageBucket"
+              :src="optionImageUrl(option)"
               :alt="t.shared.questionPreviewDialog.optionImageAlt"
               class="max-h-12 rounded border object-contain"
               loading="lazy"

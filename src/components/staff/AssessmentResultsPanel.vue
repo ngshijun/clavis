@@ -1,19 +1,8 @@
 <script setup lang="ts">
 import { ref, h, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentAttempt } from '@/stores/assessments'
 import { useStaffDashboardStore, type AssessmentCompletion } from '@/stores/staff-dashboard'
-import { useAuthStore } from '@/stores/auth'
-import {
-  ArrowLeft,
-  ArrowUpDown,
-  BarChart3,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Timer,
-  Users,
-} from 'lucide-vue-next'
+import { BarChart3, ArrowUpDown, CheckCircle2, Clock, Loader2, Timer, Users } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,41 +12,39 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import AttemptResultDialog from '@/components/staff/AttemptResultDialog.vue'
 import { toast } from 'vue-sonner'
 import { formatDateTime } from '@/lib/date'
-import { useMarkingAuthz } from '@/composables/useMarkingAuthz'
 import { useT } from '@/composables/useT'
 
+/**
+ * The builder's Results tab (formerly AssessmentResultsPage): completion
+ * summary, score distribution, attempts table and the per-attempt breakdown
+ * dialog (which is also the marking surface). The builder owns the assessment
+ * detail + questions + marking authz; this panel only loads attempts and the
+ * aggregated completion summary on mount (fresh per tab activation).
+ */
 const t = useT()
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
 const staffDashboardStore = useStaffDashboardStore()
 
-const assessmentId = computed(() => String(route.params.assessmentId))
-const basePath = computed(() => `/${authStore.userType}`)
+const props = defineProps<{
+  assessmentId: string
+  /** P9b marking authz (client mirror of `app.can_mark_assessment`). */
+  canMark: boolean
+}>()
 
 const isLoading = ref(true)
 const showResultDialog = ref(false)
 const selectedAttempt = ref<AssessmentAttempt | null>(null)
 const completion = ref<AssessmentCompletion | null>(null)
 
-// Marking queue authz (P9b): decides whether the breakdown dialog shows the
-// per-answer award + comment inputs. Same matrix as the release action.
-const { canMark, loadMarkingAuthz } = useMarkingAuthz()
-
 onMounted(async () => {
-  // Assessment + questions (for the per-question breakdown labels) + attempts
-  // + the aggregated completion summary (assigned vs completed, distribution).
-  const [detailResult, attemptsResult, completionResult] = await Promise.all([
-    assessmentsStore.fetchAssessmentDetail(assessmentId.value),
-    assessmentsStore.fetchAttempts(assessmentId.value),
-    staffDashboardStore.fetchAssessmentCompletion(assessmentId.value),
-    loadMarkingAuthz(assessmentId.value),
+  const [attemptsResult, completionResult] = await Promise.all([
+    assessmentsStore.fetchAttempts(props.assessmentId),
+    staffDashboardStore.fetchAssessmentCompletion(props.assessmentId),
   ])
   isLoading.value = false
   completion.value = completionResult.completion
 
-  if (detailResult.error || attemptsResult.error || completionResult.error) {
+  if (attemptsResult.error || completionResult.error) {
     toast.error(t.value.staff.results.toastLoadFailed)
   }
 })
@@ -201,107 +188,87 @@ const columns = computed<ColumnDef<AssessmentAttempt>[]>(() => [
 </script>
 
 <template>
-  <div class="p-6">
-    <!-- Back link -->
-    <Button
-      variant="ghost"
-      size="sm"
-      class="-ml-2 mb-4"
-      @click="router.push(`${basePath}/assessments/${assessmentId}`)"
-    >
-      <ArrowLeft class="mr-2 size-4" />
-      {{ t.staff.results.backToBuilder }}
-    </Button>
+  <div v-if="isLoading" class="flex items-center justify-center py-12">
+    <Loader2 class="size-8 animate-spin text-muted-foreground" />
+  </div>
 
-    <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <Loader2 class="size-8 animate-spin text-muted-foreground" />
+  <template v-else>
+    <!-- Completion summary (get_assessment_completion) + marking queue -->
+    <div v-if="completion" class="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <StatTile
+        :label="t.staff.results.assignedTile"
+        :value="completion.assignedCount"
+        :icon="Users"
+        :subtitle="t.staff.results.assignedTileHint"
+      />
+      <StatTile
+        :label="t.staff.results.completedTile"
+        :value="completion.completedCount"
+        :icon="CheckCircle2"
+      />
+      <StatTile
+        :label="t.staff.results.inProgressTile"
+        :value="completion.inProgressCount"
+        :icon="Timer"
+      />
+      <StatTile
+        :label="t.staff.results.pendingTile"
+        :value="pendingMarkingTotal"
+        :icon="Clock"
+        :subtitle="t.staff.results.pendingTileHint"
+      />
+      <StatTile
+        :label="t.staff.results.avgScoreTile"
+        :value="completion.avgScore === null ? '—' : `${completion.avgScore}%`"
+        :icon="BarChart3"
+      />
     </div>
 
-    <template v-else>
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold">{{ t.staff.results.title }}</h1>
-        <p class="text-muted-foreground">
-          {{ t.staff.results.subtitle(assessmentsStore.currentAssessment?.title ?? '') }}
-        </p>
-      </div>
-
-      <!-- Completion summary (get_assessment_completion) + marking queue -->
-      <div v-if="completion" class="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <StatTile
-          :label="t.staff.results.assignedTile"
-          :value="completion.assignedCount"
-          :icon="Users"
-          :subtitle="t.staff.results.assignedTileHint"
-        />
-        <StatTile
-          :label="t.staff.results.completedTile"
-          :value="completion.completedCount"
-          :icon="CheckCircle2"
-        />
-        <StatTile
-          :label="t.staff.results.inProgressTile"
-          :value="completion.inProgressCount"
-          :icon="Timer"
-        />
-        <StatTile
-          :label="t.staff.results.pendingTile"
-          :value="pendingMarkingTotal"
-          :icon="Clock"
-          :subtitle="t.staff.results.pendingTileHint"
-        />
-        <StatTile
-          :label="t.staff.results.avgScoreTile"
-          :value="completion.avgScore === null ? '—' : `${completion.avgScore}%`"
-          :icon="BarChart3"
-        />
-      </div>
-
-      <!-- Score distribution over completed attempts -->
-      <Card v-if="completion && completion.completedCount > 0" class="mb-6">
-        <CardHeader>
-          <CardTitle class="text-base">{{ t.staff.results.distributionTitle }}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="space-y-2">
-            <div v-for="bucket in distribution" :key="bucket.key" class="flex items-center gap-3">
-              <span class="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                {{ bucket.label }}
-              </span>
-              <div class="flex flex-1 items-center gap-2">
-                <div
-                  v-if="bucket.count > 0"
-                  class="h-4 rounded-r-sm bg-primary"
-                  :style="{ width: `${bucket.percent}%` }"
-                />
-                <span class="text-xs tabular-nums text-muted-foreground">{{ bucket.count }}</span>
-              </div>
+    <!-- Score distribution over completed attempts -->
+    <Card v-if="completion && completion.completedCount > 0" class="mb-6">
+      <CardHeader>
+        <CardTitle class="text-base">{{ t.staff.results.distributionTitle }}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="space-y-2">
+          <div v-for="bucket in distribution" :key="bucket.key" class="flex items-center gap-3">
+            <span class="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+              {{ bucket.label }}
+            </span>
+            <div class="flex flex-1 items-center gap-2">
+              <div
+                v-if="bucket.count > 0"
+                class="h-4 rounded-r-sm bg-primary"
+                :style="{ width: `${bucket.percent}%` }"
+              />
+              <span class="text-xs tabular-nums text-muted-foreground">{{ bucket.count }}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
 
-      <!-- Empty State -->
-      <div v-if="assessmentsStore.currentAttempts.length === 0" class="py-16 text-center">
-        <BarChart3 class="mx-auto size-16 text-muted-foreground/50" />
-        <h2 class="mt-4 text-lg font-semibold">{{ t.staff.results.noAttempts }}</h2>
-        <p class="mt-2 text-muted-foreground">{{ t.staff.results.noAttemptsDesc }}</p>
-      </div>
+    <!-- Empty State -->
+    <div v-if="assessmentsStore.currentAttempts.length === 0" class="py-16 text-center">
+      <BarChart3 class="mx-auto size-16 text-muted-foreground/50" />
+      <h2 class="mt-4 text-lg font-semibold">{{ t.staff.results.noAttempts }}</h2>
+      <p class="mt-2 text-muted-foreground">{{ t.staff.results.noAttemptsDesc }}</p>
+    </div>
 
-      <!-- Attempts table -->
-      <DataTable
-        v-else
-        :columns="columns"
-        :data="assessmentsStore.currentAttempts"
-        :on-row-click="openBreakdown"
-        :initial-sorting="[{ id: 'startedAt', desc: true }]"
-      />
-    </template>
-
-    <AttemptResultDialog
-      v-model:open="showResultDialog"
-      :attempt="selectedAttempt"
-      :questions="assessmentsStore.currentQuestions"
-      :can-mark="canMark"
+    <!-- Attempts table -->
+    <DataTable
+      v-else
+      :columns="columns"
+      :data="assessmentsStore.currentAttempts"
+      :on-row-click="openBreakdown"
+      :initial-sorting="[{ id: 'startedAt', desc: true }]"
     />
-  </div>
+  </template>
+
+  <AttemptResultDialog
+    v-model:open="showResultDialog"
+    :attempt="selectedAttempt"
+    :questions="assessmentsStore.currentQuestions"
+    :can-mark="canMark"
+  />
 </template>

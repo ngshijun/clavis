@@ -8,11 +8,11 @@ import CurriculumEditNameDialog from '@/components/admin/CurriculumEditNameDialo
 import CurriculumLevelPanel from '@/components/admin/CurriculumLevelPanel.vue'
 import SubTopicPathList from '@/components/admin/SubTopicPathList.vue'
 import SubTopicQuestionsPanel from '@/components/admin/SubTopicQuestionsPanel.vue'
-import OrderSaveStatusPill from '@/components/shared/OrderSaveStatusPill.vue'
+import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
 import { Plus, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
-import { useOrderPersistence } from '@/composables/useOrderPersistence'
+import { useAutosave } from '@/composables/useAutosave'
 import { useT } from '@/composables/useT'
 import {
   Breadcrumb,
@@ -239,7 +239,7 @@ function handleDeleted(
 // persistence is debounced/coalesced fire-and-forget via the positional RPCs.
 // Dragging is never blocked — the pill in the header is the only affordance.
 // Keys are per parent so different lists never coalesce with each other.
-const { status: orderSaveStatus, enqueue: enqueueOrderSave } = useOrderPersistence({
+const { status: orderSaveStatus, enqueue: enqueueOrderSave } = useAutosave({
   onError: (message) => toast.error(message),
 })
 
@@ -247,7 +247,7 @@ function handleReorderGradeLevels(orderedIds: string[]) {
   const previousIds = curriculumStore.applyGradeLevelOrder(orderedIds)
   if (!previousIds) return
   enqueueOrderSave('grade-levels', orderedIds, {
-    previousIds,
+    previous: previousIds,
     save: (ids) => curriculumStore.persistGradeLevelOrder(ids),
     rollback: (ids) => void curriculumStore.applyGradeLevelOrder(ids),
   })
@@ -259,7 +259,7 @@ function handleReorderSubjects(orderedIds: string[]) {
   const previousIds = curriculumStore.applySubjectOrder(gradeLevelId, orderedIds)
   if (!previousIds) return
   enqueueOrderSave(`subjects:${gradeLevelId}`, orderedIds, {
-    previousIds,
+    previous: previousIds,
     save: (ids) => curriculumStore.persistSubjectOrder(gradeLevelId, ids),
     rollback: (ids) => void curriculumStore.applySubjectOrder(gradeLevelId, ids),
   })
@@ -272,7 +272,7 @@ function handleReorderTopics(orderedIds: string[]) {
   const previousIds = curriculumStore.applyTopicOrder(gradeLevelId, subjectId, orderedIds)
   if (!previousIds) return
   enqueueOrderSave(`topics:${subjectId}`, orderedIds, {
-    previousIds,
+    previous: previousIds,
     save: (ids) => curriculumStore.persistTopicOrder(subjectId, ids),
     rollback: (ids) => void curriculumStore.applyTopicOrder(gradeLevelId, subjectId, ids),
   })
@@ -291,7 +291,7 @@ function handleReorderSubTopics(orderedIds: string[]) {
   )
   if (!previousIds) return
   enqueueOrderSave(`sub-topics:${topicId}`, orderedIds, {
-    previousIds,
+    previous: previousIds,
     save: (ids) => curriculumStore.persistSubTopicOrder(topicId, ids),
     rollback: (ids) =>
       void curriculumStore.applySubTopicOrder(gradeLevelId, subjectId, topicId, ids),
@@ -332,7 +332,7 @@ function openEditNameDialog(
       <div>
         <div class="flex items-center gap-3">
           <h1 class="text-2xl font-bold">{{ t.admin.curriculum.title }}</h1>
-          <OrderSaveStatusPill :status="orderSaveStatus" />
+          <SaveStatusPill :status="orderSaveStatus" />
         </div>
         <p class="text-muted-foreground">{{ t.admin.curriculum.subtitle }}</p>
       </div>

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { Check, Loader2 } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
-import type { OrderSaveStatus } from '@/composables/useOrderPersistence'
+import type { SaveStatus } from '@/composables/useAutosave'
 
 /**
- * Google-Sheets-style inline save affordance for drag-reorder surfaces:
- * "Saving…" while a (debounced or in-flight) save exists, "Saved" briefly
- * after it settles, then fades out. Driven by `useOrderPersistence().status`.
+ * Google-style inline save affordance for autosaving surfaces (reorder,
+ * inline question editing): "Saving…" while a (debounced or in-flight) save
+ * exists, "Saved" briefly after it settles, then fades out. Driven by
+ * `useAutosave().status`.
  */
-defineProps<{ status: OrderSaveStatus }>()
+defineProps<{ status: SaveStatus }>()
 
 const t = useT()
 </script>

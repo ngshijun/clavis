@@ -4,11 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
+import type { AdhocPayload } from '@/lib/adhocPayload'
 import {
   ArrowLeft,
-  BarChart3,
   ClipboardList,
   Copy,
+  Database,
   Eye,
   EyeOff,
   Info,
@@ -16,7 +17,6 @@ import {
   Lock,
   Plus,
   Send,
-  UserPlus,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -41,15 +42,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
-import AdhocQuestionDialog from '@/components/staff/AdhocQuestionDialog.vue'
 import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
-import AssignDialog from '@/components/staff/AssignDialog.vue'
-import OrderSaveStatusPill from '@/components/shared/OrderSaveStatusPill.vue'
+import AssignPanel from '@/components/staff/AssignPanel.vue'
+import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
+import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
 import { toast } from 'vue-sonner'
-import { useOrderPersistence } from '@/composables/useOrderPersistence'
+import { useAutosave } from '@/composables/useAutosave'
 import { useMarkingAuthz } from '@/composables/useMarkingAuthz'
 import { useT } from '@/composables/useT'
 
+/**
+ * Google-Forms-style builder (decision 75 / P10b): top tabs
+ * Questions · Assign · Results · Settings (templates keep only
+ * Questions · Settings), question cards that expand in place with background
+ * autosave (no Save button, no editing dialog), and a floating action toolbar
+ * beside the active card.
+ */
 const t = useT()
 const route = useRoute()
 const router = useRouter()
@@ -62,6 +70,25 @@ const basePath = computed(() => `/${authStore.userType}`)
 
 const notFound = ref(false)
 
+// ── tabs ───────────────────────────────────────────────────
+
+const TAB_VALUES = ['questions', 'assign', 'results', 'settings'] as const
+type BuilderTab = (typeof TAB_VALUES)[number]
+
+const activeTab = ref<BuilderTab>('questions')
+
+function isBuilderTab(value: unknown): value is BuilderTab {
+  return typeof value === 'string' && (TAB_VALUES as readonly string[]).includes(value)
+}
+
+// Deep links (e.g. the assessments list's "results" action) select a tab via
+// `?tab=`; the current tab is mirrored back so reloads keep the view.
+watch(activeTab, (tab) => {
+  void router.replace({
+    query: { ...route.query, tab: tab === 'questions' ? undefined : tab },
+  })
+})
+
 // Settings form state
 const title = ref('')
 const description = ref('')
@@ -72,7 +99,7 @@ const isSavingPendingVisibility = ref(false)
 
 /**
  * Decision 70 toggle — saved immediately: marking happens AFTER publish,
- * when the rest of the settings card (and its save button) is locked.
+ * when the rest of the settings form (and its save button) is locked.
  */
 async function handlePendingVisibilityChange(value: boolean) {
   showAutoScoreWhilePending.value = value
@@ -98,12 +125,9 @@ const scopeSubjectId = ref('')
 const settingsError = ref<string | null>(null)
 const isSavingSettings = ref(false)
 
-// Dialogs
+// Dialogs (confirmations only — question editing is inline in the cards)
 const showBankPicker = ref(false)
-const showAdhocDialog = ref(false)
-const showAssignDialog = ref(false)
 const showPublishDialog = ref(false)
-const editingQuestion = ref<AssessmentQuestionItem | null>(null)
 const isPublishing = ref(false)
 
 const assessment = computed(() => assessmentsStore.currentAssessment)
@@ -215,6 +239,7 @@ function syncSettings() {
 
 async function loadAssessment() {
   notFound.value = false
+  expandedId.value = null
   const { error } = await assessmentsStore.fetchAssessmentDetail(assessmentId.value)
   if (error || !assessmentsStore.currentAssessment) {
     notFound.value = true
@@ -224,6 +249,17 @@ async function loadAssessment() {
   // Teacher branch of the release authz (admin/manager short-circuit).
   if (!assessmentsStore.currentAssessment.isTemplate) {
     void loadMarkingAuthz(assessmentId.value)
+  }
+  // Land on the deep-linked tab, but only one that exists for this mode.
+  const requested = route.query.tab
+  if (
+    isBuilderTab(requested) &&
+    !(
+      assessmentsStore.currentAssessment.isTemplate &&
+      (requested === 'assign' || requested === 'results')
+    )
+  ) {
+    activeTab.value = requested
   }
 }
 
@@ -318,32 +354,96 @@ async function handleUseTemplate() {
   }
 }
 
-function openAdhocAdd() {
-  editingQuestion.value = null
-  showAdhocDialog.value = true
-}
+// ── Forms-style inline editing with background autosave ────
 
-function openAdhocEdit(item: AssessmentQuestionItem) {
-  editingQuestion.value = item
-  showAdhocDialog.value = true
-}
+/** The one expanded card (Forms model: exactly one card is active). */
+const expandedId = ref<string | null>(null)
+
+const autosave = useAutosave({ onError: (message) => toast.error(message) })
 
 // Seamless reorder (decision 72b): the drag applies instantly in the store;
 // persistence is debounced/coalesced fire-and-forget via the positional RPC.
-// Dragging is never blocked — the pill next to the heading is the affordance.
-const { status: orderSaveStatus, enqueue: enqueueOrderSave } = useOrderPersistence({
-  onError: (message) => toast.error(message),
-})
-
+// Dragging is never blocked — the pill in the header is the affordance.
 function handleReorder(orderedIds: string[]) {
   const id = assessmentId.value
   const previousIds = assessmentsStore.applyQuestionOrder(orderedIds)
   if (!previousIds) return
-  enqueueOrderSave(`questions:${id}`, orderedIds, {
-    previousIds,
+  autosave.enqueue(`order:${id}`, orderedIds, {
+    previous: previousIds,
     save: (ids) => assessmentsStore.persistQuestionOrder(id, ids),
     rollback: (ids) => void assessmentsStore.applyQuestionOrder(ids),
   })
+}
+
+/**
+ * A card emitted a VALID payload (built + validated by `buildAdhocPayload`).
+ * Apply optimistically and enqueue the debounced background save — no Save
+ * button anywhere. On final failure the store rolls back to the last
+ * server-confirmed payload and the error toasts.
+ */
+function handlePayloadChange(item: AssessmentQuestionItem, payload: AdhocPayload) {
+  const previous = assessmentsStore.applyAdhocPayload(item.id, payload)
+  if (!previous) return
+  autosave.enqueue(`payload:${item.id}`, payload, {
+    previous,
+    save: (value) => assessmentsStore.persistAdhocPayload(item.id, value),
+    rollback: (confirmed) => void assessmentsStore.applyAdhocPayload(item.id, confirmed),
+  })
+}
+
+function handlePointsChange(item: AssessmentQuestionItem, points: number) {
+  const previous = assessmentsStore.applyQuestionPoints(item.id, points)
+  if (previous === null) return
+  autosave.enqueue(`points:${item.id}`, points, {
+    previous,
+    save: (value) => assessmentsStore.persistQuestionPoints(item.id, value),
+    rollback: (confirmed) => void assessmentsStore.applyQuestionPoints(item.id, confirmed),
+  })
+}
+
+/**
+ * Forms model: adding a question INSERTS a valid placeholder immediately
+ * (like Forms' "Untitled Question" with two options) and expands it — the
+ * card then autosaves every edit in place.
+ */
+function placeholderPayload(): AdhocPayload {
+  return {
+    type: 'mcq',
+    question: t.value.staff.builder.untitledQuestion,
+    options: [
+      { text: t.value.staff.adhocForm.optionPlaceholder(1), is_correct: true },
+      { text: t.value.staff.adhocForm.optionPlaceholder(2), is_correct: false },
+    ],
+  }
+}
+
+/** Insert an ad-hoc question, position it after `afterId`, and expand it. */
+async function insertAdhocQuestion(payload: AdhocPayload, afterId: string | null) {
+  const { id, error } = await assessmentsStore.addAdhocQuestion(assessmentId.value, payload)
+  if (error || !id) {
+    toast.error(error ?? '')
+    return
+  }
+  if (afterId) {
+    const ids = assessmentsStore.currentQuestions
+      .map((question) => question.id)
+      .filter((questionId) => questionId !== id)
+    const anchor = ids.indexOf(afterId)
+    if (anchor !== -1 && anchor < ids.length - 1) {
+      ids.splice(anchor + 1, 0, id)
+      handleReorder(ids)
+    }
+  }
+  expandedId.value = id
+}
+
+function handleAddQuestion() {
+  void insertAdhocQuestion(placeholderPayload(), expandedId.value)
+}
+
+function handleDuplicate(item: AssessmentQuestionItem) {
+  if (item.source !== 'adhoc' || !item.payload) return
+  void insertAdhocQuestion(item.payload, item.id)
 }
 
 async function handleRemove(item: AssessmentQuestionItem) {
@@ -352,16 +452,8 @@ async function handleRemove(item: AssessmentQuestionItem) {
     toast.error(error)
     return
   }
+  if (expandedId.value === item.id) expandedId.value = null
   toast.success(t.value.staff.builder.toastQuestionRemoved)
-}
-
-async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) {
-  const { error } = await assessmentsStore.updateQuestionPoints(item.id, points)
-  if (error) {
-    toast.error(error)
-    return
-  }
-  toast.success(t.value.staff.builder.toastPointsUpdated)
 }
 </script>
 
@@ -396,10 +488,10 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
     </div>
 
     <template v-else>
-      <!-- Header -->
-      <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <!-- Header: title, badges, autosave status, publish -->
+      <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <h1 class="truncate text-2xl font-bold">{{ assessment.title }}</h1>
             <Badge
               v-if="isTemplate"
@@ -426,6 +518,8 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
               <Eye class="mr-1 size-3" />
               {{ t.staff.builder.answersReleasedBadge }}
             </Badge>
+            <!-- Background autosave status (questions, points, order) -->
+            <SaveStatusPill :status="autosave.status.value" />
           </div>
           <p v-if="scopeLabel && !isTemplate" class="mt-1 text-sm text-muted-foreground">
             {{ t.staff.builder.scopedAssessmentHint }}
@@ -438,22 +532,6 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
           </Button>
         </div>
         <div v-else-if="!isTemplate" class="flex shrink-0 items-center gap-2">
-          <Button v-if="canRelease" variant="outline" @click="showReleaseDialog = true">
-            <EyeOff v-if="isReleased" class="mr-2 size-4" />
-            <Eye v-else class="mr-2 size-4" />
-            {{ isReleased ? t.staff.builder.unreleaseAnswers : t.staff.builder.releaseAnswers }}
-          </Button>
-          <Button variant="outline" @click="showAssignDialog = true">
-            <UserPlus class="mr-2 size-4" />
-            {{ t.staff.builder.assign }}
-          </Button>
-          <Button
-            variant="outline"
-            @click="router.push(`${basePath}/assessments/${assessmentId}/results`)"
-          >
-            <BarChart3 class="mr-2 size-4" />
-            {{ t.staff.builder.viewResults }}
-          </Button>
           <Button
             v-if="!isPublished && canEdit"
             :disabled="assessmentsStore.currentQuestions.length === 0"
@@ -468,231 +546,273 @@ async function handleUpdatePoints(item: AssessmentQuestionItem, points: number) 
       <!-- Read-only notices -->
       <div
         v-if="isTemplatePreview"
-        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Info class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.templatePreviewBanner }}
       </div>
       <div
         v-else-if="!canEdit"
-        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Info class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.readOnly }}
       </div>
       <div
         v-else-if="isTemplate"
-        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Info class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.templateBanner }}
       </div>
       <div
         v-else-if="isPublished"
-        class="mb-6 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
+        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Lock class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.publishedLocked }}
       </div>
 
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <!-- Top tabs (Forms model): Questions · Assign · Results · Settings -->
+      <Tabs
+        :model-value="activeTab"
+        @update:model-value="(value) => (activeTab = isBuilderTab(value) ? value : 'questions')"
+      >
+        <TabsList class="mx-auto">
+          <TabsTrigger value="questions">{{ t.staff.builder.questionsTitle }}</TabsTrigger>
+          <TabsTrigger v-if="!isTemplate" value="assign">{{ t.staff.builder.assign }}</TabsTrigger>
+          <TabsTrigger v-if="!isTemplate" value="results">{{
+            t.staff.builder.tabResults
+          }}</TabsTrigger>
+          <TabsTrigger value="settings">{{ t.staff.builder.settingsTitle }}</TabsTrigger>
+        </TabsList>
+
         <!-- Questions -->
-        <div>
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="flex items-center gap-3">
-                <h2 class="text-lg font-semibold">{{ t.staff.builder.questionsTitle }}</h2>
-                <OrderSaveStatusPill :status="orderSaveStatus" />
+        <TabsContent value="questions" class="pt-4">
+          <div class="mx-auto max-w-3xl">
+            <p class="mb-4 text-sm text-muted-foreground">
+              {{ t.staff.builder.questionsDesc(assessmentsStore.currentQuestions.length) }}
+            </p>
+
+            <div
+              v-if="assessmentsStore.currentQuestions.length === 0"
+              class="rounded-lg border border-dashed p-12 text-center"
+            >
+              <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
+                <Plus class="size-6 text-muted-foreground" />
               </div>
-              <p class="text-sm text-muted-foreground">
-                {{ t.staff.builder.questionsDesc(assessmentsStore.currentQuestions.length) }}
+              <h3 class="mt-4 text-lg font-medium">{{ t.staff.builder.noQuestions }}</h3>
+              <p class="mt-2 text-sm text-muted-foreground">
+                {{ t.staff.builder.noQuestionsDesc }}
               </p>
+              <div v-if="isEditable" class="mt-4 flex justify-center gap-2">
+                <Button size="sm" @click="handleAddQuestion">
+                  <Plus class="mr-2 size-4" />
+                  {{ t.staff.builder.addAdhoc }}
+                </Button>
+                <Button variant="outline" size="sm" @click="showBankPicker = true">
+                  <Database class="mr-2 size-4" />
+                  {{ t.staff.builder.addFromBank }}
+                </Button>
+              </div>
             </div>
-            <div v-if="isEditable" class="flex items-center gap-2">
-              <Button variant="outline" size="sm" @click="showBankPicker = true">
-                <Plus class="mr-2 size-4" />
-                {{ t.staff.builder.addFromBank }}
-              </Button>
-              <Button size="sm" @click="openAdhocAdd">
-                <Plus class="mr-2 size-4" />
-                {{ t.staff.builder.addAdhoc }}
-              </Button>
-            </div>
-          </div>
 
-          <div
-            v-if="assessmentsStore.currentQuestions.length === 0"
-            class="rounded-lg border border-dashed p-12 text-center"
-          >
-            <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
-              <Plus class="size-6 text-muted-foreground" />
-            </div>
-            <h3 class="mt-4 text-lg font-medium">{{ t.staff.builder.noQuestions }}</h3>
-            <p class="mt-2 text-sm text-muted-foreground">{{ t.staff.builder.noQuestionsDesc }}</p>
+            <AssessmentQuestionList
+              v-else
+              v-model:expanded-id="expandedId"
+              :items="assessmentsStore.currentQuestions"
+              :editable="isEditable"
+              :assessment-id="assessmentId"
+              @reorder="handleReorder"
+              @payload-change="handlePayloadChange"
+              @points-change="handlePointsChange"
+              @duplicate="handleDuplicate"
+              @remove="handleRemove"
+              @add-question="handleAddQuestion"
+              @add-from-bank="showBankPicker = true"
+            />
           </div>
+        </TabsContent>
 
-          <AssessmentQuestionList
-            v-else
-            :items="assessmentsStore.currentQuestions"
-            :disabled="!isEditable"
-            @reorder="handleReorder"
-            @edit="openAdhocEdit"
-            @remove="handleRemove"
-            @update-points="handleUpdatePoints"
-          />
-        </div>
+        <!-- Assign -->
+        <TabsContent v-if="!isTemplate" value="assign" class="pt-4">
+          <AssignPanel :assessment="assessment" />
+        </TabsContent>
+
+        <!-- Results -->
+        <TabsContent v-if="!isTemplate" value="results" class="pt-4">
+          <AssessmentResultsPanel :assessment-id="assessmentId" :can-mark="canMark" />
+        </TabsContent>
 
         <!-- Settings -->
-        <Card class="h-fit">
-          <CardHeader>
-            <CardTitle>{{ t.staff.builder.settingsTitle }}</CardTitle>
-          </CardHeader>
-          <CardContent class="space-y-4">
-            <Field>
-              <FieldLabel for="builder-title"
-                >{{ t.staff.builder.titleLabel }}
-                <span class="text-destructive">*</span></FieldLabel
-              >
-              <Input
-                id="builder-title"
-                v-model="title"
-                :disabled="!isEditable || isSavingSettings"
-              />
-            </Field>
+        <TabsContent value="settings" class="pt-4">
+          <Card class="mx-auto max-w-2xl">
+            <CardHeader>
+              <CardTitle>{{ t.staff.builder.settingsTitle }}</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <Field>
+                <FieldLabel for="builder-title"
+                  >{{ t.staff.builder.titleLabel }}
+                  <span class="text-destructive">*</span></FieldLabel
+                >
+                <Input
+                  id="builder-title"
+                  v-model="title"
+                  :disabled="!isEditable || isSavingSettings"
+                />
+              </Field>
 
-            <Field>
-              <FieldLabel for="builder-description">{{
-                t.staff.builder.descriptionLabel
-              }}</FieldLabel>
-              <Textarea
-                id="builder-description"
-                v-model="description"
-                :placeholder="t.staff.builder.descriptionPlaceholder"
-                rows="3"
-                :disabled="!isEditable || isSavingSettings"
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel for="builder-time-limit">{{ t.staff.builder.timeLimitLabel }}</FieldLabel>
-              <Input
-                id="builder-time-limit"
-                v-model="timeLimitMinutes"
-                type="number"
-                min="1"
-                step="1"
-                :disabled="!isEditable || isSavingSettings"
-              />
-              <FieldDescription>{{ t.staff.builder.timeLimitHint }}</FieldDescription>
-            </Field>
-
-            <Field orientation="horizontal">
-              <div>
-                <FieldLabel for="builder-shuffle">{{ t.staff.builder.shuffleLabel }}</FieldLabel>
-                <FieldDescription>{{ t.staff.builder.shuffleHint }}</FieldDescription>
-              </div>
-              <Switch
-                id="builder-shuffle"
-                v-model="shuffleQuestions"
-                :disabled="!isEditable || isSavingSettings"
-              />
-            </Field>
-
-            <!-- Pending-score visibility (decision 70). Hidden on templates:
-                 they are never attempted and the clone RPC does not copy it. -->
-            <Field v-if="!isTemplate" orientation="horizontal">
-              <div>
-                <FieldLabel for="builder-pending-visibility">{{
-                  t.staff.builder.pendingVisibilityLabel
+              <Field>
+                <FieldLabel for="builder-description">{{
+                  t.staff.builder.descriptionLabel
                 }}</FieldLabel>
-                <FieldDescription>{{ t.staff.builder.pendingVisibilityHint }}</FieldDescription>
-              </div>
-              <Switch
-                id="builder-pending-visibility"
-                :model-value="showAutoScoreWhilePending"
-                :disabled="!canEdit || isSavingPendingVisibility"
-                @update:model-value="handlePendingVisibilityChange"
-              />
-            </Field>
-
-            <!-- Template pairing (admin template mode): both always required -->
-            <template v-if="canEditScope">
-              <Field>
-                <FieldLabel
-                  >{{ t.staff.builder.gradeLabel }}
-                  <span class="text-destructive">*</span></FieldLabel
-                >
-                <Select
-                  :model-value="scopeGradeLevelId"
-                  :disabled="isSavingSettings || curriculumStore.isLoading"
-                  @update:model-value="handleScopeGradeChange"
-                >
-                  <SelectTrigger class="w-full">
-                    <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="gradeLevel in curriculumStore.gradeLevels"
-                      :key="gradeLevel.id"
-                      :value="gradeLevel.id"
-                    >
-                      {{ gradeLevel.name }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Textarea
+                  id="builder-description"
+                  v-model="description"
+                  :placeholder="t.staff.builder.descriptionPlaceholder"
+                  rows="3"
+                  :disabled="!isEditable || isSavingSettings"
+                />
               </Field>
 
               <Field>
-                <FieldLabel
-                  >{{ t.staff.builder.subjectLabel }}
-                  <span class="text-destructive">*</span></FieldLabel
-                >
-                <Select v-model="scopeSubjectId" :disabled="isSavingSettings || !scopeGradeLevelId">
-                  <SelectTrigger class="w-full">
-                    <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="subject in scopeSubjects"
-                      :key="subject.id"
-                      :value="subject.id"
-                    >
-                      {{ subject.name }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FieldDescription>{{ t.staff.builder.scopeHint }}</FieldDescription>
+                <FieldLabel for="builder-time-limit">{{
+                  t.staff.builder.timeLimitLabel
+                }}</FieldLabel>
+                <Input
+                  id="builder-time-limit"
+                  v-model="timeLimitMinutes"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :disabled="!isEditable || isSavingSettings"
+                />
+                <FieldDescription>{{ t.staff.builder.timeLimitHint }}</FieldDescription>
               </Field>
-            </template>
 
-            <FieldError :errors="settingsError ? [settingsError] : []" />
+              <Field orientation="horizontal">
+                <div>
+                  <FieldLabel for="builder-shuffle">{{ t.staff.builder.shuffleLabel }}</FieldLabel>
+                  <FieldDescription>{{ t.staff.builder.shuffleHint }}</FieldDescription>
+                </div>
+                <Switch
+                  id="builder-shuffle"
+                  v-model="shuffleQuestions"
+                  :disabled="!isEditable || isSavingSettings"
+                />
+              </Field>
 
-            <Button
-              v-if="isEditable"
-              class="w-full"
-              :disabled="isSavingSettings"
-              @click="handleSaveSettings"
-            >
-              <Loader2 v-if="isSavingSettings" class="mr-2 size-4 animate-spin" />
-              {{ t.staff.builder.saveSettings }}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+              <!-- Pending-score visibility (decision 70). Hidden on templates:
+                   they are never attempted and the clone RPC does not copy it. -->
+              <Field v-if="!isTemplate" orientation="horizontal">
+                <div>
+                  <FieldLabel for="builder-pending-visibility">{{
+                    t.staff.builder.pendingVisibilityLabel
+                  }}</FieldLabel>
+                  <FieldDescription>{{ t.staff.builder.pendingVisibilityHint }}</FieldDescription>
+                </div>
+                <Switch
+                  id="builder-pending-visibility"
+                  :model-value="showAutoScoreWhilePending"
+                  :disabled="!canEdit || isSavingPendingVisibility"
+                  @update:model-value="handlePendingVisibilityChange"
+                />
+              </Field>
+
+              <!-- Template pairing (admin template mode): both always required -->
+              <template v-if="canEditScope">
+                <Field>
+                  <FieldLabel
+                    >{{ t.staff.builder.gradeLabel }}
+                    <span class="text-destructive">*</span></FieldLabel
+                  >
+                  <Select
+                    :model-value="scopeGradeLevelId"
+                    :disabled="isSavingSettings || curriculumStore.isLoading"
+                    @update:model-value="handleScopeGradeChange"
+                  >
+                    <SelectTrigger class="w-full">
+                      <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="gradeLevel in curriculumStore.gradeLevels"
+                        :key="gradeLevel.id"
+                        :value="gradeLevel.id"
+                      >
+                        {{ gradeLevel.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel
+                    >{{ t.staff.builder.subjectLabel }}
+                    <span class="text-destructive">*</span></FieldLabel
+                  >
+                  <Select
+                    v-model="scopeSubjectId"
+                    :disabled="isSavingSettings || !scopeGradeLevelId"
+                  >
+                    <SelectTrigger class="w-full">
+                      <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="subject in scopeSubjects"
+                        :key="subject.id"
+                        :value="subject.id"
+                      >
+                        {{ subject.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>{{ t.staff.builder.scopeHint }}</FieldDescription>
+                </Field>
+              </template>
+
+              <FieldError :errors="settingsError ? [settingsError] : []" />
+
+              <Button
+                v-if="isEditable"
+                class="w-full"
+                :disabled="isSavingSettings"
+                @click="handleSaveSettings"
+              >
+                <Loader2 v-if="isSavingSettings" class="mr-2 size-4 animate-spin" />
+                {{ t.staff.builder.saveSettings }}
+              </Button>
+
+              <!-- Manual answer release (decision 71) -->
+              <Field v-if="canRelease" orientation="horizontal" class="border-t pt-4">
+                <div>
+                  <FieldLabel>{{
+                    isReleased ? t.staff.builder.unreleaseAnswers : t.staff.builder.releaseAnswers
+                  }}</FieldLabel>
+                  <FieldDescription>{{
+                    isReleased ? t.staff.builder.unreleaseDesc : t.staff.builder.releaseDesc
+                  }}</FieldDescription>
+                </div>
+                <Button variant="outline" @click="showReleaseDialog = true">
+                  <EyeOff v-if="isReleased" class="mr-2 size-4" />
+                  <Eye v-else class="mr-2 size-4" />
+                  {{
+                    isReleased ? t.staff.builder.unreleaseAnswers : t.staff.builder.releaseAnswers
+                  }}
+                </Button>
+              </Field>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <BankQuestionPickerDialog
         v-model:open="showBankPicker"
         :assessment-id="assessmentId"
         :existing-question-ids="existingBankQuestionIds"
       />
-
-      <AdhocQuestionDialog
-        v-model:open="showAdhocDialog"
-        :assessment-id="assessmentId"
-        :edit-item="editingQuestion"
-      />
-
-      <AssignDialog v-if="!isTemplate" v-model:open="showAssignDialog" :assessment="assessment" />
 
       <!-- Use template confirmation (staff preview only) -->
       <Dialog v-if="isTemplatePreview" v-model:open="showUseTemplateDialog">

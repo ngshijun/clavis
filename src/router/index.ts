@@ -220,11 +220,6 @@ const router = createRouter({
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
         },
         {
-          path: 'assessments/:assessmentId/results',
-          name: 'manager-assessment-results',
-          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
-        },
-        {
           path: 'templates',
           name: 'manager-template-library',
           component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
@@ -262,11 +257,6 @@ const router = createRouter({
           path: 'assessments/:assessmentId',
           name: 'teacher-assessment-builder',
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
-        },
-        {
-          path: 'assessments/:assessmentId/results',
-          name: 'teacher-assessment-results',
-          component: () => import('@/pages/shared/AssessmentResultsPage.vue'),
         },
         {
           path: 'templates',

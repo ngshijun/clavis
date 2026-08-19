@@ -8,6 +8,7 @@ import {
   type AttemptResultQuestion,
 } from '@/stores/assessments'
 import { Check, Clock, Info, Loader2, Minus, X } from 'lucide-vue-next'
+import { getStorageImageUrl } from '@/lib/storage'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -164,6 +165,30 @@ function formatPoints(points: number): string {
   return String(points)
 }
 
+/**
+ * Bank questions keep their images in `question-images`; ad-hoc payload
+ * images live in `assessment-images` (P10a). The marking view needs both —
+ * a long answer whose prompt IS an image is unmarkable without it.
+ */
+function imageBucketFor(question: AttemptResultQuestion): string {
+  return sourceOf(question)?.source === 'bank' ? 'question-images' : 'assessment-images'
+}
+
+function questionImageUrl(question: AttemptResultQuestion): string {
+  const path = sourceOf(question)?.imagePath
+  return path ? getStorageImageUrl(imageBucketFor(question), path) : ''
+}
+
+/** Images of the options the student actually picked (mcq/mrq image options). */
+function selectedOptionImages(question: AttemptResultQuestion): string[] {
+  const source = sourceOf(question)
+  if (!source || !question.selectedOptions) return []
+  return question.selectedOptions
+    .map((number) => source.options.find((option) => option.number === number)?.imagePath)
+    .filter((path): path is string => Boolean(path))
+    .map((path) => getStorageImageUrl(imageBucketFor(question), path))
+}
+
 function rubricOf(question: AttemptResultQuestion): string | null {
   const payload = sourceOf(question)?.payload
   return payload?.type === 'long_answer' ? (payload.rubric ?? null) : null
@@ -306,12 +331,27 @@ async function handleSaveMark(question: AttemptResultQuestion) {
                     t.staff.attemptResult.questionFallback(question.questionOrder)
                   }}
                 </p>
+                <img
+                  v-if="questionImageUrl(question)"
+                  :src="questionImageUrl(question)"
+                  :alt="t.shared.questionPreviewDialog.questionImageAlt"
+                  class="mt-2 max-h-40 rounded-md border object-contain"
+                />
                 <p
                   v-if="!isUnanswered(question)"
                   class="mt-1 whitespace-pre-wrap text-sm text-muted-foreground"
                 >
                   {{ t.staff.attemptResult.studentAnswer }}: {{ answerText(question) }}
                 </p>
+                <div v-if="selectedOptionImages(question).length" class="mt-1 flex flex-wrap gap-2">
+                  <img
+                    v-for="(url, index) in selectedOptionImages(question)"
+                    :key="index"
+                    :src="url"
+                    :alt="t.shared.questionPreviewDialog.optionImageAlt"
+                    class="max-h-24 rounded-md border object-contain"
+                  />
+                </div>
                 <p v-if="question.markerComment" class="mt-1 text-sm text-muted-foreground">
                   {{ t.staff.attemptResult.markerCommentLabel }}: {{ question.markerComment }}
                 </p>

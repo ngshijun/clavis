@@ -18,9 +18,16 @@ export type AdhocQuestionType =
   | 'long_answer'
 
 export interface AdhocOptionPayload {
+  /** May be empty for an image-only option (the image then carries the content). */
   text: string
   /** MUST be a JSON boolean — the grader treats the string "true" as not correct. */
   is_correct: boolean
+  /**
+   * P10a: optional option image — a storage object path in the
+   * `assessment-images` bucket (`{assessment_id}/{uuid}.webp`). Emitted only
+   * when non-blank; the DB CHECK rejects `""`/blank strings.
+   */
+  image_path?: string | null
 }
 
 export interface MatchingItemPayload {
@@ -28,41 +35,65 @@ export interface MatchingItemPayload {
   text: string
 }
 
+/**
+ * P10a: every type may carry an optional question-level image (`image_path`) —
+ * a storage object path in the `assessment-images` bucket. Absent or null =
+ * no image; a blank string is rejected by the DB CHECK (never emitted here).
+ */
+interface AdhocImageCarrier {
+  image_path?: string | null
+}
+
 export type AdhocPayload =
-  | { type: 'mcq' | 'mrq'; question: string; options: AdhocOptionPayload[]; explanation?: string }
-  | { type: 'true_false'; question: string; answer: boolean; explanation?: string }
-  | {
+  | (AdhocImageCarrier & {
+      type: 'mcq' | 'mrq'
+      question: string
+      options: AdhocOptionPayload[]
+      explanation?: string
+    })
+  | (AdhocImageCarrier & {
+      type: 'true_false'
+      question: string
+      answer: boolean
+      explanation?: string
+    })
+  | (AdhocImageCarrier & {
       type: 'numeric'
       question: string
       answer: number
       tolerance: number
       unit?: string
       explanation?: string
-    }
-  | { type: 'short_answer'; question: string; accepted_answers: string[]; explanation?: string }
-  | {
+    })
+  | (AdhocImageCarrier & {
+      type: 'short_answer'
+      question: string
+      accepted_answers: string[]
+      explanation?: string
+    })
+  | (AdhocImageCarrier & {
       type: 'cloze'
       question?: string
       text: string
       blanks: { index: number; accepted: string[] }[]
       explanation?: string
-    }
-  | {
+    })
+  | (AdhocImageCarrier & {
       type: 'matching'
       question: string
       left: MatchingItemPayload[]
       right: MatchingItemPayload[]
       pairs: { left_id: string; right_id: string }[]
       explanation?: string
-    }
-  | {
+    })
+  | (AdhocImageCarrier & {
       type: 'ordering'
       question: string
       items: MatchingItemPayload[]
       correct_order: string[]
       explanation?: string
-    }
-  | { type: 'long_answer'; question: string; rubric?: string }
+    })
+  | (AdhocImageCarrier & { type: 'long_answer'; question: string; rubric?: string })
 
 /**
  * Authoring draft — mirrors the dialog's form state. Only the fields for the
@@ -72,7 +103,9 @@ export interface AdhocDraft {
   type: AdhocQuestionType
   question: string
   explanation: string
-  options: { text: string; isCorrect: boolean }[]
+  /** Question-level image (storage path in `assessment-images`); null = none. */
+  imagePath: string | null
+  options: { text: string; isCorrect: boolean; imagePath?: string | null }[]
   trueFalseAnswer: boolean
   numericAnswer: string
   numericTolerance: string
@@ -112,7 +145,8 @@ export function emptyAdhocDraft(type: AdhocQuestionType = 'mcq'): AdhocDraft {
     type,
     question: '',
     explanation: '',
-    options: Array.from({ length: 4 }, () => ({ text: '', isCorrect: false })),
+    imagePath: null,
+    options: Array.from({ length: 4 }, () => ({ text: '', isCorrect: false, imagePath: null })),
     trueFalseAnswer: true,
     numericAnswer: '',
     numericTolerance: '',
@@ -177,9 +211,15 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
   switch (draft.type) {
     case 'mcq':
     case 'mrq': {
+      // An option counts when it has text OR an image (image-only options are
+      // legal — text stays an empty string, mirroring the bank's shape).
       const kept = draft.options
-        .map((option) => ({ text: option.text.trim(), is_correct: option.isCorrect === true }))
-        .filter((option) => option.text.length > 0)
+        .map((option) => ({
+          text: option.text.trim(),
+          is_correct: option.isCorrect === true,
+          imagePath: option.imagePath?.trim() || null,
+        }))
+        .filter((option) => option.text.length > 0 || option.imagePath !== null)
       if (kept.length < 2) return { payload: null, error: 'optionsMin' }
       const correctCount = kept.filter((option) => option.is_correct).length
       if (draft.type === 'mcq' && correctCount !== 1) {
@@ -188,17 +228,28 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
       if (draft.type === 'mrq' && correctCount === 0) {
         return { payload: null, error: 'mrqCorrect' }
       }
+      const options: AdhocOptionPayload[] = kept.map((option) => ({
+        text: option.text,
+        is_correct: option.is_correct,
+        ...(option.imagePath ? { image_path: option.imagePath } : {}),
+      }))
       return {
-        payload: withExplanation({ type: draft.type, question, options: kept }, explanation),
+        payload: withImage(
+          withExplanation({ type: draft.type, question, options }, explanation),
+          draft.imagePath,
+        ),
         error: null,
       }
     }
 
     case 'true_false':
       return {
-        payload: withExplanation(
-          { type: 'true_false', question, answer: draft.trueFalseAnswer === true },
-          explanation,
+        payload: withImage(
+          withExplanation(
+            { type: 'true_false', question, answer: draft.trueFalseAnswer === true },
+            explanation,
+          ),
+          draft.imagePath,
         ),
         error: null,
       }
@@ -214,9 +265,12 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
       }
       const unit = draft.numericUnit.trim()
       return {
-        payload: withExplanation(
-          { type: 'numeric', question, answer, tolerance, ...(unit ? { unit } : {}) },
-          explanation,
+        payload: withImage(
+          withExplanation(
+            { type: 'numeric', question, answer, tolerance, ...(unit ? { unit } : {}) },
+            explanation,
+          ),
+          draft.imagePath,
         ),
         error: null,
       }
@@ -228,9 +282,12 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
         .filter((entry) => entry.length > 0)
       if (accepted.length === 0) return { payload: null, error: 'answersRequired' }
       return {
-        payload: withExplanation(
-          { type: 'short_answer', question, accepted_answers: accepted },
-          explanation,
+        payload: withImage(
+          withExplanation(
+            { type: 'short_answer', question, accepted_answers: accepted },
+            explanation,
+          ),
+          draft.imagePath,
         ),
         error: null,
       }
@@ -248,9 +305,12 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
         blanks.push({ index, accepted })
       }
       return {
-        payload: withExplanation(
-          { type: 'cloze', ...(question ? { question } : {}), text, blanks },
-          explanation,
+        payload: withImage(
+          withExplanation(
+            { type: 'cloze', ...(question ? { question } : {}), text, blanks },
+            explanation,
+          ),
+          draft.imagePath,
         ),
         error: null,
       }
@@ -291,7 +351,10 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
       }
 
       return {
-        payload: withExplanation({ type: 'matching', question, left, right, pairs }, explanation),
+        payload: withImage(
+          withExplanation({ type: 'matching', question, left, right, pairs }, explanation),
+          draft.imagePath,
+        ),
         error: null,
       }
     }
@@ -301,9 +364,12 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
       if (kept.length < 2) return { payload: null, error: 'orderingItemsRequired' }
       const items = kept.map((text, index) => ({ id: `i${index + 1}`, text }))
       return {
-        payload: withExplanation(
-          { type: 'ordering', question, items, correct_order: items.map((item) => item.id) },
-          explanation,
+        payload: withImage(
+          withExplanation(
+            { type: 'ordering', question, items, correct_order: items.map((item) => item.id) },
+            explanation,
+          ),
+          draft.imagePath,
         ),
         error: null,
       }
@@ -312,7 +378,10 @@ export function buildAdhocPayload(draft: AdhocDraft): BuildAdhocResult {
     case 'long_answer': {
       const rubric = draft.rubric.trim()
       return {
-        payload: { type: 'long_answer', question, ...(rubric ? { rubric } : {}) },
+        payload: withImage(
+          { type: 'long_answer', question, ...(rubric ? { rubric } : {}) },
+          draft.imagePath,
+        ),
         error: null,
       }
     }
@@ -324,6 +393,15 @@ function withExplanation<T extends AdhocPayload>(payload: T, explanation: string
 }
 
 /**
+ * Attach the question-level image. Blank/null paths never emit the key —
+ * the DB CHECK rejects `""`/whitespace-only `image_path` values (23514).
+ */
+function withImage<T extends AdhocPayload>(payload: T, imagePath: string | null): T {
+  const trimmed = imagePath?.trim()
+  return trimmed ? { ...payload, image_path: trimmed } : payload
+}
+
+/**
  * Edit round-trip: rebuild the dialog draft from a stored payload. Malformed
  * or partial payloads degrade to empty fields rather than throwing.
  */
@@ -331,6 +409,7 @@ export function payloadToDraft(payload: AdhocPayload): AdhocDraft {
   const draft = emptyAdhocDraft(payload.type)
   draft.question = 'question' in payload ? (payload.question ?? '') : ''
   if ('explanation' in payload && payload.explanation) draft.explanation = payload.explanation
+  draft.imagePath = payload.image_path ?? null
 
   switch (payload.type) {
     case 'mcq':
@@ -340,6 +419,7 @@ export function payloadToDraft(payload: AdhocPayload): AdhocDraft {
           ? payload.options.map((option) => ({
               text: option.text,
               isCorrect: option.is_correct === true,
+              imagePath: option.image_path ?? null,
             }))
           : draft.options
       break
