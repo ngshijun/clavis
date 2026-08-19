@@ -13,56 +13,44 @@ const t = useT()
 const practiceStore = usePracticeHistoryStore()
 const router = useRouter()
 
-interface SubjectStats {
-  gradeLevelName: string
-  subjectName: string
-  totalScore: number
-  sessionCount: number
+interface TopicStats {
+  topicName: string
   averageScore: number
 }
 
-const topSubjects = computed<SubjectStats[]>(() => {
+/**
+ * Best topics WITHIN the selected classroom (decision 79). It used to rank
+ * subjects, but the dashboard is now scoped to one classroom — and therefore
+ * one subject — so a subject ranking could only ever have a single entry.
+ * Topics are the meaningful breakdown at this scope.
+ */
+const topTopics = computed<TopicStats[]>(() => {
   const completedSessions = practiceStore
     .getFilteredHistory()
     .filter((s) => s.completedAt && s.totalQuestions > 0)
 
   if (completedSessions.length === 0) return []
 
-  const subjectMap = new Map<
-    string,
-    { gradeLevelName: string; subjectName: string; totalScore: number; count: number }
-  >()
+  const byTopic = new Map<string, { totalScore: number; count: number }>()
 
   completedSessions.forEach((session) => {
     const score = computeScorePercent(session.correctAnswers, session.totalQuestions)
-    const key = `${session.gradeLevelName}::${session.subjectName}`
-    const existing = subjectMap.get(key)
-
+    const existing = byTopic.get(session.topicName)
     if (existing) {
       existing.totalScore += score
       existing.count += 1
     } else {
-      subjectMap.set(key, {
-        gradeLevelName: session.gradeLevelName,
-        subjectName: session.subjectName,
-        totalScore: score,
-        count: 1,
-      })
+      byTopic.set(session.topicName, { totalScore: score, count: 1 })
     }
   })
 
-  const subjects: SubjectStats[] = []
-  subjectMap.forEach((stats) => {
-    subjects.push({
-      gradeLevelName: stats.gradeLevelName,
-      subjectName: stats.subjectName,
-      totalScore: stats.totalScore,
-      sessionCount: stats.count,
+  return [...byTopic.entries()]
+    .map(([topicName, stats]) => ({
+      topicName,
       averageScore: Math.round(stats.totalScore / stats.count),
-    })
-  })
-
-  return subjects.sort((a, b) => b.averageScore - a.averageScore).slice(0, 3)
+    }))
+    .sort((a, b) => b.averageScore - a.averageScore)
+    .slice(0, 3)
 })
 
 function goToHistory() {
@@ -82,7 +70,9 @@ function goToHistory() {
     </CardHeader>
     <CardContent>
       <BestSubjectsList
-        :subjects="topSubjects"
+        :subjects="
+          topTopics.map((topic) => ({ label: topic.topicName, averageScore: topic.averageScore }))
+        "
         :empty-label="t.shared.bestSubjectCard.practiceMore"
         :format-score="t.shared.bestSubjectCard.averageLabel"
       />

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { getScoreBarColor, getScoreTextColor, MEDAL_EMOJIS } from '@/lib/utils'
 
-interface BestSubject {
-  gradeLevelName: string
-  subjectName: string
+interface BestEntry {
+  /** What is being ranked — a topic, now that the dashboard is classroom-scoped. */
+  label: string
   averageScore: number
 }
 
 const props = defineProps<{
-  subjects: BestSubject[]
+  subjects: BestEntry[]
   emptyLabel: string
   formatScore?: (score: number) => string
 }>()
@@ -26,7 +26,7 @@ function displayScore(score: number): string {
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline justify-between gap-2">
             <p class="truncate text-sm font-medium">
-              {{ subjects[index - 1]!.gradeLevelName }} · {{ subjects[index - 1]!.subjectName }}
+              {{ subjects[index - 1]!.label }}
             </p>
             <span
               class="shrink-0 text-sm font-bold"

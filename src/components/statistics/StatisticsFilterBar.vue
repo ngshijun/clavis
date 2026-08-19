@@ -20,12 +20,8 @@ const dateRangeOptions = computed(() => getDateRangeOptions())
 
 defineProps<{
   dateRange: DateRangeFilter
-  gradeLevel: string
-  subject: string
   topic: string
   subTopic: string
-  availableGradeLevels: string[]
-  availableSubjects: string[]
   availableTopics: string[]
   availableSubTopics: string[]
   hideInProgress: boolean
@@ -33,8 +29,6 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:dateRange': [value: DateRangeFilter]
-  'update:gradeLevel': [value: string]
-  'update:subject': [value: string]
   'update:topic': [value: string]
   'update:subTopic': [value: string]
   'update:hideInProgress': [value: boolean]
@@ -62,46 +56,10 @@ const emit = defineEmits<{
       </SelectContent>
     </Select>
 
-    <!-- Grade Level Selector -->
-    <Select
-      :key="languageStore.language"
-      :model-value="gradeLevel"
-      @update:model-value="emit('update:gradeLevel', $event as string)"
-    >
-      <SelectTrigger class="w-[130px]">
-        <SelectValue :placeholder="t.shared.statsFilterBar.allGrades" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem :value="ALL_VALUE">{{ t.shared.statsFilterBar.allGrades }}</SelectItem>
-        <SelectItem v-for="grade in availableGradeLevels" :key="grade" :value="grade">
-          {{ grade }}
-        </SelectItem>
-      </SelectContent>
-    </Select>
-
-    <!-- Subject Selector -->
-    <Select
-      :key="languageStore.language"
-      :model-value="subject"
-      :disabled="gradeLevel === ALL_VALUE"
-      @update:model-value="emit('update:subject', $event as string)"
-    >
-      <SelectTrigger class="w-[140px]">
-        <SelectValue :placeholder="t.shared.statsFilterBar.allSubjects" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem :value="ALL_VALUE">{{ t.shared.statsFilterBar.allSubjects }}</SelectItem>
-        <SelectItem v-for="s in availableSubjects" :key="s" :value="s">
-          {{ s }}
-        </SelectItem>
-      </SelectContent>
-    </Select>
-
     <!-- Topic Selector -->
     <Select
       :key="languageStore.language"
       :model-value="topic"
-      :disabled="subject === ALL_VALUE"
       @update:model-value="emit('update:topic', $event as string)"
     >
       <SelectTrigger class="w-[140px]">

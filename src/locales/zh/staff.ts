@@ -355,6 +355,7 @@ export default {
   },
 
   assign: {
+    descriptionReadOnly: '此测评已分配给以下对象。',
     description: '分配给整个班级或个别学生。',
     draftWarning: '此测评仍是草稿——发布后学生才能看到。',
     currentTitle: '当前分配',

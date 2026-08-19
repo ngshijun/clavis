@@ -283,7 +283,7 @@ export default {
     viewAll: 'View All',
   },
   bestSubjectCard: {
-    title: 'Top Subjects',
+    title: 'Top Topics',
     averageLabel: (score: number) => `Avg: ${score}%`,
     practiceMore: 'Practice more to unlock!',
   },
@@ -637,6 +637,11 @@ export default {
       navigation: 'Navigation',
       learningPlatform: 'Learning Platform',
       logOut: 'Log out',
+      classroomScope: {
+        label: 'Classroom',
+        switchLabel: 'Switch classroom',
+        none: 'No classroom yet',
+      },
       nav: {
         admin: {
           dashboard: 'Dashboard',
@@ -654,7 +659,6 @@ export default {
           students: 'Students',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
-          templateLibrary: 'Template Library',
         },
         teacher: {
           dashboard: 'Dashboard',

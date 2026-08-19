@@ -10,8 +10,24 @@ type UserRole = Database['public']['Enums']['user_role']
  * Each guard uses fire-and-forget pattern (non-blocking).
  */
 
+/**
+ * Every non-admin surface is scoped to one classroom (decision 79), so the
+ * candidate list is loaded alongside the role's other preloads. Pages react to
+ * `selectedId` rather than waiting on this: the user can switch classroom at
+ * any time, so a page that only read the scope once would go stale anyway.
+ */
+function classroomScopeGuard() {
+  import('@/stores/classroom-scope').then((mod) => {
+    const scope = mod.useClassroomScopeStore()
+    if (!scope.isReady && !scope.isLoading) {
+      scope.fetchClassrooms()
+    }
+  })
+}
+
 // Student routes: fire-and-forget data preloading (non-blocking)
 function studentRouteGuard() {
+  classroomScopeGuard()
   Promise.all([import('@/stores/curriculum'), import('@/stores/announcements')]).then(
     ([curriculumMod, announcementsMod]) => {
       const curriculumStore = curriculumMod.useCurriculumStore()
@@ -30,6 +46,7 @@ function studentRouteGuard() {
 
 // Manager routes: fire-and-forget data preloading (non-blocking)
 function managerRouteGuard() {
+  classroomScopeGuard()
   Promise.all([import('@/stores/manager-teachers'), import('@/stores/curriculum')]).then(
     ([teachersMod, curriculumMod]) => {
       const teachersStore = teachersMod.useManagerTeachersStore()
@@ -49,6 +66,7 @@ function managerRouteGuard() {
 
 // Teacher routes: fire-and-forget data preloading (non-blocking)
 function teacherRouteGuard() {
+  classroomScopeGuard()
   Promise.all([import('@/stores/classrooms'), import('@/stores/curriculum')]).then(
     ([classroomsMod, curriculumMod]) => {
       const classroomsStore = classroomsMod.useClassroomsStore()
@@ -218,11 +236,6 @@ const router = createRouter({
           path: 'assessments/:assessmentId',
           name: 'manager-assessment-builder',
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
-        },
-        {
-          path: 'templates',
-          name: 'manager-template-library',
-          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
         },
         {
           path: 'profile',

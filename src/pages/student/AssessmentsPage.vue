@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStudentAssessmentsStore, type AssignedAssessment } from '@/stores/student-assessments'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useT } from '@/composables/useT'
 import { formatDateTime } from '@/lib/date'
 import { AlarmClock, CalendarClock, ClipboardList, Loader2 } from 'lucide-vue-next'
@@ -12,14 +13,20 @@ import { Card, CardContent } from '@/components/ui/card'
 
 const router = useRouter()
 const store = useStudentAssessmentsStore()
+const scope = useClassroomScopeStore()
 const t = useT()
 
-onMounted(async () => {
-  const { error } = await store.fetchAssigned()
-  if (error) {
-    toast.error(t.value.student.assessments.toastLoadFailed)
-  }
-})
+// Re-fetch whenever the classroom changes — the list belongs to one classroom.
+watch(
+  () => scope.selectedId,
+  async (classroomId) => {
+    const { error } = await store.fetchAssigned(classroomId)
+    if (error) {
+      toast.error(t.value.student.assessments.toastLoadFailed)
+    }
+  },
+  { immediate: true },
+)
 
 function isOverdue(item: AssignedAssessment): boolean {
   return item.dueAt !== null && Date.parse(item.dueAt) < Date.now()

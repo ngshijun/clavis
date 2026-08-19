@@ -275,7 +275,7 @@ export default {
     viewAll: '查看全部',
   },
   bestSubjectCard: {
-    title: '最佳科目',
+    title: '最佳课题',
     averageLabel: (score: number) => `均分：${score}%`,
     practiceMore: '多练习即可解锁！',
   },
@@ -622,6 +622,11 @@ export default {
       navigation: '导航',
       learningPlatform: '学习平台',
       logOut: '退出登录',
+      classroomScope: {
+        label: '班级',
+        switchLabel: '切换班级',
+        none: '尚未加入班级',
+      },
       nav: {
         admin: {
           dashboard: '主页',
@@ -639,7 +644,6 @@ export default {
           students: '学生',
           classrooms: '班级',
           assessments: '测评',
-          templateLibrary: '模板库',
         },
         teacher: {
           dashboard: '主页',

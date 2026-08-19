@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { usePracticeStore } from '@/stores/practice'
 import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
@@ -13,7 +13,7 @@ import {
   recommendedNodeId,
   type LearningMapNode,
 } from '@/lib/learningMap'
-import { Loader2, CircleCheck, GraduationCap, ArrowLeft } from 'lucide-vue-next'
+import { Loader2, CircleCheck, School, ArrowLeft } from 'lucide-vue-next'
 import LearningMapPath from '@/components/student/LearningMapPath.vue'
 import SubTopicNodeDialog from '@/components/student/SubTopicNodeDialog.vue'
 import { Button } from '@/components/ui/button'
@@ -22,19 +22,14 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from 'vue-sonner'
 
 const router = useRouter()
-const authStore = useAuthStore()
+const scope = useClassroomScopeStore()
 const curriculumStore = useCurriculumStore()
 const practiceStore = usePracticeStore()
 const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
-const { getTopicProgress, isTopicFullyPracticed, getSubjectProgress, isSubjectFullyPracticed } =
-  usePracticeProgress()
+const { getTopicProgress, isTopicFullyPracticed } = usePracticeProgress()
 
 // Navigation state (from store for persistence)
-const selectedSubjectId = computed({
-  get: () => practiceStore.practiceNavigation.selectedSubjectId,
-  set: (val) => practiceStore.setPracticeSubject(val),
-})
 const selectedTopicId = computed({
   get: () => practiceStore.practiceNavigation.selectedTopicId,
   set: (val) => practiceStore.setPracticeTopic(val),
@@ -55,33 +50,25 @@ onMounted(async () => {
   await Promise.all([practiceStore.fetchSubTopicProgress(), statsStore.fetchStats()])
 })
 
-// Get student's grade level ID
-const studentGradeLevelId = computed(() => {
-  if (authStore.user?.userType === 'student') {
-    return authStore.studentProfile?.gradeLevelId ?? null
-  }
-  return null
-})
-
-// Get student's grade level name
-const studentGradeLevelName = computed(() => {
-  if (!studentGradeLevelId.value) return ''
-  const grade = curriculumStore.gradeLevels.find((g) => g.id === studentGradeLevelId.value)
-  return grade?.name ?? ''
-})
-
-// Get available subjects for student's grade level
-const availableSubjects = computed(() => {
-  if (!studentGradeLevelId.value) return []
-  const grade = curriculumStore.gradeLevels.find((g) => g.id === studentGradeLevelId.value)
-  return grade?.subjects ?? []
-})
-
-// Get selected subject
+/**
+ * Grade and subject both come from the selected classroom (decision 79) —
+ * there is no subject picker any more, and `student_profiles.grade_level_id`
+ * no longer decides what a student may practise. The page starts one level
+ * deeper than it used to: topics of the classroom's subject.
+ */
 const selectedSubject = computed(() => {
-  if (!selectedSubjectId.value) return null
-  return availableSubjects.value.find((s) => s.id === selectedSubjectId.value) ?? null
+  const { gradeLevelId, subjectId } = scope
+  if (!gradeLevelId || !subjectId) return null
+  const grade = curriculumStore.gradeLevels.find((g) => g.id === gradeLevelId)
+  return grade?.subjects.find((s) => s.id === subjectId) ?? null
 })
+
+// Switching classroom changes the subject under us, so the remembered topic
+// belongs to a different tree — drop it rather than render an empty map.
+watch(
+  () => scope.selectedId,
+  () => practiceStore.resetPracticeNavigation(),
+)
 
 // Get selected topic
 const selectedTopic = computed(() => {
@@ -138,11 +125,7 @@ function selectSubTopic(subTopicId: string) {
 }
 
 function goBack() {
-  if (selectedTopic.value) {
-    practiceStore.setPracticeTopic(null)
-  } else if (selectedSubject.value) {
-    practiceStore.resetPracticeNavigation()
-  }
+  practiceStore.setPracticeTopic(null)
 }
 
 async function confirmStartSession() {
@@ -174,22 +157,16 @@ async function confirmStartSession() {
     <!-- Header -->
     <div class="mb-6 flex items-start justify-between gap-4">
       <div>
-        <!-- Back button — labelled with the level we're returning to -->
-        <Button v-if="selectedSubject" variant="ghost" size="sm" class="mb-2 -ml-2" @click="goBack">
+        <!-- Back button — only one level to climb now (map → topic list) -->
+        <Button v-if="selectedTopic" variant="ghost" size="sm" class="mb-2 -ml-2" @click="goBack">
           <ArrowLeft class="mr-2 size-4" />
-          {{ selectedTopic ? selectedSubject.name : studentGradeLevelName }}
+          {{ selectedSubject?.name }}
         </Button>
         <h1 class="text-2xl font-bold">
           {{ selectedTopic?.name ?? selectedSubject?.name ?? t.student.practice.title }}
         </h1>
         <p class="text-muted-foreground">
-          {{
-            selectedTopic
-              ? t.student.practice.subtitleMap
-              : selectedSubject
-                ? t.student.practice.subtitleTopic
-                : t.student.practice.subtitleSubject
-          }}
+          {{ selectedTopic ? t.student.practice.subtitleMap : t.student.practice.subtitleTopic }}
         </p>
       </div>
     </div>
@@ -199,91 +176,27 @@ async function confirmStartSession() {
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
-    <!-- No Grade Level Set -->
+    <!-- Belongs to no classroom: nothing to practise until a manager enrols them -->
     <Card
-      v-else-if="!studentGradeLevelId"
+      v-else-if="scope.hasNoClassrooms || !selectedSubject"
       class="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 text-center dark:border-blue-800 dark:bg-card dark:from-blue-950/30 dark:to-indigo-950/30"
     >
       <CardContent class="py-8">
         <div
           class="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50"
         >
-          <GraduationCap class="size-7 text-blue-500" />
+          <School class="size-7 text-blue-500" />
         </div>
-        <h3 class="text-lg font-semibold">{{ t.student.practice.gradeLevelNotSet }}</h3>
+        <h3 class="text-lg font-semibold">{{ t.student.practice.noClassroom }}</h3>
         <p class="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          {{ t.student.practice.gradeLevelNotSetDesc }}
+          {{ t.student.practice.noClassroomDesc }}
         </p>
-        <Button class="mt-4" @click="router.push('/student/profile')">{{
-          t.student.practice.goToProfile
-        }}</Button>
       </CardContent>
     </Card>
 
     <template v-else>
-      <!-- Subject Selection -->
-      <div v-if="!selectedSubject">
-        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card
-            v-for="subject in availableSubjects"
-            :key="subject.id"
-            class="flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg"
-            :class="{
-              'border-2 border-green-500 bg-green-50 dark:bg-green-950/30':
-                isSubjectFullyPracticed(subject),
-            }"
-            @click="practiceStore.setPracticeSubject(subject.id)"
-          >
-            <div v-if="subject.coverImagePath" class="aspect-video w-full overflow-hidden">
-              <img
-                :src="getImageUrl(subject.coverImagePath)"
-                :alt="subject.name"
-                loading="lazy"
-                class="size-full object-cover"
-              />
-            </div>
-            <CardContent class="mt-auto px-4 pb-4 pt-2">
-              <div class="flex items-center gap-2">
-                <h3 class="text-lg font-semibold">{{ subject.name }}</h3>
-                <CircleCheck
-                  v-if="isSubjectFullyPracticed(subject)"
-                  class="size-5 text-green-600"
-                />
-              </div>
-              <p
-                class="text-sm"
-                :class="
-                  isSubjectFullyPracticed(subject) ? 'text-green-600' : 'text-muted-foreground'
-                "
-              >
-                {{
-                  t.student.practice.topicCompleted(
-                    getSubjectProgress(subject).completed,
-                    getSubjectProgress(subject).total,
-                  )
-                }}
-              </p>
-              <Progress
-                :model-value="
-                  getSubjectProgress(subject).total > 0
-                    ? (getSubjectProgress(subject).completed / getSubjectProgress(subject).total) *
-                      100
-                    : 0
-                "
-                class="mt-2 h-1.5"
-                :class="isSubjectFullyPracticed(subject) ? '[&>div]:bg-green-500' : ''"
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div v-if="availableSubjects.length === 0" class="py-12 text-center">
-          <p class="text-muted-foreground">{{ t.student.practice.noSubjects }}</p>
-        </div>
-      </div>
-
       <!-- Topic Selection -->
-      <div v-else-if="!selectedTopic">
+      <div v-if="!selectedTopic">
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <Card
             v-for="topic in selectedSubject.topics"

@@ -89,16 +89,8 @@ export function createPracticeHistoryColumns<T extends PracticeSessionRow>(): Co
         return new Date(a).getTime() - new Date(b).getTime()
       },
     },
-    {
-      accessorKey: 'gradeLevelName',
-      header: headers.grade,
-      cell: ({ row }) => h('div', {}, row.original.gradeLevelName),
-    },
-    {
-      accessorKey: 'subjectName',
-      header: headers.subject,
-      cell: ({ row }) => h('div', { class: 'font-medium' }, row.original.subjectName),
-    },
+    // Grade and subject are fixed by the selected classroom (decision 79), so
+    // they would repeat identically on every row — the table starts at topic.
     {
       accessorKey: 'topicName',
       header: headers.topic,

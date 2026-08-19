@@ -11,15 +11,13 @@ export default {
     title: 'Practice',
     subtitleMap: 'Follow your path — tap any stop to practice',
     subtitleTopic: 'Select a topic to continue',
-    subtitleSubject: 'Select a subject to start practicing',
-    gradeLevelNotSet: 'Grade Level Not Set',
-    gradeLevelNotSetDesc: 'Please set your grade level in your profile to start practicing.',
-    goToProfile: 'Go to Profile',
+    noClassroom: 'No Classroom Yet',
+    noClassroomDesc:
+      'Practice follows your classroom. Once your tuition center adds you to one, its topics appear here.',
     topicCompleted: (completed: number, total: number) =>
       `${completed}/${total} ${total === 1 ? 'topic' : 'topics'} completed`,
     subTopicCompleted: (completed: number, total: number) =>
       `${completed}/${total} ${total === 1 ? 'sub-topic' : 'sub-topics'} completed`,
-    noSubjects: 'No subjects available for your grade level.',
     noTopics: 'No topics available for this subject.',
     noSubTopics: 'No sub-topics available for this topic.',
     startingSession: 'Starting practice session...',

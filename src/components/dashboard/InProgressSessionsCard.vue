@@ -18,7 +18,6 @@ const t = useT()
 interface InProgressRow {
   id: string
   createdAt: string
-  subjectName: string
   topicName: string
   subTopicName: string
   answeredQuestions: number
@@ -34,7 +33,6 @@ const inProgressData = computed<InProgressRow[]>(() => {
       return {
         id: session.id,
         createdAt: session.createdAt ?? new Date().toISOString(),
-        subjectName: session.subjectName,
         topicName: session.topicName,
         subTopicName: session.subTopicName,
         answeredQuestions: session.answerCount,
@@ -69,13 +67,8 @@ const columns = computed<ColumnDef<InProgressRow>[]>(() => [
       return h('div', { class: 'text-sm' }, formatDateTime(row.original.createdAt))
     },
   },
-  {
-    accessorKey: 'subjectName',
-    header: t.value.shared.inProgressSessionsCard.subjectCol,
-    cell: ({ row }) => {
-      return h('div', { class: 'font-medium' }, row.original.subjectName)
-    },
-  },
+  // Subject is fixed by the selected classroom (decision 79) — it would be the
+  // same value on every row, so the table starts at topic.
   {
     accessorKey: 'topicName',
     header: t.value.shared.inProgressSessionsCard.topicCol,

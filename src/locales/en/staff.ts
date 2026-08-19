@@ -367,6 +367,7 @@ export default {
   },
 
   assign: {
+    descriptionReadOnly: 'Who this assessment has been assigned to.',
     description: 'Assign to a whole classroom or to individual students.',
     draftWarning: 'This assessment is still a draft — students only see it once it is published.',
     currentTitle: 'Current Assignments',

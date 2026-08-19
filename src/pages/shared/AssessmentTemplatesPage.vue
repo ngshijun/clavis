@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 
 /**
  * Staff (manager/teacher) template library: platform templates are strictly
@@ -30,15 +31,30 @@ const t = useT()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
+const scope = useClassroomScopeStore()
 
 const basePath = computed(() => `/${authStore.userType}`)
 
 const search = ref('')
 
+/**
+ * Only templates the classroom in scope can actually take (decision 81).
+ * Cloning targets that classroom and the RPC rejects a mismatched grade or
+ * subject, so offering the rest would be a row whose only action fails.
+ */
+const scopedTemplates = computed(() => {
+  const classroom = scope.selected
+  if (!classroom) return []
+  return assessmentsStore.templates.filter(
+    (item) =>
+      item.gradeLevelId === classroom.gradeLevelId && item.subjectId === classroom.subjectId,
+  )
+})
+
 const filteredTemplates = computed(() => {
   const query = search.value.toLowerCase().trim()
-  if (!query) return assessmentsStore.templates
-  return assessmentsStore.templates.filter(
+  if (!query) return scopedTemplates.value
+  return scopedTemplates.value.filter(
     (item) =>
       item.title.toLowerCase().includes(query) ||
       (item.description ?? '').toLowerCase().includes(query),
@@ -71,7 +87,15 @@ async function handleUseTemplate() {
 
   isCloning.value = true
   try {
-    const { id, error } = await assessmentsStore.cloneTemplate(selectedTemplate.value.id)
+    const classroomId = scope.selectedId
+    if (!classroomId) {
+      toast.error(t.value.shared.errors.failedCloneTemplate)
+      return
+    }
+    const { id, error } = await assessmentsStore.cloneTemplate(
+      selectedTemplate.value.id,
+      classroomId,
+    )
     if (error || !id) {
       toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
       return
