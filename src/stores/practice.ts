@@ -22,9 +22,10 @@ export const usePracticeStore = defineStore('practice', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Practice page navigation state (persisted across navigation)
+  // Practice page navigation state (persisted across navigation). The subject
+  // is no longer part of it — it comes from the selected classroom (decision
+  // 79), so the only thing the page still navigates is topic → map.
   const practiceNavigation = ref({
-    selectedSubjectId: null as string | null,
     selectedTopicId: null as string | null,
   })
 
@@ -504,21 +505,12 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   // Practice navigation setters
-  function setPracticeSubject(subjectId: string | null) {
-    practiceNavigation.value.selectedSubjectId = subjectId
-    // Reset topic when subject changes
-    practiceNavigation.value.selectedTopicId = null
-  }
-
   function setPracticeTopic(topicId: string | null) {
     practiceNavigation.value.selectedTopicId = topicId
   }
 
   function resetPracticeNavigation() {
-    practiceNavigation.value = {
-      selectedSubjectId: null,
-      selectedTopicId: null,
-    }
+    practiceNavigation.value = { selectedTopicId: null }
   }
 
   /**
@@ -599,7 +591,6 @@ export const usePracticeStore = defineStore('practice', () => {
     isCurrentQuestionAnswered,
     // Practice navigation
     practiceNavigation,
-    setPracticeSubject,
     setPracticeTopic,
     resetPracticeNavigation,
     // Sub-topic progress

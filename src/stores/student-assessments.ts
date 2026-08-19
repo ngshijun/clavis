@@ -286,7 +286,6 @@ function parseCorrectInfo(raw: unknown): ReviewCorrectInfo | null {
 export const useStudentAssessmentsStore = defineStore('student-assessments', () => {
   const assigned = ref<AssignedAssessment[]>([])
   const isLoading = ref(false)
-  const hasLoaded = ref(false)
   const error = ref<string | null>(null)
 
   // Runner state for the attempt currently open
@@ -317,11 +316,26 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
   }
 
   /**
-   * Assigned list. RLS already scopes `assessments` to published + assigned,
-   * `assessment_assignments` to rows reaching the caller, and
-   * `assessment_attempts` to the caller's own (unique per assessment).
+   * Assigned list for ONE classroom (decision 79). RLS already scopes
+   * `assessments` to published + assigned, `assessment_assignments` to rows
+   * reaching the caller, and `assessment_attempts` to the caller's own (unique
+   * per assessment); the classroom filter narrows that to the classroom the
+   * student is currently looking at.
+   *
+   * An assessment reaches the student either through the classroom itself or
+   * through an individual assignment. Individually-targeted rows carry no
+   * classroom_id, so they are matched on the assessment's own grade+subject
+   * pairing instead — which P8 already guarantees lines up with a classroom
+   * the student belongs to.
    */
-  async function fetchAssigned(): Promise<{ error: string | null }> {
+  async function fetchAssigned(
+    classroom: { id: string; gradeLevelId: string; subjectId: string } | null,
+  ): Promise<{ error: string | null }> {
+    if (!classroom) {
+      assigned.value = []
+      return { error: null }
+    }
+
     isLoading.value = true
     error.value = null
 
@@ -335,7 +349,9 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
           description,
           time_limit_seconds,
           show_auto_score_while_pending,
-          assessment_assignments (due_at),
+          grade_level_id,
+          subject_id,
+          assessment_assignments (due_at, classroom_id),
           assessment_attempts (
             id,
             completed_at,
@@ -351,8 +367,25 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
       if (fetchError) throw fetchError
 
       const now = Date.now()
-      assigned.value = (data ?? []).map((row) => {
-        const dueDates = row.assessment_assignments.map((a) => a.due_at)
+
+      // Keep only the assignments that reach the student *through this
+      // classroom*, so a due date set for another classroom can never gate
+      // this one's CTA.
+      const inScope = (data ?? [])
+        .map((row) => ({
+          row,
+          assignments: row.assessment_assignments.filter(
+            (a) =>
+              a.classroom_id === classroom.id ||
+              (a.classroom_id === null &&
+                row.grade_level_id === classroom.gradeLevelId &&
+                row.subject_id === classroom.subjectId),
+          ),
+        }))
+        .filter((entry) => entry.assignments.length > 0)
+
+      assigned.value = inScope.map(({ row, assignments }) => {
+        const dueDates = assignments.map((a) => a.due_at)
         const definiteDues = dueDates.filter((d): d is string => d !== null)
         const canStart =
           dueDates.length === 0 || dueDates.some((d) => d === null || Date.parse(d) > now)
@@ -405,7 +438,6 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
         return aDue - bDue
       })
 
-      hasLoaded.value = true
       return { error: null }
     } catch (err) {
       const message = handleError(err, 'failedFetchAssessments')
@@ -631,8 +663,6 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
         return { result: null, error: errorMessages().failedCompleteAttempt }
       }
 
-      hasLoaded.value = false // assigned list is stale now
-
       return {
         result: {
           correctCount: raw.correct_count,
@@ -758,7 +788,6 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
   function $reset() {
     assigned.value = []
     isLoading.value = false
-    hasLoaded.value = false
     error.value = null
     clearRunner()
     isStarting.value = false
@@ -769,7 +798,6 @@ export const useStudentAssessmentsStore = defineStore('student-assessments', () 
   return {
     assigned,
     isLoading,
-    hasLoaded,
     error,
     pendingAssessments,
     fetchAssigned,

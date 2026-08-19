@@ -283,7 +283,7 @@ export default {
     viewAll: 'View All',
   },
   bestSubjectCard: {
-    title: 'Top Subjects',
+    title: 'Top Topics',
     averageLabel: (score: number) => `Avg: ${score}%`,
     practiceMore: 'Practice more to unlock!',
   },

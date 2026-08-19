@@ -275,7 +275,7 @@ export default {
     viewAll: '查看全部',
   },
   bestSubjectCard: {
-    title: '最佳科目',
+    title: '最佳课题',
     averageLabel: (score: number) => `均分：${score}%`,
     practiceMore: '多练习即可解锁！',
   },
