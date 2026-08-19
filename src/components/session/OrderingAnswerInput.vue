@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { RunnerItem } from '@/stores/student-assessments'
 import { GripVertical } from 'lucide-vue-next'
+import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -34,11 +35,35 @@ watch(
   },
   { immediate: true, deep: true },
 )
+
+// ── keyboard reorder (decision 77) ─────────────────────────
+// Arrow keys on the focused handle emit the SAME `change` a drop does. An
+// upward move relocates the moved node itself and Chrome blurs it, so the
+// handle is explicitly re-focused after the patch (refocusReorderHandle).
+
+/** Screen-reader announcement for the latest keyboard move. */
+const reorderAnnouncement = ref('')
+
+function moveRow(index: number, delta: -1 | 1) {
+  if (props.disabled) return
+  const moving = rows.value[index]
+  const next = moveItem(rows.value, index, delta)
+  if (!next || !moving) return
+  rows.value = next
+  void refocusReorderHandle(moving.id)
+  emit(
+    'change',
+    next.map((row) => row.id),
+  )
+  reorderAnnouncement.value = t.value.shared.reorder.movedTo(index + 1 + delta, rows.value.length)
+}
 </script>
 
 <template>
   <div class="space-y-2">
     <p class="text-sm text-muted-foreground">{{ t.shared.orderingAnswerInput.hint }}</p>
+    <!-- Announces keyboard moves to screen readers -->
+    <p class="sr-only" role="status">{{ reorderAnnouncement }}</p>
     <VueDraggable
       v-model="rows"
       handle="[data-drag-handle]"
@@ -58,11 +83,18 @@ watch(
         :key="row.id"
         class="flex items-center gap-3 rounded-lg border bg-background p-3"
       >
-        <GripVertical
+        <button
+          type="button"
           data-drag-handle
-          class="size-4 shrink-0 cursor-grab text-muted-foreground"
-          :aria-label="t.shared.orderingAnswerInput.dragHandleLabel"
-        />
+          :data-reorder-id="row.id"
+          class="shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          :disabled="disabled"
+          :aria-label="`${row.text} — ${t.shared.reorder.handleLabel}`"
+          @keydown.up.prevent="moveRow(index, -1)"
+          @keydown.down.prevent="moveRow(index, 1)"
+        >
+          <GripVertical class="size-4" />
+        </button>
         <span
           class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
         >

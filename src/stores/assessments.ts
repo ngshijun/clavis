@@ -4,7 +4,13 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
-import { payloadPrompt, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
+import {
+  collectAdhocPayloadImagePaths,
+  payloadPrompt,
+  type AdhocPayload,
+  type AdhocQuestionType,
+} from '@/lib/adhocPayload'
+import { removeStorageFolder, removeStorageObjects } from '@/lib/storage'
 import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
 
 export type { AttemptAnswerResponse }
@@ -12,6 +18,32 @@ export type { AttemptAnswerResponse }
 export type AssessmentStatus = Database['public']['Enums']['assessment_status']
 export type QuestionType = Database['public']['Enums']['question_type']
 type QuestionRow = Database['public']['Tables']['questions']['Row']
+
+/**
+ * The bank columns a staff member may actually SELECT: `answer`,
+ * `option_N_is_correct` and `option_N_tip` are revoked from `authenticated`
+ * (P11a/decision 76), so the embed MUST name its columns — `questions (*)`
+ * fails with 42501 for teachers, managers and admins alike.
+ */
+const BANK_QUESTION_EMBED =
+  'id, type, question, image_path, option_1_text, option_1_image_path, option_2_text, option_2_image_path, option_3_text, option_3_image_path, option_4_text, option_4_image_path'
+
+/** A bank question as embedded by BANK_QUESTION_EMBED — content only, no key. */
+type BankQuestionContent = Pick<
+  QuestionRow,
+  | 'id'
+  | 'type'
+  | 'question'
+  | 'image_path'
+  | 'option_1_text'
+  | 'option_1_image_path'
+  | 'option_2_text'
+  | 'option_2_image_path'
+  | 'option_3_text'
+  | 'option_3_image_path'
+  | 'option_4_text'
+  | 'option_4_image_path'
+>
 type AssessmentQuestionRow = Database['public']['Tables']['assessment_questions']['Row']
 
 export interface AssessmentListItem {
@@ -169,7 +201,7 @@ function adhocDisplayFields(payload: AdhocPayload): {
 }
 
 function rowToAssessmentQuestion(
-  row: AssessmentQuestionRow & { questions: QuestionRow | null },
+  row: AssessmentQuestionRow & { questions: BankQuestionContent | null },
 ): AssessmentQuestionItem {
   if (row.question_id && row.questions) {
     const bank = row.questions
@@ -547,6 +579,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   async function deleteAssessment(id: string): Promise<{ error: string | null }> {
+    // Storage cleanup (decision 78): every image of this assessment lives
+    // under `assessment-images/{id}/`. The bucket's delete RLS requires the
+    // assessments ROW to still exist (app.can_write_assessment), so the
+    // objects must go BEFORE the row — best-effort, a storage failure never
+    // blocks the delete (an orphan beats a stuck assessment).
+    await removeStorageFolder('assessment-images', id)
     try {
       const { error: deleteError } = await supabase.from('assessments').delete().eq('id', id)
 
@@ -592,15 +630,13 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('assessment_questions')
-        .select('*, questions (*)')
+        .select(`*, questions (${BANK_QUESTION_EMBED})`)
         .eq('assessment_id', assessmentId)
         .order('position')
 
       if (fetchError) throw fetchError
 
-      currentQuestions.value = (data ?? []).map((row) =>
-        rowToAssessmentQuestion(row as AssessmentQuestionRow & { questions: QuestionRow | null }),
-      )
+      currentQuestions.value = (data ?? []).map((row) => rowToAssessmentQuestion(row))
 
       return { error: null }
     } catch (err) {
@@ -721,6 +757,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   async function removeQuestion(id: string): Promise<{ error: string | null }> {
+    const removed = currentQuestions.value.find((q) => q.id === id)
     try {
       const { error: deleteError } = await supabase
         .from('assessment_questions')
@@ -730,6 +767,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       if (deleteError) throw deleteError
 
       currentQuestions.value = currentQuestions.value.filter((q) => q.id !== id)
+
+      // Storage cleanup (decision 78): drop the deleted payload's objects,
+      // EXCEPT paths a duplicated sibling still references (duplicate copies
+      // paths, not objects — P10b deviation 5). Best-effort, never blocking.
+      if (removed?.source === 'adhoc' && removed.payload) {
+        const stillReferenced = new Set(
+          currentQuestions.value
+            .filter((q) => q.source === 'adhoc' && q.payload)
+            .flatMap((q) => collectAdhocPayloadImagePaths(q.payload!)),
+        )
+        void removeStorageObjects(
+          'assessment-images',
+          collectAdhocPayloadImagePaths(removed.payload).filter(
+            (path) => !stillReferenced.has(path),
+          ),
+        )
+      }
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedRemoveAssessmentQuestion') }

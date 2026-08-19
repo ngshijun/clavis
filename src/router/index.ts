@@ -83,7 +83,7 @@ function adminRouteGuard() {
     }
 
     if (questionsStore.questions.length === 0 && !questionsStore.isLoading) {
-      questionsStore.fetchQuestions()
+      questionsStore.fetchBankQuestions()
     }
 
     if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {

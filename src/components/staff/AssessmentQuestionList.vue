@@ -5,6 +5,7 @@ import { Database, ImagePlus, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
+import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 import type { AssessmentQuestionItem } from '@/stores/assessments'
 import type { AdhocPayload } from '@/lib/adhocPayload'
 
@@ -26,6 +27,8 @@ const emit = defineEmits<{
   reorder: [orderedIds: string[]]
   'payload-change': [item: AssessmentQuestionItem, payload: AdhocPayload]
   'points-change': [item: AssessmentQuestionItem, points: number]
+  /** A replaced/removed image object awaiting confirmed-save deletion (decision 78). */
+  'image-orphaned': [item: AssessmentQuestionItem, path: string]
   duplicate: [item: AssessmentQuestionItem]
   remove: [item: AssessmentQuestionItem]
   'add-question': []
@@ -50,6 +53,27 @@ const list = computed({
       value.map((item) => item.id),
     ),
 })
+
+// ── keyboard reorder (decision 77) ─────────────────────────
+// Arrow keys on a card's grip emit the SAME `reorder` event a drop does, so
+// the page's apply/persist + autosave path covers both input methods. The
+// An upward move relocates the moved node itself and Chrome blurs it, so the
+// grip is explicitly re-focused after the patch (refocusReorderHandle).
+
+/** Screen-reader announcement for the latest keyboard move. */
+const reorderAnnouncement = ref('')
+
+function moveCard(index: number, delta: -1 | 1) {
+  const moving = props.items[index]
+  const next = moveItem(props.items, index, delta)
+  if (!next || !moving) return
+  emit(
+    'reorder',
+    next.map((item) => item.id),
+  )
+  reorderAnnouncement.value = t.value.shared.reorder.movedTo(index + 1 + delta, props.items.length)
+  void refocusReorderHandle(moving.id)
+}
 
 // ── floating toolbar anchoring ─────────────────────────────
 
@@ -112,6 +136,8 @@ function addImageToActiveCard() {
 
 <template>
   <div ref="containerEl" class="relative" :class="editable ? 'lg:pr-14' : ''">
+    <!-- Announces keyboard moves to screen readers -->
+    <p class="sr-only" role="status">{{ reorderAnnouncement }}</p>
     <VueDraggable
       v-model="list"
       handle="[data-card-drag-handle]"
@@ -132,6 +158,8 @@ function addImageToActiveCard() {
         @select="expandedId = item.id"
         @payload-change="(payload) => emit('payload-change', item, payload)"
         @points-change="(points) => emit('points-change', item, points)"
+        @image-orphaned="(path) => emit('image-orphaned', item, path)"
+        @move="(delta) => moveCard(index, delta)"
         @duplicate="emit('duplicate', item)"
         @remove="emit('remove', item)"
       />

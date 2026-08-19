@@ -4,7 +4,12 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Database } from '@/types/database.types'
 import { useCurriculumStore } from './curriculum'
 import { handleError } from '@/lib/errors'
-import { uploadStorageFile, deleteStorageFile, createBucketImageHelpers } from '@/lib/storage'
+import {
+  uploadStorageFile,
+  deleteStorageFile,
+  removeStorageObjects,
+  createBucketImageHelpers,
+} from '@/lib/storage'
 import { useCascadingFilters } from '@/composables/useCascadingFilters'
 
 export type QuestionRow = Database['public']['Tables']['questions']['Row']
@@ -51,6 +56,19 @@ export interface Question {
   gradeLevelName: string
   subjectName: string
   topicName: string
+  subTopicName: string
+}
+
+/**
+ * A bank question as STAFF may see it: no answer, no option correctness, no
+ * tips — the columns behind those are revoked from `authenticated` entirely
+ * (P11a/decision 76), and staff have no definer read path to them.
+ */
+export interface BankQuestionSummary {
+  id: string
+  type: QuestionType
+  question: string
+  subTopicId: string
   subTopicName: string
 }
 
@@ -196,12 +214,31 @@ function applyOptionsToRow(
   target.option_4_tip = optionD?.tip ?? null
 }
 
+/**
+ * The global question bank.
+ *
+ * Read paths after P11a (decision 76) — `questions.answer`,
+ * `option_N_is_correct` and `option_N_tip` are REVOKED from `authenticated`,
+ * so a `select('*')` on the table now fails with 42501 for every role:
+ * - ADMIN authoring/statistics/feedback → `get_bank_questions` /
+ *   `get_bank_question` (definer, admin-gated) → `questions` (full fidelity).
+ * - STAFF (teacher/manager) → `fetchBankSummaries`, named content columns
+ *   only → `bankSummaries` (no correctness of any kind).
+ * - STUDENTS never read the bank through this store; practice content comes
+ *   from `get_practice_session_questions` (see `@/lib/practiceHelpers`).
+ *
+ * Writes are unaffected (the INSERT/UPDATE grants are intact) as long as no
+ * write returns the row: see `addQuestion` / `updateQuestion`.
+ */
 export const useQuestionsStore = defineStore('questions', () => {
   const curriculumStore = useCurriculumStore()
 
   const questions = ref<Question[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+
+  // Staff-facing, key-free listing (assessment builder's bank picker)
+  const bankSummaries = ref<BankQuestionSummary[]>([])
 
   // Question statistics (fetched separately or computed from practice_answers)
   const questionStatistics = ref<QuestionStatistics[]>([])
@@ -266,10 +303,13 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * Fetch all questions into local `questions` array.
-   * Used by question statistics and feedback pages that still need all questions loaded.
+   * ADMIN ONLY — load the whole bank (answer keys and tips included) into the
+   * local `questions` array, for the statistics and feedback pages.
+   * `get_bank_questions` is the only read path left: the key columns are
+   * revoked from `authenticated` (P11a/decision 76), so a direct table read of
+   * `*` fails with 42501 for every role, admins included.
    */
-  async function fetchQuestions(): Promise<void> {
+  async function fetchBankQuestions(): Promise<void> {
     isLoading.value = true
     error.value = null
 
@@ -284,8 +324,10 @@ export const useQuestionsStore = defineStore('questions', () => {
       let hasMore = true
 
       while (hasMore) {
+        // SETOF questions ⇒ PostgREST still applies select/order/range and the
+        // question_tags embed, so `rowToQuestion` consumes the same shape.
         const { data, error: fetchError } = await supabase
-          .from('questions')
+          .rpc('get_bank_questions', {})
           .select(QUESTION_WITH_TAGS_SELECT)
           .order('created_at', { ascending: false })
           .range(from, from + BATCH_SIZE - 1)
@@ -305,9 +347,10 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * Fetch questions for a specific sub-topic
+   * ADMIN ONLY — the authoring panel's questions for one sub-topic, keys and
+   * tips included (see `fetchBankQuestions` for why this is an RPC).
    */
-  async function fetchQuestionsBySubTopic(
+  async function fetchBankQuestionsBySubTopic(
     subTopicId: string,
   ): Promise<{ questions: Question[]; error: string | null }> {
     try {
@@ -317,9 +360,8 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
 
       const { data, error: fetchError } = await supabase
-        .from('questions')
+        .rpc('get_bank_questions', { p_sub_topic_id: subTopicId })
         .select(QUESTION_WITH_TAGS_SELECT)
-        .eq('sub_topic_id', subTopicId)
         .order('created_at', { ascending: false })
 
       if (fetchError) {
@@ -333,6 +375,51 @@ export const useQuestionsStore = defineStore('questions', () => {
     } catch (err) {
       const message = handleError(err, 'failedFetchQuestions')
       return { questions: [], error: message }
+    }
+  }
+
+  /**
+   * STAFF-SAFE — the bank listing behind the assessment builder's question
+   * picker. Selects only columns `authenticated` may read, so teachers and
+   * managers (who have no key access at all) can browse the bank; nothing here
+   * can carry correctness.
+   */
+  async function fetchBankSummaries(): Promise<{ error: string | null }> {
+    try {
+      if (curriculumStore.gradeLevels.length === 0) {
+        await curriculumStore.fetchCurriculum()
+      }
+
+      const BATCH_SIZE = 1000
+      const rows: { id: string; type: QuestionType; question: string; sub_topic_id: string }[] = []
+      let from = 0
+      let hasMore = true
+
+      while (hasMore) {
+        const { data, error: fetchError } = await supabase
+          .from('questions')
+          .select('id, type, question, sub_topic_id')
+          .order('created_at', { ascending: false })
+          .range(from, from + BATCH_SIZE - 1)
+
+        if (fetchError) throw fetchError
+        rows.push(...(data ?? []))
+        hasMore = (data?.length ?? 0) === BATCH_SIZE
+        from += BATCH_SIZE
+      }
+
+      bankSummaries.value = rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        question: row.question,
+        subTopicId: row.sub_topic_id,
+        subTopicName:
+          curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)?.subTopic.name ?? '',
+      }))
+
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedFetchQuestions') }
     }
   }
 
@@ -394,10 +481,12 @@ export const useQuestionsStore = defineStore('questions', () => {
         applyOptionsToRow(insertData, input.options)
       }
 
+      // `select('id')` — NOT a bare `select()`: returning the whole row would
+      // read the revoked key columns and fail with 42501 (P11a).
       const { data, error: insertError } = await supabase
         .from('questions')
         .insert(insertData)
-        .select()
+        .select('id')
         .single()
 
       if (insertError) throw insertError
@@ -436,12 +525,12 @@ export const useQuestionsStore = defineStore('questions', () => {
 
       // Tag-only edits are valid (updateData may be empty otherwise)
       if (Object.keys(updateData).length > 0) {
+        // No returning select: reading the row back would touch the revoked
+        // key columns (P11a), and nothing here consumes it.
         const { error: updateError } = await supabase
           .from('questions')
           .update(updateData)
           .eq('id', id)
-          .select()
-          .single()
 
         if (updateError) throw updateError
       }
@@ -460,11 +549,19 @@ export const useQuestionsStore = defineStore('questions', () => {
   /**
    * Delete a question
    */
-  async function deleteQuestion(id: string): Promise<{ error: string | null }> {
+  async function deleteQuestion(question: Question): Promise<{ error: string | null }> {
     try {
-      const { error: deleteError } = await supabase.from('questions').delete().eq('id', id)
+      const { error: deleteError } = await supabase.from('questions').delete().eq('id', question.id)
 
       if (deleteError) throw deleteError
+
+      // Storage cleanup (decision 78): the row is gone, so its question and
+      // option images are unreferenced. Best-effort — a storage failure only
+      // leaves an orphan, it never surfaces as a failed delete.
+      void removeStorageObjects('question-images', [
+        question.imagePath,
+        ...question.options.map((option) => option.imagePath),
+      ])
 
       return { error: null }
     } catch (err) {
@@ -481,16 +578,16 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * Fetch a single question by ID and add/update it in the store
-   * Used for on-demand loading (e.g., feedback page preview)
+   * ADMIN ONLY — fetch a single question by ID and add/update it in the store.
+   * Used for on-demand loading (e.g., feedback page preview); goes through the
+   * admin definer RPC because the key columns are revoked (P11a).
    */
   async function fetchQuestionById(id: string): Promise<{ error: string | null }> {
     try {
       const { data, error: fetchError } = await supabase
-        .from('questions')
+        .rpc('get_bank_question', { p_question_id: id })
         .select(QUESTION_WITH_TAGS_SELECT)
-        .eq('id', id)
-        .single()
+        .maybeSingle()
 
       if (fetchError) {
         return { error: handleError(fetchError, 'failedFetchQuestion') }
@@ -674,15 +771,16 @@ export const useQuestionsStore = defineStore('questions', () => {
     return new Set(resolveSubTopicIdsForPath(gradeLevelName, subjectName, topicName, subTopicName))
   }
 
-  function getFilteredQuestions(
+  /** Staff bank picker: the same name-path filtering over the key-free list. */
+  function getFilteredBankSummaries(
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
     subTopicName?: string,
-  ): Question[] {
+  ): BankQuestionSummary[] {
     const idSet = resolveFilterSubTopicIdSet(gradeLevelName, subjectName, topicName, subTopicName)
-    if (idSet === null) return questions.value
-    return questions.value.filter((q) => idSet.has(q.subTopicId))
+    if (idSet === null) return bankSummaries.value
+    return bankSummaries.value.filter((q) => idSet.has(q.subTopicId))
   }
 
   function getFilteredQuestionsWithStats(
@@ -715,6 +813,7 @@ export const useQuestionsStore = defineStore('questions', () => {
 
   function $reset() {
     questions.value = []
+    bankSummaries.value = []
     questionStatistics.value = []
     isLoading.value = false
     error.value = null
@@ -726,14 +825,16 @@ export const useQuestionsStore = defineStore('questions', () => {
   return {
     // State
     questions,
+    bankSummaries,
     questionStatistics,
     questionsWithStats,
     isLoading,
     error,
 
     // Actions
-    fetchQuestions,
-    fetchQuestionsBySubTopic,
+    fetchBankQuestions,
+    fetchBankQuestionsBySubTopic,
+    fetchBankSummaries,
     fetchQuestionById,
     addQuestion,
     updateQuestion,
@@ -753,7 +854,7 @@ export const useQuestionsStore = defineStore('questions', () => {
     getSubjects,
     getTopics,
     getSubTopics,
-    getFilteredQuestions,
+    getFilteredBankSummaries,
     getFilteredQuestionsWithStats,
 
     // Question Feedback Page State

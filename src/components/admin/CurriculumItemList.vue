@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { useT } from '@/composables/useT'
+import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 
 /**
  * One level of the curriculum hierarchy as a Google-Forms-style card list
@@ -72,6 +73,27 @@ const list = computed({
       value.map((item) => item.id),
     ),
 })
+
+// ── keyboard reorder (decision 77) ─────────────────────────────────────────
+// Arrow keys on the focused grip emit the SAME `reorder` event a drop does,
+// so the parent's apply/persist + autosave path covers both input methods.
+// An upward move relocates the moved node itself and Chrome blurs it, so the
+// grip is explicitly re-focused after the patch (refocusReorderHandle).
+
+/** Screen-reader announcement for the latest keyboard move. */
+const reorderAnnouncement = ref('')
+
+function moveRow(index: number, delta: -1 | 1) {
+  const moving = props.items[index]
+  const next = moveItem(props.items, index, delta)
+  if (!next || !moving) return
+  emit(
+    'reorder',
+    next.map((item) => item.id),
+  )
+  reorderAnnouncement.value = t.value.shared.reorder.movedTo(index + 1 + delta, props.items.length)
+  void refocusReorderHandle(moving.id)
+}
 
 // ── expanded editor state (single editor — one row expanded at a time) ─────
 
@@ -175,6 +197,9 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
 
     <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImagePicked" />
 
+    <!-- Announces keyboard moves to screen readers -->
+    <p class="sr-only" role="status">{{ reorderAnnouncement }}</p>
+
     <div ref="containerEl" class="relative lg:pr-14">
       <VueDraggable
         v-model="list"
@@ -201,12 +226,18 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
             class="group flex cursor-pointer items-center gap-3 p-3"
             @click="emit('select', item)"
           >
-            <GripVertical
+            <button
+              type="button"
               data-drag-handle
-              class="size-5 shrink-0 cursor-grab text-muted-foreground"
-              :aria-label="t.admin.curriculum.dragToReorder"
+              :data-reorder-id="item.id"
+              class="shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              :aria-label="`${item.name} — ${t.shared.reorder.handleLabel}`"
               @click.stop
-            />
+              @keydown.up.prevent="moveRow(index, -1)"
+              @keydown.down.prevent="moveRow(index, 1)"
+            >
+              <GripVertical class="size-5" />
+            </button>
 
             <span
               class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
@@ -244,11 +275,17 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
           <div v-else class="space-y-4 p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-center gap-3">
-                <GripVertical
+                <button
+                  type="button"
                   data-drag-handle
-                  class="size-5 shrink-0 cursor-grab text-muted-foreground"
-                  :aria-label="t.admin.curriculum.dragToReorder"
-                />
+                  :data-reorder-id="item.id"
+                  class="shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  :aria-label="`${item.name} — ${t.shared.reorder.handleLabel}`"
+                  @keydown.up.prevent="moveRow(index, -1)"
+                  @keydown.down.prevent="moveRow(index, 1)"
+                >
+                  <GripVertical class="size-5" />
+                </button>
                 <span
                   class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
                 >

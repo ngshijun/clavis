@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useQuestionsStore, type Question, rowToQuestion } from './questions'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
 import { handleError, errorMessages } from '@/lib/errors'
 import {
   type PracticeAnswer,
   type PracticeSession,
+  fetchPracticeSessionQuestions,
   shuffle,
   optionIdToNumber,
   optionNumberToId,
@@ -31,7 +31,6 @@ export const usePracticeStore = defineStore('practice', () => {
   // Sub-topic progress tracking (unique questions answered per sub-topic)
   const subTopicProgress = ref<Map<string, number>>(new Map())
 
-  const questionsStore = useQuestionsStore()
   const authStore = useAuthStore()
   const curriculumStore = useCurriculumStore()
 
@@ -92,14 +91,21 @@ export const usePracticeStore = defineStore('practice', () => {
         return { session: null, error: errorMessages().subTopicNotFound }
       }
 
-      // Fetch questions for this sub-topic
-      const questionsResult = await questionsStore.fetchQuestionsBySubTopic(subTopicId)
-      if (questionsResult.error) {
-        return { session: null, error: questionsResult.error }
+      // Question pool for this sub-topic: IDs ONLY. Students have no read path
+      // on the bank's key columns (P11a/decision 76), and the cycle/selection
+      // logic below needs nothing but ids — the content of the questions that
+      // end up in the session is served by get_practice_session_questions.
+      const { data: poolRows, error: poolError } = await supabase
+        .from('questions')
+        .select('id')
+        .eq('sub_topic_id', subTopicId)
+
+      if (poolError) {
+        return { session: null, error: handleError(poolError, 'failedStartSession') }
       }
 
-      const allQuestions = questionsResult.questions
-      if (allQuestions.length === 0) {
+      const allQuestionIds = (poolRows ?? []).map((row) => row.id)
+      if (allQuestionIds.length === 0) {
         return { session: null, error: errorMessages().noQuestionsAvailable }
       }
 
@@ -129,42 +135,40 @@ export const usePracticeStore = defineStore('practice', () => {
       }
 
       // Filter out answered questions from current cycle
-      const unansweredQuestions = allQuestions.filter((q) => !answeredQuestionIds.has(q.id))
+      const unansweredIds = allQuestionIds.filter((id) => !answeredQuestionIds.has(id))
 
       // If not enough unanswered questions, start a new cycle
-      let selectedQuestions: Question[] = []
+      let selectedIds: string[] = []
       let questionsFromNewCycle = 0
 
-      if (unansweredQuestions.length >= questionCount) {
+      if (unansweredIds.length >= questionCount) {
         // Enough unanswered questions - select randomly from them
-        const shuffled = shuffle(unansweredQuestions)
-        selectedQuestions = shuffled.slice(0, questionCount)
+        selectedIds = shuffle(unansweredIds).slice(0, questionCount)
       } else {
         // Not enough - use all remaining + start new cycle for the rest
-        selectedQuestions = [...unansweredQuestions]
-        questionsFromNewCycle = questionCount - unansweredQuestions.length
+        selectedIds = [...unansweredIds]
+        questionsFromNewCycle = questionCount - unansweredIds.length
 
         if (questionsFromNewCycle > 0) {
           currentCycle++ // Move to new cycle
           // Select additional questions from the full pool (excluding already selected)
-          const selectedIds = new Set(selectedQuestions.map((q) => q.id))
-          const remainingPool = allQuestions.filter((q) => !selectedIds.has(q.id))
-          const shuffledRemaining = shuffle(remainingPool)
-          const additionalQuestions = shuffledRemaining.slice(
+          const alreadySelected = new Set(selectedIds)
+          const remainingPool = allQuestionIds.filter((id) => !alreadySelected.has(id))
+          const additionalIds = shuffle(remainingPool).slice(
             0,
-            Math.min(questionsFromNewCycle, shuffledRemaining.length),
+            Math.min(questionsFromNewCycle, remainingPool.length),
           )
-          selectedQuestions = [...selectedQuestions, ...additionalQuestions]
+          selectedIds = [...selectedIds, ...additionalIds]
         }
 
         // Shuffle final selection so old/new cycle questions are mixed
-        selectedQuestions = shuffle(selectedQuestions)
+        selectedIds = shuffle(selectedIds)
       }
 
       // Create session atomically using RPC function
       // This inserts session, questions, and progress in a single transaction
-      const questionsPayload = selectedQuestions.map((question, index) => ({
-        question_id: question.id,
+      const questionsPayload = selectedIds.map((questionId, index) => ({
+        question_id: questionId,
         question_order: index,
       }))
 
@@ -184,6 +188,15 @@ export const usePracticeStore = defineStore('practice', () => {
         return { session: null, error: handleError(createError, 'failedStartSession') }
       }
 
+      // Question content comes from the sanitizing owner-only RPC (decision 76)
+      // in the frozen session order — never from a direct bank read.
+      const { questions: sessionQuestions, error: contentError } =
+        await fetchPracticeSessionQuestions(sessionId)
+
+      if (contentError) {
+        return { session: null, error: handleError(contentError, 'failedStartSession') }
+      }
+
       const session: PracticeSession = {
         id: sessionId,
         studentId: authStore.user.id,
@@ -194,7 +207,7 @@ export const usePracticeStore = defineStore('practice', () => {
         subTopicId: subTopicId,
         topicName: hierarchy.topic.name,
         subTopicName: hierarchy.subTopic.name,
-        totalQuestions: selectedQuestions.length,
+        totalQuestions: sessionQuestions.length,
         currentQuestionIndex: 0,
         correctAnswers: 0,
         answerCount: 0,
@@ -202,7 +215,7 @@ export const usePracticeStore = defineStore('practice', () => {
         aiSummary: null,
         createdAt: new Date().toISOString(),
         completedAt: null,
-        questions: selectedQuestions,
+        questions: sessionQuestions,
         answers: [],
       }
 
@@ -470,45 +483,20 @@ export const usePracticeStore = defineStore('practice', () => {
       return { session: null, error: errorMessages().sessionAlreadyCompleted }
     }
 
-    // Fetch questions from session_questions table to get the original question order
-    const { data: sessionQuestionsData, error: sqError } = await supabase
-      .from('session_questions')
-      .select('question_id, question_order')
-      .eq('session_id', sessionId)
-      .order('question_order', { ascending: true })
+    // Sanitized content in the frozen session order (decision 76). The RPC
+    // reads session_questions itself, so no separate order query is needed.
+    const { questions, error: questionsError } = await fetchPracticeSessionQuestions(sessionId)
 
-    if (sqError) {
-      return { session: null, error: handleError(sqError, 'failedResumeSession') }
+    if (questionsError) {
+      return { session: null, error: handleError(questionsError, 'failedResumeSession') }
     }
 
-    if (!sessionQuestionsData || sessionQuestionsData.length === 0) {
+    if (questions.length === 0) {
       return { session: null, error: errorMessages().sessionQuestionsNotFound }
     }
 
-    const questionIds = sessionQuestionsData.map((sq) => sq.question_id)
-
-    // Fetch the actual question data
-    const { data: questionsData, error: qError } = await supabase
-      .from('questions')
-      .select('*')
-      .in('id', questionIds)
-
-    if (qError) {
-      return { session: null, error: handleError(qError, 'failedResumeSession') }
-    }
-
-    // Create a map for quick lookup
-    const questionsMap = new Map<string, Question>()
-    if (questionsData) {
-      for (const row of questionsData) {
-        questionsMap.set(row.id, rowToQuestion(row, curriculumStore))
-      }
-    }
-
-    // Build questions array in the original order
-    result.session.questions = sessionQuestionsData
-      .map((sq) => questionsMap.get(sq.question_id))
-      .filter((q): q is Question => q !== undefined)
+    result.session.questions = questions
+    result.session.totalQuestions = questions.length
 
     currentSession.value = result.session
 

@@ -14,6 +14,7 @@ import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useAutosave } from '@/composables/useAutosave'
+import { removeStorageObjects } from '@/lib/storage'
 import { useT } from '@/composables/useT'
 import {
   Breadcrumb,
@@ -277,6 +278,60 @@ function handleRename(level: CurriculumLevel, item: { id: string; name: string }
 /** Cover image upload in flight for this row (spinner in the editor). */
 const uploadingImageId = ref<string | null>(null)
 
+/**
+ * Replaced/removed cover objects per item id (decision 78). Deleted only
+ * once a cover-image save CONFIRMS the row no longer points at them — a
+ * failed save rolls back to the confirmed path, so deleting earlier would
+ * leave a broken image. Pending paths of a finally-failed save are dropped
+ * (the fresh upload becomes the orphan instead).
+ */
+const pendingCoverDeletes = new Map<string, Set<string>>()
+
+function queueCoverDelete(itemId: string, path: string) {
+  let pending = pendingCoverDeletes.get(itemId)
+  if (!pending) {
+    pending = new Set()
+    pendingCoverDeletes.set(itemId, pending)
+  }
+  pending.add(path)
+}
+
+/** After a CONFIRMED save: delete every pending object the row no longer points at. */
+function flushCoverDeletes(itemId: string, savedPath: string | null) {
+  const pending = pendingCoverDeletes.get(itemId)
+  if (!pending) return
+  const removable = [...pending].filter((path) => path !== savedPath)
+  for (const path of removable) pending.delete(path)
+  void removeStorageObjects('curriculum-images', removable)
+}
+
+function enqueueCoverImageSave(
+  level: 'subject' | 'topic' | 'subtopic',
+  item: { id: string; coverImagePath: string | null },
+  previous: string | null,
+  path: string | null,
+) {
+  item.coverImagePath = path
+  if (previous) queueCoverDelete(item.id, previous)
+  const ids = idsFor(level, item.id)
+  enqueueSave(`image:${item.id}`, path, {
+    previous,
+    save: async (value) => {
+      const result = await curriculumEntityConfig[level].updateCoverImage(
+        curriculumStore,
+        ids,
+        value,
+      )
+      if (!result.error) flushCoverDeletes(item.id, value)
+      return result
+    },
+    rollback: (confirmed) => {
+      pendingCoverDeletes.delete(item.id)
+      item.coverImagePath = confirmed
+    },
+  })
+}
+
 async function handleImageSelected(
   level: 'subject' | 'topic' | 'subtopic',
   item: { id: string; name: string; coverImagePath: string | null },
@@ -284,21 +339,13 @@ async function handleImageSelected(
 ) {
   const previous = item.coverImagePath
   uploadingImageId.value = item.id
-  const result = await curriculumStore.uploadCurriculumImage(file, level, previous)
+  const result = await curriculumStore.uploadCurriculumImage(file, level)
   uploadingImageId.value = null
   if (result.error || !result.path) {
     toast.error(result.error ?? '')
     return
   }
-  item.coverImagePath = result.path
-  const ids = idsFor(level, item.id)
-  enqueueSave(`image:${item.id}`, result.path, {
-    previous,
-    save: (path) => curriculumEntityConfig[level].updateCoverImage(curriculumStore, ids, path),
-    rollback: (confirmed) => {
-      item.coverImagePath = confirmed
-    },
-  })
+  enqueueCoverImageSave(level, item, previous, result.path)
 }
 
 function handleImageRemoved(
@@ -307,15 +354,7 @@ function handleImageRemoved(
 ) {
   const previous = item.coverImagePath
   if (!previous) return
-  item.coverImagePath = null
-  const ids = idsFor(level, item.id)
-  enqueueSave(`image:${item.id}`, null, {
-    previous,
-    save: (path) => curriculumEntityConfig[level].updateCoverImage(curriculumStore, ids, path),
-    rollback: (confirmed) => {
-      item.coverImagePath = confirmed
-    },
-  })
+  enqueueCoverImageSave(level, item, previous, null)
 }
 </script>
 

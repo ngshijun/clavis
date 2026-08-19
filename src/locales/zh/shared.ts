@@ -364,8 +364,11 @@ export default {
     placeholder: '请选择...',
   },
   orderingAnswerInput: {
-    hint: '拖动条目，排成正确的顺序。',
-    dragHandleLabel: '拖动以排序',
+    hint: '拖动条目排成正确的顺序，也可聚焦拖动手柄后按方向键移动。',
+  },
+  reorder: {
+    handleLabel: '调整顺序：可拖动，或按方向键移动',
+    movedTo: (position: number, total: number) => `已移至第 ${position} 项，共 ${total} 项`,
   },
   assessmentReviewCard: {
     questionLabel: (n: number) => `第 ${n} 题`,

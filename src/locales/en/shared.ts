@@ -372,8 +372,11 @@ export default {
     placeholder: 'Select...',
   },
   orderingAnswerInput: {
-    hint: 'Drag the items into the correct order.',
-    dragHandleLabel: 'Drag to reorder',
+    hint: 'Drag the items into the correct order, or focus a handle and press the arrow keys.',
+  },
+  reorder: {
+    handleLabel: 'Reorder: drag, or press the arrow keys to move',
+    movedTo: (position: number, total: number) => `Moved to position ${position} of ${total}`,
   },
   assessmentReviewCard: {
     questionLabel: (n: number) => `Question ${n}`,

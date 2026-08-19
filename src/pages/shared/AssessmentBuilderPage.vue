@@ -4,7 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
-import type { AdhocPayload } from '@/lib/adhocPayload'
+import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
+import { removeStorageObjects } from '@/lib/storage'
 import {
   ArrowLeft,
   ClipboardList,
@@ -376,6 +377,36 @@ function handleReorder(orderedIds: string[]) {
 }
 
 /**
+ * Storage objects a card replaced/removed, per question id (decision 78).
+ * They are deleted only once a payload save CONFIRMS the stored payload no
+ * longer references them — a failed save rolls back to the confirmed payload
+ * (which still references the old object), so deleting earlier would leave a
+ * broken image. Pending paths of a finally-failed save are simply dropped
+ * (the freshly-uploaded object becomes the orphan instead — an orphan is
+ * always preferable to a broken row).
+ */
+const pendingImageDeletes = new Map<string, Set<string>>()
+
+function handleImageOrphaned(item: AssessmentQuestionItem, path: string) {
+  let pending = pendingImageDeletes.get(item.id)
+  if (!pending) {
+    pending = new Set()
+    pendingImageDeletes.set(item.id, pending)
+  }
+  pending.add(path)
+}
+
+/** After a CONFIRMED save: delete every pending object the payload no longer references. */
+function flushOrphanedImages(id: string, savedPayload: AdhocPayload) {
+  const pending = pendingImageDeletes.get(id)
+  if (!pending) return
+  const referenced = new Set(collectAdhocPayloadImagePaths(savedPayload))
+  const removable = [...pending].filter((path) => !referenced.has(path))
+  for (const path of removable) pending.delete(path)
+  void removeStorageObjects('assessment-images', removable)
+}
+
+/**
  * A card emitted a VALID payload (built + validated by `buildAdhocPayload`).
  * Apply optimistically and enqueue the debounced background save — no Save
  * button anywhere. On final failure the store rolls back to the last
@@ -386,8 +417,15 @@ function handlePayloadChange(item: AssessmentQuestionItem, payload: AdhocPayload
   if (!previous) return
   autosave.enqueue(`payload:${item.id}`, payload, {
     previous,
-    save: (value) => assessmentsStore.persistAdhocPayload(item.id, value),
-    rollback: (confirmed) => void assessmentsStore.applyAdhocPayload(item.id, confirmed),
+    save: async (value) => {
+      const result = await assessmentsStore.persistAdhocPayload(item.id, value)
+      if (!result.error) flushOrphanedImages(item.id, value)
+      return result
+    },
+    rollback: (confirmed) => {
+      pendingImageDeletes.delete(item.id)
+      void assessmentsStore.applyAdhocPayload(item.id, confirmed)
+    },
   })
 }
 
@@ -452,6 +490,9 @@ async function handleRemove(item: AssessmentQuestionItem) {
     toast.error(error)
     return
   }
+  // The store deleted the stored payload's objects; anything still pending
+  // for this question is dropped (rare unconfirmed-replace window).
+  pendingImageDeletes.delete(item.id)
   if (expandedId.value === item.id) expandedId.value = null
   toast.success(t.value.staff.builder.toastQuestionRemoved)
 }
@@ -626,6 +667,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @reorder="handleReorder"
               @payload-change="handlePayloadChange"
               @points-change="handlePointsChange"
+              @image-orphaned="handleImageOrphaned"
               @duplicate="handleDuplicate"
               @remove="handleRemove"
               @add-question="handleAddQuestion"

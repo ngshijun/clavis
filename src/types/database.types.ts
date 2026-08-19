@@ -1469,6 +1469,82 @@ export type Database = {
       }
       get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
       get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
+      get_bank_question: {
+        Args: { p_question_id: string }
+        Returns: {
+          answer: string | null
+          created_at: string | null
+          grade_level_id: string | null
+          id: string
+          image_hash: string | null
+          image_path: string | null
+          option_1_image_path: string | null
+          option_1_is_correct: boolean | null
+          option_1_text: string | null
+          option_1_tip: string | null
+          option_2_image_path: string | null
+          option_2_is_correct: boolean | null
+          option_2_text: string | null
+          option_2_tip: string | null
+          option_3_image_path: string | null
+          option_3_is_correct: boolean | null
+          option_3_text: string | null
+          option_3_tip: string | null
+          option_4_image_path: string | null
+          option_4_is_correct: boolean | null
+          option_4_text: string | null
+          option_4_tip: string | null
+          question: string
+          sub_topic_id: string
+          subject_id: string | null
+          type: Database['public']['Enums']['question_type']
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'questions'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_bank_questions: {
+        Args: { p_sub_topic_id?: string }
+        Returns: {
+          answer: string | null
+          created_at: string | null
+          grade_level_id: string | null
+          id: string
+          image_hash: string | null
+          image_path: string | null
+          option_1_image_path: string | null
+          option_1_is_correct: boolean | null
+          option_1_text: string | null
+          option_1_tip: string | null
+          option_2_image_path: string | null
+          option_2_is_correct: boolean | null
+          option_2_text: string | null
+          option_2_tip: string | null
+          option_3_image_path: string | null
+          option_3_is_correct: boolean | null
+          option_3_text: string | null
+          option_3_tip: string | null
+          option_4_image_path: string | null
+          option_4_is_correct: boolean | null
+          option_4_text: string | null
+          option_4_tip: string | null
+          question: string
+          sub_topic_id: string
+          subject_id: string | null
+          type: Database['public']['Enums']['question_type']
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'questions'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_class_rollups: {
         Args: { p_organization_id?: string }
         Returns: {
@@ -1500,6 +1576,10 @@ export type Database = {
         }[]
       }
       get_platform_totals: { Args: never; Returns: Json }
+      get_practice_session_questions: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       get_question_statistics: {
         Args: never
         Returns: {
