@@ -630,7 +630,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
 
         <!-- Questions -->
         <TabsContent value="questions" class="pt-4">
-          <div class="mx-auto max-w-3xl">
+          <div class="editor-column">
             <p class="mb-4 text-sm text-muted-foreground">
               {{ t.staff.builder.questionsDesc(assessmentsStore.currentQuestions.length) }}
             </p>
@@ -688,7 +688,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
 
         <!-- Settings -->
         <TabsContent value="settings" class="pt-4">
-          <Card class="mx-auto max-w-2xl">
+          <Card class="editor-column">
             <CardHeader>
               <CardTitle>{{ t.staff.builder.settingsTitle }}</CardTitle>
             </CardHeader>
