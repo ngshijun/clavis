@@ -293,8 +293,16 @@ export const useAssessmentsStore = defineStore('assessments', () => {
    * Managers may edit any org assessment; teachers only their own (RLS
    * mirror). Admins may edit any template (admin FOR ALL policy).
    */
+  /**
+   * Managers are deliberately excluded (decision 80): their role is to manage
+   * people and read data, not to author teaching material. The exclusion is
+   * unconditional — a manager who authored an assessment before this rule
+   * still cannot edit it — and the DB enforces the same thing, so this only
+   * decides which controls are worth rendering.
+   */
   function canEdit(item: Pick<AssessmentListItem, 'createdBy'>): boolean {
-    return authStore.isAdmin || authStore.isManager || item.createdBy === authStore.user?.id
+    if (authStore.isManager) return false
+    return authStore.isAdmin || item.createdBy === authStore.user?.id
   }
 
   const ASSESSMENT_SELECT = `
@@ -315,7 +323,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     profiles!assessments_created_by_fkey (name),
     grade_levels!assessments_grade_level_id_fkey (name),
     subjects!assessments_subject_id_fkey (name),
-    assessment_questions (count)
+    assessment_questions (count),
+    assessment_assignments (classroom_id)
   `
 
   interface AssessmentSelectRow {
@@ -337,6 +346,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     grade_levels: { name: string } | null
     subjects: { name: string } | null
     assessment_questions: { count: number }[]
+    assessment_assignments: { classroom_id: string | null }[]
   }
 
   function rowToListItem(row: AssessmentSelectRow): AssessmentListItem {
@@ -367,7 +377,18 @@ export const useAssessmentsStore = defineStore('assessments', () => {
    * The `is_template` filter is load-bearing for staff: templates are
    * RLS-readable cross-center (P7a) and would otherwise pollute the org list.
    */
-  async function fetchAssessments(): Promise<{ error: string | null }> {
+  /**
+   * Org assessments, narrowed to the selected classroom for staff (decision
+   * 79). Admins are unscoped — they work on the platform template library, not
+   * a classroom — so `classroomId` is ignored for them.
+   *
+   * Staff-created assessments carry NO grade/subject pairing (only admin
+   * templates do), so the classroom bound is the ASSIGNMENT, not the pairing.
+   * An assessment with no assignments at all is an uncommitted draft: it has
+   * no classroom identity yet, so it stays visible everywhere until it is
+   * assigned, rather than becoming unreachable the moment scoping is on.
+   */
+  async function fetchAssessments(classroomId: string | null): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
 
@@ -380,7 +401,17 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
       if (fetchError) throw fetchError
 
-      assessments.value = ((data ?? []) as unknown as AssessmentSelectRow[]).map(rowToListItem)
+      const rows = (data ?? []) as unknown as AssessmentSelectRow[]
+      const scoped =
+        authStore.isAdmin || !classroomId
+          ? rows
+          : rows.filter(
+              (row) =>
+                row.assessment_assignments.length === 0 ||
+                row.assessment_assignments.some((a) => a.classroom_id === classroomId),
+            )
+
+      assessments.value = scoped.map(rowToListItem)
 
       return { error: null }
     } catch (err) {
@@ -436,9 +467,9 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
       if (rpcError) throw rpcError
 
-      // The clone now belongs in the caller's assessments list.
-      await fetchAssessments()
-
+      // No refetch here: both callers navigate straight into the new
+      // assessment's builder, and the list reloads on mount anyway now that it
+      // is keyed to the selected classroom.
       return { id: data, error: null }
     } catch (err) {
       return { id: null, error: handleError(err, 'failedCloneTemplate') }

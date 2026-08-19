@@ -659,7 +659,6 @@ export default {
           students: 'Students',
           classrooms: 'Classrooms',
           assessments: 'Assessments',
-          templateLibrary: 'Template Library',
         },
         teacher: {
           dashboard: 'Dashboard',

@@ -238,11 +238,6 @@ const router = createRouter({
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
         },
         {
-          path: 'templates',
-          name: 'manager-template-library',
-          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
-        },
-        {
           path: 'profile',
           name: 'manager-profile',
           component: () => import('@/pages/shared/StaffProfilePage.vue'),

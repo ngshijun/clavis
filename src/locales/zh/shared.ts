@@ -644,7 +644,6 @@ export default {
           students: '学生',
           classrooms: '班级',
           assessments: '测评',
-          templateLibrary: '模板库',
         },
         teacher: {
           dashboard: '主页',

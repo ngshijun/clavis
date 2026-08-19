@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, h, computed, onMounted } from 'vue'
+import { ref, h, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import {
   ArrowUpDown,
   BarChart3,
@@ -42,6 +43,7 @@ const t = useT()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
+const scope = useClassroomScopeStore()
 
 const basePath = computed(() => `/${authStore.userType}`)
 
@@ -52,17 +54,22 @@ const basePath = computed(() => `/${authStore.userType}`)
  */
 const isTemplateMode = computed(() => authStore.isAdmin)
 
-onMounted(async () => {
-  const { error } = await assessmentsStore.fetchAssessments()
-  if (error) {
-    toast.error(t.value.staff.assessments.toastLoadFailed)
-  }
-  // Marking queue entry point (P9b): flag org assessments with submitted
-  // attempts still awaiting manual marking. Templates are never attempted.
-  if (!isTemplateMode.value) {
-    void assessmentsStore.fetchPendingMarkingCounts()
-  }
-})
+// Keyed to the selected classroom (decision 79); admins are unscoped.
+watch(
+  () => scope.selectedId,
+  async (classroomId) => {
+    const { error } = await assessmentsStore.fetchAssessments(classroomId)
+    if (error) {
+      toast.error(t.value.staff.assessments.toastLoadFailed)
+    }
+    // Marking queue entry point (P9b): flag org assessments with submitted
+    // attempts still awaiting manual marking. Templates are never attempted.
+    if (!isTemplateMode.value) {
+      void assessmentsStore.fetchPendingMarkingCounts()
+    }
+  },
+  { immediate: true },
+)
 
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -283,7 +290,11 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
           }}
         </p>
       </div>
-      <Button :disabled="assessmentsStore.isLoading" @click="showCreateDialog = true">
+      <Button
+        v-if="!authStore.isManager"
+        :disabled="assessmentsStore.isLoading"
+        @click="showCreateDialog = true"
+      >
         <Plus class="mr-2 size-4" />
         {{ isTemplateMode ? t.staff.assessments.createTemplateBtn : t.staff.assessments.createBtn }}
       </Button>
