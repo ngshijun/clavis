@@ -662,11 +662,16 @@ ON CONFLICT DO NOTHING;
 -- it is the fixture for "an unscoped assessment keeps today's assignment
 -- behaviour" (decision 60/62). Scoped assessments come from cloning a template.
 
-INSERT INTO public.assessments (id, organization_id, created_by, title, description, status)
+-- Belongs to Classroom A (decision 81): a non-template assessment must name
+-- its classroom, and that — not the grade+subject pairing — is what scopes it.
+INSERT INTO public.assessments (
+  id, organization_id, created_by, title, description, status, classroom_id
+)
 SELECT
   'a5000000-0000-4000-8000-000000000001', o.id,
   '00000000-0000-0000-0000-000000000006',
-  'Year 1 Math — Quiz 1', '100 以内的整数 warm-up', 'published'
+  'Year 1 Math — Quiz 1', '100 以内的整数 warm-up', 'published',
+  'c1000000-0000-4000-8000-000000000001'
 FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
 ON CONFLICT (id) DO NOTHING;
 
@@ -788,13 +793,16 @@ ON CONFLICT (id) DO NOTHING;
 -- is_correct NULL / awarded_points NULL until a teacher marks it (P9b), so a
 -- fully-correct submission scores 16/21 = 76% until then.
 
-INSERT INTO public.assessments (id, organization_id, created_by, title, description, status)
+INSERT INTO public.assessments (
+  id, organization_id, created_by, title, description, status, classroom_id
+)
 SELECT
   'a5000000-0000-4000-8000-000000000005', o.id,
   '00000000-0000-0000-0000-000000000006',
   'Year 1 Math — Question Type Showcase',
   '题型示范 — one question of every supported type (auto-graded + one manually marked).',
-  'published'
+  'published',
+  'c1000000-0000-4000-8000-000000000001'
 FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
 ON CONFLICT (id) DO NOTHING;
 
