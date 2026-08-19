@@ -360,7 +360,7 @@ function handleImageRemoved(
 
 <template>
   <div class="p-6">
-    <div class="mx-auto max-w-3xl">
+    <div class="editor-column">
       <!-- Header -->
       <div class="mb-6">
         <div class="flex items-center gap-3">

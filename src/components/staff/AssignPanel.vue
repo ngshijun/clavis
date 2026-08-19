@@ -191,7 +191,7 @@ async function handleRemove(assignmentId: string) {
     <Loader2 class="size-6 animate-spin text-muted-foreground" />
   </div>
 
-  <div v-else class="mx-auto max-w-2xl space-y-5">
+  <div v-else class="editor-column space-y-5">
     <p class="text-sm text-muted-foreground">
       {{ canAssign ? t.staff.assign.description : t.staff.assign.descriptionReadOnly }}
     </p>

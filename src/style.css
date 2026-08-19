@@ -156,6 +156,23 @@
   }
 }
 
+/**
+ * The Google-Forms-style authoring column (revamp 2.6).
+ *
+ * Every editing surface — curriculum levels, the assessment question list,
+ * Assign and Settings — is centred at ONE width so switching tabs or drilling
+ * down never reflows the content. Fixed rather than fluid on purpose: form
+ * fields and question prose are unreadable stretched across a wide monitor,
+ * and it keeps drag-reorder travel short. Data tables (assessment Results,
+ * Classrooms, Assessments) are NOT editing surfaces and stay full-bleed.
+ *
+ * Do not hardcode a max-w-* on an editing surface; use this, so the four
+ * surfaces cannot drift apart again (they had reached three widths).
+ */
+@utility editor-column {
+  @apply mx-auto max-w-4xl;
+}
+
 /* driver.js tour theme overrides */
 .clavis-tour-popover.driver-popover {
   background-color: var(--popover);
