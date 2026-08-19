@@ -304,11 +304,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
-      const grade = gradeLevels.value.find((g) => g.id === id)
-      if (grade) {
-        grade.name = name
-      }
+      // Local state is owned by the caller: CurriculumPage applies the edit
+      // optimistically and rolls back on failure (useAutosave). Writing the
+      // SENT value back here would let a slow in-flight save clobber a newer
+      // keystroke for ~1 RTT.
 
       return { success: true, error: null }
     } catch (err) {
@@ -414,13 +413,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
-      const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-      const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-      if (subject) {
-        if (updates.name !== undefined) subject.name = updates.name
-        if (updates.coverImagePath !== undefined) subject.coverImagePath = updates.coverImagePath
-      }
+      // Local state is owned by the caller: CurriculumPage applies the edit
+      // optimistically and rolls back on failure (useAutosave). Writing the
+      // SENT value back here would let a slow in-flight save clobber a newer
+      // keystroke for ~1 RTT.
 
       return { success: true, error: null }
     } catch (err) {
@@ -549,14 +545,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
-      const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-      const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-      const topic = subject?.topics.find((t) => t.id === topicId)
-      if (topic) {
-        if (updates.name !== undefined) topic.name = updates.name
-        if (updates.coverImagePath !== undefined) topic.coverImagePath = updates.coverImagePath
-      }
+      // Local state is owned by the caller: CurriculumPage applies the edit
+      // optimistically and rolls back on failure (useAutosave). Writing the
+      // SENT value back here would let a slow in-flight save clobber a newer
+      // keystroke for ~1 RTT.
 
       return { success: true, error: null }
     } catch (err) {
@@ -696,15 +688,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
-      const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-      const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-      const topic = subject?.topics.find((t) => t.id === topicId)
-      const subTopic = topic?.subTopics.find((st) => st.id === subTopicId)
-      if (subTopic) {
-        if (updates.name !== undefined) subTopic.name = updates.name
-        if (updates.coverImagePath !== undefined) subTopic.coverImagePath = updates.coverImagePath
-      }
+      // Local state is owned by the caller: CurriculumPage applies the edit
+      // optimistically and rolls back on failure (useAutosave). Writing the
+      // SENT value back here would let a slow in-flight save clobber a newer
+      // keystroke for ~1 RTT.
 
       return { success: true, error: null }
     } catch (err) {
