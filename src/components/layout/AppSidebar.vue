@@ -6,6 +6,7 @@ import { Sidebar, SidebarContent } from '@/components/ui/sidebar'
 import SidebarHeader from './SidebarHeader.vue'
 import SidebarNav from './SidebarNav.vue'
 import SidebarUser from './SidebarUser.vue'
+import ClassroomSelector from './ClassroomSelector.vue'
 
 const authStore = useAuthStore()
 
@@ -19,6 +20,7 @@ const navItems = computed(() => {
   <Sidebar variant="inset">
     <SidebarHeader />
     <SidebarContent>
+      <ClassroomSelector />
       <SidebarNav :items="navItems" />
     </SidebarContent>
     <SidebarUser />

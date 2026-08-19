@@ -637,6 +637,11 @@ export default {
       navigation: 'Navigation',
       learningPlatform: 'Learning Platform',
       logOut: 'Log out',
+      classroomScope: {
+        label: 'Classroom',
+        switchLabel: 'Switch classroom',
+        none: 'No classroom yet',
+      },
       nav: {
         admin: {
           dashboard: 'Dashboard',
