@@ -475,3 +475,20 @@ export function payloadPrompt(payload: AdhocPayload): string {
   if (payload.type === 'cloze') return payload.question?.trim() || payload.text
   return payload.question
 }
+
+/**
+ * Every storage object path a payload references (decision 78): the
+ * question-level image plus, for mcq/mrq, each option image. Blank/absent
+ * paths are skipped. Used to clean up `assessment-images` objects when an
+ * ad-hoc question is deleted and to confirm replaced images are unreferenced.
+ */
+export function collectAdhocPayloadImagePaths(payload: AdhocPayload): string[] {
+  const paths: string[] = []
+  if (payload.image_path?.trim()) paths.push(payload.image_path)
+  if (payload.type === 'mcq' || payload.type === 'mrq') {
+    for (const option of payload.options) {
+      if (option.image_path?.trim()) paths.push(option.image_path)
+    }
+  }
+  return paths
+}

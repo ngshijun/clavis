@@ -11,7 +11,8 @@ import {
   type AdhocQuestionType,
   type AdhocValidationCode,
 } from '@/lib/adhocPayload'
-import { createBucketImageHelpers, deleteStorageFile, uploadStorageFile } from '@/lib/storage'
+import { createBucketImageHelpers, uploadStorageFile } from '@/lib/storage'
+import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 import {
   Copy,
   GripHorizontal,
@@ -52,7 +53,10 @@ import { useLanguageStore } from '@/stores/language'
  * Images (P10a): a question-level image for every ad-hoc type and per-option
  * images for mcq/mrq, uploaded into `assessment-images` under
  * `{assessmentId}/…` (the bucket RLS requires that first folder segment).
- * Replace/remove deletes the previous object so no orphans accumulate.
+ * Replacing/removing never deletes the old object here — it is reported via
+ * `image-orphaned` and deleted by the page once the payload save that drops
+ * the reference is confirmed (decision 78), so a failed save can never leave
+ * the row pointing at a deleted object.
  */
 const props = defineProps<{
   item: AssessmentQuestionItem
@@ -69,6 +73,14 @@ const emit = defineEmits<{
   /** A VALID payload built from the current draft — enqueue for autosave. */
   'payload-change': [payload: AdhocPayload]
   'points-change': [points: number]
+  /** Keyboard reorder from the grip (decision 77) — same path as a drop. */
+  move: [delta: -1 | 1]
+  /**
+   * A previously-stored image object stopped being referenced by the draft
+   * (replace/remove). The page deletes it only AFTER the payload save that
+   * drops the reference is confirmed (decision 78).
+   */
+  'image-orphaned': [path: string]
   duplicate: []
   remove: []
 }>()
@@ -211,8 +223,26 @@ function setCorrect(index: number, checked: boolean) {
 function removeOption(index: number) {
   if (!draft.value) return
   const removed = draft.value.options.splice(index, 1)[0]
-  // Do not leave the removed option's object orphaned in the bucket.
-  if (removed?.imagePath) void deleteStorageFile('assessment-images', removed.imagePath)
+  // Deleted only after the payload save confirms the reference is gone.
+  if (removed?.imagePath) emit('image-orphaned', removed.imagePath)
+}
+
+// ── ordering rows: keyboard reorder (decision 77) ──────────
+// Same persistence path as a drag: mutating `orderingRows` feeds the draft
+// deep-watch, which validates and emits `payload-change` for the autosave.
+
+const orderingAnnouncement = ref('')
+
+function moveOrderingRow(index: number, delta: -1 | 1) {
+  const moving = orderingRows.value[index]
+  const next = moveItem(orderingRows.value, index, delta)
+  if (!next || !moving) return
+  orderingRows.value = next
+  void refocusReorderHandle(moving.uid)
+  orderingAnnouncement.value = t.value.shared.reorder.movedTo(
+    index + 1 + delta,
+    orderingRows.value.length,
+  )
 }
 
 // ── matching ───────────────────────────────────────────────
@@ -261,17 +291,18 @@ async function onQuestionImagePicked(event: Event) {
   isUploadingQuestionImage.value = true
   try {
     // `folder: assessmentId` produces `{assessment_id}/{uuid}.webp` — the
-    // shape the bucket's write RLS requires. `oldPath` deletes the replaced
-    // object (best-effort) so replacing never orphans the previous image.
+    // shape the bucket's write RLS requires. The replaced object is only
+    // deleted after the payload save confirms (decision 78).
     const { path, error } = await uploadStorageFile('assessment-images', file, {
       folder: props.assessmentId,
-      oldPath: draft.value.imagePath,
     })
     if (error || !path) {
       toast.error(error ?? '')
       return
     }
+    const oldPath = draft.value.imagePath
     draft.value.imagePath = path
+    if (oldPath) emit('image-orphaned', oldPath)
   } finally {
     isUploadingQuestionImage.value = false
   }
@@ -281,7 +312,7 @@ function removeQuestionImage() {
   if (!draft.value?.imagePath) return
   const oldPath = draft.value.imagePath
   draft.value.imagePath = null
-  void deleteStorageFile('assessment-images', oldPath)
+  emit('image-orphaned', oldPath)
 }
 
 async function onOptionImagePicked(event: Event) {
@@ -295,13 +326,14 @@ async function onOptionImagePicked(event: Event) {
   try {
     const { path, error } = await uploadStorageFile('assessment-images', file, {
       folder: props.assessmentId,
-      oldPath: option.imagePath ?? null,
     })
     if (error || !path) {
       toast.error(error ?? '')
       return
     }
+    const oldPath = option.imagePath ?? null
     option.imagePath = path
+    if (oldPath) emit('image-orphaned', oldPath)
   } finally {
     uploadingOptionIndex.value = null
   }
@@ -312,7 +344,7 @@ function removeOptionImage(index: number) {
   if (!option?.imagePath) return
   const oldPath = option.imagePath
   option.imagePath = null
-  void deleteStorageFile('assessment-images', oldPath)
+  emit('image-orphaned', oldPath)
 }
 
 // ── footer ─────────────────────────────────────────────────
@@ -353,15 +385,20 @@ function onPointsChange(event: Event) {
     class="rounded-lg border bg-card transition-shadow"
     :class="expanded ? 'border-l-4 border-l-primary shadow-md' : 'hover:border-primary/40'"
   >
-    <!-- Drag handle strip (Forms-style, centered at the top of the card) -->
-    <div
+    <!-- Drag handle strip (Forms-style, centered at the top of the card).
+         Also the keyboard-reorder control: arrow keys move the card. -->
+    <button
       v-if="editable"
+      type="button"
       data-card-drag-handle
-      class="flex cursor-grab justify-center pt-1 text-muted-foreground/60"
-      :aria-label="t.staff.builder.dragToReorder"
+      :data-reorder-id="item.id"
+      class="flex w-full cursor-grab justify-center rounded pt-1 text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      :aria-label="`${t.staff.builder.questionNumber(index + 1)} — ${t.shared.reorder.handleLabel}`"
+      @keydown.up.prevent="emit('move', -1)"
+      @keydown.down.prevent="emit('move', 1)"
     >
       <GripHorizontal class="size-4" />
-    </div>
+    </button>
 
     <!-- Collapsed: compact one-line preview -->
     <button
@@ -871,6 +908,8 @@ function onPointsChange(event: Event) {
           >{{ t.staff.adhocForm.orderingItemsLabel }}
           <span class="text-destructive">*</span></FieldLabel
         >
+        <!-- Announces keyboard moves to screen readers -->
+        <p class="sr-only" role="status">{{ orderingAnnouncement }}</p>
         <VueDraggable
           v-model="orderingRows"
           handle="[data-item-drag-handle]"
@@ -879,11 +918,17 @@ function onPointsChange(event: Event) {
           class="space-y-2"
         >
           <div v-for="(row, index) in orderingRows" :key="row.uid" class="flex items-center gap-2">
-            <GripVertical
+            <button
+              type="button"
               data-item-drag-handle
-              class="size-4 shrink-0 cursor-grab text-muted-foreground"
-              :aria-label="t.staff.builder.dragToReorder"
-            />
+              :data-reorder-id="row.uid"
+              class="shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              :aria-label="`${row.text || t.staff.adhocForm.orderingItemPlaceholder(index + 1)} — ${t.shared.reorder.handleLabel}`"
+              @keydown.up.prevent="moveOrderingRow(index, -1)"
+              @keydown.down.prevent="moveOrderingRow(index, 1)"
+            >
+              <GripVertical class="size-4" />
+            </button>
             <span
               class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
             >

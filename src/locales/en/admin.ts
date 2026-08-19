@@ -217,7 +217,6 @@ export default {
     pathOrderTitle: 'Learning path order',
     pathOrderDesc:
       'Students follow this order on their learning map. Drag a row to reorder, or click one to manage its questions.',
-    dragToReorder: 'Drag to reorder',
     edit: 'Edit',
     open: 'Open',
     collapseEditor: 'Collapse',

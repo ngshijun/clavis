@@ -212,7 +212,6 @@ export default {
     noSubTopicsDesc: (topic: string) => `为 ${topic} 添加子课题。`,
     pathOrderTitle: '学习路径顺序',
     pathOrderDesc: '学生的学习地图将按此顺序展示。拖动条目可调整顺序，点击条目可管理其题目。',
-    dragToReorder: '拖动以调整顺序',
     edit: '编辑',
     open: '打开',
     collapseEditor: '收起',

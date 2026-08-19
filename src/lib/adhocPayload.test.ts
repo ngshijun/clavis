@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildAdhocPayload,
+  collectAdhocPayloadImagePaths,
   emptyAdhocDraft,
   parseClozeIndices,
   payloadToDraft,
@@ -451,5 +452,52 @@ describe('payloadPrompt', () => {
       payloadPrompt({ type: 'cloze', text: 'a {{1}}', blanks: [{ index: 1, accepted: ['x'] }] }),
     ).toBe('a {{1}}')
     expect(payloadPrompt({ type: 'true_false', question: 'Q', answer: true })).toBe('Q')
+  })
+})
+
+describe('collectAdhocPayloadImagePaths', () => {
+  it('collects the question image and every option image', () => {
+    const payload: AdhocPayload = {
+      type: 'mcq',
+      question: 'Pick one',
+      image_path: 'a1/q.webp',
+      options: [
+        { text: 'A', is_correct: true, image_path: 'a1/opt-a.webp' },
+        { text: 'B', is_correct: false },
+        { text: '', is_correct: false, image_path: 'a1/opt-c.webp' },
+      ],
+    }
+    expect(collectAdhocPayloadImagePaths(payload)).toEqual([
+      'a1/q.webp',
+      'a1/opt-a.webp',
+      'a1/opt-c.webp',
+    ])
+  })
+
+  it('skips blank and null paths', () => {
+    const payload: AdhocPayload = {
+      type: 'mrq',
+      question: 'Pick many',
+      image_path: '  ',
+      options: [
+        { text: 'A', is_correct: true, image_path: null },
+        { text: 'B', is_correct: false, image_path: '' },
+      ],
+    }
+    expect(collectAdhocPayloadImagePaths(payload)).toEqual([])
+  })
+
+  it('collects only the question image for non-option types', () => {
+    const payload: AdhocPayload = {
+      type: 'long_answer',
+      question: 'Explain',
+      image_path: 'a1/diagram.webp',
+    }
+    expect(collectAdhocPayloadImagePaths(payload)).toEqual(['a1/diagram.webp'])
+  })
+
+  it('returns empty for a payload without images', () => {
+    const payload: AdhocPayload = { type: 'true_false', question: 'True?', answer: true }
+    expect(collectAdhocPayloadImagePaths(payload)).toEqual([])
   })
 })

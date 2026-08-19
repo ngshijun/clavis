@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { handleError, errorMessages } from '@/lib/errors'
-import { uploadStorageFile, createBucketImageHelpers } from '@/lib/storage'
+import { uploadStorageFile, removeStorageObjects, createBucketImageHelpers } from '@/lib/storage'
 
 export interface SubTopic {
   id: string
@@ -323,7 +323,28 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   /**
    * Delete a grade level
    */
+  /**
+   * Cover-image paths of a subtree about to be cascade-deleted (decision 78):
+   * the item's own cover plus every descendant's. Bank-question images under
+   * the subtree are NOT collected — they are not loaded in this tree (noted
+   * as a remaining orphan source in the P11c handoff).
+   */
+  function collectSubjectCovers(subjects: Subject[]): (string | null)[] {
+    return subjects.flatMap((subject) => [
+      subject.coverImagePath,
+      ...collectTopicCovers(subject.topics),
+    ])
+  }
+
+  function collectTopicCovers(topics: Topic[]): (string | null)[] {
+    return topics.flatMap((topic) => [
+      topic.coverImagePath,
+      ...topic.subTopics.map((subTopic) => subTopic.coverImagePath),
+    ])
+  }
+
   async function deleteGradeLevel(id: string): Promise<{ success: boolean; error: string | null }> {
+    const covers = collectSubjectCovers(gradeLevels.value.find((g) => g.id === id)?.subjects ?? [])
     try {
       const { error: deleteError } = await supabase.from('grade_levels').delete().eq('id', id)
 
@@ -336,6 +357,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         // Rebuild all maps to remove cascaded items
         buildLookupMaps()
       }
+
+      // Storage cleanup (decision 78): best-effort, never blocks the delete.
+      void removeStorageObjects('curriculum-images', covers)
 
       return { success: true, error: null }
     } catch (err) {
@@ -447,6 +471,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     gradeLevelId: string,
     subjectId: string,
   ): Promise<{ success: boolean; error: string | null }> {
+    const target = gradeLevels.value
+      .find((g) => g.id === gradeLevelId)
+      ?.subjects.find((s) => s.id === subjectId)
+    const covers = target ? [target.coverImagePath, ...collectTopicCovers(target.topics)] : []
     try {
       const { error: deleteError } = await supabase.from('subjects').delete().eq('id', subjectId)
 
@@ -462,6 +490,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
           buildLookupMaps()
         }
       }
+
+      // Storage cleanup (decision 78): best-effort, never blocks the delete.
+      void removeStorageObjects('curriculum-images', covers)
 
       return { success: true, error: null }
     } catch (err) {
@@ -581,6 +612,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     subjectId: string,
     topicId: string,
   ): Promise<{ success: boolean; error: string | null }> {
+    const target = gradeLevels.value
+      .find((g) => g.id === gradeLevelId)
+      ?.subjects.find((s) => s.id === subjectId)
+      ?.topics.find((t) => t.id === topicId)
+    const covers = target ? collectTopicCovers([target]) : []
     try {
       const { error: deleteError } = await supabase.from('topics').delete().eq('id', topicId)
 
@@ -597,6 +633,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
           buildLookupMaps()
         }
       }
+
+      // Storage cleanup (decision 78): best-effort, never blocks the delete.
+      void removeStorageObjects('curriculum-images', covers)
 
       return { success: true, error: null }
     } catch (err) {
@@ -726,6 +765,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     topicId: string,
     subTopicId: string,
   ): Promise<{ success: boolean; error: string | null }> {
+    const cover = subTopicMap.value.get(subTopicId)?.coverImagePath ?? null
     try {
       const { error: deleteError } = await supabase.from('sub_topics').delete().eq('id', subTopicId)
 
@@ -744,6 +784,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
           subTopicHierarchyMap.value.delete(subTopicId)
         }
       }
+
+      // Storage cleanup (decision 78): best-effort, never blocks the delete.
+      void removeStorageObjects('curriculum-images', [cover])
 
       return { success: true, error: null }
     } catch (err) {
@@ -889,13 +932,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     )
   }
 
-  function uploadCurriculumImage(
-    file: File,
-    type: 'subject' | 'topic' | 'subtopic',
-    oldPath?: string | null,
-  ) {
+  function uploadCurriculumImage(file: File, type: 'subject' | 'topic' | 'subtopic') {
     const folder = type === 'subtopic' ? 'subtopics' : `${type}s`
-    return uploadStorageFile('curriculum-images', file, { folder, oldPath })
+    return uploadStorageFile('curriculum-images', file, { folder })
   }
 
   const { getImageUrl: getCurriculumImageUrl, getOptimizedImageUrl } =

@@ -21,9 +21,12 @@ import { useT } from '@/composables/useT'
  * background autosave — there is no Save button. Invalid drafts show an
  * inline "not saved yet" hint and simply stay unsaved.
  *
- * Images are uploaded/deleted the moment they are picked/removed (replace
- * deletes the previous object), and the image hash used for duplicate
- * detection is recomputed best-effort after every image change.
+ * Images upload the moment they are picked, and the image hash used for
+ * duplicate detection is recomputed best-effort after every image change.
+ * A replaced/removed object of a persisted question is NOT deleted here: it
+ * is reported via `image-orphaned` and deleted by the panel once the update
+ * that drops the reference is confirmed (decision 78) — only draft-session
+ * objects (no row references them yet) are deleted immediately.
  *
  * A card with `question: null` is a NEW question draft: nothing is persisted
  * until the draft first becomes valid, at which point the row is INSERTED
@@ -46,6 +49,12 @@ const emit = defineEmits<{
   change: [id: string, input: UpdateQuestionInput, baseline: UpdateQuestionInput]
   /** The new-question draft became valid and was inserted. */
   created: [id: string]
+  /**
+   * A stored image object of a PERSISTED question stopped being referenced
+   * (replace/remove). The panel deletes it only AFTER the autosaved update
+   * that drops the reference is confirmed (decision 78).
+   */
+  'image-orphaned': [id: string, path: string]
   remove: []
 }>()
 
@@ -123,26 +132,35 @@ watch(
   },
 )
 
+/**
+ * A stored object stopped being referenced by the draft. For a persisted
+ * question the panel deletes it after the confirmed save (decision 78); a
+ * draft-session object (no row references it) is deleted immediately.
+ */
+function orphanImage(path: string) {
+  if (savedId.value) emit('image-orphaned', savedId.value, path)
+  else void questionsStore.deleteQuestionImage(path)
+}
+
 async function syncQuestionImageUpload() {
   const state = form.questionImage.value
   const file = state.file
   if (!file) return
   imageBusy.value++
   try {
-    if (state.originalPath) {
-      await questionsStore.deleteQuestionImage(state.originalPath)
-      state.originalPath = null
-    }
+    const oldPath = state.originalPath
     const result = await questionsStore.uploadQuestionImage(file)
     state.file = null
     if (!result.path) {
       toast.error(result.error ?? '')
-      state.displayUrl = ''
+      // The replace never happened — keep showing the previous image.
+      state.displayUrl = oldPath ? questionsStore.getOptimizedQuestionImageUrl(oldPath) : ''
       return
     }
     state.originalPath = result.path
     state.displayUrl = questionsStore.getOptimizedQuestionImageUrl(result.path)
     state.removed = false
+    if (oldPath) orphanImage(oldPath)
   } finally {
     imageBusy.value--
   }
@@ -162,14 +180,10 @@ async function syncQuestionImageRemoval() {
     state.removed = false
     return
   }
-  imageBusy.value++
-  try {
-    await questionsStore.deleteQuestionImage(state.originalPath)
-  } finally {
-    imageBusy.value--
-  }
+  const oldPath = state.originalPath
   state.originalPath = null
   state.removed = false
+  orphanImage(oldPath)
   await recomputeImageHash()
 }
 
@@ -204,20 +218,19 @@ async function syncOptionImageUpload(optionId: OptionId) {
     const state = form.optionImages.value[optionId]
     const file = state.file
     if (!file) return
-    if (state.originalPath) {
-      await questionsStore.deleteQuestionImage(state.originalPath)
-      state.originalPath = null
-    }
+    const oldPath = state.originalPath
     const result = await questionsStore.uploadQuestionImage(file, optionId)
     state.file = null
     if (!result.path) {
       toast.error(result.error ?? '')
-      setOptionImagePath(optionId, null)
+      // The replace never happened — keep the previous stored path.
+      setOptionImagePath(optionId, oldPath)
       return
     }
     state.originalPath = result.path
     state.removed = false
     setOptionImagePath(optionId, result.path)
+    if (oldPath) orphanImage(oldPath)
   } finally {
     syncingOptions.delete(optionId)
     imageBusy.value--
@@ -227,17 +240,16 @@ async function syncOptionImageUpload(optionId: OptionId) {
 
 async function syncOptionImageRemoval(optionId: OptionId) {
   syncingOptions.add(optionId)
-  imageBusy.value++
   try {
     const state = form.optionImages.value[optionId]
     if (state.originalPath) {
-      await questionsStore.deleteQuestionImage(state.originalPath)
+      const oldPath = state.originalPath
       state.originalPath = null
+      orphanImage(oldPath)
     }
     state.removed = false
   } finally {
     syncingOptions.delete(optionId)
-    imageBusy.value--
   }
   await recomputeImageHash()
 }

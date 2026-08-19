@@ -4,6 +4,7 @@ import { useQuestionsStore, type Question, type UpdateQuestionInput } from '@/st
 import { useCurriculumStore, type SubTopic } from '@/stores/curriculum'
 import { useAutosave } from '@/composables/useAutosave'
 import { generateQuestionTemplate } from '@/lib/excel/questionExcel'
+import { removeStorageObjects } from '@/lib/storage'
 import { Download, Loader2, Plus, Search, Upload } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -134,13 +135,51 @@ function applyInputToQuestion(question: Question, input: UpdateQuestionInput) {
   }
 }
 
+/**
+ * Storage objects a card replaced/removed, per question id (decision 78).
+ * Deleted only once an update CONFIRMS the stored row no longer references
+ * them — a failed save rolls back to the confirmed input (which still
+ * references the old object), so deleting earlier would leave a broken
+ * image. Pending paths of a finally-failed save are dropped (the fresh
+ * upload becomes the orphan instead).
+ */
+const pendingImageDeletes = new Map<string, Set<string>>()
+
+function queueImageDelete(id: string, path: string) {
+  let pending = pendingImageDeletes.get(id)
+  if (!pending) {
+    pending = new Set()
+    pendingImageDeletes.set(id, pending)
+  }
+  pending.add(path)
+}
+
+/** After a CONFIRMED save: delete every pending object the row no longer references. */
+function flushOrphanedImages(id: string, saved: UpdateQuestionInput) {
+  const pending = pendingImageDeletes.get(id)
+  if (!pending) return
+  const referenced = new Set(
+    [saved.imagePath, ...(saved.options ?? []).map((option) => option.imagePath)].filter(
+      (path): path is string => !!path,
+    ),
+  )
+  const removable = [...pending].filter((path) => !referenced.has(path))
+  for (const path of removable) pending.delete(path)
+  void removeStorageObjects('question-images', removable)
+}
+
 function handleChange(id: string, input: UpdateQuestionInput, baseline: UpdateQuestionInput) {
   const question = subTopicQuestions.value.find((q) => q.id === id)
   if (question) applyInputToQuestion(question, input)
   enqueue(`question:${id}`, input, {
     previous: baseline,
-    save: (value) => questionsStore.updateQuestion(id, value),
+    save: async (value) => {
+      const result = await questionsStore.updateQuestion(id, value)
+      if (!result.error) flushOrphanedImages(id, value)
+      return result
+    },
     rollback: (confirmed) => {
+      pendingImageDeletes.delete(id)
       const target = subTopicQuestions.value.find((q) => q.id === id)
       if (target) applyInputToQuestion(target, confirmed)
     },
@@ -176,11 +215,13 @@ async function handleDelete() {
 
   isDeleting.value = true
   try {
-    const result = await questionsStore.deleteQuestion(selectedQuestion.value.id)
+    const result = await questionsStore.deleteQuestion(selectedQuestion.value)
     if (result.error) {
       toast.error(result.error)
       return
     }
+    // The store deleted the row's objects; drop anything still pending.
+    pendingImageDeletes.delete(selectedQuestion.value.id)
     toast.success(t.value.admin.subTopicQuestions.toastQuestionDeleted)
     if (
       expandedId.value === selectedQuestion.value.id ||
@@ -332,6 +373,7 @@ watch([expandedId, filteredQuestions], () => void nextTick(updateToolbarTop), {
             @select="expandedId = 'draft'"
             @created="handleDraftCreated"
             @change="handleChange"
+            @image-orphaned="queueImageDelete"
             @remove="handleDraftRemove"
           />
           <BankQuestionCard
@@ -344,6 +386,7 @@ watch([expandedId, filteredQuestions], () => void nextTick(updateToolbarTop), {
             :expanded="expandedId === question.id"
             @select="expandedId = question.id"
             @change="handleChange"
+            @image-orphaned="queueImageDelete"
             @remove="askDelete(question)"
           />
         </div>

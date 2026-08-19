@@ -227,7 +227,7 @@ export default {
     pointsLabel: '分值',
     bankBadge: '题库',
     adhocBadge: '自编',
-    dragToReorder: '拖动以调整顺序',
+    questionNumber: (n: number) => `第 ${n} 题`,
     removeQuestion: '移除题目',
     duplicateQuestion: '复制题目',
     pointsFmt: (n: number) => `${n} 分`,

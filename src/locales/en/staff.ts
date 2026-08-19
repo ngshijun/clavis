@@ -232,7 +232,7 @@ export default {
     pointsLabel: 'Points',
     bankBadge: 'Bank',
     adhocBadge: 'Custom',
-    dragToReorder: 'Drag to reorder',
+    questionNumber: (n: number) => `Question ${n}`,
     removeQuestion: 'Remove question',
     duplicateQuestion: 'Duplicate question',
     pointsFmt: (n: number) => `${n} pt${n === 1 ? '' : 's'}`,

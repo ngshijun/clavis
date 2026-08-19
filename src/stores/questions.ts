@@ -4,7 +4,12 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Database } from '@/types/database.types'
 import { useCurriculumStore } from './curriculum'
 import { handleError } from '@/lib/errors'
-import { uploadStorageFile, deleteStorageFile, createBucketImageHelpers } from '@/lib/storage'
+import {
+  uploadStorageFile,
+  deleteStorageFile,
+  removeStorageObjects,
+  createBucketImageHelpers,
+} from '@/lib/storage'
 import { useCascadingFilters } from '@/composables/useCascadingFilters'
 
 export type QuestionRow = Database['public']['Tables']['questions']['Row']
@@ -544,11 +549,19 @@ export const useQuestionsStore = defineStore('questions', () => {
   /**
    * Delete a question
    */
-  async function deleteQuestion(id: string): Promise<{ error: string | null }> {
+  async function deleteQuestion(question: Question): Promise<{ error: string | null }> {
     try {
-      const { error: deleteError } = await supabase.from('questions').delete().eq('id', id)
+      const { error: deleteError } = await supabase.from('questions').delete().eq('id', question.id)
 
       if (deleteError) throw deleteError
+
+      // Storage cleanup (decision 78): the row is gone, so its question and
+      // option images are unreferenced. Best-effort — a storage failure only
+      // leaves an orphan, it never surfaces as a failed delete.
+      void removeStorageObjects('question-images', [
+        question.imagePath,
+        ...question.options.map((option) => option.imagePath),
+      ])
 
       return { error: null }
     } catch (err) {

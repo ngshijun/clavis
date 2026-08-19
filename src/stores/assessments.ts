@@ -4,7 +4,13 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
-import { payloadPrompt, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
+import {
+  collectAdhocPayloadImagePaths,
+  payloadPrompt,
+  type AdhocPayload,
+  type AdhocQuestionType,
+} from '@/lib/adhocPayload'
+import { removeStorageFolder, removeStorageObjects } from '@/lib/storage'
 import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
 
 export type { AttemptAnswerResponse }
@@ -573,6 +579,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   async function deleteAssessment(id: string): Promise<{ error: string | null }> {
+    // Storage cleanup (decision 78): every image of this assessment lives
+    // under `assessment-images/{id}/`. The bucket's delete RLS requires the
+    // assessments ROW to still exist (app.can_write_assessment), so the
+    // objects must go BEFORE the row — best-effort, a storage failure never
+    // blocks the delete (an orphan beats a stuck assessment).
+    await removeStorageFolder('assessment-images', id)
     try {
       const { error: deleteError } = await supabase.from('assessments').delete().eq('id', id)
 
@@ -745,6 +757,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   async function removeQuestion(id: string): Promise<{ error: string | null }> {
+    const removed = currentQuestions.value.find((q) => q.id === id)
     try {
       const { error: deleteError } = await supabase
         .from('assessment_questions')
@@ -754,6 +767,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       if (deleteError) throw deleteError
 
       currentQuestions.value = currentQuestions.value.filter((q) => q.id !== id)
+
+      // Storage cleanup (decision 78): drop the deleted payload's objects,
+      // EXCEPT paths a duplicated sibling still references (duplicate copies
+      // paths, not objects — P10b deviation 5). Best-effort, never blocking.
+      if (removed?.source === 'adhoc' && removed.payload) {
+        const stillReferenced = new Set(
+          currentQuestions.value
+            .filter((q) => q.source === 'adhoc' && q.payload)
+            .flatMap((q) => collectAdhocPayloadImagePaths(q.payload!)),
+        )
+        void removeStorageObjects(
+          'assessment-images',
+          collectAdhocPayloadImagePaths(removed.payload).filter(
+            (path) => !stillReferenced.has(path),
+          ),
+        )
+      }
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedRemoveAssessmentQuestion') }
