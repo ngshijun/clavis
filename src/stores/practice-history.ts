@@ -115,8 +115,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   const {
     filters: historyFilters,
     pagination: historyPagination,
-    setGradeLevel: setHistoryGradeLevel,
-    setSubject: setHistorySubject,
     setTopic: setHistoryTopic,
     setSubTopic: setHistorySubTopic,
     setDateRange: setHistoryDateRange,
@@ -302,14 +300,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   const sessionLookup = createSessionLookupMethods((id: string) =>
     sessionHistory.value.filter((s) => s.studentId === id),
   )
-
-  function getHistoryGradeLevels(): string[] {
-    return authStore.user ? sessionLookup.getGradeLevels(authStore.user.id) : []
-  }
-
-  function getHistorySubjects(gradeLevelName?: string): string[] {
-    return authStore.user ? sessionLookup.getSubjects(authStore.user.id, gradeLevelName) : []
-  }
 
   function getHistoryTopics(gradeLevelName?: string, subjectName?: string): string[] {
     return authStore.user
@@ -560,8 +550,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     // History filters
     historyFilters,
     setHistoryDateRange,
-    setHistoryGradeLevel,
-    setHistorySubject,
     setHistoryTopic,
     setHistorySubTopic,
     resetHistoryFilters,
@@ -574,8 +562,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     // History actions
     fetchSessionHistory,
     getFilteredHistory,
-    getHistoryGradeLevels,
-    getHistorySubjects,
     getHistoryTopics,
     getHistorySubTopics,
     getSessionById,
