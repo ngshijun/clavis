@@ -1,5 +1,5 @@
 import { usePracticeStore } from '@/stores/practice'
-import type { Subject, Topic } from '@/stores/curriculum'
+import type { Topic } from '@/stores/curriculum'
 
 export function usePracticeProgress() {
   const practiceStore = usePracticeStore()
@@ -22,22 +22,9 @@ export function usePracticeProgress() {
     return total > 0 && completed >= total
   }
 
-  function getSubjectProgress(subject: Subject) {
-    const total = subject.topics.length
-    const completed = subject.topics.filter(isTopicFullyPracticed).length
-    return { total, completed }
-  }
-
-  function isSubjectFullyPracticed(subject: Subject) {
-    const { total, completed } = getSubjectProgress(subject)
-    return total > 0 && completed >= total
-  }
-
   return {
     isSubTopicFullyPracticed,
     getTopicProgress,
     isTopicFullyPracticed,
-    getSubjectProgress,
-    isSubjectFullyPracticed,
   }
 }

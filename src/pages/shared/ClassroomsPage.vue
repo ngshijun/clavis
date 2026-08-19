@@ -36,10 +36,24 @@ import ClassroomMembersDialog from '@/components/staff/ClassroomMembersDialog.vu
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 
 const t = useT()
 const authStore = useAuthStore()
 const classroomsStore = useClassroomsStore()
+const scope = useClassroomScopeStore()
+
+/**
+ * Teachers see only the classroom they have in scope (decision 79). Managers
+ * keep the full org list: this page is where they CREATE classrooms and assign
+ * teachers and students into them, and that provisioning work is inherently
+ * org-wide — scoping it to one classroom would make it impossible.
+ */
+const visibleClassrooms = computed(() =>
+  authStore.isTeacher
+    ? classroomsStore.filteredClassrooms.filter((c) => c.id === scope.selectedId)
+    : classroomsStore.filteredClassrooms,
+)
 
 const subtitle = computed(() => {
   if (authStore.isTeacher) return t.value.staff.classrooms.subtitleTeacher
@@ -273,7 +287,7 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
       </div>
 
       <!-- Empty State -->
-      <div v-if="classroomsStore.filteredClassrooms.length === 0" class="py-16 text-center">
+      <div v-if="visibleClassrooms.length === 0" class="py-16 text-center">
         <School class="mx-auto size-16 text-muted-foreground/50" />
         <h2 class="mt-4 text-lg font-semibold">{{ t.staff.classrooms.noClassrooms }}</h2>
         <p class="mt-2 text-muted-foreground">
@@ -291,7 +305,7 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
       <DataTable
         v-else
         :columns="columns"
-        :data="classroomsStore.filteredClassrooms"
+        :data="visibleClassrooms"
         :on-row-click="openMembers"
         :page-index="classroomsStore.pagination.pageIndex"
         :page-size="classroomsStore.pagination.pageSize"

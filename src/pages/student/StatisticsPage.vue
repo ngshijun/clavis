@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePracticeHistoryStore } from '@/stores/practice-history'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useT } from '@/composables/useT'
 
 import { resolveFilterValue, createPracticeHistoryColumns } from '@/lib/statisticsColumns'
@@ -27,6 +28,7 @@ import {
 
 const router = useRouter()
 const practiceStore = usePracticeHistoryStore()
+const scope = useClassroomScopeStore()
 const t = useT()
 const hideInProgress = ref(false)
 const isLoading = ref(true)
@@ -43,20 +45,20 @@ onMounted(async () => {
   }
 })
 
-// Convert ALL_VALUE sentinel to undefined for store filter calls
-const gradeLevelFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.gradeLevel))
-const subjectFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.subject))
+// Convert ALL_VALUE sentinel to undefined for store filter calls. Grade and
+// subject are no longer filters — the selected classroom fixes both (decision
+// 79) — so the cascade starts at topic.
 const topicFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.topic))
 const subTopicFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.subTopic))
 
-// Get available filter options
-const availableGradeLevels = computed(() => practiceStore.getHistoryGradeLevels())
-const availableSubjects = computed(() => practiceStore.getHistorySubjects(gradeLevelFilter.value))
+// Get available filter options, within the scoped grade + subject.
+const scopedGrade = computed(() => scope.selected?.gradeLevelName)
+const scopedSubject = computed(() => scope.selected?.subjectName)
 const availableTopics = computed(() =>
-  practiceStore.getHistoryTopics(gradeLevelFilter.value, subjectFilter.value),
+  practiceStore.getHistoryTopics(scopedGrade.value, scopedSubject.value),
 )
 const availableSubTopics = computed(() =>
-  practiceStore.getHistorySubTopics(gradeLevelFilter.value, subjectFilter.value, topicFilter.value),
+  practiceStore.getHistorySubTopics(scopedGrade.value, scopedSubject.value, topicFilter.value),
 )
 
 // Helper type for table row
@@ -78,8 +80,8 @@ interface HistoryRow {
 // Transform session data for table with filters applied
 const historyData = computed<HistoryRow[]>(() => {
   const filteredSessions = practiceStore.getFilteredHistory(
-    gradeLevelFilter.value,
-    subjectFilter.value,
+    scopedGrade.value,
+    scopedSubject.value,
     topicFilter.value,
     subTopicFilter.value,
     practiceStore.historyFilters.dateRange,
@@ -161,18 +163,12 @@ function confirmResume() {
       <!-- Filters Row -->
       <StatisticsFilterBar
         :date-range="practiceStore.historyFilters.dateRange"
-        :grade-level="practiceStore.historyFilters.gradeLevel"
-        :subject="practiceStore.historyFilters.subject"
         :topic="practiceStore.historyFilters.topic"
         :sub-topic="practiceStore.historyFilters.subTopic"
-        :available-grade-levels="availableGradeLevels"
-        :available-subjects="availableSubjects"
         :available-topics="availableTopics"
         :available-sub-topics="availableSubTopics"
         :hide-in-progress="hideInProgress"
         @update:date-range="practiceStore.setHistoryDateRange($event)"
-        @update:grade-level="practiceStore.setHistoryGradeLevel($event)"
-        @update:subject="practiceStore.setHistorySubject($event)"
         @update:topic="practiceStore.setHistoryTopic($event)"
         @update:sub-topic="practiceStore.setHistorySubTopic($event)"
         @update:hide-in-progress="hideInProgress = $event"

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useT } from '@/composables/useT'
 import { formatDateTime } from '@/lib/date'
 import { CalendarClock, CheckCircle2, ClipboardList } from 'lucide-vue-next'
@@ -11,13 +12,18 @@ import { Badge } from '@/components/ui/badge'
 
 const router = useRouter()
 const store = useStudentAssessmentsStore()
+const scope = useClassroomScopeStore()
 const t = useT()
 
-onMounted(() => {
-  if (!store.hasLoaded && !store.isLoading) {
-    store.fetchAssigned()
-  }
-})
+// Follows the classroom scope, so the count always matches the Assessments page.
+watch(
+  () => scope.selectedId,
+  (classroomId) => {
+    if (store.isLoading) return
+    store.fetchAssigned(classroomId)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

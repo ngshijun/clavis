@@ -92,8 +92,9 @@ function mapStudentRollup(row: StudentRollupRow): StudentRollup {
 /**
  * Teacher/manager dashboard data. Everything is served by the SECURITY
  * DEFINER aggregation RPCs (P4a, reworked in P6a for classrooms) — the DB
- * scopes by role (teacher = classrooms they teach, manager = whole org), so
- * no arguments and no client-side aggregation are needed here.
+ * scopes by role (teacher = classrooms they teach, manager = whole org) and
+ * the selected classroom narrows it further (decision 79). The role scope is
+ * the boundary; the classroom is the view.
  */
 export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   const classroomRollups = ref<ClassroomRollup[]>([])
@@ -112,21 +113,37 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
     return Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
   })
 
-  /** Classroom grid + full student roster (scoped by role inside the RPCs). */
-  async function fetchDashboard(): Promise<{ error: string | null }> {
+  /**
+   * The dashboard for ONE classroom (decision 79). The RPCs still scope by
+   * role — a teacher can never reach a classroom they do not teach — and
+   * `p_classroom_id` narrows the roster to the classroom on screen.
+   *
+   * `get_class_rollups` has no classroom parameter; it returns every classroom
+   * the caller may see, so the one in scope is picked out here rather than
+   * widening the RPC's signature for a single-row read.
+   */
+  async function fetchDashboard(classroomId: string | null): Promise<{ error: string | null }> {
+    if (!classroomId) {
+      classroomRollups.value = []
+      studentRollups.value = []
+      return { error: null }
+    }
+
     isLoading.value = true
     error.value = null
 
     try {
       const [classroomsResult, studentsResult] = await Promise.all([
         supabase.rpc('get_class_rollups'),
-        supabase.rpc('get_student_rollups'),
+        supabase.rpc('get_student_rollups', { p_classroom_id: classroomId }),
       ])
 
       const firstError = classroomsResult.error ?? studentsResult.error
       if (firstError) throw firstError
 
-      classroomRollups.value = (classroomsResult.data ?? []).map(mapClassroomRollup)
+      classroomRollups.value = (classroomsResult.data ?? [])
+        .map(mapClassroomRollup)
+        .filter((row) => row.classroomId === classroomId)
       studentRollups.value = (studentsResult.data ?? []).map(mapStudentRollup)
 
       return { error: null }

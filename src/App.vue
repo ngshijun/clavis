@@ -60,6 +60,8 @@ watch(
 
     // User was signed out (session expired, revoked, manually signed out, etc.)
     if (!isAuthenticated && previousAuthState) {
+      // Drop the classroom scope so the next account never inherits it.
+      import('@/stores/classroom-scope').then((mod) => mod.useClassroomScopeStore().reset())
       toast.info(t.value.shared.toasts.signedOut)
       router.replace('/login')
     }

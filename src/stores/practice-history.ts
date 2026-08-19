@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthStore } from './auth'
 import { useCurriculumStore } from './curriculum'
+import { useClassroomScopeStore } from './classroom-scope'
 import { handleError, errorMessages } from '@/lib/errors'
 import type { Database } from '@/types/database.types'
 import {
@@ -107,14 +108,13 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   const error = ref<string | null>(null)
 
   const authStore = useAuthStore()
+  const classroomScope = useClassroomScopeStore()
   const curriculumStore = useCurriculumStore()
 
   // History page filter + pagination state (persisted across navigation)
   const {
     filters: historyFilters,
     pagination: historyPagination,
-    setGradeLevel: setHistoryGradeLevel,
-    setSubject: setHistorySubject,
     setTopic: setHistoryTopic,
     setSubTopic: setHistorySubTopic,
     setDateRange: setHistoryDateRange,
@@ -123,11 +123,11 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     resetFilters: resetHistoryFilters,
   } = useCascadingFilters({ defaultDateRange: 'alltime' })
 
-  // Get history for current student
+  // Get history for current student, within the selected classroom (decision 79)
   const studentHistory = computed(() => {
-    if (!authStore.user) return []
+    if (!authStore.user || !classroomScope.subjectId) return []
     return sessionHistory.value
-      .filter((s) => s.studentId === authStore.user!.id)
+      .filter((s) => s.studentId === authStore.user!.id && s.subjectId === classroomScope.subjectId)
       .sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
@@ -250,7 +250,13 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   }
 
   /**
-   * Get filtered history for current student
+   * Get filtered history for current student, within the selected classroom.
+   *
+   * The classroom bound (decision 79) sits here rather than at the call sites
+   * because it is a scope, not a filter: every consumer — the statistics table,
+   * its own filter bar, and the dashboard's best-subject card — must see the
+   * same one classroom's practice. A student with no classroom has no history
+   * to show, which is why this returns empty rather than everything.
    */
   function getFilteredHistory(
     gradeLevelName?: string,
@@ -261,7 +267,12 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   ): PracticeSession[] {
     if (!authStore.user) return []
 
-    const studentSessions = sessionHistory.value.filter((s) => s.studentId === authStore.user!.id)
+    const scopedSubjectId = classroomScope.subjectId
+    if (!scopedSubjectId) return []
+
+    const studentSessions = sessionHistory.value.filter(
+      (s) => s.studentId === authStore.user!.id && s.subjectId === scopedSubjectId,
+    )
     return filterSessions(studentSessions, {
       gradeLevelName,
       subjectName,
@@ -289,14 +300,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   const sessionLookup = createSessionLookupMethods((id: string) =>
     sessionHistory.value.filter((s) => s.studentId === id),
   )
-
-  function getHistoryGradeLevels(): string[] {
-    return authStore.user ? sessionLookup.getGradeLevels(authStore.user.id) : []
-  }
-
-  function getHistorySubjects(gradeLevelName?: string): string[] {
-    return authStore.user ? sessionLookup.getSubjects(authStore.user.id, gradeLevelName) : []
-  }
 
   function getHistoryTopics(gradeLevelName?: string, subjectName?: string): string[] {
     return authStore.user
@@ -547,8 +550,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     // History filters
     historyFilters,
     setHistoryDateRange,
-    setHistoryGradeLevel,
-    setHistorySubject,
     setHistoryTopic,
     setHistorySubTopic,
     resetHistoryFilters,
@@ -561,8 +562,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     // History actions
     fetchSessionHistory,
     getFilteredHistory,
-    getHistoryGradeLevels,
-    getHistorySubjects,
     getHistoryTopics,
     getHistorySubTopics,
     getSessionById,

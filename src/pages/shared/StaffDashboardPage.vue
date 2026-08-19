@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, h, computed, onMounted } from 'vue'
+import { ref, h, computed, watch } from 'vue'
 import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
 import {
   useStaffDashboardStore,
@@ -7,6 +7,7 @@ import {
   type StudentRollup,
 } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
+import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users, X } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ import { useT } from '@/composables/useT'
 const t = useT()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
+const scope = useClassroomScopeStore()
 
 const subtitle = computed(() => {
   if (authStore.isTeacher) return t.value.staff.dashboard.subtitleTeacher
@@ -28,17 +30,23 @@ const subtitle = computed(() => {
     : t.value.staff.dashboard.subtitleManagerFallback
 })
 
-onMounted(async () => {
-  const { error } = await dashboardStore.fetchDashboard()
-  if (error) {
-    toast.error(t.value.staff.dashboard.toastLoadFailed)
-  }
-})
-
 // ── Classroom drill-down ─────────────────────────
 const selectedClassroom = ref<ClassroomRollup | null>(null)
 const classroomStudents = ref<StudentRollup[]>([])
 const isLoadingClassroomStudents = ref(false)
+
+// The dashboard belongs to the selected classroom, so it reloads on a switch.
+watch(
+  () => scope.selectedId,
+  async (classroomId) => {
+    selectedClassroom.value = null
+    const { error } = await dashboardStore.fetchDashboard(classroomId)
+    if (error) {
+      toast.error(t.value.staff.dashboard.toastLoadFailed)
+    }
+  },
+  { immediate: true },
+)
 
 async function selectClassroom(rollup: ClassroomRollup) {
   selectedClassroom.value = rollup
