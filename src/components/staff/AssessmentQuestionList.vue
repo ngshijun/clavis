@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { Database, ImagePlus, Plus } from 'lucide-vue-next'
+import { Database, ImagePlus, Library, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
@@ -21,7 +21,11 @@ const props = defineProps<{
   items: AssessmentQuestionItem[]
   editable: boolean
   assessmentId: string
+  /** Offer the admin question bank (P13a) — admin editing a template only. */
+  showQuestionBank?: boolean
 }>()
+
+const showQuestionBank = computed(() => props.showQuestionBank === true)
 
 const emit = defineEmits<{
   reorder: [orderedIds: string[]]
@@ -33,6 +37,7 @@ const emit = defineEmits<{
   remove: [item: AssessmentQuestionItem]
   'add-question': []
   'add-from-bank': []
+  'add-from-question-bank': []
 }>()
 
 const t = useT()
@@ -154,7 +159,7 @@ function addImageToActiveCard() {
         :index="index"
         :expanded="expandedId === item.id"
         :editable="editable"
-        :assessment-id="assessmentId"
+        :image-folder="assessmentId"
         @select="expandedId = item.id"
         @payload-change="(payload) => emit('payload-change', item, payload)"
         @points-change="(points) => emit('points-change', item, points)"
@@ -192,6 +197,17 @@ function addImageToActiveCard() {
         <Database class="size-4" />
       </Button>
       <Button
+        v-if="showQuestionBank"
+        variant="ghost"
+        size="icon"
+        class="size-8"
+        :aria-label="t.staff.builder.addFromQuestionBank"
+        :title="t.staff.builder.addFromQuestionBank"
+        @click="emit('add-from-question-bank')"
+      >
+        <Library class="size-4" />
+      </Button>
+      <Button
         variant="ghost"
         size="icon"
         class="size-8"
@@ -213,6 +229,15 @@ function addImageToActiveCard() {
       <Button variant="outline" size="sm" @click="emit('add-from-bank')">
         <Database class="mr-2 size-4" />
         {{ t.staff.builder.addFromBank }}
+      </Button>
+      <Button
+        v-if="showQuestionBank"
+        variant="outline"
+        size="sm"
+        @click="emit('add-from-question-bank')"
+      >
+        <Library class="mr-2 size-4" />
+        {{ t.staff.builder.addFromQuestionBank }}
       </Button>
     </div>
   </div>

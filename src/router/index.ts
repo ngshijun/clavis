@@ -162,6 +162,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/CurriculumPage.vue'),
         },
         {
+          path: 'question-bank',
+          name: 'admin-question-bank',
+          component: () => import('@/pages/admin/QuestionBankPage.vue'),
+        },
+        {
           path: 'assessments',
           name: 'admin-assessment-templates',
           component: () => import('@/pages/shared/AssessmentsPage.vue'),

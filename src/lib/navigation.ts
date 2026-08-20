@@ -21,6 +21,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Announcements', path: '/admin/announcements', icon: Megaphone },
     { title: 'Organizations', path: '/admin/organizations', icon: Building2 },
     { title: 'Curriculum', path: '/admin/curriculum', icon: BookOpen },
+    { title: 'Question Bank', path: '/admin/question-bank', icon: Library },
     { title: 'Assessment Templates', path: '/admin/assessments', icon: ClipboardList },
     { title: 'Learning Points', path: '/admin/tags', icon: Tags },
     { title: 'Question Statistics', path: '/admin/question-statistics', icon: BarChart3 },

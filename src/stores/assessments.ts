@@ -730,6 +730,37 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Copy questions out of the admin question bank (P13a) into this
+   * assessment. A COPY, not a link: a later bank edit must never mutate a
+   * published assessment or an in-flight attempt, and the payload contract is
+   * identical, so the copied rows need no translation and no new grader path.
+   */
+  async function addQuestionsFromBank(
+    assessmentId: string,
+    entries: { payload: AdhocPayload; points: number }[],
+  ): Promise<{ error: string | null }> {
+    if (entries.length === 0) return { error: null }
+
+    try {
+      const base = nextPosition()
+      const { error: insertError } = await supabase.from('assessment_questions').insert(
+        entries.map((entry, index) => ({
+          assessment_id: assessmentId,
+          payload: entry.payload as unknown as Json,
+          points: entry.points,
+          position: base + index,
+        })),
+      )
+
+      if (insertError) throw insertError
+
+      return await fetchAssessmentQuestions(assessmentId)
+    } catch (err) {
+      return { error: handleError(err, 'failedAddAssessmentQuestions') }
+    }
+  }
+
   /** Insert an ad-hoc question and return its id (the builder expands it). */
   async function addAdhocQuestion(
     assessmentId: string,
@@ -1301,6 +1332,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     fetchAssessmentDetail,
     fetchAssessmentQuestions,
     addBankQuestions,
+    addQuestionsFromBank,
     addAdhocQuestion,
     applyAdhocPayload,
     persistAdhocPayload,

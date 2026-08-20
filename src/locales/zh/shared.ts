@@ -441,6 +441,11 @@ export default {
     toastAdded: (label: string) => `${label}已成功添加`,
   },
   /** 所有题型的名称——题库题型（单选/多选/简答）+ P9a 新增的自编题型。 */
+  difficulties: {
+    low: '低',
+    medium: '中',
+    high: '高',
+  },
   questionTypes: {
     mcq: '单选题',
     mrq: '多选题',
@@ -632,6 +637,7 @@ export default {
           dashboard: '主页',
           announcements: '公告',
           organizations: '机构',
+          questionBank: '题库',
           curriculum: '课程',
           assessmentTemplates: '测评模板',
           learningPoints: '学习点',

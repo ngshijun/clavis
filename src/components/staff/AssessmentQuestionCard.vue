@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import type { AssessmentQuestionItem } from '@/stores/assessments'
 import {
   buildAdhocPayload,
   parseClozeIndices,
@@ -10,6 +9,7 @@ import {
   type AdhocPayload,
   type AdhocQuestionType,
   type AdhocValidationCode,
+  type QuestionCardItem,
 } from '@/lib/adhocPayload'
 import { createBucketImageHelpers, uploadStorageFile } from '@/lib/storage'
 import { moveItem, refocusReorderHandle } from '@/lib/reorder'
@@ -59,12 +59,24 @@ import { useLanguageStore } from '@/stores/language'
  * the row pointing at a deleted object.
  */
 const props = defineProps<{
-  item: AssessmentQuestionItem
+  item: QuestionCardItem
   index: number
   expanded: boolean
   /** Edit permission (draft + author). Read-only cards still expand to a preview. */
   editable: boolean
-  assessmentId: string
+  /**
+   * First folder segment(s) for image uploads into `assessment-images`, which
+   * the bucket RLS reads to authorize the write: `{assessmentId}` for a
+   * builder card, `bank/{bankQuestionId}` for an admin bank card (P13a).
+   */
+  imageFolder: string
+  /**
+   * Bank questions carry no explanation (P13a) — the field is optional in
+   * every payload variant, so hiding it simply never sets one.
+   */
+  showExplanation?: boolean
+  /** The bank is an unordered set; only the builder shows the drag grip. */
+  reorderable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -102,6 +114,9 @@ const QUESTION_TYPES: AdhocQuestionType[] = [
 
 const { getImageUrl: getAssessmentImageUrl } = createBucketImageHelpers('assessment-images')
 const { getImageUrl: getBankImageUrl } = createBucketImageHelpers('question-images')
+
+const showExplanation = computed(() => props.showExplanation !== false)
+const isReorderable = computed(() => props.reorderable !== false)
 
 const isAdhocEditor = computed(
   () => props.expanded && props.editable && props.item.source === 'adhoc',
@@ -290,11 +305,12 @@ async function onQuestionImagePicked(event: Event) {
 
   isUploadingQuestionImage.value = true
   try {
-    // `folder: assessmentId` produces `{assessment_id}/{uuid}.webp` — the
-    // shape the bucket's write RLS requires. The replaced object is only
-    // deleted after the payload save confirms (decision 78).
+    // `folder` produces `{assessmentId}/{uuid}.webp` (builder) or
+    // `bank/{id}/{uuid}.webp` (admin bank) — the shapes the bucket's write
+    // RLS accepts. The replaced object is only deleted after the payload
+    // save confirms (decision 78).
     const { path, error } = await uploadStorageFile('assessment-images', file, {
-      folder: props.assessmentId,
+      folder: props.imageFolder,
     })
     if (error || !path) {
       toast.error(error ?? '')
@@ -325,7 +341,7 @@ async function onOptionImagePicked(event: Event) {
   uploadingOptionIndex.value = optionImageTarget
   try {
     const { path, error } = await uploadStorageFile('assessment-images', file, {
-      folder: props.assessmentId,
+      folder: props.imageFolder,
     })
     if (error || !path) {
       toast.error(error ?? '')
@@ -388,7 +404,7 @@ function onPointsChange(event: Event) {
     <!-- Drag handle strip (Forms-style, centered at the top of the card).
          Also the keyboard-reorder control: arrow keys move the card. -->
     <button
-      v-if="editable"
+      v-if="editable && isReorderable"
       type="button"
       data-card-drag-handle
       :data-reorder-id="item.id"
@@ -405,7 +421,7 @@ function onPointsChange(event: Event) {
       v-if="!expanded"
       type="button"
       class="flex w-full items-center gap-3 p-3 text-left"
-      :class="editable ? 'pt-1' : ''"
+      :class="editable && isReorderable ? 'pt-1' : ''"
       @click="emit('select')"
     >
       <span
@@ -978,7 +994,7 @@ function onPointsChange(event: Event) {
       </Field>
 
       <!-- Explanation (all auto-graded types; long_answer has the rubric) -->
-      <Field v-if="type !== 'long_answer'">
+      <Field v-if="showExplanation && type !== 'long_answer'">
         <FieldLabel :for="`explanation-${item.id}`">{{
           t.staff.adhocForm.explanationLabel
         }}</FieldLabel>
@@ -997,8 +1013,9 @@ function onPointsChange(event: Event) {
 
       <Separator />
 
-      <!-- Card footer: points · duplicate · delete -->
-      <div class="flex items-center justify-end gap-1">
+      <!-- Card footer: [meta slot] · points · duplicate · delete -->
+      <div class="flex flex-wrap items-center justify-end gap-1">
+        <slot name="meta" />
         <label class="mr-2 flex items-center gap-2 text-sm text-muted-foreground">
           <span>{{ t.staff.builder.pointsLabel }}</span>
           <Input

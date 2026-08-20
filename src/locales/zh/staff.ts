@@ -196,6 +196,16 @@ export default {
     create: '创建',
   },
 
+  assessmentBankPicker: {
+    title: '从考试题库添加',
+    description: '题目会被复制到此评估中，因此在这里编辑不会影响题库。',
+    searchPlaceholder: '搜索题目...',
+    allTags: '所有学习点',
+    empty: '没有符合筛选条件的题库题目。',
+    points: (points: number) => `${points} 分`,
+    addBtn: (count: number) => (count === 0 ? '添加' : `添加 ${count} 道`),
+    toastAdded: (count: number) => `已添加 ${count} 道题目到此评估。`,
+  },
   builder: {
     backToList: '测评',
     backToTemplates: '模板',
@@ -227,7 +237,8 @@ export default {
     validationScope: '年级和科目均为必填项',
     questionsTitle: '题目',
     questionsDesc: (n: number) => `此测评共有 ${n} 道题`,
-    addFromBank: '从题库添加',
+    addFromQuestionBank: '从考试题库添加',
+    addFromBank: '从练习题库添加',
     addAdhoc: '自编题目',
     noQuestions: '尚无题目',
     noQuestionsDesc: '从题库选择题目，或自行编写。',
@@ -348,7 +359,7 @@ export default {
   },
 
   bankPicker: {
-    title: '从题库添加',
+    title: '从练习题库添加',
     description: '筛选题库并勾选要添加的题目。',
     questionCol: '题目',
     typeCol: '题型',
