@@ -115,8 +115,8 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- profiles (admin has no org; everyone else belongs to the demo center)
-INSERT INTO public.profiles (id, name, email, user_type, has_completed_tour, organization_id)
-SELECT v.id, v.name, v.email, v.user_type::public.user_role, true,
+INSERT INTO public.profiles (id, name, email, user_type, organization_id)
+SELECT v.id, v.name, v.email, v.user_type::public.user_role,
        CASE WHEN v.user_type = 'admin' THEN NULL
             ELSE (SELECT o.id FROM public.organizations o WHERE o.name = 'Clavis Demo Center')
        END

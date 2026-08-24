@@ -14,8 +14,6 @@ import {
 } from '@/lib/practiceHelpers'
 import { usePracticeHistoryStore } from './practice-history'
 
-export type { PracticeAnswer, PracticeSession } from '@/lib/practiceHelpers'
-
 /** One question's answer while the attempt is still in the browser. */
 export interface DraftAnswer {
   questionId: string
@@ -85,8 +83,6 @@ export const usePracticeStore = defineStore('practice', () => {
       currentAttempt.value.answers.find((a) => a.questionId === currentQuestion.value!.id) ?? null
     )
   })
-
-  const isCurrentQuestionAnswered = computed(() => currentAnswer.value !== null)
 
   const answeredQuestionIds = computed(
     () => new Set((currentAttempt.value?.answers ?? []).map((a) => a.questionId)),
@@ -450,7 +446,6 @@ export const usePracticeStore = defineStore('practice', () => {
     currentQuestionNumber,
     totalQuestions,
     currentAnswer,
-    isCurrentQuestionAnswered,
     answeredQuestionIds,
     allQuestionsAnswered,
     unansweredCount,
