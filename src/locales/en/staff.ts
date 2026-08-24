@@ -198,6 +198,18 @@ export default {
     create: 'Create',
   },
 
+  assessmentBankPicker: {
+    title: 'Add from Question Bank',
+    description:
+      'Questions are copied into this assessment, so editing them here never changes the bank.',
+    searchPlaceholder: 'Search questions...',
+    allTags: 'All learning points',
+    empty: 'No bank questions match these filters.',
+    points: (points: number) => `${points} ${points === 1 ? 'point' : 'points'}`,
+    addBtn: (count: number) => (count === 0 ? 'Add' : `Add ${count}`),
+    toastAdded: (count: number) =>
+      `${count} ${count === 1 ? 'question' : 'questions'} added to this assessment.`,
+  },
   builder: {
     backToList: 'Assessments',
     backToTemplates: 'Templates',
@@ -232,7 +244,8 @@ export default {
     validationScope: 'Grade level and subject are both required',
     questionsTitle: 'Questions',
     questionsDesc: (n: number) => `${n} question${n === 1 ? '' : 's'} in this assessment`,
-    addFromBank: 'Add from Bank',
+    addFromQuestionBank: 'Add from Question Bank',
+    addFromBank: 'Add from Practice Bank',
     addAdhoc: 'Write Question',
     noQuestions: 'No Questions Yet',
     noQuestionsDesc: 'Pick questions from the bank or write your own.',
@@ -360,7 +373,7 @@ export default {
   },
 
   bankPicker: {
-    title: 'Add from Question Bank',
+    title: 'Add from Practice Bank',
     description: 'Filter the bank and pick the questions to add.',
     questionCol: 'Question',
     typeCol: 'Type',

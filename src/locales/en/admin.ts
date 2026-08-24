@@ -107,6 +107,18 @@ export default {
     toastBulkUploaded: 'Questions uploaded successfully',
   },
 
+  questionBank: {
+    title: 'Question Bank',
+    subtitle:
+      'Exam questions you compose templates from. Separate from practice questions, which are authored under a sub-topic.',
+    addBtn: 'Add question',
+    gradeLabel: 'Grade level',
+    subjectLabel: 'Subject',
+    difficultyLabel: 'Difficulty',
+    allDifficulties: 'All difficulties',
+    empty: 'No questions here yet. Add one to start building this bank.',
+    pickCurriculum: 'Choose a grade level and subject to begin.',
+  },
   tags: {
     title: 'Learning Points',
     subtitle: 'Manage the reusable tag library — each tag names one learning point',

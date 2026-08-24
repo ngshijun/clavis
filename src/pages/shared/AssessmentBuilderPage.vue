@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Copy,
   Database,
+  Library,
   Eye,
   EyeOff,
   Info,
@@ -45,6 +46,7 @@ import {
 } from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
 import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
+import AssessmentBankPickerDialog from '@/components/staff/AssessmentBankPickerDialog.vue'
 import AssignPanel from '@/components/staff/AssignPanel.vue'
 import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
 import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
@@ -129,6 +131,15 @@ const isSavingSettings = ref(false)
 
 // Dialogs (confirmations only — question editing is inline in the cards)
 const showBankPicker = ref(false)
+const showAssessmentBankPicker = ref(false)
+
+/**
+ * The admin question bank (P13a) is admin-only at the RLS layer, so only an
+ * admin editing a template is ever offered it.
+ */
+const canPickFromAssessmentBank = computed(
+  () => authStore.isAdmin && isTemplate.value && isEditable.value,
+)
 const showPublishDialog = ref(false)
 const isPublishing = ref(false)
 
@@ -672,6 +683,15 @@ async function handleRemove(item: AssessmentQuestionItem) {
                   <Database class="mr-2 size-4" />
                   {{ t.staff.builder.addFromBank }}
                 </Button>
+                <Button
+                  v-if="canPickFromAssessmentBank"
+                  variant="outline"
+                  size="sm"
+                  @click="showAssessmentBankPicker = true"
+                >
+                  <Library class="mr-2 size-4" />
+                  {{ t.staff.builder.addFromQuestionBank }}
+                </Button>
               </div>
             </div>
 
@@ -688,7 +708,9 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @duplicate="handleDuplicate"
               @remove="handleRemove"
               @add-question="handleAddQuestion"
+              :show-question-bank="canPickFromAssessmentBank"
               @add-from-bank="showBankPicker = true"
+              @add-from-question-bank="showAssessmentBankPicker = true"
             />
           </div>
         </TabsContent>
@@ -871,6 +893,14 @@ async function handleRemove(item: AssessmentQuestionItem) {
         v-model:open="showBankPicker"
         :assessment-id="assessmentId"
         :existing-question-ids="existingBankQuestionIds"
+      />
+
+      <AssessmentBankPickerDialog
+        v-if="canPickFromAssessmentBank"
+        v-model:open="showAssessmentBankPicker"
+        :assessment-id="assessmentId"
+        :grade-level-id="assessment.gradeLevelId"
+        :subject-id="assessment.subjectId"
       />
 
       <!-- Use template confirmation (staff preview only) -->

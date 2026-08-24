@@ -96,6 +96,24 @@ export type AdhocPayload =
   | (AdhocImageCarrier & { type: 'long_answer'; question: string; rubric?: string })
 
 /**
+ * The slice of a question that `AssessmentQuestionCard` actually renders.
+ * Both surfaces that use the card satisfy it structurally: the builder's
+ * `AssessmentQuestionItem` (which adds assessment/position fields) and the
+ * admin bank's `BankQuestion`.
+ */
+export interface QuestionCardItem {
+  id: string
+  /** `bank` = a practice-bank reference (read-only preview); `adhoc` = editable payload. */
+  source: 'bank' | 'adhoc'
+  type: AdhocQuestionType
+  question: string
+  imagePath: string | null
+  options: { number: number; text: string; imagePath: string | null }[]
+  payload: AdhocPayload | null
+  points: number
+}
+
+/**
  * Authoring draft — mirrors the dialog's form state. Only the fields for the
  * active `type` are read by `buildAdhocPayload`.
  */

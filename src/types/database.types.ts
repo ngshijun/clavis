@@ -229,6 +229,97 @@ export type Database = {
           },
         ]
       }
+      assessment_bank_question_tags: {
+        Row: {
+          assessment_bank_question_id: string
+          created_at: string
+          tag_id: string
+        }
+        Insert: {
+          assessment_bank_question_id: string
+          created_at?: string
+          tag_id: string
+        }
+        Update: {
+          assessment_bank_question_id?: string
+          created_at?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'bank_question_tags_bank_question_id_fkey'
+            columns: ['assessment_bank_question_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_bank_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bank_question_tags_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      assessment_bank_questions: {
+        Row: {
+          created_at: string
+          created_by: string
+          difficulty: Database['public']['Enums']['question_difficulty']
+          grade_level_id: string
+          id: string
+          payload: Json
+          points: number
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          difficulty: Database['public']['Enums']['question_difficulty']
+          grade_level_id: string
+          id?: string
+          payload: Json
+          points?: number
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          difficulty?: Database['public']['Enums']['question_difficulty']
+          grade_level_id?: string
+          id?: string
+          payload?: Json
+          points?: number
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'bank_questions_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bank_questions_grade_level_id_fkey'
+            columns: ['grade_level_id']
+            isOneToOne: false
+            referencedRelation: 'grade_levels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bank_questions_subject_id_fkey'
+            columns: ['subject_id']
+            isOneToOne: false
+            referencedRelation: 'subjects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       assessment_questions: {
         Row: {
           assessment_id: string
@@ -1666,6 +1757,7 @@ export type Database = {
         | 'answer_error'
         | 'explanation_error'
         | 'other'
+      question_difficulty: 'low' | 'medium' | 'high'
       question_type: 'mcq' | 'short_answer' | 'mrq'
       user_role: 'admin' | 'manager' | 'teacher' | 'student'
     }
@@ -1806,6 +1898,7 @@ export const Constants = {
         'explanation_error',
         'other',
       ],
+      question_difficulty: ['low', 'medium', 'high'],
       question_type: ['mcq', 'short_answer', 'mrq'],
       user_role: ['admin', 'manager', 'teacher', 'student'],
     },

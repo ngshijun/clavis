@@ -449,6 +449,11 @@ export default {
     toastAdded: (label: string) => `${label} added successfully`,
   },
   /** Labels for every question type — bank (mcq/mrq/short_answer) + ad-hoc P9a types. */
+  difficulties: {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+  },
   questionTypes: {
     mcq: 'Multiple Choice',
     mrq: 'Multiple Response',
@@ -647,6 +652,7 @@ export default {
           dashboard: 'Dashboard',
           announcements: 'Announcements',
           organizations: 'Organizations',
+          questionBank: 'Question Bank',
           curriculum: 'Curriculum',
           assessmentTemplates: 'Templates',
           learningPoints: 'Learning Points',

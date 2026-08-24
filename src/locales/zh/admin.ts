@@ -105,6 +105,17 @@ export default {
     toastBulkUploaded: '题目上传成功',
   },
 
+  questionBank: {
+    title: '题库',
+    subtitle: '用于组建试卷模板的考试题目。与在子主题下编写的练习题分开管理。',
+    addBtn: '添加题目',
+    gradeLabel: '年级',
+    subjectLabel: '科目',
+    difficultyLabel: '难度',
+    allDifficulties: '所有难度',
+    empty: '这里还没有题目。添加一道题以开始建立题库。',
+    pickCurriculum: '请先选择年级和科目。',
+  },
   tags: {
     title: '学习点',
     subtitle: '管理可复用的标签库——每个标签代表一个学习点',
