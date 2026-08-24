@@ -1,0 +1,31 @@
+-- ============================================================
+-- Clavis 2.0 revamp — P15d: purge abandoned practice sessions.
+--
+-- P15c made "a practice session that is in progress" an
+-- impossible state: submit_practice_session writes the row
+-- already completed, and nothing can complete a row after the
+-- fact now that complete_practice_session is gone.
+--
+-- The rows left over from the old start-then-complete flow are
+-- therefore permanently stuck. They are not harmless: the
+-- student statistics page counts every session row, so each
+-- abandoned one shows as a 0% session with no date and drags
+-- the average score down for good.
+--
+-- They are deleted rather than back-filled: an abandoned attempt
+-- was never a result, and inventing a completed_at for one would
+-- fabricate a score the student never earned.
+--
+-- practice_answers and session_questions cascade from
+-- practice_sessions. student_question_progress does NOT — it is
+-- keyed on (student, sub_topic, question, cycle) — but those
+-- rows are correct either way: they record which questions the
+-- student has already been shown in a cycle, which is still true
+-- of an abandoned attempt.
+--
+-- DESTRUCTIVE: deletes rows on staging (and on prod when the PR
+-- merges). Called out in the PR body.
+-- ============================================================
+
+DELETE FROM public.practice_sessions
+WHERE completed_at IS NULL;

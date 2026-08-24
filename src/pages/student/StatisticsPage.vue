@@ -16,23 +16,12 @@ import { Loader2, BookOpen, History } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import { DataTable } from '@/components/ui/data-table'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 
 const router = useRouter()
 const practiceStore = usePracticeHistoryStore()
 const scope = useClassroomScopeStore()
 const t = useT()
 const { basePath } = useActiveClassroom()
-const hideInProgress = ref(false)
 const isLoading = ref(true)
 
 // Fetch session history on mount
@@ -71,7 +60,6 @@ interface HistoryRow {
   subjectName: string
   topicName: string
   subTopicName: string
-  status: 'completed' | 'in_progress'
   score: number | null
   totalQuestions: number
   correctAnswers: number
@@ -90,11 +78,8 @@ const historyData = computed<HistoryRow[]>(() => {
   )
 
   return filteredSessions.map((session) => {
-    const isCompleted = !!session.completedAt
     const correctAnswers = session.correctAnswers
     const totalQuestions = session.totalQuestions
-    const score = isCompleted ? computeScorePercent(correctAnswers, totalQuestions) : null
-    const durationSeconds = isCompleted ? session.durationSeconds : null
 
     return {
       id: session.id,
@@ -103,22 +88,13 @@ const historyData = computed<HistoryRow[]>(() => {
       subjectName: session.subjectName,
       topicName: session.topicName,
       subTopicName: session.subTopicName,
-      status: isCompleted ? 'completed' : 'in_progress',
-      score,
+      score: computeScorePercent(correctAnswers, totalQuestions),
       totalQuestions,
       correctAnswers,
       answeredCount: session.answerCount,
-      durationSeconds,
+      durationSeconds: session.durationSeconds,
     }
   })
-})
-
-// Table data with optional in-progress filtering
-const displayedHistory = computed(() => {
-  if (hideInProgress.value) {
-    return historyData.value.filter((s) => s.status === 'completed')
-  }
-  return historyData.value
 })
 
 // Statistics computed values (only from completed sessions)
@@ -127,25 +103,8 @@ const { averageScore, totalSessions, totalStudyTime, subTopicsPracticed } =
 
 const columns = computed(() => createPracticeHistoryColumns<HistoryRow>())
 
-const showResumeDialog = ref(false)
-const pendingResumeSession = ref<HistoryRow | null>(null)
-
 function handleRowClick(row: HistoryRow) {
-  if (row.status === 'completed') {
-    router.push(`${basePath.value}/session/${row.id}`)
-  } else {
-    pendingResumeSession.value = row
-    showResumeDialog.value = true
-  }
-}
-
-function confirmResume() {
-  if (pendingResumeSession.value) {
-    router.push({
-      path: `${basePath.value}/practice/quiz`,
-      query: { sessionId: pendingResumeSession.value.id },
-    })
-  }
+  router.push(`${basePath.value}/session/${row.id}`)
 }
 </script>
 
@@ -164,11 +123,9 @@ function confirmResume() {
         :sub-topic="practiceStore.historyFilters.subTopic"
         :available-topics="availableTopics"
         :available-sub-topics="availableSubTopics"
-        :hide-in-progress="hideInProgress"
         @update:date-range="practiceStore.setHistoryDateRange($event)"
         @update:topic="practiceStore.setHistoryTopic($event)"
         @update:sub-topic="practiceStore.setHistorySubTopic($event)"
-        @update:hide-in-progress="hideInProgress = $event"
       />
 
       <!-- Statistics Cards -->
@@ -190,9 +147,9 @@ function confirmResume() {
         </CardHeader>
         <CardContent>
           <DataTable
-            v-if="displayedHistory.length > 0"
+            v-if="historyData.length > 0"
             :columns="columns"
-            :data="displayedHistory"
+            :data="historyData"
             :on-row-click="handleRowClick"
             :initial-sorting="[{ id: 'completedAt', desc: true }]"
             :page-index="practiceStore.historyPagination.pageIndex"
@@ -209,38 +166,5 @@ function confirmResume() {
         </CardContent>
       </Card>
     </template>
-
-    <!-- Resume Session Dialog -->
-    <AlertDialog v-model:open="showResumeDialog">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{{ t.student.statistics.resumeDialog.title }}</AlertDialogTitle>
-          <AlertDialogDescription v-if="pendingResumeSession" as="div">
-            <p>
-              {{
-                t.student.statistics.resumeDialog.inProgress(
-                  pendingResumeSession.subTopicName,
-                  pendingResumeSession.subjectName,
-                )
-              }}
-            </p>
-            <p class="mt-1">
-              {{
-                t.student.statistics.resumeDialog.progress(
-                  pendingResumeSession.answeredCount,
-                  pendingResumeSession.totalQuestions,
-                )
-              }}
-            </p>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{{ t.student.statistics.resumeDialog.cancel }}</AlertDialogCancel>
-          <AlertDialogAction @click="confirmResume">{{
-            t.student.statistics.resumeDialog.continue
-          }}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
 </template>

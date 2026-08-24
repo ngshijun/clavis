@@ -578,13 +578,13 @@ ON CONFLICT DO NOTHING;
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
 
 INSERT INTO public.practice_sessions (
-  id, student_id, sub_topic_id, total_questions, current_question_index,
+  id, student_id, sub_topic_id, total_questions,
   completed_at, correct_count, total_time_seconds
 ) VALUES (
   '70000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000002',
   '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > Basic Calculation
-  3, 3,
+  3,
   now() - interval '1 day',
   2, 145   -- Q1 + Q3 correct, Q2 wrong (matches the answers seeded below)
 )

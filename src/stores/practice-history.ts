@@ -359,9 +359,9 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       // available here — the results page reads it from get_session_result.
       session.answers = (answersResult.data ?? []).map((row) => mapAnswerRow(row, false))
 
-      // `session.questions` is deliberately left empty: the only caller
-      // (practice store `resumeSession`) loads the frozen, sanitized question
-      // list from get_practice_session_questions right after this call.
+      // `session.questions` is deliberately left empty: the only caller loads
+      // the frozen, sanitized question list from
+      // get_practice_session_questions right after this call.
 
       return { session, error: null }
     } catch (err) {

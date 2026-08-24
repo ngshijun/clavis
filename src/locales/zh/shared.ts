@@ -191,16 +191,11 @@ export default {
     allSubjects: '所有科目',
     allTopics: '所有课题',
     allSubTopics: '所有子课题',
-    hideInProgress: '隐藏进行中',
     dateRangeOptions: {
       today: '今天',
       last7Days: '近7天',
       last30Days: '近30天',
       allTime: '所有时间',
-    },
-    status: {
-      completed: '已完成',
-      inProgress: '进行中',
     },
     practiceHistoryColumns: {
       grade: '年级',
@@ -208,7 +203,6 @@ export default {
       topic: '课题',
       subTopic: '子课题',
       completedAt: '完成时间',
-      status: '状态',
       score: '分数',
       duration: '时长',
     },

@@ -157,15 +157,6 @@ export default {
     practiceHistoryDesc: 'View your past practice sessions and scores',
     noSessions: 'No practice sessions found for the selected filters.',
     toastLoadFailed: 'Failed to load practice history',
-    resumeDialog: {
-      title: 'Continue Session?',
-      inProgress: (subTopicName: string, subjectName: string) =>
-        `You have an in-progress session for ${subTopicName} (${subjectName}).`,
-      progress: (answered: number, total: number) =>
-        `Progress: ${answered} / ${total} questions answered.`,
-      cancel: 'Cancel',
-      continue: 'Continue',
-    },
   },
   profile: {
     title: 'My Profile',

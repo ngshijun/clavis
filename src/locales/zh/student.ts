@@ -146,14 +146,6 @@ export default {
     practiceHistoryDesc: '查看你过去的练习记录和分数',
     noSessions: '所选筛选条件下暂无练习记录。',
     toastLoadFailed: '加载练习记录失败',
-    resumeDialog: {
-      title: '继续练习？',
-      inProgress: (subTopicName: string, subjectName: string) =>
-        `你有一个进行中的练习：${subTopicName}（${subjectName}）。`,
-      progress: (answered: number, total: number) => `进度：已答 ${answered} / ${total} 题。`,
-      cancel: '取消',
-      continue: '继续',
-    },
   },
   profile: {
     title: '个人资料',

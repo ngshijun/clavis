@@ -197,16 +197,11 @@ export default {
     allSubjects: 'All Subjects',
     allTopics: 'All Topics',
     allSubTopics: 'All Sub-Topics',
-    hideInProgress: 'Hide in progress',
     dateRangeOptions: {
       today: 'Today',
       last7Days: 'Last 7 Days',
       last30Days: 'Last 30 Days',
       allTime: 'All Time',
-    },
-    status: {
-      completed: 'Completed',
-      inProgress: 'In Progress',
     },
     practiceHistoryColumns: {
       grade: 'Grade',
@@ -214,7 +209,6 @@ export default {
       topic: 'Topic',
       subTopic: 'Sub-Topic',
       completedAt: 'Completed At',
-      status: 'Status',
       score: 'Score',
       duration: 'Duration',
     },
