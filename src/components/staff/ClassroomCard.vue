@@ -66,10 +66,9 @@ const fallbackHue = computed(() => {
     class="gap-0 overflow-hidden py-0 transition-shadow"
     :class="clickable ? 'cursor-pointer hover:border-primary/40 hover:shadow-md' : ''"
   >
-    <!-- 3:1, matching the proportions of a Google Classroom class card, whose
-         banner takes roughly the top third. A fixed height instead would
-         change the crop at every breakpoint. -->
-    <div class="relative aspect-[3/1] w-full">
+    <!-- A fixed ratio rather than a fixed height, so the crop does not change
+         at every breakpoint. -->
+    <div class="relative aspect-[3/2] w-full">
       <img v-if="coverUrl" :src="coverUrl" alt="" class="size-full object-cover" />
       <div
         v-else
