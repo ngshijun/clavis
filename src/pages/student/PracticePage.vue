@@ -137,14 +137,14 @@ async function confirmStartSession() {
   isStartingSession.value = true
 
   try {
-    const result = await practiceStore.startSession(pendingSubTopicId.value)
+    const result = await practiceStore.startAttempt(pendingSubTopicId.value)
 
     if (result.error) {
       toast.error(result.error)
       return
     }
 
-    if (result.session) {
+    if (result.attempt) {
       router.push(`${basePath.value}/practice/quiz`)
     }
   } finally {

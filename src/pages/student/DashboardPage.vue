@@ -10,9 +10,6 @@ import AssessmentsTodoCard from '@/components/dashboard/AssessmentsTodoCard.vue'
 const BestSubjectCard = defineAsyncComponent(
   () => import('@/components/dashboard/BestSubjectCard.vue'),
 )
-const InProgressSessionsCard = defineAsyncComponent(
-  () => import('@/components/dashboard/InProgressSessionsCard.vue'),
-)
 
 const route = useRoute()
 const practiceStore = usePracticeHistoryStore()
@@ -58,9 +55,6 @@ watch(
 
       <!-- Assessments to-do -->
       <AssessmentsTodoCard />
-
-      <!-- In-Progress Sessions -->
-      <InProgressSessionsCard />
     </div>
   </div>
 </template>

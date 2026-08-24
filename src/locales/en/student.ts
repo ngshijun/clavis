@@ -45,23 +45,33 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
     exitQuiz: 'Exit Quiz',
-    submitAnswer: 'Submit Answer',
+    previous: 'Previous',
     next: 'Next',
-    finishQuiz: 'Finish Quiz',
+    submitQuiz: 'Submit',
+    submitting: 'Submitting...',
+    answeredOf: (answered: number, total: number) => `${answered} of ${total} answered`,
+    unansweredHint: (remaining: number) =>
+      remaining === 1
+        ? 'Answer the last question to submit'
+        : `Answer all questions to submit — ${remaining} left`,
     multipleChoice: 'Multiple Choice',
     multipleResponse: 'Multiple Response',
     shortAnswer: 'Short Answer',
-    resumingSession: 'Resuming your session...',
     exitDialog: {
       title: 'Exit Quiz?',
       description:
-        'Are you sure you want to exit? Your progress is saved and you can continue later.',
+        'Nothing is saved until you submit, so leaving now discards this attempt entirely.',
       continueQuiz: 'Continue Quiz',
-      exit: 'Exit',
+      exit: 'Discard and exit',
     },
-    toastResumeError: 'Failed to resume session',
-    toastCompleted: 'Quiz completed!',
-    toastCompleteFailed: 'Failed to complete quiz',
+    submitDialog: {
+      title: 'Submit your answers?',
+      description: 'You will not be able to change them afterwards.',
+      cancel: 'Keep checking',
+      confirm: 'Submit',
+    },
+    toastCompleted: 'Quiz submitted!',
+    toastCompleteFailed: 'Failed to submit quiz',
   },
   assessments: {
     title: 'Assessments',
@@ -139,7 +149,6 @@ export default {
     sessionNotFound: 'Session not found',
     goToStatistics: 'Go to Statistics',
     keyHiddenNote: 'Correct answers are not shown — check the tips on questions you got wrong.',
-    resultsAfterCompletion: 'Results are shown after you finish this session.',
   },
   statistics: {
     title: 'Statistics',

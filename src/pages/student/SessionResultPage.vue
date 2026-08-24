@@ -30,7 +30,6 @@ const { basePath } = useActiveClassroom()
 const sessionId = computed(() => route.params.sessionId as string)
 const review = ref<PracticeSessionReview | null>(null)
 const isLoading = ref(true)
-const notCompleted = ref(false)
 
 // Stars for this session's score (decision 19: derived, never stored).
 // get_session_result rounds the same way the DB stats upsert does, so these
@@ -70,9 +69,6 @@ onMounted(async () => {
     // Refetch map stats so best-so-far includes this completion (non-blocking;
     // the stars card fills in reactively when the fetch lands)
     void statsStore.fetchStats()
-  } else if (result.notCompleted) {
-    // Results are deferred to completion (decision 40)
-    notCompleted.value = true
   } else {
     router.replace(`${basePath.value}/statistics`)
   }
@@ -157,14 +153,6 @@ function goToHistory() {
         />
       </div>
     </template>
-
-    <!-- Session not finished yet -->
-    <div v-else-if="notCompleted" class="py-12 text-center">
-      <p class="text-muted-foreground">{{ t.student.sessionResult.resultsAfterCompletion }}</p>
-      <Button class="mt-4" @click="goToHistory">{{
-        t.student.sessionResult.goToStatistics
-      }}</Button>
-    </div>
 
     <!-- Empty State -->
     <div v-else class="py-12 text-center">

@@ -765,7 +765,6 @@ export type Database = {
           completed_at: string | null
           correct_count: number | null
           created_at: string | null
-          current_question_index: number | null
           grade_level_id: string | null
           id: string
           student_id: string
@@ -778,7 +777,6 @@ export type Database = {
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
-          current_question_index?: number | null
           grade_level_id?: string | null
           id?: string
           student_id: string
@@ -791,7 +789,6 @@ export type Database = {
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
-          current_question_index?: number | null
           grade_level_id?: string | null
           id?: string
           student_id?: string
@@ -1370,21 +1367,6 @@ export type Database = {
         Args: { p_attempt_id: string }
         Returns: Json
       }
-      complete_practice_session: {
-        Args: { p_session_id: string }
-        Returns: Json
-      }
-      create_practice_session: {
-        Args: {
-          p_cycle_number: number
-          p_grade_level_id: string
-          p_questions: Json
-          p_student_id: string
-          p_sub_topic_id: string
-          p_subject_id: string
-        }
-        Returns: string
-      }
       get_assessment_completion: {
         Args: { p_assessment_id: string }
         Returns: Json
@@ -1460,6 +1442,10 @@ export type Database = {
         }[]
       }
       get_platform_totals: { Args: never; Returns: Json }
+      get_practice_questions: {
+        Args: { p_question_ids: string[] }
+        Returns: Json
+      }
       get_practice_session_questions: {
         Args: { p_session_id: string }
         Returns: Json
@@ -1515,6 +1501,14 @@ export type Database = {
       }
       start_assessment_attempt: {
         Args: { p_assessment_id: string }
+        Returns: Json
+      }
+      submit_practice_session: {
+        Args: {
+          p_answers: Json
+          p_cycle_number: number
+          p_sub_topic_id: string
+        }
         Returns: Json
       }
     }

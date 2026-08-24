@@ -177,7 +177,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       topicName: names.topicName,
       subTopicName: names.subTopicName,
       totalQuestions: row.total_questions,
-      currentQuestionIndex: row.current_question_index ?? 0,
       correctAnswers: row.correct_count ?? 0,
       answerCount,
       durationSeconds: row.total_time_seconds ?? 0,
@@ -278,18 +277,10 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       subTopicName,
       dateRange,
     }).sort((a, b) => {
-      // In-progress sessions pinned to top, then completed descending by completedAt
-      const aCompleted = !!a.completedAt
-      const bCompleted = !!b.completedAt
-      if (!aCompleted && bCompleted) return -1
-      if (aCompleted && !bCompleted) return 1
-      if (!aCompleted && !bCompleted) {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-        return dateB - dateA
-      }
-      const dateA = new Date(a.completedAt!).getTime()
-      const dateB = new Date(b.completedAt!).getTime()
+      // Every session is stored already completed (decision 85), so the list
+      // is simply most-recently-finished first.
+      const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+      const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0
       return dateB - dateA
     })
   }
@@ -388,45 +379,38 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
    */
   async function getSessionReview(sessionId: string): Promise<{
     review: PracticeSessionReview | null
-    notCompleted: boolean
     error: string | null
   }> {
     try {
       if (!authStore.user) {
-        return { review: null, notCompleted: false, error: errorMessages().notAuthenticated }
+        return { review: null, error: errorMessages().notAuthenticated }
       }
 
       if (curriculumStore.gradeLevels.length === 0) {
         await curriculumStore.fetchCurriculum()
       }
 
-      // Session row first: owner check (RLS + defense-in-depth) and the
-      // completion gate, so an in-progress session renders a friendly state
-      // instead of surfacing the RPC's completion error.
+      // Session row first: owner check (RLS + defense-in-depth). Every
+      // practice session is written already completed (decision 85), so there
+      // is no in-progress state to guard against here.
       const { data: sessionRow, error: sessionError } = await supabase
         .from('practice_sessions')
-        .select('id, student_id, sub_topic_id, total_time_seconds, completed_at')
+        .select('id, student_id, sub_topic_id, total_time_seconds')
         .eq('id', sessionId)
         .single()
 
       if (sessionError) {
         return {
           review: null,
-          notCompleted: false,
           error: handleError(sessionError, 'failedFetchSession'),
         }
       }
       if (sessionRow.student_id !== authStore.user.id) {
         return {
           review: null,
-          notCompleted: false,
           error: errorMessages().unauthorizedSessionAccess,
         }
       }
-      if (!sessionRow.completed_at) {
-        return { review: null, notCompleted: true, error: null }
-      }
-
       const { data: resultData, error: resultError } = await supabase.rpc('get_session_result', {
         p_session_id: sessionId,
       })
@@ -434,14 +418,13 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       if (resultError) {
         return {
           review: null,
-          notCompleted: false,
           error: handleError(resultError, 'failedFetchSession'),
         }
       }
 
       const result = resultData as unknown as SessionResultPayload
       if (typeof result?.session_id !== 'string' || !Array.isArray(result.questions)) {
-        return { review: null, notCompleted: false, error: errorMessages().failedFetchSession }
+        return { review: null, error: errorMessages().failedFetchSession }
       }
 
       // Question content from the sanitizing session RPC (decision 76) — the
@@ -454,7 +437,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       if (contentError) {
         return {
           review: null,
-          notCompleted: false,
           error: handleError(contentError, 'failedFetchSession'),
         }
       }
@@ -498,26 +480,10 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
           durationSeconds: sessionRow.total_time_seconds ?? 0,
           questions,
         },
-        notCompleted: false,
         error: null,
       }
     } catch (err) {
-      return { review: null, notCompleted: false, error: handleError(err, 'failedFetchSession') }
-    }
-  }
-
-  // --- Methods called by practice store ---
-
-  /** Push a new session to the front of history */
-  function addToHistory(session: PracticeSession) {
-    sessionHistory.value.unshift(session)
-  }
-
-  /** Update a session in history (used by completeSession) */
-  function updateInHistory(session: PracticeSession) {
-    const index = sessionHistory.value.findIndex((s) => s.id === session.id)
-    if (index !== -1) {
-      sessionHistory.value[index] = { ...session }
+      return { review: null, error: handleError(err, 'failedFetchSession') }
     }
   }
 
@@ -565,8 +531,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     getSessionReview,
 
     // Called by practice store
-    addToHistory,
-    updateInHistory,
     invalidateCache,
 
     $reset,
