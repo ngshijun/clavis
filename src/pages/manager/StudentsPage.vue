@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, h, computed, onMounted } from 'vue'
+import { ref, h, onMounted } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useManagerStudentsStore, type ManagedStudent } from '@/stores/manager-students'
-import { useAuthStore } from '@/stores/auth'
 import type { CreatedAccount } from '@/composables/useCreateUser'
 import { Search, Plus, Loader2, Users, ArrowUpDown } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -15,15 +14,7 @@ import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
-const authStore = useAuthStore()
 const studentsStore = useManagerStudentsStore()
-
-const subtitle = computed(() => {
-  const organizationName = authStore.user?.organizationName
-  return organizationName
-    ? t.value.manager.students.subtitle(organizationName)
-    : t.value.manager.students.subtitleFallback
-})
 
 onMounted(async () => {
   // The route guard may already have this in flight (fire-and-forget preload).
@@ -99,11 +90,7 @@ const columns: ColumnDef<ManagedStudent>[] = [
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.manager.students.title }}</h1>
-        <p class="text-muted-foreground">{{ subtitle }}</p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button :disabled="studentsStore.isLoading" @click="showStudentFormDialog = true">
         <Plus class="mr-2 size-4" />
         {{ t.manager.students.addStudentBtn }}

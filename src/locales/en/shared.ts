@@ -1,4 +1,13 @@
 export default {
+  breadcrumbs: {
+    profile: 'Profile',
+    classrooms: 'Classes',
+    quiz: 'Quiz',
+    sessionResult: 'Session result',
+    attempt: 'Attempt',
+    result: 'Result',
+  },
+
   authErrors: {
     invalidCredentials: 'Incorrect email or password.',
     emailNotConfirmed: 'Please confirm your email before signing in.',
@@ -606,12 +615,6 @@ export default {
     },
   },
   layout: {
-    greetings: {
-      morning: 'Good morning',
-      afternoon: 'Good afternoon',
-      evening: 'Good evening',
-      withName: (greeting: string, name: string) => `${greeting}, ${name}`,
-    },
     gradeDialog: {
       title: 'Set Your Grade Level',
       description:

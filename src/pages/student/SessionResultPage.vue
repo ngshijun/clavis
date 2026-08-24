@@ -134,12 +134,9 @@ async function generateAiSummary() {
         </Button>
 
         <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 class="text-2xl font-bold">{{ t.student.sessionResult.title }}</h1>
-            <p class="text-muted-foreground">
-              {{ review.subjectName }} - {{ review.topicName }} | {{ review.gradeLevelName }}
-            </p>
-          </div>
+          <p class="text-muted-foreground">
+            {{ review.subjectName }} - {{ review.topicName }} | {{ review.gradeLevelName }}
+          </p>
         </div>
       </div>
 

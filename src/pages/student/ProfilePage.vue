@@ -167,11 +167,7 @@ async function handleSchoolChange(schoolId: string) {
 <template>
   <div class="space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-start justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.student.profile.title }}</h1>
-        <p class="text-muted-foreground">{{ t.student.profile.subtitle }}</p>
-      </div>
+    <div class="flex items-start justify-end">
       <Button variant="outline" size="sm" @click="resetAndStartTour">
         <RotateCcw class="mr-2 size-4" />
         {{ t.student.profile.restartTour }}

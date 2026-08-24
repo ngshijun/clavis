@@ -74,12 +74,6 @@ function ctaLabel(item: AssignedAssessment): string {
 
 <template>
   <div class="p-6">
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.student.assessments.title }}</h1>
-      <p class="text-muted-foreground">{{ t.student.assessments.subtitle }}</p>
-    </div>
-
     <!-- Loading -->
     <div v-if="store.isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />

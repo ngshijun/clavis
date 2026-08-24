@@ -32,12 +32,6 @@ async function handleNameSave(name: string) {
 
 <template>
   <div class="space-y-6 p-6">
-    <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold">{{ t.admin.profile.title }}</h1>
-      <p class="text-muted-foreground">{{ t.admin.profile.subtitle }}</p>
-    </div>
-
     <div class="grid gap-6 lg:grid-cols-3">
       <!-- Profile Card -->
       <Card class="lg:col-span-1">

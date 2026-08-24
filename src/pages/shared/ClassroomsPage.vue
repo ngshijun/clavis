@@ -48,13 +48,6 @@ const classroomsStore = useClassroomsStore()
  */
 const visibleClassrooms = computed(() => classroomsStore.filteredClassrooms)
 
-const subtitle = computed(() => {
-  const organizationName = authStore.user?.organizationName
-  return organizationName
-    ? t.value.staff.classrooms.subtitleManager(organizationName)
-    : t.value.staff.classrooms.subtitleManagerFallback
-})
-
 onMounted(async () => {
   if (classroomsStore.classrooms.length === 0 && !classroomsStore.isLoading) {
     const { error } = await classroomsStore.fetchClassrooms()
@@ -248,11 +241,7 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.staff.classrooms.title }}</h1>
-        <p class="text-muted-foreground">{{ subtitle }}</p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button v-if="authStore.isManager" :disabled="classroomsStore.isLoading" @click="openCreate">
         <Plus class="mr-2 size-4" />
         {{ t.staff.classrooms.addClassroomBtn }}

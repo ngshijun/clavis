@@ -557,11 +557,11 @@ async function handleRemove(item: AssessmentQuestionItem) {
     </div>
 
     <template v-else>
-      <!-- Header: title, badges, autosave status, publish -->
+      <!-- Header: badges, autosave status, publish. The title is the header
+           breadcrumb's leaf (decision 84), so it is not repeated here. -->
       <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="truncate text-2xl font-bold">{{ assessment.title }}</h1>
             <Badge
               v-if="isTemplate"
               variant="secondary"

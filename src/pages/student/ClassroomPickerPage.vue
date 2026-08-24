@@ -49,11 +49,6 @@ watch(() => scope.isReady, skipWhenSole)
 
 <template>
   <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.student.classroomPicker.title }}</h1>
-      <p class="text-muted-foreground">{{ t.student.classroomPicker.subtitle }}</p>
-    </div>
-
     <div v-if="scope.isLoading" class="flex items-center justify-center py-16">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>

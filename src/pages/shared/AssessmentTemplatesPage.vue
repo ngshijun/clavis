@@ -192,11 +192,6 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
 
 <template>
   <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.staff.assessments.libraryTitle }}</h1>
-      <p class="text-muted-foreground">{{ t.staff.assessments.librarySubtitle }}</p>
-    </div>
-
     <!-- Loading State -->
     <div v-if="assessmentsStore.isLoadingTemplates" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
