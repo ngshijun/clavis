@@ -107,3 +107,17 @@ FOR SELECT USING (user_id = (SELECT auth.uid()));
 - `vue-tsc --noEmit` may pass while `vue-tsc --build` fails (different modes). Always use `pnpm type-check` (which runs `--build`).
 - Clean stale build cache: `rm -rf node_modules/.tmp/tsconfig.app.tsbuildinfo`
 - `shadcn-vue init --overwrite` resets `src/lib/utils.ts` and `src/style.css` to defaults — always revert these files as they contain custom functions and theming.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues (`ngshijun/clavis`), managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root (created lazily by `/domain-modeling`). See `docs/agents/domain.md`.

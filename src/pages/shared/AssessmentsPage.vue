@@ -54,10 +54,17 @@ const basePath = computed(() => `/${authStore.userType}`)
  */
 const isTemplateMode = computed(() => authStore.isAdmin)
 
-// Keyed to the selected classroom (decision 79); admins are unscoped.
+/**
+ * Keyed to the selected classroom for teachers (decision 79). Admins are
+ * platform-wide and managers institution-wide (decision 82), so both pass
+ * null and the list stays whatever RLS returns.
+ */
+const isClassroomScoped = computed(() => authStore.isTeacher)
+
 watch(
-  () => scope.selectedId,
-  async (classroomId) => {
+  () => (isClassroomScoped.value ? scope.selectedId : 'unscoped'),
+  async () => {
+    const classroomId = isClassroomScoped.value ? scope.selectedId : null
     const { error } = await assessmentsStore.fetchAssessments(classroomId)
     if (error) {
       toast.error(t.value.staff.assessments.toastLoadFailed)

@@ -90,11 +90,26 @@ function mapStudentRollup(row: StudentRollupRow): StudentRollup {
 }
 
 /**
+ * What a dashboard load covers. Modelled explicitly rather than as a nullable
+ * classroom id, because null would otherwise mean two different things: a
+ * manager's whole-institution view and a teacher who has no classroom yet.
+ */
+export type DashboardScope =
+  /** Manager: every classroom and every student in the organization. */
+  | { kind: 'organization' }
+  /** Teacher: the one classroom currently selected. */
+  | { kind: 'classroom'; classroomId: string }
+
+/**
  * Teacher/manager dashboard data. Everything is served by the SECURITY
  * DEFINER aggregation RPCs (P4a, reworked in P6a for classrooms) — the DB
- * scopes by role (teacher = classrooms they teach, manager = whole org) and
- * the selected classroom narrows it further (decision 79). The role scope is
- * the boundary; the classroom is the view.
+ * scopes by role (teacher = classrooms they teach, manager = whole org), and
+ * a teacher's selected classroom narrows it further (decision 79).
+ *
+ * A manager is NOT classroom-scoped (decision 82): they run the institution,
+ * so their dashboard is the cross-classroom view. The role scope is the
+ * boundary either way — the RPCs cannot be talked into returning another
+ * org's rows.
  */
 export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   const classroomRollups = ref<ClassroomRollup[]>([])
@@ -114,20 +129,23 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   })
 
   /**
-   * The dashboard for ONE classroom (decision 79). The RPCs still scope by
-   * role — a teacher can never reach a classroom they do not teach — and
-   * `p_classroom_id` narrows the roster to the classroom on screen.
+   * Load the dashboard for `scope`, or clear it when there is nothing to show
+   * (a teacher who belongs to no classroom yet).
    *
-   * `get_class_rollups` has no classroom parameter; it returns every classroom
-   * the caller may see, so the one in scope is picked out here rather than
-   * widening the RPC's signature for a single-row read.
+   * `get_class_rollups` takes no argument: it returns every classroom the
+   * caller may see, which IS the manager's view and is narrowed to one row for
+   * a teacher — cheaper than widening the RPC's signature for a single-row
+   * read. `get_student_rollups(NULL)` is the org-wide roster for a manager;
+   * passing a classroom narrows it to that roster.
    */
-  async function fetchDashboard(classroomId: string | null): Promise<{ error: string | null }> {
-    if (!classroomId) {
+  async function fetchDashboard(scope: DashboardScope | null): Promise<{ error: string | null }> {
+    if (!scope) {
       classroomRollups.value = []
       studentRollups.value = []
       return { error: null }
     }
+
+    const classroomId = scope.kind === 'classroom' ? scope.classroomId : null
 
     isLoading.value = true
     error.value = null
@@ -135,15 +153,16 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
     try {
       const [classroomsResult, studentsResult] = await Promise.all([
         supabase.rpc('get_class_rollups'),
-        supabase.rpc('get_student_rollups', { p_classroom_id: classroomId }),
+        supabase.rpc('get_student_rollups', { p_classroom_id: classroomId ?? undefined }),
       ])
 
       const firstError = classroomsResult.error ?? studentsResult.error
       if (firstError) throw firstError
 
-      classroomRollups.value = (classroomsResult.data ?? [])
-        .map(mapClassroomRollup)
-        .filter((row) => row.classroomId === classroomId)
+      const allClassrooms = (classroomsResult.data ?? []).map(mapClassroomRollup)
+      classroomRollups.value = classroomId
+        ? allClassrooms.filter((row) => row.classroomId === classroomId)
+        : allClassrooms
       studentRollups.value = (studentsResult.data ?? []).map(mapStudentRollup)
 
       return { error: null }

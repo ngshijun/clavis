@@ -19,18 +19,24 @@ function storageKey(userId: string): string {
 }
 
 /**
- * The one classroom every non-admin surface is scoped to (decision 79).
+ * The one classroom a student's or teacher's surfaces are scoped to
+ * (decision 79).
  *
- * Students, teachers and managers all work inside exactly ONE classroom at a
- * time, chosen from the selector in the sidebar. There is deliberately no
- * "all classrooms" option: a classroom pins BOTH a grade level and a subject,
- * so the selection is what makes "which subject am I practising / teaching /
- * looking at" answerable on every page without a second filter.
+ * They work inside exactly ONE classroom at a time, chosen from the selector
+ * in the sidebar. There is deliberately no "all classrooms" option: a
+ * classroom pins BOTH a grade level and a subject, so the selection is what
+ * makes "which subject am I practising / teaching" answerable on every page
+ * without a second filter.
+ *
+ * MANAGERS ARE DELIBERATELY EXCLUDED (decision 82). A manager runs the
+ * institution rather than a class: their dashboard and assessment list are
+ * whole-organization views, and narrowing them to one classroom hid exactly
+ * the cross-classroom comparison the role exists to make. Admins are global
+ * for the same reason. Neither gets a selector.
  *
  * The candidate list needs no role branching — the `classrooms` SELECT policy
- * already returns exactly the right set per role (manager: own org; teacher:
- * classrooms they teach; student: classrooms they are enrolled in). Admins are
- * global and never scoped; they get no selector.
+ * already returns exactly the right set per role (teacher: classrooms they
+ * teach; student: classrooms they are enrolled in).
  */
 export const useClassroomScopeStore = defineStore('classroom-scope', () => {
   const authStore = useAuthStore()
@@ -46,10 +52,11 @@ export const useClassroomScopeStore = defineStore('classroom-scope', () => {
     () => classrooms.value.find((c) => c.id === selectedId.value) ?? null,
   )
 
-  /** Scoping is meaningless for admins — they see the platform, not a classroom. */
-  const appliesToCurrentUser = computed(
-    () => authStore.isStudent || authStore.isTeacher || authStore.isManager,
-  )
+  /**
+   * Scoping is meaningless for managers and admins — they see the institution
+   * and the platform respectively, not a classroom.
+   */
+  const appliesToCurrentUser = computed(() => authStore.isStudent || authStore.isTeacher)
 
   /**
    * True once we know the user genuinely belongs to no classroom. Pages render
