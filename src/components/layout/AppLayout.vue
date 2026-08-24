@@ -50,13 +50,19 @@ const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
 const { isUnknown: isUnknownClassroom, classroomId } = useActiveClassroom()
 
 /**
- * The class picker has no sidebar (decision 84). It is the screen you use to
- * CHOOSE a classroom, and every sidebar link below the picker belongs to a
- * classroom you have not chosen yet — so the nav would either be empty or
- * point somewhere you are not.
+ * The class PICKER has no sidebar (decision 84). It is the screen you use to
+ * choose a classroom, and every sidebar link below it belongs to a classroom
+ * you have not chosen yet — so the nav would either be empty or point
+ * somewhere you are not.
+ *
+ * Named explicitly rather than matched on a `-classrooms` suffix: that also
+ * caught `manager-classrooms`, which is the org's classroom MANAGEMENT page
+ * and needs its nav.
  */
+const PICKER_ROUTES = new Set(['teacher-classrooms', 'student-classrooms'])
+
 const showSidebar = computed(
-  () => !(String(route.name ?? '').endsWith('-classrooms') && !classroomId.value),
+  () => !(PICKER_ROUTES.has(String(route.name ?? '')) && !classroomId.value),
 )
 
 const PREFERENCES_STORAGE_KEY = 'preferences_confirmed'
