@@ -491,7 +491,6 @@ export default {
       learningPlatform: '学习平台',
       logOut: '退出登录',
       classroomScope: {
-        label: '班级',
         switchLabel: '切换班级',
         none: '尚未加入班级',
       },

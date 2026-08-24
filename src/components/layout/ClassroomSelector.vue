@@ -1,36 +1,29 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useClassroomsStore } from '@/stores/classrooms'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useT } from '@/composables/useT'
-import { Check, ChevronsUpDown, School } from 'lucide-vue-next'
+import { ChevronRight, School } from 'lucide-vue-next'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 /**
- * The classroom switcher, directly under the product name in the sidebar.
- * Every data surface below it belongs to the classroom named here, so it reads
- * as a context header rather than a filter control.
+ * The classroom context header, directly under the product name in the sidebar.
+ * Every data surface below it belongs to the classroom named here.
  *
- * Picking one NAVIGATES — the classroom is a path segment for both students
- * and teachers (decision 83), so there is no selection to set. Managers and
- * admins are unscoped and see nothing here.
+ * Changing class goes through the picker rather than a dropdown (decision 86):
+ * the picker is the one place that shows each class as a card with its cover,
+ * and duplicating that list into a menu meant maintaining two pickers. It is
+ * also the only route back to the picker now that the sidebar no longer links
+ * to it.
  *
- * With a single classroom it degrades to a static label — a dropdown that
- * cannot change anything would be a dead affordance.
+ * With a single classroom it degrades to a static label — the picker redirects
+ * straight back in when there is only one class, so a link there would bounce.
+ * Managers and admins are unscoped and see nothing here.
  */
 const t = useT()
-const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
 const scope = useClassroomScopeStore()
 const classroomsStore = useClassroomsStore()
@@ -49,9 +42,9 @@ const items = computed<SwitcherItem[]>(() =>
   authStore.isTeacher ? classroomsStore.classrooms : scope.classrooms,
 )
 
-const activeId = computed(() => classroomId.value)
+const active = computed(() => items.value.find((item) => item.id === classroomId.value) ?? null)
 
-const active = computed(() => items.value.find((item) => item.id === activeId.value) ?? null)
+const pickerPath = computed(() => `/${authStore.userType}/classrooms`)
 
 /** Known to belong to nothing — as opposed to still loading. */
 const belongsToNothing = computed(() =>
@@ -59,29 +52,11 @@ const belongsToNothing = computed(() =>
     ? classroomsStore.hasLoaded && items.value.length === 0
     : scope.hasNoClassrooms,
 )
-
-/**
- * Which classroom-scoped section the user is in, so a switch keeps them where
- * they were. Deliberately section-level, not path-level: an assessment or
- * session id belongs to the classroom being left, so it must not travel along.
- */
-function currentSection(): string {
-  const name = String(route.name ?? '')
-  if (name.includes('assessment')) return 'assessments'
-  if (name.includes('template')) return 'templates'
-  if (name.includes('practice') || name.includes('session')) return 'practice'
-  if (name.includes('statistics')) return 'statistics'
-  return 'dashboard'
-}
-
-function choose(id: string) {
-  void router.push(`/${authStore.userType}/classrooms/${id}/${currentSection()}`)
-}
 </script>
 
 <template>
   <div v-if="applies" class="px-2 pb-1">
-    <!-- Sole classroom: show the context, but not a menu that goes nowhere. -->
+    <!-- Sole classroom: show the context, but not a control that goes nowhere. -->
     <div v-if="items.length === 1 && active" class="flex items-center gap-2 rounded-md px-2 py-1.5">
       <School class="size-4 shrink-0 text-muted-foreground" />
       <div class="grid flex-1 text-left leading-tight">
@@ -94,50 +69,24 @@ function choose(id: string) {
 
     <SidebarMenu v-else-if="items.length > 1">
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <SidebarMenuButton
-              size="lg"
-              :aria-label="t.shared.layout.sidebar.classroomScope.switchLabel"
-              class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <School class="size-4 shrink-0 text-muted-foreground" />
-              <div class="grid flex-1 text-left leading-tight">
-                <span class="truncate text-sm font-medium">
-                  {{ active?.name ?? t.shared.layout.sidebar.classroomScope.none }}
-                </span>
-                <span v-if="active" class="truncate text-xs text-muted-foreground">
-                  {{ active.gradeLevelName }} · {{ active.subjectName }}
-                </span>
-              </div>
-              <ChevronsUpDown class="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            class="w-[--reka-popper-anchor-width] min-w-56 rounded-lg"
-            side="bottom"
-            align="start"
-            :side-offset="4"
-          >
-            <DropdownMenuLabel class="text-xs text-muted-foreground">
-              {{ t.shared.layout.sidebar.classroomScope.label }}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              v-for="classroom in items"
-              :key="classroom.id"
-              class="gap-2"
-              @click="choose(classroom.id)"
-            >
-              <div class="grid flex-1 leading-tight">
-                <span class="truncate text-sm font-medium">{{ classroom.name }}</span>
-                <span class="truncate text-xs text-muted-foreground">
-                  {{ classroom.gradeLevelName }} · {{ classroom.subjectName }}
-                </span>
-              </div>
-              <Check v-if="classroom.id === activeId" class="size-4 shrink-0" />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <SidebarMenuButton
+          as-child
+          size="lg"
+          :aria-label="t.shared.layout.sidebar.classroomScope.switchLabel"
+        >
+          <RouterLink :to="pickerPath">
+            <School class="size-4 shrink-0 text-muted-foreground" />
+            <div class="grid flex-1 text-left leading-tight">
+              <span class="truncate text-sm font-medium">
+                {{ active?.name ?? t.shared.layout.sidebar.classroomScope.none }}
+              </span>
+              <span v-if="active" class="truncate text-xs text-muted-foreground">
+                {{ active.gradeLevelName }} · {{ active.subjectName }}
+              </span>
+            </div>
+            <ChevronRight class="ml-auto size-4" />
+          </RouterLink>
+        </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
 

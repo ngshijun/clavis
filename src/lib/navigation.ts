@@ -34,21 +34,17 @@ export const sidebarNavConfig: SidebarNavConfig = {
 
 /**
  * A teacher's navigation is classroom-scoped (decision 83): the classroom is a
- * path segment, so the links cannot be static. Outside a classroom only the
- * picker is offered — there is nowhere else meaningful to go.
+ * path segment, so the links cannot be static. Outside a classroom there is
+ * nothing to show — the picker IS the page, and the sidebar is hidden there.
+ *
+ * The picker itself is not listed: the classroom header above the nav links
+ * back to it (decision 86), so a nav row would be a second door to one room.
  */
 export function teacherNavItems(classroomId: string | null): NavItem[] {
-  const picker: NavItem = {
-    title: 'Classrooms',
-    path: '/teacher/classrooms',
-    icon: School,
-    navKey: 'classrooms',
-  }
-  if (!classroomId) return [picker]
+  if (!classroomId) return []
 
   const base = `/teacher/classrooms/${classroomId}`
   return [
-    picker,
     { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
     {
       title: 'Assessments',
@@ -67,20 +63,13 @@ export function teacherNavItems(classroomId: string | null): NavItem[] {
 
 /**
  * A student's navigation is classroom-scoped in the same way a teacher's is
- * (decision 83).
+ * (decision 83), and omits the picker for the same reason (decision 86).
  */
 export function studentNavItems(classroomId: string | null): NavItem[] {
-  const picker: NavItem = {
-    title: 'Classes',
-    path: '/student/classrooms',
-    icon: School,
-    navKey: 'classrooms',
-  }
-  if (!classroomId) return [picker]
+  if (!classroomId) return []
 
   const base = `/student/classrooms/${classroomId}`
   return [
-    picker,
     { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
     { title: 'Practice', path: `${base}/practice`, icon: PenTool, navKey: 'practice' },
     {
