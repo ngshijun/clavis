@@ -68,7 +68,7 @@ const fallbackHue = computed(() => {
   >
     <!-- A fixed ratio rather than a fixed height, so the crop does not change
          at every breakpoint. -->
-    <div class="relative aspect-[3/2] w-full">
+    <div class="relative aspect-video w-full">
       <img v-if="coverUrl" :src="coverUrl" alt="" class="size-full object-cover" />
       <div
         v-else
