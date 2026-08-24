@@ -18,7 +18,6 @@ export interface AuthUser {
   avatarPath: string | null
   dateOfBirth: string | null
   createdAt: string | null
-  hasCompletedTour: boolean
   // Tenancy: NULL only for platform admins (DB CHECK enforces the invariant)
   organizationId: string | null
   organizationName: string | null
@@ -59,7 +58,6 @@ async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
       avatarPath: profile.avatar_path,
       dateOfBirth: profile.date_of_birth,
       createdAt: profile.created_at,
-      hasCompletedTour: profile.has_completed_tour ?? false,
       organizationId: profile.organization_id,
       organizationName: (profile.organizations as { name: string } | null)?.name ?? null,
     }
@@ -591,25 +589,6 @@ export const useAuthStore = defineStore('auth', () => {
     return { error: null }
   }
 
-  /**
-   * Mark the guided tour as completed (or reset it)
-   */
-  async function setTourCompleted(completed: boolean) {
-    if (!user.value) return { error: errorMessages().notAuthenticated }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ has_completed_tour: completed })
-      .eq('id', user.value.id)
-
-    if (error) {
-      return { error: handleError(error, 'failedUpdateTour') }
-    }
-
-    user.value.hasCompletedTour = completed
-    return { error: null }
-  }
-
   return {
     // State
     user,
@@ -642,6 +621,5 @@ export const useAuthStore = defineStore('auth', () => {
     updateGradeLevel,
     updateSchool,
     updatePreferredLanguage,
-    setTourCompleted,
   }
 })

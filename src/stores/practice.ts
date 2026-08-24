@@ -213,7 +213,6 @@ export const usePracticeStore = defineStore('practice', () => {
         correctAnswers: 0,
         answerCount: 0,
         durationSeconds: 0,
-        aiSummary: null,
         createdAt: new Date().toISOString(),
         completedAt: null,
         questions: sessionQuestions,
@@ -431,33 +430,10 @@ export const usePracticeStore = defineStore('practice', () => {
       historyStore.updateInHistory(currentSession.value)
       historyStore.invalidateCache()
 
-      // Generate AI summary (non-blocking)
-      generateAiSummary(currentSession.value.id)
-
       return { session: currentSession.value, error: null }
     } catch (err) {
       const message = handleError(err, 'failedCompleteSession')
       return { session: null, error: message }
-    }
-  }
-
-  /**
-   * Generate AI summary for a session.
-   * Called non-blocking after session completion; failures are swallowed since
-   * SessionResultPage offers an explicit retry and tracks its own UI status.
-   */
-  async function generateAiSummary(sessionId: string): Promise<void> {
-    try {
-      const { summary, error: summaryError } = await generateSessionSummary(sessionId)
-      if (summaryError || !summary) {
-        return
-      }
-
-      if (currentSession.value?.id === sessionId) {
-        currentSession.value.aiSummary = summary
-      }
-    } catch {
-      // Non-blocking auto-generation; the page handles user-initiated retries.
     }
   }
 
@@ -558,27 +534,6 @@ export const usePracticeStore = defineStore('practice', () => {
     usePracticeHistoryStore().$reset()
   }
 
-  /**
-   * Generate AI summary for a completed session (Edge Function)
-   */
-  async function generateSessionSummary(
-    sessionId: string,
-  ): Promise<{ summary: string | null; error: string | null }> {
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-session-summary', {
-        body: { sessionId },
-      })
-
-      if (fnError) {
-        return { summary: null, error: handleError(fnError, 'failedGenerateSummary') }
-      }
-
-      return { summary: data?.summary ?? null, error: null }
-    } catch (err) {
-      return { summary: null, error: handleError(err, 'failedGenerateSummary') }
-    }
-  }
-
   return {
     currentSession,
     isLoading,
@@ -605,7 +560,6 @@ export const usePracticeStore = defineStore('practice', () => {
     goToQuestion,
     completeSession,
     endSession,
-    generateSessionSummary,
     resumeSession,
     optionNumberToId,
     optionNumbersToIds,

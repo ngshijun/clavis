@@ -97,7 +97,6 @@ function choose(id: string) {
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <SidebarMenuButton
-              data-tour="sidebar-classroom"
               size="lg"
               :aria-label="t.shared.layout.sidebar.classroomScope.switchLabel"
               class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"

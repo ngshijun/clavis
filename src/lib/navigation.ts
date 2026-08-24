@@ -3,14 +3,11 @@ import {
   BookOpen,
   Building2,
   ClipboardList,
-  BarChart3,
   Library,
-  MessageSquare,
   PenTool,
   School,
   Users,
   PieChart,
-  Megaphone,
   Tags,
 } from 'lucide-vue-next'
 import type { NavItem, SidebarNavConfig } from '@/types'
@@ -18,14 +15,11 @@ import type { NavItem, SidebarNavConfig } from '@/types'
 export const sidebarNavConfig: SidebarNavConfig = {
   admin: [
     { title: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
-    { title: 'Announcements', path: '/admin/announcements', icon: Megaphone },
     { title: 'Organizations', path: '/admin/organizations', icon: Building2 },
     { title: 'Curriculum', path: '/admin/curriculum', icon: BookOpen },
     { title: 'Question Bank', path: '/admin/question-bank', icon: Library },
     { title: 'Assessment Templates', path: '/admin/assessments', icon: ClipboardList },
     { title: 'Learning Points', path: '/admin/tags', icon: Tags },
-    { title: 'Question Statistics', path: '/admin/question-statistics', icon: BarChart3 },
-    { title: 'Question Feedback', path: '/admin/question-feedback', icon: MessageSquare },
   ],
   manager: [
     { title: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
@@ -73,8 +67,7 @@ export function teacherNavItems(classroomId: string | null): NavItem[] {
 
 /**
  * A student's navigation is classroom-scoped in the same way a teacher's is
- * (decision 83). Announcements stay outside the classroom — they are
- * organization-wide, not class news.
+ * (decision 83).
  */
 export function studentNavItems(classroomId: string | null): NavItem[] {
   const picker: NavItem = {
@@ -83,13 +76,7 @@ export function studentNavItems(classroomId: string | null): NavItem[] {
     icon: School,
     navKey: 'classrooms',
   }
-  const announcements: NavItem = {
-    title: 'Announcements',
-    path: '/student/announcements',
-    icon: Megaphone,
-    navKey: 'announcements',
-  }
-  if (!classroomId) return [picker, announcements]
+  if (!classroomId) return [picker]
 
   const base = `/student/classrooms/${classroomId}`
   return [
@@ -103,6 +90,5 @@ export function studentNavItems(classroomId: string | null): NavItem[] {
       navKey: 'assessments',
     },
     { title: 'Statistics', path: `${base}/statistics`, icon: PieChart, navKey: 'statistics' },
-    announcements,
   ]
 }

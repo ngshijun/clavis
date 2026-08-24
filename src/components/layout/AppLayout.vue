@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -23,7 +23,6 @@ import { useCurriculumStore } from '@/stores/curriculum'
 import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2 } from 'lucide-vue-next'
-import { useTour } from '@/composables/useTour'
 import { useT } from '@/composables/useT'
 import AppSidebar from './AppSidebar.vue'
 import AppBreadcrumbs from './AppBreadcrumbs.vue'
@@ -40,8 +39,6 @@ const route = useRoute()
 const curriculumStore = useCurriculumStore()
 const t = useT()
 const languageStore = useLanguageStore()
-const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
-
 /**
  * Guarded once here rather than in every classroom-scoped page: the check is
  * identical for students and teachers, and a page that renders its own empty
@@ -74,11 +71,6 @@ const showGradeDialog = ref(false)
 const selectedGradeId = ref<string>('')
 const isSaving = ref(false)
 
-// Sequenced onboarding: preferences → grade (students) → welcome tour
-function startOnboarding() {
-  promptTour()
-}
-
 onMounted(async () => {
   if (localStorage.getItem(PREFERENCES_STORAGE_KEY) !== 'true') {
     showPreferencesDialog.value = true
@@ -91,8 +83,6 @@ async function beginPostPreferencesFlow() {
   if (authStore.isStudent && !authStore.studentProfile?.gradeLevelId) {
     await curriculumStore.fetchCurriculum()
     showGradeDialog.value = true
-  } else {
-    startOnboarding()
   }
 }
 
@@ -101,13 +91,6 @@ async function handlePreferencesConfirmed() {
   showPreferencesDialog.value = false
   await beginPostPreferencesFlow()
 }
-
-// After grade dialog closes, start the rest of onboarding
-watch(showGradeDialog, (open) => {
-  if (!open) {
-    startOnboarding()
-  }
-})
 
 async function handleSaveGrade() {
   if (!selectedGradeId.value) {
@@ -212,24 +195,6 @@ async function handleSaveGrade() {
             <Loader2 v-if="isSaving" class="mr-2 size-4 animate-spin" />
             {{ t.shared.layout.gradeDialog.continueButton }}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    <!-- Welcome Tour Dialog (for first-time users) -->
-    <AlertDialog :open="showWelcomeDialog">
-      <AlertDialogContent class="sm:max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{{ t.shared.layout.welcomeTourDialog.title }}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {{ t.shared.layout.welcomeTourDialog.description }}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button variant="outline" @click="skipTour">{{
-            t.shared.layout.welcomeTourDialog.skip
-          }}</Button>
-          <Button @click="startTour">{{ t.shared.layout.welcomeTourDialog.startTour }}</Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

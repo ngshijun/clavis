@@ -101,7 +101,6 @@ export interface PracticeSession {
   durationSeconds: number
   createdAt: string | null
   completedAt: string | null
-  aiSummary: string | null
   // Loaded separately (content only — see PracticeQuestion)
   questions: PracticeQuestion[]
   answers: PracticeAnswer[]

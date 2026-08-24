@@ -33,89 +33,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      announcement_reads: {
-        Row: {
-          announcement_id: string
-          id: string
-          read_at: string | null
-          user_id: string
-        }
-        Insert: {
-          announcement_id: string
-          id?: string
-          read_at?: string | null
-          user_id: string
-        }
-        Update: {
-          announcement_id?: string
-          id?: string
-          read_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'announcement_reads_announcement_id_fkey'
-            columns: ['announcement_id']
-            isOneToOne: false
-            referencedRelation: 'announcements'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'announcement_reads_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      announcements: {
-        Row: {
-          content: string
-          created_at: string | null
-          created_by: string
-          expires_at: string | null
-          id: string
-          image_path: string | null
-          is_pinned: boolean
-          target_audience: Database['public']['Enums']['announcement_audience']
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          content: string
-          created_at?: string | null
-          created_by: string
-          expires_at?: string | null
-          id?: string
-          image_path?: string | null
-          is_pinned?: boolean
-          target_audience?: Database['public']['Enums']['announcement_audience']
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          content?: string
-          created_at?: string | null
-          created_by?: string
-          expires_at?: string | null
-          id?: string
-          image_path?: string | null
-          is_pinned?: boolean
-          target_audience?: Database['public']['Enums']['announcement_audience']
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'announcements_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       assessment_assignments: {
         Row: {
           assessment_id: string
@@ -355,13 +272,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'assessments'
             referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessment_questions_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
           },
           {
             foreignKeyName: 'assessment_questions_question_id_fkey'
@@ -838,13 +748,6 @@ export type Database = {
             foreignKeyName: 'practice_answers_question_id_fkey'
             columns: ['question_id']
             isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
-          },
-          {
-            foreignKeyName: 'practice_answers_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
             referencedRelation: 'questions'
             referencedColumns: ['id']
           },
@@ -859,7 +762,6 @@ export type Database = {
       }
       practice_sessions: {
         Row: {
-          ai_summary: string | null
           completed_at: string | null
           correct_count: number | null
           created_at: string | null
@@ -873,7 +775,6 @@ export type Database = {
           total_time_seconds: number | null
         }
         Insert: {
-          ai_summary?: string | null
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
@@ -887,7 +788,6 @@ export type Database = {
           total_time_seconds?: number | null
         }
         Update: {
-          ai_summary?: string | null
           completed_at?: string | null
           correct_count?: number | null
           created_at?: string | null
@@ -937,7 +837,6 @@ export type Database = {
           created_at: string | null
           date_of_birth: string | null
           email: string
-          has_completed_tour: boolean
           id: string
           name: string
           organization_id: string | null
@@ -949,7 +848,6 @@ export type Database = {
           created_at?: string | null
           date_of_birth?: string | null
           email: string
-          has_completed_tour?: boolean
           id: string
           name: string
           organization_id?: string | null
@@ -961,7 +859,6 @@ export type Database = {
           created_at?: string | null
           date_of_birth?: string | null
           email?: string
-          has_completed_tour?: boolean
           id?: string
           name?: string
           organization_id?: string | null
@@ -974,55 +871,6 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      question_feedback: {
-        Row: {
-          category: Database['public']['Enums']['feedback_category']
-          comments: string | null
-          created_at: string | null
-          id: string
-          question_id: string
-          reported_by: string
-        }
-        Insert: {
-          category: Database['public']['Enums']['feedback_category']
-          comments?: string | null
-          created_at?: string | null
-          id?: string
-          question_id: string
-          reported_by: string
-        }
-        Update: {
-          category?: Database['public']['Enums']['feedback_category']
-          comments?: string | null
-          created_at?: string | null
-          id?: string
-          question_id?: string
-          reported_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'question_feedback_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
-          },
-          {
-            foreignKeyName: 'question_feedback_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
-            referencedRelation: 'questions'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'question_feedback_reported_by_fkey'
-            columns: ['reported_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -1044,13 +892,6 @@ export type Database = {
           tag_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: 'question_tags_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
-          },
           {
             foreignKeyName: 'question_tags_question_id_fkey'
             columns: ['question_id']
@@ -1221,13 +1062,6 @@ export type Database = {
             foreignKeyName: 'session_questions_question_id_fkey'
             columns: ['question_id']
             isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
-          },
-          {
-            foreignKeyName: 'session_questions_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
             referencedRelation: 'questions'
             referencedColumns: ['id']
           },
@@ -1328,13 +1162,6 @@ export type Database = {
           sub_topic_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: 'student_question_progress_question_id_fkey'
-            columns: ['question_id']
-            isOneToOne: false
-            referencedRelation: 'question_statistics'
-            referencedColumns: ['question_id']
-          },
           {
             foreignKeyName: 'student_question_progress_question_id_fkey'
             columns: ['question_id']
@@ -1531,16 +1358,7 @@ export type Database = {
       }
     }
     Views: {
-      question_statistics: {
-        Row: {
-          attempts: number | null
-          avg_time_seconds: number | null
-          correct_count: number | null
-          correctness_rate: number | null
-          question_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       assessment_payload_is_valid: { Args: { p: Json }; Returns: boolean }
@@ -1573,44 +1391,6 @@ export type Database = {
       }
       get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
       get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
-      get_bank_question: {
-        Args: { p_question_id: string }
-        Returns: {
-          answer: string | null
-          created_at: string | null
-          grade_level_id: string | null
-          id: string
-          image_hash: string | null
-          image_path: string | null
-          option_1_image_path: string | null
-          option_1_is_correct: boolean | null
-          option_1_text: string | null
-          option_1_tip: string | null
-          option_2_image_path: string | null
-          option_2_is_correct: boolean | null
-          option_2_text: string | null
-          option_2_tip: string | null
-          option_3_image_path: string | null
-          option_3_is_correct: boolean | null
-          option_3_text: string | null
-          option_3_tip: string | null
-          option_4_image_path: string | null
-          option_4_is_correct: boolean | null
-          option_4_text: string | null
-          option_4_tip: string | null
-          question: string
-          sub_topic_id: string
-          subject_id: string | null
-          type: Database['public']['Enums']['question_type']
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: '*'
-          to: 'questions'
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
       get_bank_questions: {
         Args: { p_sub_topic_id?: string }
         Returns: {
@@ -1684,16 +1464,6 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
-      get_question_statistics: {
-        Args: never
-        Returns: {
-          attempts: number
-          avg_time_seconds: number
-          correct_count: number
-          correctness_rate: number
-          question_id: string
-        }[]
-      }
       get_session_result: { Args: { p_session_id: string }; Returns: Json }
       get_student_rollups: {
         Args: { p_classroom_id?: string; p_organization_id?: string }
@@ -1718,12 +1488,10 @@ export type Database = {
           sub_topic_id: string
         }[]
       }
-      get_unread_announcement_count: { Args: never; Returns: number }
       mark_attempt_answer: {
         Args: { p_answer_id: string; p_comment?: string; p_points: number }
         Returns: Json
       }
-      refresh_question_statistics: { Args: never; Returns: undefined }
       release_assessment_answers: {
         Args: { p_assessment_id: string; p_released?: boolean }
         Returns: Json
@@ -1751,15 +1519,7 @@ export type Database = {
       }
     }
     Enums: {
-      announcement_audience: 'all' | 'students_only' | 'parents_only'
       assessment_status: 'draft' | 'published'
-      feedback_category:
-        | 'question_error'
-        | 'image_error'
-        | 'option_error'
-        | 'answer_error'
-        | 'explanation_error'
-        | 'other'
       question_difficulty: 'low' | 'medium' | 'high'
       question_type: 'mcq' | 'short_answer' | 'mrq'
       user_role: 'admin' | 'manager' | 'teacher' | 'student'
@@ -1891,16 +1651,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      announcement_audience: ['all', 'students_only', 'parents_only'],
       assessment_status: ['draft', 'published'],
-      feedback_category: [
-        'question_error',
-        'image_error',
-        'option_error',
-        'answer_error',
-        'explanation_error',
-        'other',
-      ],
       question_difficulty: ['low', 'medium', 'high'],
       question_type: ['mcq', 'short_answer', 'mrq'],
       user_role: ['admin', 'manager', 'teacher', 'student'],

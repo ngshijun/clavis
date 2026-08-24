@@ -55,7 +55,6 @@ async function handleLogout() {
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger
-      data-tour="sidebar-profile"
       class="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       :aria-label="userName"
     >

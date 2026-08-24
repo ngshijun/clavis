@@ -31,20 +31,13 @@ function classroomScopeGuard() {
 // Student routes: fire-and-forget data preloading (non-blocking)
 function studentRouteGuard() {
   classroomScopeGuard()
-  Promise.all([import('@/stores/curriculum'), import('@/stores/announcements')]).then(
-    ([curriculumMod, announcementsMod]) => {
-      const curriculumStore = curriculumMod.useCurriculumStore()
-      const announcementsStore = announcementsMod.useAnnouncementsStore()
+  import('@/stores/curriculum').then((curriculumMod) => {
+    const curriculumStore = curriculumMod.useCurriculumStore()
 
-      if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
-        curriculumStore.fetchCurriculum()
-      }
-
-      if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
-        announcementsStore.fetchAnnouncements()
-      }
-    },
-  )
+    if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+      curriculumStore.fetchCurriculum()
+    }
+  })
 }
 
 // Manager routes: fire-and-forget data preloading (non-blocking).
@@ -88,31 +81,11 @@ function teacherRouteGuard() {
 
 // Admin routes: fire-and-forget data preloading (non-blocking)
 function adminRouteGuard() {
-  Promise.all([
-    import('@/stores/curriculum'),
-    import('@/stores/questions'),
-    import('@/stores/announcements'),
-    import('@/stores/feedback'),
-  ]).then(([curriculumMod, questionsMod, announcementsMod, feedbackMod]) => {
+  import('@/stores/curriculum').then((curriculumMod) => {
     const curriculumStore = curriculumMod.useCurriculumStore()
-    const questionsStore = questionsMod.useQuestionsStore()
-    const announcementsStore = announcementsMod.useAnnouncementsStore()
-    const feedbackStore = feedbackMod.useFeedbackStore()
 
     if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
       curriculumStore.fetchCurriculum()
-    }
-
-    if (questionsStore.questions.length === 0 && !questionsStore.isLoading) {
-      questionsStore.fetchBankQuestions()
-    }
-
-    if (announcementsStore.announcements.length === 0 && !announcementsStore.isLoading) {
-      announcementsStore.fetchAnnouncements()
-    }
-
-    if (feedbackStore.feedbacks.length === 0 && !feedbackStore.isLoading) {
-      feedbackStore.fetchFeedbacks()
     }
   })
 }
@@ -180,21 +153,6 @@ const router = createRouter({
           path: 'tags',
           name: 'admin-tags',
           component: () => import('@/pages/admin/TagsPage.vue'),
-        },
-        {
-          path: 'question-statistics',
-          name: 'admin-question-statistics',
-          component: () => import('@/pages/admin/QuestionStatisticsPage.vue'),
-        },
-        {
-          path: 'question-feedback',
-          name: 'admin-question-feedback',
-          component: () => import('@/pages/admin/QuestionFeedbackPage.vue'),
-        },
-        {
-          path: 'announcements',
-          name: 'admin-announcements',
-          component: () => import('@/pages/admin/AnnouncementsPage.vue'),
         },
         {
           path: 'organizations',
@@ -349,11 +307,6 @@ const router = createRouter({
           path: 'classrooms/:classroomId/statistics',
           name: 'student-statistics',
           component: () => import('@/pages/student/StatisticsPage.vue'),
-        },
-        {
-          path: 'announcements',
-          name: 'student-announcements',
-          component: () => import('@/pages/shared/AnnouncementsPage.vue'),
         },
         {
           path: 'profile',

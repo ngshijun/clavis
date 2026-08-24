@@ -57,7 +57,6 @@ export default {
     failedUpdateGradeLevel: '更新年级失败。',
     failedUpdateSchool: '更新学校失败。',
     failedUpdateLanguage: '更新语言偏好失败。',
-    failedUpdateTour: '更新引导状态失败。',
     // Practice
     onlyStudentsCanPractice: '仅学生可以开始练习。',
     subTopicNotFound: '未找到此子课题。',
@@ -72,7 +71,6 @@ export default {
     failedSubmitAnswer: '提交答案失败。',
     failedCompleteSession: '完成练习失败。',
     failedResumeSession: '恢复练习失败。',
-    failedGenerateSummary: '生成 AI 总结失败。',
     failedFetchSession: '加载练习记录失败。',
     failedFetchSessionHistory: '加载练习记录失败。',
     failedFetchSubTopicStats: '加载学习进度失败。',
@@ -97,15 +95,9 @@ export default {
     subjectNotFound: '未找到此科目。',
     topicNotFound: '未找到此课题。',
     // Statistics & engagement (shared)
-    failedFetchStatistics: '加载统计数据失败。',
-    failedRefreshStatistics: '刷新统计数据失败。',
     // Feedback
-    failedFetchFeedbacks: '加载反馈失败。',
-    failedDeleteFeedback: '删除反馈失败。',
-    failedSubmitFeedback: '提交反馈失败。',
     // Questions (admin & student)
     failedFetchQuestions: '加载题目失败。',
-    failedFetchQuestion: '加载题目失败。',
     failedAddQuestion: '添加题目失败。',
     failedUpdateQuestion: '更新题目失败。',
     failedDeleteQuestion: '删除题目失败。',
@@ -174,15 +166,6 @@ export default {
     provisionFailed: '创建账户失败，请重试。',
     // Admin dashboard
     failedFetchDashboardStats: '加载仪表板数据失败。',
-    // Announcements
-    failedFetchAnnouncements: '加载公告失败。',
-    failedMarkAsRead: '标记为已读失败。',
-    failedMarkAllAsRead: '标记全部为已读失败。',
-    failedCreateAnnouncement: '创建公告失败。',
-    failedUpdateAnnouncement: '更新公告失败。',
-    failedTogglePin: '切换置顶状态失败。',
-    failedDeleteAnnouncement: '删除公告失败。',
-    announcementNotFound: '未找到此公告。',
     // Storage helpers
     failedUploadImage: '上传图片失败。',
     failedDeleteImage: '删除图片失败。',
@@ -196,27 +179,6 @@ export default {
     title: '新版本可用',
     description: '刷新页面以获取最新更新。',
     refresh: '刷新',
-  },
-  tours: {
-    prevBtn: '← 上一步',
-    nextBtn: '下一步 →',
-    doneBtnText: '完成',
-    mainTour: {
-      student: {
-        step1: {
-          title: '导航菜单',
-          description: '这是你的导航菜单，用它可以访问应用的所有功能。',
-        },
-        step2: {
-          title: '你的进度',
-          description: '在这里一眼看到你的练习情况与进度。',
-        },
-        step3: {
-          title: '你的个人资料',
-          description: '在这里查看个人资料和设置。你随时可以从个人资料页面重新开始导览。',
-        },
-      },
-    },
   },
   actions: {
     edit: '编辑',
@@ -279,11 +241,6 @@ export default {
     cancel: '取消',
     save: '保存',
   },
-  announcementsWidget: {
-    title: '未读公告',
-    noUnread: '暂无未读公告',
-    viewAll: '查看全部',
-  },
   bestSubjectCard: {
     title: '最佳课题',
     averageLabel: (score: number) => `均分：${score}%`,
@@ -304,28 +261,6 @@ export default {
     noSessions: '暂无进行中的练习',
     noSessionsHint: '开始新的练习后将在此处显示',
     startPractice: '开始练习',
-  },
-  questionFeedbackDialog: {
-    title: '反馈问题',
-    description: '如果此题有误，请告知我们',
-    issueTypeLabel: '问题类型',
-    issueTypePlaceholder: '选择问题类型',
-    additionalDetails: '补充说明（可选）',
-    additionalDetailsPlaceholder: '详细描述问题...',
-    cancel: '取消',
-    submitFeedback: '提交反馈',
-    submitting: '提交中...',
-    toastSuccess: '反馈已提交',
-    toastSuccessDesc: '感谢你帮助我们改进！',
-    toastFailed: '提交反馈失败',
-    categories: {
-      question_error: '题目有误',
-      image_error: '图片不正确或缺失',
-      option_error: '选项有误',
-      answer_error: '正确答案有误',
-      explanation_error: '解析有误',
-      other: '其他',
-    },
   },
   sessionSummaryCards: {
     score: '分数',
@@ -401,34 +336,6 @@ export default {
     rubric: '评分标准',
     teacherComment: '老师评语',
     explanation: '解析',
-  },
-  announcementDetailDialog: {
-    expiresOn: (date: string) => `到期于 ${date}`,
-    expiredOn: (date: string) => `已于 ${date} 到期`,
-  },
-  announcementFormDialog: {
-    editTitle: '编辑公告',
-    newTitle: '新公告',
-    editDesc: '更新公告详情。',
-    newDesc: '为用户创建新公告。',
-    titleLabel: '标题',
-    titlePlaceholder: '输入公告标题',
-    contentLabel: '内容',
-    contentPlaceholder: '输入公告内容...',
-    targetAudienceLabel: '目标受众',
-    audiencePlaceholder: '选择受众',
-    pinToTop: '置顶',
-    imageLabel: '图片（可选）',
-    uploadImage: '上传图片',
-    expiresAtLabel: '到期时间（可选）',
-    noExpiryDate: '无到期日期 - 点击设置',
-    cancel: '取消',
-    update: '更新',
-    create: '创建',
-    toastUpdated: '公告已成功更新',
-    toastCreated: '公告已成功创建',
-    yes: '是',
-    no: '否',
   },
   curriculumDeleteDialog: {
     title: (name: string) => `删除"${name}"？`,
@@ -571,22 +478,7 @@ export default {
     tipLabel: '提示：',
     emptyOption: '（空选项）',
   },
-  announcements: {
-    audience: {
-      all: '所有用户',
-      studentsOnly: '仅学生',
-      parentsOnly: '仅家长',
-    },
-  },
   pages: {
-    announcements: {
-      title: '公告',
-      subtitle: '了解最新动态与消息',
-      markAllAsRead: '全部标为已读',
-      noAnnouncements: '暂无公告，请稍后再来！',
-      toastMarkAllReadFailed: (error: string) => error,
-      toastMarkedAllRead: '所有公告已标为已读',
-    },
     staffProfile: {
       title: '我的账户',
       subtitle: '管理你的账户设置',
@@ -621,12 +513,6 @@ export default {
       darkOption: '深色',
       continueButton: '继续',
     },
-    welcomeTourDialog: {
-      title: '欢迎使用 Clavis！',
-      description: '看起来这是第一次来，要进行应用导览吗？',
-      skip: '跳过',
-      startTour: '开始导览',
-    },
     sidebar: {
       navigation: '导航',
       learningPlatform: '学习平台',
@@ -639,14 +525,11 @@ export default {
       nav: {
         admin: {
           dashboard: '主页',
-          announcements: '公告',
           organizations: '机构',
           questionBank: '题库',
           curriculum: '课程',
           assessmentTemplates: '测评模板',
           learningPoints: '学习点',
-          questionStatistics: '题目统计',
-          questionFeedback: '题目反馈',
         },
         manager: {
           dashboard: '主页',
@@ -664,7 +547,6 @@ export default {
         student: {
           classrooms: '班级',
           dashboard: '主页',
-          announcements: '公告',
           practice: '练习',
           assessments: '测评',
           statistics: '学习概况',

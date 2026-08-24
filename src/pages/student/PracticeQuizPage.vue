@@ -7,7 +7,7 @@ import { useQuestionsStore } from '@/stores/questions'
 import { useQuestionShuffle } from '@/composables/useQuestionShuffle'
 import { useT } from '@/composables/useT'
 import { parseSimpleMarkdown } from '@/lib/utils'
-import { ChevronRight, Flag } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -23,7 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import QuestionFeedbackDialog from '@/components/practice/QuestionFeedbackDialog.vue'
 import QuestionOptionsList, {
   type DisplayOption,
 } from '@/components/session/QuestionOptionsList.vue'
@@ -39,7 +38,6 @@ const { basePath } = useActiveClassroom()
 const selectedOptionIds = ref<Set<string>>(new Set())
 const textAnswer = ref('')
 const showExitDialog = ref(false)
-const showFeedbackDialog = ref(false)
 const isResuming = ref(false)
 const isSubmitting = ref(false)
 const isFinishing = ref(false)
@@ -349,15 +347,6 @@ onBeforeRouteLeave((to) => {
           </CardContent>
 
           <CardFooter class="flex items-center">
-            <button
-              v-if="isAnswered"
-              class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-destructive/70 hover:bg-destructive/10 hover:text-destructive"
-              @click="showFeedbackDialog = true"
-            >
-              <Flag class="size-3.5" />
-              {{ t.student.practiceQuiz.reportIssue }}
-            </button>
-
             <div class="ml-auto flex gap-2">
               <Button
                 v-if="!isAnswered && currentQuestion.type !== 'mcq'"
@@ -433,12 +422,5 @@ onBeforeRouteLeave((to) => {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-
-    <!-- Question Feedback Dialog -->
-    <QuestionFeedbackDialog
-      v-if="currentQuestion"
-      v-model:open="showFeedbackDialog"
-      :question-id="currentQuestion.id"
-    />
   </div>
 </template>

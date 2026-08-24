@@ -45,7 +45,6 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
     exitQuiz: 'Exit Quiz',
-    reportIssue: 'Report an issue',
     submitAnswer: 'Submit Answer',
     next: 'Next',
     finishQuiz: 'Finish Quiz',
@@ -137,12 +136,6 @@ export default {
     starsEarned: (n: number) =>
       n === 0 ? 'No stars this time' : `Earned ${n} ${n === 1 ? 'star' : 'stars'}`,
     bestSoFar: (score: number) => `Best so far: ${score}%`,
-    aiSummaryTitle: 'AI Summary',
-    aiSummaryRetry: 'Retry',
-    aiSummaryGenerate: 'Generate Summary',
-    aiSummaryGenerating: 'Generating summary...',
-    aiSummaryFailed: 'Failed to generate summary. Click "Retry" to try again.',
-    aiSummaryEmpty: 'No summary available for this session.',
     sessionNotFound: 'Session not found',
     goToStatistics: 'Go to Statistics',
     keyHiddenNote: 'Correct answers are not shown — check the tips on questions you got wrong.',
@@ -168,7 +161,6 @@ export default {
   profile: {
     title: 'My Profile',
     subtitle: 'Manage your account settings and preferences',
-    restartTour: 'Restart Tour',
     accountDetailsTitle: 'Account Details',
     accountDetailsDesc: 'Your personal information',
     sectionPersonal: 'Personal',

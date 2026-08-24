@@ -67,7 +67,6 @@ export interface PracticeSessionReview {
   total: number
   scorePercent: number
   durationSeconds: number
-  aiSummary: string | null
   questions: PracticeReviewQuestion[]
 }
 
@@ -184,7 +183,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       durationSeconds: row.total_time_seconds ?? 0,
       createdAt: row.created_at,
       completedAt: row.completed_at,
-      aiSummary: row.ai_summary ?? null,
       questions: [],
       answers: [],
     }
@@ -407,7 +405,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       // instead of surfacing the RPC's completion error.
       const { data: sessionRow, error: sessionError } = await supabase
         .from('practice_sessions')
-        .select('id, student_id, sub_topic_id, total_time_seconds, ai_summary, completed_at')
+        .select('id, student_id, sub_topic_id, total_time_seconds, completed_at')
         .eq('id', sessionId)
         .single()
 
@@ -498,7 +496,6 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
           total: result.total,
           scorePercent: result.score_percent,
           durationSeconds: sessionRow.total_time_seconds ?? 0,
-          aiSummary: sessionRow.ai_summary ?? null,
           questions,
         },
         notCompleted: false,

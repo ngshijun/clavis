@@ -42,7 +42,6 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `第 ${current} / ${total} 题`,
     exitQuiz: '退出练习',
-    reportIssue: '举报问题',
     submitAnswer: '提交答案',
     next: '下一题',
     finishQuiz: '完成练习',
@@ -129,12 +128,6 @@ export default {
     back: '返回',
     starsEarned: (n: number) => (n === 0 ? '这次没有获得星星' : `获得 ${n} 颗星`),
     bestSoFar: (score: number) => `目前最佳：${score}%`,
-    aiSummaryTitle: 'AI 总结',
-    aiSummaryRetry: '重试',
-    aiSummaryGenerate: '生成总结',
-    aiSummaryGenerating: '正在生成总结...',
-    aiSummaryFailed: '生成总结失败，请点击"重试"再试一次。',
-    aiSummaryEmpty: '此次练习暂无总结。',
     sessionNotFound: '未找到练习记录',
     goToStatistics: '前往学习概况',
     keyHiddenNote: '不会显示正确答案——请查看答错题目的提示。',
@@ -159,7 +152,6 @@ export default {
   profile: {
     title: '个人资料',
     subtitle: '管理你的账号设置和个人信息',
-    restartTour: '再次导览',
     accountDetailsTitle: '账号详情',
     accountDetailsDesc: '你的个人信息',
     sectionPersonal: '个人',

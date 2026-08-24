@@ -23,9 +23,6 @@ const SECTION_KEY: Record<string, string> = {
   'admin-assessment-templates': 'assessmentTemplates',
   'admin-assessment-template-builder': 'assessmentTemplates',
   'admin-tags': 'learningPoints',
-  'admin-question-statistics': 'questionStatistics',
-  'admin-question-feedback': 'questionFeedback',
-  'admin-announcements': 'announcements',
   'admin-organizations': 'organizations',
   'manager-dashboard': 'dashboard',
   'manager-teachers': 'teachers',
@@ -45,7 +42,6 @@ const SECTION_KEY: Record<string, string> = {
   'student-assessment-attempt': 'assessments',
   'student-assessment-result': 'assessments',
   'student-statistics': 'statistics',
-  'student-announcements': 'announcements',
 }
 
 /** Routes whose section crumb should link back to the section index. */

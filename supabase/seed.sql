@@ -397,8 +397,8 @@ ON CONFLICT (id) DO NOTHING;
 -- Wipe order: children before parents. assessment_questions.question_id is
 -- ON DELETE RESTRICT, so it MUST be cleared before questions (its own
 -- children attempt_questions/attempt_answers cascade from it). The rest
--- (session_questions, student_question_progress, question_feedback) cascade
--- on question delete, and practice_answers.question_id is ON DELETE SET
+-- (session_questions, student_question_progress) cascade on question
+-- delete, and practice_answers.question_id is ON DELETE SET
 -- NULL, but we clear the practice trio explicitly so no orphan rows remain
 -- (acceptable on staging — this is test data).
 DELETE FROM public.attempt_answers;
@@ -982,22 +982,6 @@ WHERE id IN ('a8000000-0000-4000-8000-000000000001',
 
 SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000001');
 SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000002');
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 10. ANNOUNCEMENT                                                         ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
-INSERT INTO public.announcements (id, title, content, target_audience, created_by, is_pinned)
-VALUES (
-  '80000000-0000-0000-0000-000000000001',
-  'Welcome to Clavis!',
-  'We are excited to have you here. Start practising to sharpen your skills!',
-  'all',
-  '00000000-0000-0000-0000-000000000001',
-  true
-)
-ON CONFLICT (id) DO NOTHING;
 
 
 COMMIT;

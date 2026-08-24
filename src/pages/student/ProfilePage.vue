@@ -29,7 +29,6 @@ import {
   Pencil,
   Camera,
   Check,
-  RotateCcw,
   School,
   ChevronsUpDown,
   Search,
@@ -39,7 +38,6 @@ import { SCHOOL_NOT_LISTED_ID } from '@/lib/constants'
 import { useSchoolSearch } from '@/composables/useSchoolSearch'
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useTour } from '@/composables/useTour'
 import { useLanguageStore } from '@/stores/language'
 
 const authStore = useAuthStore()
@@ -56,7 +54,6 @@ const {
   saveAvatar,
   saveName,
 } = useProfileEditor()
-const { resetAndStartTour } = useTour()
 
 // Dialog states
 const showAvatarDialog = ref(false)
@@ -166,14 +163,6 @@ async function handleSchoolChange(schoolId: string) {
 
 <template>
   <div class="space-y-6 p-6">
-    <!-- Header -->
-    <div class="flex items-start justify-end">
-      <Button variant="outline" size="sm" @click="resetAndStartTour">
-        <RotateCcw class="mr-2 size-4" />
-        {{ t.student.profile.restartTour }}
-      </Button>
-    </div>
-
     <div class="grid gap-6 lg:grid-cols-[1fr_3fr]">
       <!-- Profile Card -->
       <Card>
