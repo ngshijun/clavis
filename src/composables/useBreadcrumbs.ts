@@ -62,9 +62,12 @@ const SECTION_PATH: Record<string, string> = {
 /**
  * The trail shown in the header, replacing the per-page title block
  * (decision 84). It is derived from the route, so it always agrees with the
- * address bar — and for a classroom-scoped page it names the classroom, which
- * is the single most important thing to keep visible when Group A and Group B
- * differ only by name.
+ * address bar.
+ *
+ * It deliberately does NOT lead with `Classes > <class name>`: the sidebar
+ * switcher sits directly beside it and already names the active classroom, so
+ * those two crumbs were duplication that pushed the part you actually need —
+ * the section and the entity — off to the right.
  */
 export function useBreadcrumbs() {
   const t = useT()
@@ -72,7 +75,7 @@ export function useBreadcrumbs() {
   const authStore = useAuthStore()
   const assessmentsStore = useAssessmentsStore()
   const studentAssessmentsStore = useStudentAssessmentsStore()
-  const { classroomId, classroom, basePath } = useActiveClassroom()
+  const { classroomId, basePath } = useActiveClassroom()
 
   const crumbs = computed<Crumb[]>(() => {
     const role = authStore.userType
@@ -90,14 +93,6 @@ export function useBreadcrumbs() {
     // The class picker is the root of a classroom-scoped role.
     if (name.endsWith('-classrooms') && !classroomId.value) {
       return [{ label: roleNav.classrooms ?? leaves.classrooms }]
-    }
-
-    if (classroomId.value) {
-      trail.push({ label: roleNav.classrooms ?? leaves.classrooms, to: `/${role}/classrooms` })
-      trail.push({
-        label: classroom.value?.name ?? leaves.classrooms,
-        to: `${basePath.value}/dashboard`,
-      })
     }
 
     const sectionKey = SECTION_KEY[name]
