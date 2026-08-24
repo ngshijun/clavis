@@ -12,6 +12,8 @@ export interface ClassroomListItem {
   gradeLevelName: string
   subjectId: string
   subjectName: string
+  /** Cover image (storage path in `classroom-images`); null = no cover. */
+  coverImagePath: string | null
   teacherCount: number
   studentCount: number
   createdAt: string
@@ -97,6 +99,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
           organization_id,
           grade_level_id,
           subject_id,
+          cover_image_path,
           created_at,
           grade_levels (name),
           subjects (name),
@@ -116,6 +119,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
         gradeLevelName: (row.grade_levels as { name: string } | null)?.name ?? '',
         subjectId: row.subject_id,
         subjectName: (row.subjects as { name: string } | null)?.name ?? '',
+        coverImagePath: row.cover_image_path,
         teacherCount: (row.classroom_teachers as { count: number }[])[0]?.count ?? 0,
         studentCount: (row.classroom_students as { count: number }[])[0]?.count ?? 0,
         createdAt: row.created_at,
@@ -133,35 +137,51 @@ export const useClassroomsStore = defineStore('classrooms', () => {
   }
 
   /** Create a classroom (manager only — RLS requires `created_by = self`). */
+  /**
+   * Returns the new id: a cover image is stored under `{classroom_id}/…`, so
+   * it can only be uploaded once the row exists.
+   */
   async function createClassroom(input: {
     name: string
     gradeLevelId: string
     subjectId: string
-  }): Promise<{ error: string | null }> {
+  }): Promise<{ id: string | null; error: string | null }> {
     const context = requireStaffContext()
-    if (!context || !authStore.isManager) return { error: errorMessages().notAuthenticated }
+    if (!context || !authStore.isManager) {
+      return { id: null, error: errorMessages().notAuthenticated }
+    }
 
     try {
-      const { error: insertError } = await supabase.from('classrooms').insert({
-        name: input.name,
-        organization_id: context.organizationId,
-        grade_level_id: input.gradeLevelId,
-        subject_id: input.subjectId,
-        created_by: context.userId,
-      })
+      const { data, error: insertError } = await supabase
+        .from('classrooms')
+        .insert({
+          name: input.name,
+          organization_id: context.organizationId,
+          grade_level_id: input.gradeLevelId,
+          subject_id: input.subjectId,
+          created_by: context.userId,
+        })
+        .select('id')
+        .single()
 
       if (insertError) throw insertError
 
       await fetchClassrooms()
-      return { error: null }
+      return { id: data.id, error: null }
     } catch (err) {
-      return { error: handleError(err, 'failedCreateClassroom') }
+      return { id: null, error: handleError(err, 'failedCreateClassroom') }
     }
   }
 
   async function updateClassroom(
     id: string,
-    input: { name: string; gradeLevelId: string; subjectId: string },
+    input: {
+      name: string
+      gradeLevelId: string
+      subjectId: string
+      /** Omitted leaves the cover alone; null clears it. */
+      coverImagePath?: string | null
+    },
   ): Promise<{ error: string | null }> {
     try {
       const { error: updateError } = await supabase
@@ -170,6 +190,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
           name: input.name,
           grade_level_id: input.gradeLevelId,
           subject_id: input.subjectId,
+          ...(input.coverImagePath !== undefined ? { cover_image_path: input.coverImagePath } : {}),
         })
         .eq('id', id)
 

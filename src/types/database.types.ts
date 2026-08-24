@@ -646,6 +646,7 @@ export type Database = {
       }
       classrooms: {
         Row: {
+          cover_image_path: string | null
           created_at: string
           created_by: string
           grade_level_id: string
@@ -656,6 +657,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cover_image_path?: string | null
           created_at?: string
           created_by: string
           grade_level_id: string
@@ -666,6 +668,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cover_image_path?: string | null
           created_at?: string
           created_by?: string
           grade_level_id?: string

@@ -5,6 +5,8 @@ import { useClassroomsStore, type ClassroomListItem } from '@/stores/classrooms'
 import { useAuthStore } from '@/stores/auth'
 import {
   ArrowUpDown,
+  LayoutGrid,
+  List,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -17,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
+import ClassroomCard from '@/components/staff/ClassroomCard.vue'
 import {
   Dialog,
   DialogContent,
@@ -47,6 +50,25 @@ const classroomsStore = useClassroomsStore()
  * their own picker instead (ClassroomPickerPage, decision 83).
  */
 const visibleClassrooms = computed(() => classroomsStore.filteredClassrooms)
+
+/**
+ * Cards or table. Cards lead because a cover is the fastest way to tell two
+ * same-grade, same-subject classes apart; the table stays for scanning counts
+ * and dates across many rows. Remembered per device — it is a working
+ * preference, not something to re-pick every visit.
+ */
+const VIEW_STORAGE_KEY = 'clavis.classrooms-view'
+type ClassroomsView = 'cards' | 'table'
+
+const view = ref<ClassroomsView>(
+  localStorage.getItem(VIEW_STORAGE_KEY) === 'table' ? 'table' : 'cards',
+)
+
+function setView(next: unknown) {
+  if (next !== 'cards' && next !== 'table') return
+  view.value = next
+  localStorage.setItem(VIEW_STORAGE_KEY, next)
+}
 
 onMounted(async () => {
   if (classroomsStore.classrooms.length === 0 && !classroomsStore.isLoading) {
@@ -254,9 +276,9 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
     </div>
 
     <template v-else>
-      <!-- Search Bar -->
-      <div class="mb-4">
-        <div class="relative w-[400px]">
+      <!-- Search + view toggle -->
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="relative w-[400px] max-w-full">
           <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             :model-value="classroomsStore.filters.search"
@@ -264,6 +286,30 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
             class="pl-9"
             @update:model-value="classroomsStore.setSearch(String($event))"
           />
+        </div>
+        <div class="flex items-center gap-1 rounded-md border p-0.5">
+          <Button
+            :variant="view === 'cards' ? 'secondary' : 'ghost'"
+            size="icon"
+            class="size-8"
+            :aria-pressed="view === 'cards'"
+            :aria-label="t.staff.classrooms.viewCards"
+            :title="t.staff.classrooms.viewCards"
+            @click="setView('cards')"
+          >
+            <LayoutGrid class="size-4" />
+          </Button>
+          <Button
+            :variant="view === 'table' ? 'secondary' : 'ghost'"
+            size="icon"
+            class="size-8"
+            :aria-pressed="view === 'table'"
+            :aria-label="t.staff.classrooms.viewTable"
+            :title="t.staff.classrooms.viewTable"
+            @click="setView('table')"
+          >
+            <List class="size-4" />
+          </Button>
         </div>
       </div>
 
@@ -278,6 +324,45 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
               : t.staff.classrooms.noClassroomsDescManager
           }}
         </p>
+      </div>
+
+      <!-- Cards -->
+      <div v-else-if="view === 'cards'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ClassroomCard
+          v-for="classroom in visibleClassrooms"
+          :key="classroom.id"
+          :classroom="classroom"
+          show-counts
+          clickable
+          role="button"
+          tabindex="0"
+          @click="openMembers(classroom)"
+          @keydown.enter="openMembers(classroom)"
+          @keydown.space.prevent="openMembers(classroom)"
+        >
+          <template #actions>
+            <div class="absolute right-2 top-2 flex gap-1" @click.stop>
+              <Button
+                variant="secondary"
+                size="icon"
+                class="size-7"
+                :aria-label="t.shared.actions.edit"
+                @click="openEdit(classroom)"
+              >
+                <Pencil class="size-4" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                class="size-7 text-destructive hover:text-destructive"
+                :aria-label="t.shared.actions.delete"
+                @click="openDelete(classroom)"
+              >
+                <Trash2 class="size-4" />
+              </Button>
+            </div>
+          </template>
+        </ClassroomCard>
       </div>
 
       <!-- Data Table -->
