@@ -21,10 +21,9 @@ import {
  * Every data surface below it belongs to the classroom named here, so it reads
  * as a context header rather than a filter control.
  *
- * Two roles, two mechanisms, one control. A teacher's classroom lives in the
- * URL (decision 83), so picking one NAVIGATES; a student's is still selected
- * state (decision 79), so picking one sets it. Managers and admins are
- * unscoped and see nothing here.
+ * Picking one NAVIGATES — the classroom is a path segment for both students
+ * and teachers (decision 83), so there is no selection to set. Managers and
+ * admins are unscoped and see nothing here.
  *
  * With a single classroom it degrades to a static label — a dropdown that
  * cannot change anything would be a dead affordance.
@@ -44,13 +43,13 @@ interface SwitcherItem {
   subjectName: string
 }
 
-const applies = computed(() => authStore.isTeacher || scope.appliesToCurrentUser)
+const applies = computed(() => authStore.isTeacher || authStore.isStudent)
 
 const items = computed<SwitcherItem[]>(() =>
   authStore.isTeacher ? classroomsStore.classrooms : scope.classrooms,
 )
 
-const activeId = computed(() => (authStore.isTeacher ? classroomId.value : scope.selectedId))
+const activeId = computed(() => classroomId.value)
 
 const active = computed(() => items.value.find((item) => item.id === activeId.value) ?? null)
 
@@ -62,23 +61,21 @@ const belongsToNothing = computed(() =>
 )
 
 /**
- * Which classroom-scoped section the teacher is in, so a switch keeps them
- * where they were. Deliberately section-level, not path-level: an assessment
- * id belongs to the classroom being left, so it must not travel along.
+ * Which classroom-scoped section the user is in, so a switch keeps them where
+ * they were. Deliberately section-level, not path-level: an assessment or
+ * session id belongs to the classroom being left, so it must not travel along.
  */
 function currentSection(): string {
   const name = String(route.name ?? '')
-  if (name.startsWith('teacher-assessment')) return 'assessments'
-  if (name === 'teacher-template-library') return 'templates'
+  if (name.includes('assessment')) return 'assessments'
+  if (name.includes('template')) return 'templates'
+  if (name.includes('practice') || name.includes('session')) return 'practice'
+  if (name.includes('statistics')) return 'statistics'
   return 'dashboard'
 }
 
 function choose(id: string) {
-  if (!authStore.isTeacher) {
-    scope.select(id)
-    return
-  }
-  void router.push(`/teacher/classrooms/${id}/${currentSection()}`)
+  void router.push(`/${authStore.userType}/classrooms/${id}/${currentSection()}`)
 }
 </script>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter, useRoute } from 'vue-router'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
 import { useT } from '@/composables/useT'
@@ -14,6 +15,7 @@ const router = useRouter()
 const route = useRoute()
 const store = useStudentAssessmentsStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 
 onMounted(async () => {
   const attemptId = route.params.attemptId as string
@@ -22,7 +24,7 @@ onMounted(async () => {
   if (error) {
     // Owner access requires a completed attempt; anything else routes back.
     toast.error(error)
-    router.replace('/student/assessments')
+    router.replace(`${basePath.value}/assessments`)
   }
 })
 </script>
@@ -37,7 +39,7 @@ onMounted(async () => {
     <template v-else-if="store.review">
       <!-- Header -->
       <div class="mb-6 flex items-center gap-3">
-        <Button variant="outline" size="icon" @click="router.push('/student/assessments')">
+        <Button variant="outline" size="icon" @click="router.push(`${basePath}/assessments`)">
           <ArrowLeft class="size-4" />
           <span class="sr-only">{{ t.student.assessmentResult.back }}</span>
         </Button>

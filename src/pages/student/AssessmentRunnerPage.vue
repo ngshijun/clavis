@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
 import { getStorageImageUrl } from '@/lib/storage'
@@ -49,6 +50,7 @@ const router = useRouter()
 const route = useRoute()
 const store = useStudentAssessmentsStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 
 // Per-question input state, hydrated from the saved answer on navigation.
 const selectedNumbers = ref<Set<number>>(new Set())
@@ -178,7 +180,7 @@ onMounted(async () => {
 
   if (error) {
     toast.error(error)
-    router.replace('/student/assessments')
+    router.replace(`${basePath.value}/assessments`)
     return
   }
 
@@ -356,15 +358,15 @@ function goToResult() {
   store.clearRunner()
   if (timerHandle) clearInterval(timerHandle)
   if (attemptId) {
-    router.replace(`/student/assessments/attempts/${attemptId}/result`)
+    router.replace(`${basePath.value}/assessments/attempts/${attemptId}/result`)
   } else {
-    router.replace('/student/assessments')
+    router.replace(`${basePath.value}/assessments`)
   }
 }
 
 function confirmLeave() {
   store.clearRunner()
-  const destination = pendingNavigation.value ?? '/student/assessments'
+  const destination = pendingNavigation.value ?? `${basePath.value}/assessments`
   pendingNavigation.value = null
   router.push(destination)
 }

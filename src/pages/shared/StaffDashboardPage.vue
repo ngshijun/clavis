@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, h, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
 import {
   useStaffDashboardStore,
@@ -19,10 +18,17 @@ import { formatTimeAgo } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
-const router = useRouter()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
-const { classroomId, classroom, isUnknown } = useActiveClassroom()
+const { classroomId, classroom } = useActiveClassroom()
+
+/**
+ * The classroom table (and its drill-down) is a MANAGER surface: it exists to
+ * compare classrooms. A teacher is already inside exactly one — named in the
+ * URL and in the page subtitle — so for them the table listed a single row
+ * that filtered the student list to the students already shown.
+ */
+const showClassrooms = computed(() => authStore.isManager)
 
 const subtitle = computed(() => {
   // A teacher's dashboard names the classroom it belongs to — the URL says
@@ -245,20 +251,7 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
 </script>
 
 <template>
-  <!-- The URL names a classroom this teacher cannot reach (decision 83).
-       Authorization already happened in the DB; this is just an honest page
-       instead of a dashboard full of zeroes. -->
-  <div v-if="isUnknown" class="p-6">
-    <div class="py-16 text-center">
-      <School class="mx-auto size-16 text-muted-foreground/50" />
-      <p class="mt-4 text-muted-foreground">{{ t.staff.classroomPicker.unknown }}</p>
-      <Button variant="outline" class="mt-4" @click="router.push('/teacher/classrooms')">
-        {{ t.staff.classroomPicker.backToPicker }}
-      </Button>
-    </div>
-  </div>
-
-  <div v-else class="p-6">
+  <div class="p-6">
     <div class="mb-6">
       <h1 class="text-2xl font-bold">{{ t.staff.dashboard.title }}</h1>
       <p class="text-muted-foreground">{{ subtitle }}</p>
@@ -271,8 +264,12 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
 
     <div v-else class="space-y-8">
       <!-- KPI tiles -->
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div
+        class="grid gap-4 md:grid-cols-2"
+        :class="showClassrooms ? 'lg:grid-cols-4' : 'lg:grid-cols-3'"
+      >
         <StatTile
+          v-if="showClassrooms"
           :label="t.staff.dashboard.tiles.classrooms"
           :value="dashboardStore.classroomRollups.length"
           :icon="School"
@@ -297,8 +294,8 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         />
       </div>
 
-      <!-- Classrooms -->
-      <section>
+      <!-- Classrooms (manager only — see showClassrooms) -->
+      <section v-if="showClassrooms">
         <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.classrooms.sectionTitle }}</h2>
 
         <div v-if="dashboardStore.classroomRollups.length === 0" class="py-10 text-center">

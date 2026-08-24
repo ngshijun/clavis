@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter } from 'vue-router'
 import { useStudentAssessmentsStore, type AssignedAssessment } from '@/stores/student-assessments'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
@@ -15,10 +16,11 @@ const router = useRouter()
 const store = useStudentAssessmentsStore()
 const scope = useClassroomScopeStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 
 // Re-fetch whenever the classroom changes — the list belongs to one classroom.
 watch(
-  () => scope.selectedId,
+  () => scope.activeId,
   async (classroomId) => {
     const { error } = await store.fetchAssigned(classroomId)
     if (error) {
@@ -57,10 +59,10 @@ function isClosed(item: AssignedAssessment): boolean {
 
 function openAssessment(item: AssignedAssessment) {
   if (item.status === 'completed' && item.attemptId) {
-    router.push(`/student/assessments/attempts/${item.attemptId}/result`)
+    router.push(`${basePath.value}/assessments/attempts/${item.attemptId}/result`)
     return
   }
-  router.push(`/student/assessments/${item.id}/attempt`)
+  router.push(`${basePath.value}/assessments/${item.id}/attempt`)
 }
 
 function ctaLabel(item: AssignedAssessment): string {

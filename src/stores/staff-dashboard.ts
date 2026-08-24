@@ -132,11 +132,13 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
    * Load the dashboard for `scope`, or clear it when there is nothing to show
    * (a teacher who belongs to no classroom yet).
    *
-   * `get_class_rollups` takes no argument: it returns every classroom the
-   * caller may see, which IS the manager's view and is narrowed to one row for
-   * a teacher — cheaper than widening the RPC's signature for a single-row
-   * read. `get_student_rollups(NULL)` is the org-wide roster for a manager;
-   * passing a classroom narrows it to that roster.
+   * The classroom rollups are fetched ONLY for the organization view. They
+   * exist to compare classrooms, which is a manager's job; a teacher is inside
+   * exactly one, so `get_class_rollups` would be a round trip whose single
+   * useful row nothing renders.
+   *
+   * `get_student_rollups(NULL)` is the org-wide roster for a manager; passing
+   * a classroom narrows it to that roster.
    */
   async function fetchDashboard(scope: DashboardScope | null): Promise<{ error: string | null }> {
     if (!scope) {
@@ -152,17 +154,14 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
 
     try {
       const [classroomsResult, studentsResult] = await Promise.all([
-        supabase.rpc('get_class_rollups'),
+        classroomId ? Promise.resolve(null) : supabase.rpc('get_class_rollups'),
         supabase.rpc('get_student_rollups', { p_classroom_id: classroomId ?? undefined }),
       ])
 
-      const firstError = classroomsResult.error ?? studentsResult.error
+      const firstError = classroomsResult?.error ?? studentsResult.error
       if (firstError) throw firstError
 
-      const allClassrooms = (classroomsResult.data ?? []).map(mapClassroomRollup)
-      classroomRollups.value = classroomId
-        ? allClassrooms.filter((row) => row.classroomId === classroomId)
-        : allClassrooms
+      classroomRollups.value = (classroomsResult?.data ?? []).map(mapClassroomRollup)
       studentRollups.value = (studentsResult.data ?? []).map(mapStudentRollup)
 
       return { error: null }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticeStore } from '@/stores/practice'
 import {
@@ -28,6 +29,7 @@ const practiceStore = usePracticeStore()
 const historyStore = usePracticeHistoryStore()
 const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 
 const sessionId = computed(() => route.params.sessionId as string)
 const review = ref<PracticeSessionReview | null>(null)
@@ -87,7 +89,7 @@ onMounted(async () => {
     // Results are deferred to completion (decision 40)
     notCompleted.value = true
   } else {
-    router.replace('/student/statistics')
+    router.replace(`${basePath.value}/statistics`)
   }
   isLoading.value = false
 })
@@ -97,7 +99,7 @@ function goBack() {
 }
 
 function goToHistory() {
-  router.push('/student/statistics')
+  router.push(`${basePath.value}/statistics`)
 }
 
 async function generateAiSummary() {

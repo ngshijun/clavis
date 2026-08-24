@@ -667,6 +667,7 @@ export default {
           templateLibrary: 'Template Library',
         },
         student: {
+          classrooms: 'Classes',
           dashboard: 'Dashboard',
           announcements: 'Announcements',
           practice: 'Practice',

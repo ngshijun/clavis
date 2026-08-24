@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useAuthStore } from './auth'
 import { handleError } from '@/lib/errors'
+import router from '@/router'
 
 export interface ScopedClassroom {
   id: string
@@ -13,74 +13,57 @@ export interface ScopedClassroom {
   subjectName: string
 }
 
-/** localStorage key — per user, so switching accounts on one device is clean. */
-function storageKey(userId: string): string {
-  return `clavis.classroom-scope.${userId}`
-}
-
 /**
- * The one classroom a student's or teacher's surfaces are scoped to
- * (decision 79).
+ * The classroom currently in scope, and the list it is chosen from.
  *
- * They work inside exactly ONE classroom at a time, chosen from the selector
- * in the sidebar. There is deliberately no "all classrooms" option: a
- * classroom pins BOTH a grade level and a subject, so the selection is what
- * makes "which subject am I practising / teaching" answerable on every page
- * without a second filter.
+ * The active classroom is DERIVED FROM THE URL (decision 83) — it is a path
+ * segment, `/{role}/classrooms/:classroomId/…`, not a persisted selection.
+ * There is no setter here on purpose: switching classroom means navigating,
+ * so the address bar can never disagree with what is on screen, links are
+ * shareable, and Back undoes a switch.
  *
- * MANAGERS ARE DELIBERATELY EXCLUDED (decision 82). A manager runs the
- * institution rather than a class: their dashboard and assessment list are
- * whole-organization views, and narrowing them to one classroom hid exactly
- * the cross-classroom comparison the role exists to make. Admins are global
- * for the same reason. Neither gets a selector.
+ * Reading `router.currentRoute` rather than `useRoute()` is what lets this be
+ * consumed from other STORES (practice-history filters by the scoped subject),
+ * not just from components.
  *
  * The candidate list needs no role branching — the `classrooms` SELECT policy
- * already returns exactly the right set per role (teacher: classrooms they
- * teach; student: classrooms they are enrolled in).
+ * already returns exactly the right set per role. Note it is a deliberately
+ * light projection: a student's `classroom_students(count)` is RLS-filtered
+ * down to themselves, so any count read here would be a lie.
  */
 export const useClassroomScopeStore = defineStore('classroom-scope', () => {
-  const authStore = useAuthStore()
-
   const classrooms = ref<ScopedClassroom[]>([])
-  const selectedId = ref<string | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   /** False until the first fetch settles, so pages can tell "empty" from "not yet loaded". */
   const isReady = ref(false)
 
-  const selected = computed<ScopedClassroom | null>(
-    () => classrooms.value.find((c) => c.id === selectedId.value) ?? null,
+  /** The `:classroomId` segment of the current route, or null outside one. */
+  const activeId = computed(() => {
+    const param = router.currentRoute.value.params.classroomId
+    return typeof param === 'string' && param.length > 0 ? param : null
+  })
+
+  const active = computed<ScopedClassroom | null>(
+    () => classrooms.value.find((item) => item.id === activeId.value) ?? null,
   )
 
   /**
-   * Scoping is meaningless for managers and admins — they see the institution
-   * and the platform respectively, not a classroom.
-   */
-  const appliesToCurrentUser = computed(() => authStore.isStudent || authStore.isTeacher)
-
-  /**
    * True once we know the user genuinely belongs to no classroom. Pages render
-   * their "no classroom" empty state on this rather than on `!selected`, which
+   * their "no classroom" empty state on this rather than on `!active`, which
    * is also true while the first fetch is still in flight.
    */
   const hasNoClassrooms = computed(() => isReady.value && classrooms.value.length === 0)
 
-  const gradeLevelId = computed(() => selected.value?.gradeLevelId ?? null)
-  const subjectId = computed(() => selected.value?.subjectId ?? null)
+  /** The route names a classroom this user cannot reach. */
+  const isUnknown = computed(
+    () => activeId.value !== null && isReady.value && active.value === null,
+  )
 
-  function select(classroomId: string) {
-    if (!classrooms.value.some((c) => c.id === classroomId)) return
-    selectedId.value = classroomId
-    const userId = authStore.user?.id
-    if (userId) localStorage.setItem(storageKey(userId), classroomId)
-  }
+  const gradeLevelId = computed(() => active.value?.gradeLevelId ?? null)
+  const subjectId = computed(() => active.value?.subjectId ?? null)
 
   async function fetchClassrooms(): Promise<{ error: string | null }> {
-    if (!appliesToCurrentUser.value) {
-      isReady.value = true
-      return { error: null }
-    }
-
     isLoading.value = true
     error.value = null
 
@@ -101,7 +84,6 @@ export const useClassroomScopeStore = defineStore('classroom-scope', () => {
         subjectName: (row.subjects as { name: string } | null)?.name ?? '',
       }))
 
-      restoreSelection()
       return { error: null }
     } catch (err) {
       const message = handleError(err, 'failedFetchClassrooms')
@@ -114,46 +96,29 @@ export const useClassroomScopeStore = defineStore('classroom-scope', () => {
   }
 
   /**
-   * Re-point the selection at a classroom that still exists. A remembered id
-   * can go stale — the manager may have removed the user from that classroom,
-   * or deleted it — in which case we silently fall back to the first one
-   * rather than leaving every page scoped to nothing.
+   * Named `$reset` so the pinia reset plugin picks it up on sign-out. A setup
+   * store's default `$reset` throws, so a plain `reset()` was registered by
+   * the plugin and then failed every time.
    */
-  function restoreSelection() {
-    const userId = authStore.user?.id
-    const remembered = userId ? localStorage.getItem(storageKey(userId)) : null
-
-    if (remembered && classrooms.value.some((c) => c.id === remembered)) {
-      selectedId.value = remembered
-      return
-    }
-
-    const first = classrooms.value[0] ?? null
-    selectedId.value = first?.id ?? null
-    if (userId && first) localStorage.setItem(storageKey(userId), first.id)
-  }
-
-  /** Drop everything on sign-out so the next account starts clean. */
-  function reset() {
+  function $reset() {
     classrooms.value = []
-    selectedId.value = null
+    isLoading.value = false
     error.value = null
     isReady.value = false
   }
 
   return {
     classrooms,
-    selectedId,
-    selected,
     isLoading,
-    isReady,
     error,
-    appliesToCurrentUser,
+    isReady,
+    activeId,
+    active,
     hasNoClassrooms,
+    isUnknown,
     gradeLevelId,
     subjectId,
-    select,
     fetchClassrooms,
-    reset,
+    $reset,
   }
 })
