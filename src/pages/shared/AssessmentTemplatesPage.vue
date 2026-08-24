@@ -3,7 +3,6 @@ import { ref, h, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
-import { useAuthStore } from '@/stores/auth'
 import { ArrowUpDown, Copy, Eye, Library, Loader2, Search } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 
 /**
  * Staff (manager/teacher) template library: platform templates are strictly
@@ -29,25 +28,21 @@ import { useClassroomScopeStore } from '@/stores/classroom-scope'
  */
 const t = useT()
 const router = useRouter()
-const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
-const scope = useClassroomScopeStore()
-
-const basePath = computed(() => `/${authStore.userType}`)
+const { classroomId, classroom, basePath } = useActiveClassroom()
 
 const search = ref('')
 
 /**
- * Only templates the classroom in scope can actually take (decision 81).
+ * Only templates the classroom in the URL can actually take (decision 81).
  * Cloning targets that classroom and the RPC rejects a mismatched grade or
  * subject, so offering the rest would be a row whose only action fails.
  */
 const scopedTemplates = computed(() => {
-  const classroom = scope.selected
-  if (!classroom) return []
+  const active = classroom.value
+  if (!active) return []
   return assessmentsStore.templates.filter(
-    (item) =>
-      item.gradeLevelId === classroom.gradeLevelId && item.subjectId === classroom.subjectId,
+    (item) => item.gradeLevelId === active.gradeLevelId && item.subjectId === active.subjectId,
   )
 })
 
@@ -87,14 +82,14 @@ async function handleUseTemplate() {
 
   isCloning.value = true
   try {
-    const classroomId = scope.selectedId
-    if (!classroomId) {
+    const targetClassroomId = classroomId.value
+    if (!targetClassroomId) {
       toast.error(t.value.shared.errors.failedCloneTemplate)
       return
     }
     const { id, error } = await assessmentsStore.cloneTemplate(
       selectedTemplate.value.id,
-      classroomId,
+      targetClassroomId,
     )
     if (error || !id) {
       toast.error(error ?? t.value.shared.errors.failedCloneTemplate)

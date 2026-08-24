@@ -7,7 +7,7 @@ import {
   type StudentRollup,
 } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users, X } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,10 +20,20 @@ import { useT } from '@/composables/useT'
 const t = useT()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
-const scope = useClassroomScopeStore()
+const { classroomId, classroom } = useActiveClassroom()
+
+/**
+ * The classroom table (and its drill-down) is a MANAGER surface: it exists to
+ * compare classrooms. A teacher is already inside exactly one — named in the
+ * URL and in the page subtitle — so for them the table listed a single row
+ * that filtered the student list to the students already shown.
+ */
+const showClassrooms = computed(() => authStore.isManager)
 
 const subtitle = computed(() => {
-  if (authStore.isTeacher) return t.value.staff.dashboard.subtitleTeacher
+  // A teacher's dashboard names the classroom it belongs to — the URL says
+  // which one, and so should the page.
+  if (authStore.isTeacher) return classroom.value?.name ?? t.value.staff.dashboard.subtitleTeacher
   const organizationName = authStore.user?.organizationName
   return organizationName
     ? t.value.staff.dashboard.subtitleManager(organizationName)
@@ -37,18 +47,18 @@ const isLoadingClassroomStudents = ref(false)
 
 /**
  * A manager's dashboard is the whole institution (decision 82) and never
- * changes scope, so it loads once. A teacher's belongs to the selected
- * classroom and reloads on every switch.
+ * changes scope, so it loads once. A teacher's belongs to the classroom in the
+ * URL (decision 83) and reloads whenever that segment changes.
  */
 watch(
-  () => (authStore.isManager ? 'organization' : scope.selectedId),
+  () => (authStore.isManager ? 'organization' : classroomId.value),
   async () => {
     selectedClassroom.value = null
     const { error } = await dashboardStore.fetchDashboard(
       authStore.isManager
         ? { kind: 'organization' }
-        : scope.selectedId
-          ? { kind: 'classroom', classroomId: scope.selectedId }
+        : classroomId.value
+          ? { kind: 'classroom', classroomId: classroomId.value }
           : null,
     )
     if (error) {
@@ -254,8 +264,12 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
 
     <div v-else class="space-y-8">
       <!-- KPI tiles -->
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div
+        class="grid gap-4 md:grid-cols-2"
+        :class="showClassrooms ? 'lg:grid-cols-4' : 'lg:grid-cols-3'"
+      >
         <StatTile
+          v-if="showClassrooms"
           :label="t.staff.dashboard.tiles.classrooms"
           :value="dashboardStore.classroomRollups.length"
           :icon="School"
@@ -280,8 +294,8 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         />
       </div>
 
-      <!-- Classrooms -->
-      <section>
+      <!-- Classrooms (manager only — see showClassrooms) -->
+      <section v-if="showClassrooms">
         <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.classrooms.sectionTitle }}</h2>
 
         <div v-if="dashboardStore.classroomRollups.length === 0" class="py-10 text-center">

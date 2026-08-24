@@ -33,11 +33,12 @@ async function loadDashboardData() {
   }
 }
 
-// Fetch on mount and re-fetch when navigating back to this route
+// Fetch on mount and re-fetch when navigating back to this route, or when
+// the classroom in the path changes (decision 83).
 watch(
   () => route.path,
   (path) => {
-    if (path === '/student/dashboard') {
+    if (path.endsWith('/dashboard')) {
       loadDashboardData()
     }
   },

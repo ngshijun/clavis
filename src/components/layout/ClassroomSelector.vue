@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useClassroomsStore } from '@/stores/classrooms'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useT } from '@/composables/useT'
 import { Check, ChevronsUpDown, School } from 'lucide-vue-next'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
@@ -12,35 +17,82 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 /**
- * The classroom scope switcher (decision 79), directly under the product name
- * in the sidebar. Every data surface below it belongs to the classroom named
- * here, so it reads as a context header rather than a filter control.
+ * The classroom switcher, directly under the product name in the sidebar.
+ * Every data surface below it belongs to the classroom named here, so it reads
+ * as a context header rather than a filter control.
  *
- * Rendered only for students, teachers and managers; admins are unscoped.
+ * Picking one NAVIGATES — the classroom is a path segment for both students
+ * and teachers (decision 83), so there is no selection to set. Managers and
+ * admins are unscoped and see nothing here.
+ *
  * With a single classroom it degrades to a static label — a dropdown that
  * cannot change anything would be a dead affordance.
  */
-const scope = useClassroomScopeStore()
 const t = useT()
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const scope = useClassroomScopeStore()
+const classroomsStore = useClassroomsStore()
+const { classroomId } = useActiveClassroom()
+
+interface SwitcherItem {
+  id: string
+  name: string
+  gradeLevelName: string
+  subjectName: string
+}
+
+const applies = computed(() => authStore.isTeacher || authStore.isStudent)
+
+const items = computed<SwitcherItem[]>(() =>
+  authStore.isTeacher ? classroomsStore.classrooms : scope.classrooms,
+)
+
+const activeId = computed(() => classroomId.value)
+
+const active = computed(() => items.value.find((item) => item.id === activeId.value) ?? null)
+
+/** Known to belong to nothing — as opposed to still loading. */
+const belongsToNothing = computed(() =>
+  authStore.isTeacher
+    ? classroomsStore.hasLoaded && items.value.length === 0
+    : scope.hasNoClassrooms,
+)
+
+/**
+ * Which classroom-scoped section the user is in, so a switch keeps them where
+ * they were. Deliberately section-level, not path-level: an assessment or
+ * session id belongs to the classroom being left, so it must not travel along.
+ */
+function currentSection(): string {
+  const name = String(route.name ?? '')
+  if (name.includes('assessment')) return 'assessments'
+  if (name.includes('template')) return 'templates'
+  if (name.includes('practice') || name.includes('session')) return 'practice'
+  if (name.includes('statistics')) return 'statistics'
+  return 'dashboard'
+}
+
+function choose(id: string) {
+  void router.push(`/${authStore.userType}/classrooms/${id}/${currentSection()}`)
+}
 </script>
 
 <template>
-  <div v-if="scope.appliesToCurrentUser" class="px-2 pb-1">
+  <div v-if="applies" class="px-2 pb-1">
     <!-- Sole classroom: show the context, but not a menu that goes nowhere. -->
-    <div
-      v-if="scope.classrooms.length === 1 && scope.selected"
-      class="flex items-center gap-2 rounded-md px-2 py-1.5"
-    >
+    <div v-if="items.length === 1 && active" class="flex items-center gap-2 rounded-md px-2 py-1.5">
       <School class="size-4 shrink-0 text-muted-foreground" />
       <div class="grid flex-1 text-left leading-tight">
-        <span class="truncate text-sm font-medium">{{ scope.selected.name }}</span>
+        <span class="truncate text-sm font-medium">{{ active.name }}</span>
         <span class="truncate text-xs text-muted-foreground">
-          {{ scope.selected.gradeLevelName }} · {{ scope.selected.subjectName }}
+          {{ active.gradeLevelName }} · {{ active.subjectName }}
         </span>
       </div>
     </div>
 
-    <SidebarMenu v-else-if="scope.classrooms.length > 1">
+    <SidebarMenu v-else-if="items.length > 1">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -53,10 +105,10 @@ const t = useT()
               <School class="size-4 shrink-0 text-muted-foreground" />
               <div class="grid flex-1 text-left leading-tight">
                 <span class="truncate text-sm font-medium">
-                  {{ scope.selected?.name ?? t.shared.layout.sidebar.classroomScope.none }}
+                  {{ active?.name ?? t.shared.layout.sidebar.classroomScope.none }}
                 </span>
-                <span v-if="scope.selected" class="truncate text-xs text-muted-foreground">
-                  {{ scope.selected.gradeLevelName }} · {{ scope.selected.subjectName }}
+                <span v-if="active" class="truncate text-xs text-muted-foreground">
+                  {{ active.gradeLevelName }} · {{ active.subjectName }}
                 </span>
               </div>
               <ChevronsUpDown class="ml-auto size-4" />
@@ -72,10 +124,10 @@ const t = useT()
               {{ t.shared.layout.sidebar.classroomScope.label }}
             </DropdownMenuLabel>
             <DropdownMenuItem
-              v-for="classroom in scope.classrooms"
+              v-for="classroom in items"
               :key="classroom.id"
               class="gap-2"
-              @click="scope.select(classroom.id)"
+              @click="choose(classroom.id)"
             >
               <div class="grid flex-1 leading-tight">
                 <span class="truncate text-sm font-medium">{{ classroom.name }}</span>
@@ -83,7 +135,7 @@ const t = useT()
                   {{ classroom.gradeLevelName }} · {{ classroom.subjectName }}
                 </span>
               </div>
-              <Check v-if="classroom.id === scope.selectedId" class="size-4 shrink-0" />
+              <Check v-if="classroom.id === activeId" class="size-4 shrink-0" />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -91,10 +143,7 @@ const t = useT()
     </SidebarMenu>
 
     <!-- Belongs to nothing: say so here, since every page below will be empty. -->
-    <div
-      v-else-if="scope.hasNoClassrooms"
-      class="rounded-md px-2 py-1.5 text-xs text-muted-foreground"
-    >
+    <div v-else-if="belongsToNothing" class="rounded-md px-2 py-1.5 text-xs text-muted-foreground">
       {{ t.shared.layout.sidebar.classroomScope.none }}
     </div>
   </div>

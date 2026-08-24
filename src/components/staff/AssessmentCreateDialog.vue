@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useForm, Field as VeeField } from 'vee-validate'
 import { assessmentCreateFormSchema, assessmentTemplateCreateFormSchema } from '@/lib/validations'
 import { useAssessmentsStore } from '@/stores/assessments'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { Loader2 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -29,7 +29,7 @@ import { useT } from '@/composables/useT'
 
 const t = useT()
 const assessmentsStore = useAssessmentsStore()
-const scope = useClassroomScopeStore()
+const { classroomId } = useActiveClassroom()
 const curriculumStore = useCurriculumStore()
 
 /**
@@ -88,7 +88,7 @@ const handleCreate = handleSubmit(async (formValues) => {
             gradeLevelId: formValues.gradeLevelId,
             subjectId: formValues.subjectId,
           }
-        : { title: formValues.title, classroomId: scope.selectedId ?? undefined },
+        : { title: formValues.title, classroomId: classroomId.value ?? undefined },
     )
 
     if (error || !id) {

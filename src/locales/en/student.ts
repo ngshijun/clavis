@@ -1,4 +1,12 @@
 export default {
+  classroomPicker: {
+    title: 'Your classes',
+    subtitle: 'Choose a class to work in.',
+    empty: 'You have not joined a class yet.',
+    unknown: 'That class is not one of yours.',
+    backToPicker: 'Back to your classes',
+  },
+
   dashboard: {
     title: 'Dashboard',
     subtitle: 'Your learning snapshot for today',

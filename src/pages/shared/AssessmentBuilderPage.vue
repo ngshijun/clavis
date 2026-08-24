@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
 import { removeStorageObjects } from '@/lib/storage'
@@ -65,11 +65,10 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
-const classroomScope = useClassroomScopeStore()
+const { classroomId, basePath } = useActiveClassroom()
 const curriculumStore = useCurriculumStore()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
-const basePath = computed(() => `/${authStore.userType}`)
 
 const notFound = ref(false)
 
@@ -175,7 +174,7 @@ const scopeLabel = computed(() => {
       ? `${assessment.value.gradeLevelName} · ${assessment.value.subjectName}`
       : null
   }
-  return classroomScope.classrooms.find((c) => c.id === assessment.value?.classroomId)?.name ?? null
+  return assessment.value?.classroomName ?? null
 })
 
 // Manual answer release (decision 71): client mirror of the RPC authz —
@@ -352,12 +351,15 @@ const isCloning = ref(false)
 async function handleUseTemplate() {
   isCloning.value = true
   try {
-    const classroomId = classroomScope.selectedId
-    if (!classroomId) {
+    const targetClassroomId = classroomId.value
+    if (!targetClassroomId) {
       toast.error(t.value.shared.errors.failedCloneTemplate)
       return
     }
-    const { id, error } = await assessmentsStore.cloneTemplate(assessmentId.value, classroomId)
+    const { id, error } = await assessmentsStore.cloneTemplate(
+      assessmentId.value,
+      targetClassroomId,
+    )
     if (error || !id) {
       toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
       return

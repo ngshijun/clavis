@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter } from 'vue-router'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useCurriculumStore } from '@/stores/curriculum'
@@ -27,6 +28,7 @@ const curriculumStore = useCurriculumStore()
 const practiceStore = usePracticeStore()
 const statsStore = useStudentSubTopicStatsStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 const { getTopicProgress, isTopicFullyPracticed } = usePracticeProgress()
 
 // Navigation state (from store for persistence)
@@ -66,7 +68,7 @@ const selectedSubject = computed(() => {
 // Switching classroom changes the subject under us, so the remembered topic
 // belongs to a different tree — drop it rather than render an empty map.
 watch(
-  () => scope.selectedId,
+  () => scope.activeId,
   () => practiceStore.resetPracticeNavigation(),
 )
 
@@ -143,7 +145,7 @@ async function confirmStartSession() {
     }
 
     if (result.session) {
-      router.push('/student/practice/quiz')
+      router.push(`${basePath.value}/practice/quiz`)
     }
   } finally {
     isStartingSession.value = false

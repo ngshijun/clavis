@@ -44,9 +44,17 @@ export default {
     },
   },
 
+  classroomPicker: {
+    title: '我的班级',
+    subtitle: '选择一个班级开始。',
+    empty: '你还没有被分配到任何班级。',
+    unknown: '该班级不属于你。',
+    backToPicker: '返回我的班级',
+    students: (count: number) => `${count} 名学生`,
+    teachers: (count: number) => `${count} 名教师`,
+  },
   classrooms: {
     title: '班级',
-    subtitleTeacher: '你任教的班级',
     subtitleManager: (organization: string) => `${organization} 的班级`,
     subtitleManagerFallback: '机构内的班级',
     addClassroomBtn: '添加班级',
@@ -59,7 +67,6 @@ export default {
     createdCol: '创建日期',
     noClassrooms: '尚无班级',
     noClassroomsDescManager: '创建第一个班级来分组老师和学生。',
-    noClassroomsDescTeacher: '你还没有被分配到任何班级。',
     noClassroomsMatchSearch: '没有符合搜索条件的班级。',
     toastLoadFailed: '加载班级失败',
     toastDeleted: '班级已删除',
