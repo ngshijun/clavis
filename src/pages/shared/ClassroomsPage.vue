@@ -36,27 +36,19 @@ import ClassroomMembersDialog from '@/components/staff/ClassroomMembersDialog.vu
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
 
 const t = useT()
 const authStore = useAuthStore()
 const classroomsStore = useClassroomsStore()
-const scope = useClassroomScopeStore()
 
 /**
- * Teachers see only the classroom they have in scope (decision 79). Managers
- * keep the full org list: this page is where they CREATE classrooms and assign
- * teachers and students into them, and that provisioning work is inherently
- * org-wide — scoping it to one classroom would make it impossible.
+ * Manager-only surface: this is where classrooms are CREATED and teachers and
+ * students assigned into them, which is inherently org-wide. Teachers get
+ * their own picker instead (ClassroomPickerPage, decision 83).
  */
-const visibleClassrooms = computed(() =>
-  authStore.isTeacher
-    ? classroomsStore.filteredClassrooms.filter((c) => c.id === scope.selectedId)
-    : classroomsStore.filteredClassrooms,
-)
+const visibleClassrooms = computed(() => classroomsStore.filteredClassrooms)
 
 const subtitle = computed(() => {
-  if (authStore.isTeacher) return t.value.staff.classrooms.subtitleTeacher
   const organizationName = authStore.user?.organizationName
   return organizationName
     ? t.value.staff.classrooms.subtitleManager(organizationName)

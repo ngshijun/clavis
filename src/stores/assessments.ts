@@ -80,6 +80,11 @@ export interface AssessmentListItem {
   answersReleasedAt: string | null
   /** The owning classroom (decision 81). NULL only for templates. */
   classroomId: string | null
+  /**
+   * Embedded with the row rather than looked up in a store: which store holds
+   * the classroom list differs by role, and a manager holds none at all.
+   */
+  classroomName: string | null
   createdBy: string
   createdByName: string
   questionCount: number
@@ -327,6 +332,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     grade_levels!assessments_grade_level_id_fkey (name),
     subjects!assessments_subject_id_fkey (name),
     classroom_id,
+    classrooms!assessments_classroom_id_fkey (name),
     assessment_questions (count)
   `
 
@@ -349,6 +355,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     grade_levels: { name: string } | null
     subjects: { name: string } | null
     classroom_id: string | null
+    classrooms: { name: string } | null
     assessment_questions: { count: number }[]
   }
 
@@ -368,6 +375,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       showAutoScoreWhilePending: row.show_auto_score_while_pending,
       answersReleasedAt: row.answers_released_at,
       classroomId: row.classroom_id,
+      classroomName: row.classrooms?.name ?? null,
       createdBy: row.created_by,
       createdByName: row.profiles?.name ?? '',
       questionCount: row.assessment_questions[0]?.count ?? 0,
