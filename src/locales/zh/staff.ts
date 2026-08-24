@@ -54,6 +54,8 @@ export default {
     teachers: (count: number) => `${count} 名教师`,
   },
   classrooms: {
+    viewCards: '卡片视图',
+    viewTable: '表格视图',
     title: '班级',
     subtitleManager: (organization: string) => `${organization} 的班级`,
     subtitleManagerFallback: '机构内的班级',
@@ -81,6 +83,9 @@ export default {
   },
 
   classroomForm: {
+    coverLabel: '背景图',
+    coverAdd: '添加背景图',
+    coverRemove: '移除背景图',
     createTitle: '添加班级',
     createDesc: '班级按同一年级和科目组织老师与学生。',
     editTitle: '编辑班级',

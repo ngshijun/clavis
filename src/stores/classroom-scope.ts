@@ -11,6 +11,7 @@ export interface ScopedClassroom {
   gradeLevelName: string
   subjectId: string
   subjectName: string
+  coverImagePath: string | null
 }
 
 /**
@@ -70,7 +71,9 @@ export const useClassroomScopeStore = defineStore('classroom-scope', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('classrooms')
-        .select('id, name, grade_level_id, subject_id, grade_levels (name), subjects (name)')
+        .select(
+          'id, name, grade_level_id, subject_id, cover_image_path, grade_levels (name), subjects (name)',
+        )
         .order('name')
 
       if (fetchError) throw fetchError
@@ -82,6 +85,7 @@ export const useClassroomScopeStore = defineStore('classroom-scope', () => {
         gradeLevelName: (row.grade_levels as { name: string } | null)?.name ?? '',
         subjectId: row.subject_id,
         subjectName: (row.subjects as { name: string } | null)?.name ?? '',
+        coverImagePath: row.cover_image_path,
       }))
 
       return { error: null }

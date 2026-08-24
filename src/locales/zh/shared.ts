@@ -219,6 +219,7 @@ export default {
     },
   },
   actions: {
+    edit: '编辑',
     cancel: '取消',
     delete: '删除',
     add: '添加',

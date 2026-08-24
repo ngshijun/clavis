@@ -3,8 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { Loader2, School } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import ClassroomCard from '@/components/staff/ClassroomCard.vue'
 import { useT } from '@/composables/useT'
 
 /**
@@ -59,29 +58,17 @@ watch(() => scope.isReady, skipWhenSole)
     </div>
 
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card
+      <ClassroomCard
         v-for="classroom in classrooms"
         :key="classroom.id"
-        class="cursor-pointer transition-shadow hover:border-primary/40 hover:shadow-md"
+        :classroom="classroom"
+        clickable
         role="link"
         tabindex="0"
         @click="open(classroom.id)"
         @keydown.enter="open(classroom.id)"
         @keydown.space.prevent="open(classroom.id)"
-      >
-        <CardHeader>
-          <CardTitle class="flex items-start gap-2">
-            <School class="mt-0.5 size-5 shrink-0 text-primary" />
-            <span class="min-w-0 break-words">{{ classroom.name }}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="flex flex-wrap gap-1">
-            <Badge variant="secondary">{{ classroom.gradeLevelName }}</Badge>
-            <Badge variant="outline">{{ classroom.subjectName }}</Badge>
-          </div>
-        </CardContent>
-      </Card>
+      />
     </div>
   </div>
 </template>
