@@ -652,6 +652,7 @@ export default {
           templateLibrary: '模板库',
         },
         student: {
+          classrooms: '班级',
           dashboard: '主页',
           announcements: '公告',
           practice: '练习',

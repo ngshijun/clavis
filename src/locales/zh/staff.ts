@@ -67,7 +67,6 @@ export default {
     createdCol: '创建日期',
     noClassrooms: '尚无班级',
     noClassroomsDescManager: '创建第一个班级来分组老师和学生。',
-    noClassroomsDescTeacher: '你还没有被分配到任何班级。',
     noClassroomsMatchSearch: '没有符合搜索条件的班级。',
     toastLoadFailed: '加载班级失败',
     toastDeleted: '班级已删除',

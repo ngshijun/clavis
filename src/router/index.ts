@@ -295,46 +295,53 @@ const router = createRouter({
       path: '/student',
       component: () => import('@/components/layout/AppLayout.vue'),
       meta: { requiresAuth: true, allowedRoles: ['student'] },
-      redirect: '/student/dashboard',
+      redirect: '/student/classrooms',
       beforeEnter: studentRouteGuard,
       children: [
+        // Same shape as the teacher's (decision 83): the classroom is a path
+        // segment, so a student's link says which class it belongs to.
         {
-          path: 'dashboard',
+          path: 'classrooms',
+          name: 'student-classrooms',
+          component: () => import('@/pages/student/ClassroomPickerPage.vue'),
+        },
+        {
+          path: 'classrooms/:classroomId/dashboard',
           name: 'student-dashboard',
           component: () => import('@/pages/student/DashboardPage.vue'),
         },
         {
-          path: 'practice',
+          path: 'classrooms/:classroomId/practice',
           name: 'student-practice',
           component: () => import('@/pages/student/PracticePage.vue'),
         },
         {
-          path: 'practice/quiz',
+          path: 'classrooms/:classroomId/practice/quiz',
           name: 'student-practice-quiz',
           component: () => import('@/pages/student/PracticeQuizPage.vue'),
         },
         {
-          path: 'session/:sessionId',
+          path: 'classrooms/:classroomId/session/:sessionId',
           name: 'student-session-result',
           component: () => import('@/pages/student/SessionResultPage.vue'),
         },
         {
-          path: 'assessments',
+          path: 'classrooms/:classroomId/assessments',
           name: 'student-assessments',
           component: () => import('@/pages/student/AssessmentsPage.vue'),
         },
         {
-          path: 'assessments/:assessmentId/attempt',
+          path: 'classrooms/:classroomId/assessments/:assessmentId/attempt',
           name: 'student-assessment-attempt',
           component: () => import('@/pages/student/AssessmentRunnerPage.vue'),
         },
         {
-          path: 'assessments/attempts/:attemptId/result',
+          path: 'classrooms/:classroomId/assessments/attempts/:attemptId/result',
           name: 'student-assessment-result',
           component: () => import('@/pages/student/AssessmentResultPage.vue'),
         },
         {
-          path: 'statistics',
+          path: 'classrooms/:classroomId/statistics',
           name: 'student-statistics',
           component: () => import('@/pages/student/StatisticsPage.vue'),
         },
@@ -369,11 +376,11 @@ const router = createRouter({
 export function getDashboardPath(userType: UserRole | null): string {
   if (userType === 'admin') return '/admin/dashboard'
   if (userType === 'manager') return '/manager/dashboard'
-  // A teacher's dashboard belongs to a classroom (decision 83), and which one
-  // is not known at login — the picker resolves it (and skips itself when
-  // there is only one).
+  // A teacher's and a student's dashboard both belong to a classroom
+  // (decision 83), and which one is not known at login — the picker resolves
+  // it (and skips itself when there is only one).
   if (userType === 'teacher') return '/teacher/classrooms'
-  return '/student/dashboard'
+  return '/student/classrooms'
 }
 
 router.beforeEach(async (to) => {

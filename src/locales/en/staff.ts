@@ -67,7 +67,6 @@ export default {
     createdCol: 'Created',
     noClassrooms: 'No Classrooms Yet',
     noClassroomsDescManager: 'Create your first classroom to group teachers and students.',
-    noClassroomsDescTeacher: 'You have not been assigned to a classroom yet.',
     noClassroomsMatchSearch: 'No classrooms match your search criteria.',
     toastLoadFailed: 'Failed to load classrooms',
     toastDeleted: 'Classroom deleted',

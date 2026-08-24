@@ -26,15 +26,24 @@ import { Loader2 } from 'lucide-vue-next'
 import { useTour } from '@/composables/useTour'
 import { useT } from '@/composables/useT'
 import AppSidebar from './AppSidebar.vue'
+import ClassroomNotFound from './ClassroomNotFound.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import LanguageToggle from './LanguageToggle.vue'
 import PreferencesDialog from './PreferencesDialog.vue'
 import { useLanguageStore } from '@/stores/language'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 const authStore = useAuthStore()
 const curriculumStore = useCurriculumStore()
 const t = useT()
 const languageStore = useLanguageStore()
 const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
+
+/**
+ * Guarded once here rather than in every classroom-scoped page: the check is
+ * identical for students and teachers, and a page that renders its own empty
+ * state instead would claim the user has no classroom at all.
+ */
+const { isUnknown: isUnknownClassroom } = useActiveClassroom()
 
 const PREFERENCES_STORAGE_KEY = 'preferences_confirmed'
 
@@ -150,7 +159,8 @@ const greeting = computed(() => {
         </div>
       </header>
       <main class="flex-1 overflow-auto">
-        <router-view />
+        <ClassroomNotFound v-if="isUnknownClassroom" />
+        <router-view v-else />
       </main>
     </SidebarInset>
 

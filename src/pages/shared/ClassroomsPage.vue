@@ -286,9 +286,7 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
           {{
             classroomsStore.filters.search
               ? t.staff.classrooms.noClassroomsMatchSearch
-              : authStore.isManager
-                ? t.staff.classrooms.noClassroomsDescManager
-                : t.staff.classrooms.noClassroomsDescTeacher
+              : t.staff.classrooms.noClassroomsDescManager
           }}
         </p>
       </div>

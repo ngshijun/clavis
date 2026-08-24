@@ -1,4 +1,12 @@
 export default {
+  classroomPicker: {
+    title: '我的班级',
+    subtitle: '选择一个班级开始。',
+    empty: '你还没有加入任何班级。',
+    unknown: '该班级不属于你。',
+    backToPicker: '返回我的班级',
+  },
+
   dashboard: {
     title: '主页',
     subtitle: '这是你今天的学习概览',

@@ -34,13 +34,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Assessments', path: '/manager/assessments', icon: ClipboardList },
   ],
   teacher: [],
-  student: [
-    { title: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { title: 'Announcements', path: '/student/announcements', icon: Megaphone },
-    { title: 'Practice', path: '/student/practice', icon: PenTool },
-    { title: 'Assessments', path: '/student/assessments', icon: ClipboardList },
-    { title: 'Statistics', path: '/student/statistics', icon: PieChart },
-  ],
+  student: [],
 }
 
 /**
@@ -73,5 +67,41 @@ export function teacherNavItems(classroomId: string | null): NavItem[] {
       icon: Library,
       navKey: 'templateLibrary',
     },
+  ]
+}
+
+/**
+ * A student's navigation is classroom-scoped in the same way a teacher's is
+ * (decision 83). Announcements stay outside the classroom — they are
+ * organization-wide, not class news.
+ */
+export function studentNavItems(classroomId: string | null): NavItem[] {
+  const picker: NavItem = {
+    title: 'Classes',
+    path: '/student/classrooms',
+    icon: School,
+    navKey: 'classrooms',
+  }
+  const announcements: NavItem = {
+    title: 'Announcements',
+    path: '/student/announcements',
+    icon: Megaphone,
+    navKey: 'announcements',
+  }
+  if (!classroomId) return [picker, announcements]
+
+  const base = `/student/classrooms/${classroomId}`
+  return [
+    picker,
+    { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
+    { title: 'Practice', path: `${base}/practice`, icon: PenTool, navKey: 'practice' },
+    {
+      title: 'Assessments',
+      path: `${base}/assessments`,
+      icon: ClipboardList,
+      navKey: 'assessments',
+    },
+    { title: 'Statistics', path: `${base}/statistics`, icon: PieChart, navKey: 'statistics' },
+    announcements,
   ]
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { usePracticeStore } from '@/stores/practice'
 import { useQuestionsStore } from '@/stores/questions'
@@ -33,6 +34,7 @@ const route = useRoute()
 const practiceStore = usePracticeStore()
 const questionsStore = useQuestionsStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 
 const selectedOptionIds = ref<Set<string>>(new Set())
 const textAnswer = ref('')
@@ -87,13 +89,13 @@ onMounted(async () => {
       if (result.error || !result.session) {
         // Failed to resume - replace so back button doesn't loop to this dead URL
         toast.error(t.value.student.practiceQuiz.toastResumeError)
-        router.replace('/student/practice')
+        router.replace(`${basePath.value}/practice`)
         return
       }
     }
   } else if (!practiceStore.isSessionActive) {
     // No session ID and no active session - replace so back button doesn't loop
-    router.replace('/student/practice')
+    router.replace(`${basePath.value}/practice`)
   }
 
   // Initialize question start time and input state
@@ -192,7 +194,7 @@ async function finishQuiz() {
     if (result.session) {
       clearShuffleCache()
       toast.success(t.value.student.practiceQuiz.toastCompleted)
-      router.replace(`/student/session/${result.session.id}`)
+      router.replace(`${basePath.value}/session/${result.session.id}`)
     } else if (result.error) {
       toast.error(t.value.student.practiceQuiz.toastCompleteFailed)
     }
@@ -206,7 +208,7 @@ function exitQuiz() {
   // Free shuffled-option cache so it stays bounded to the current session.
   clearShuffleCache()
   // Navigate to pending destination or default to practice page
-  const destination = pendingNavigation.value ?? '/student/practice'
+  const destination = pendingNavigation.value ?? `${basePath.value}/practice`
   pendingNavigation.value = null
   router.push(destination)
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useRouter } from 'vue-router'
 import { usePracticeHistoryStore } from '@/stores/practice-history'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
@@ -30,6 +31,7 @@ const router = useRouter()
 const practiceStore = usePracticeHistoryStore()
 const scope = useClassroomScopeStore()
 const t = useT()
+const { basePath } = useActiveClassroom()
 const hideInProgress = ref(false)
 const isLoading = ref(true)
 
@@ -52,8 +54,8 @@ const topicFilter = computed(() => resolveFilterValue(practiceStore.historyFilte
 const subTopicFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.subTopic))
 
 // Get available filter options, within the scoped grade + subject.
-const scopedGrade = computed(() => scope.selected?.gradeLevelName)
-const scopedSubject = computed(() => scope.selected?.subjectName)
+const scopedGrade = computed(() => scope.active?.gradeLevelName)
+const scopedSubject = computed(() => scope.active?.subjectName)
 const availableTopics = computed(() =>
   practiceStore.getHistoryTopics(scopedGrade.value, scopedSubject.value),
 )
@@ -130,7 +132,7 @@ const pendingResumeSession = ref<HistoryRow | null>(null)
 
 function handleRowClick(row: HistoryRow) {
   if (row.status === 'completed') {
-    router.push(`/student/session/${row.id}`)
+    router.push(`${basePath.value}/session/${row.id}`)
   } else {
     pendingResumeSession.value = row
     showResumeDialog.value = true
@@ -140,7 +142,7 @@ function handleRowClick(row: HistoryRow) {
 function confirmResume() {
   if (pendingResumeSession.value) {
     router.push({
-      path: '/student/practice/quiz',
+      path: `${basePath.value}/practice/quiz`,
       query: { sessionId: pendingResumeSession.value.id },
     })
   }
