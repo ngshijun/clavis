@@ -2,7 +2,6 @@ import { h } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { formatDuration, formatDateTime } from '@/lib/date'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ArrowUpDown } from 'lucide-vue-next'
 import type { DateRangeFilter } from '@/lib/sessionFilters'
 import { useLanguageStore } from '@/stores/language'
@@ -12,23 +11,6 @@ export const ALL_VALUE = '__all__'
 /** Convert ALL_VALUE sentinel to undefined for store filter calls. */
 export function resolveFilterValue(value: string): string | undefined {
   return value === ALL_VALUE ? undefined : value
-}
-
-export function getStatusConfig() {
-  const store = useLanguageStore()
-  const labels = store.t.shared.statsFilterBar.status
-  return {
-    completed: {
-      label: labels.completed,
-      bgColor: 'bg-green-100 dark:bg-green-950/30',
-      color: 'text-green-700 dark:text-green-400',
-    },
-    in_progress: {
-      label: labels.inProgress,
-      bgColor: 'bg-amber-100 dark:bg-amber-950/30',
-      color: 'text-amber-700 dark:text-amber-400',
-    },
-  }
 }
 
 export function getDateRangeOptions(): { value: DateRangeFilter; label: string }[] {
@@ -48,7 +30,6 @@ export interface PracticeSessionRow {
   subjectName: string
   topicName: string
   subTopicName: string
-  status: 'completed' | 'in_progress'
   score: number | null
   totalQuestions: number
   correctAnswers: number
@@ -58,7 +39,6 @@ export interface PracticeSessionRow {
 export function createPracticeHistoryColumns<T extends PracticeSessionRow>(): ColumnDef<T>[] {
   const store = useLanguageStore()
   const headers = store.t.shared.statsFilterBar.practiceHistoryColumns
-  const statusLabels = getStatusConfig()
 
   return [
     {
@@ -100,31 +80,6 @@ export function createPracticeHistoryColumns<T extends PracticeSessionRow>(): Co
       accessorKey: 'subTopicName',
       header: headers.subTopic,
       cell: ({ row }) => h('div', {}, row.original.subTopicName),
-    },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => {
-        return h(
-          Button,
-          {
-            variant: 'ghost',
-            onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-          },
-          () => [headers.status, h(ArrowUpDown, { class: 'ml-2 size-4' })],
-        )
-      },
-      cell: ({ row }) => {
-        const status = row.original.status
-        const config = statusLabels[status]
-        return h(
-          Badge,
-          {
-            variant: 'secondary',
-            class: `${config.bgColor} ${config.color}`,
-          },
-          () => config.label,
-        )
-      },
     },
     {
       accessorKey: 'score',

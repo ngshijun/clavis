@@ -1,7 +1,6 @@
 import { computed, type Ref, type ComputedRef } from 'vue'
 
 interface SessionWithStats {
-  status: 'completed' | 'in_progress'
   score: number | null
   durationSeconds: number | null
   gradeLevelName: string
@@ -13,7 +12,8 @@ interface SessionWithStats {
 export function useStatisticsSummary<T extends SessionWithStats>(
   sessions: Ref<T[]> | ComputedRef<T[]>,
 ) {
-  const completedSessions = computed(() => sessions.value.filter((s) => s.status === 'completed'))
+  // Every practice session is stored already completed (decision 85).
+  const completedSessions = computed(() => sessions.value)
 
   const averageScore = computed(() => {
     const completed = completedSessions.value

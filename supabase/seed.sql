@@ -115,8 +115,8 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- profiles (admin has no org; everyone else belongs to the demo center)
-INSERT INTO public.profiles (id, name, email, user_type, has_completed_tour, organization_id)
-SELECT v.id, v.name, v.email, v.user_type::public.user_role, true,
+INSERT INTO public.profiles (id, name, email, user_type, organization_id)
+SELECT v.id, v.name, v.email, v.user_type::public.user_role,
        CASE WHEN v.user_type = 'admin' THEN NULL
             ELSE (SELECT o.id FROM public.organizations o WHERE o.name = 'Clavis Demo Center')
        END
@@ -397,8 +397,8 @@ ON CONFLICT (id) DO NOTHING;
 -- Wipe order: children before parents. assessment_questions.question_id is
 -- ON DELETE RESTRICT, so it MUST be cleared before questions (its own
 -- children attempt_questions/attempt_answers cascade from it). The rest
--- (session_questions, student_question_progress, question_feedback) cascade
--- on question delete, and practice_answers.question_id is ON DELETE SET
+-- (session_questions, student_question_progress) cascade on question
+-- delete, and practice_answers.question_id is ON DELETE SET
 -- NULL, but we clear the practice trio explicitly so no orphan rows remain
 -- (acceptable on staging — this is test data).
 DELETE FROM public.attempt_answers;
@@ -578,13 +578,13 @@ ON CONFLICT DO NOTHING;
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
 
 INSERT INTO public.practice_sessions (
-  id, student_id, sub_topic_id, total_questions, current_question_index,
+  id, student_id, sub_topic_id, total_questions,
   completed_at, correct_count, total_time_seconds
 ) VALUES (
   '70000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000002',
   '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > Basic Calculation
-  3, 3,
+  3,
   now() - interval '1 day',
   2, 145   -- Q1 + Q3 correct, Q2 wrong (matches the answers seeded below)
 )
@@ -982,22 +982,6 @@ WHERE id IN ('a8000000-0000-4000-8000-000000000001',
 
 SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000001');
 SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000002');
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 10. ANNOUNCEMENT                                                         ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
-
-INSERT INTO public.announcements (id, title, content, target_audience, created_by, is_pinned)
-VALUES (
-  '80000000-0000-0000-0000-000000000001',
-  'Welcome to Clavis!',
-  'We are excited to have you here. Start practising to sharpen your skills!',
-  'all',
-  '00000000-0000-0000-0000-000000000001',
-  true
-)
-ON CONFLICT (id) DO NOTHING;
 
 
 COMMIT;

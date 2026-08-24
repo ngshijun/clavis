@@ -5,14 +5,10 @@ import { usePracticeHistoryStore } from '@/stores/practice-history'
 import { useT } from '@/composables/useT'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget.vue'
 import AssessmentsTodoCard from '@/components/dashboard/AssessmentsTodoCard.vue'
 
 const BestSubjectCard = defineAsyncComponent(
   () => import('@/components/dashboard/BestSubjectCard.vue'),
-)
-const InProgressSessionsCard = defineAsyncComponent(
-  () => import('@/components/dashboard/InProgressSessionsCard.vue'),
 )
 
 const route = useRoute()
@@ -55,18 +51,10 @@ watch(
 
     <div v-else class="space-y-6">
       <!-- Practice stats -->
-      <div data-tour="dashboard-stats">
-        <BestSubjectCard />
-      </div>
+      <BestSubjectCard />
 
       <!-- Assessments to-do -->
       <AssessmentsTodoCard />
-
-      <!-- In-Progress Sessions -->
-      <InProgressSessionsCard />
-
-      <!-- Announcements (full width) -->
-      <AnnouncementsWidget />
     </div>
   </div>
 </template>

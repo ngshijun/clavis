@@ -173,65 +173,6 @@
   @apply mx-auto max-w-4xl;
 }
 
-/* driver.js tour theme overrides */
-.clavis-tour-popover.driver-popover {
-  background-color: var(--popover);
-  color: var(--popover-foreground);
-}
-
-.clavis-tour-popover .driver-popover-title {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.clavis-tour-popover .driver-popover-description {
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-}
-
-.clavis-tour-popover .driver-popover-progress-text {
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
-}
-
-.clavis-tour-popover .driver-popover-close-btn,
-.clavis-tour-popover .driver-popover-close-btn:hover,
-.clavis-tour-popover .driver-popover-close-btn:focus {
-  color: var(--muted-foreground) !important;
-  text-shadow: none;
-}
-
-.clavis-tour-popover .driver-popover-close-btn:hover {
-  color: var(--foreground) !important;
-}
-
-.clavis-tour-popover .driver-popover-prev-btn {
-  color: var(--foreground) !important;
-  border: 1px solid var(--muted-foreground) !important;
-  background-color: transparent !important;
-  border-radius: var(--radius) !important;
-  text-shadow: none !important;
-}
-
-.clavis-tour-popover .driver-popover-next-btn,
-.clavis-tour-popover .driver-popover-close-btn-text {
-  background-color: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-  border: none !important;
-  border-radius: var(--radius) !important;
-  text-shadow: none !important;
-}
-
-.clavis-tour-popover .driver-popover-next-btn:hover,
-.clavis-tour-popover .driver-popover-close-btn-text:hover {
-  opacity: 0.9;
-}
-
-.clavis-tour-popover .driver-popover-prev-btn:hover {
-  background-color: var(--accent) !important;
-  color: var(--accent-foreground) !important;
-}
-
 @keyframes bounce-slow {
   0%,
   100% {
@@ -244,11 +185,4 @@
 
 .animate-bounce-slow {
   animation: bounce-slow 2s ease-in-out infinite;
-}
-
-.clavis-tour-popover.driver-popover-arrow-side-left .driver-popover-arrow,
-.clavis-tour-popover.driver-popover-arrow-side-right .driver-popover-arrow,
-.clavis-tour-popover.driver-popover-arrow-side-top .driver-popover-arrow,
-.clavis-tour-popover.driver-popover-arrow-side-bottom .driver-popover-arrow {
-  background-color: var(--popover);
 }

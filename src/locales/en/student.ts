@@ -45,24 +45,33 @@ export default {
   practiceQuiz: {
     questionOf: (current: number, total: number) => `Question ${current} of ${total}`,
     exitQuiz: 'Exit Quiz',
-    reportIssue: 'Report an issue',
-    submitAnswer: 'Submit Answer',
+    previous: 'Previous',
     next: 'Next',
-    finishQuiz: 'Finish Quiz',
+    submitQuiz: 'Submit',
+    submitting: 'Submitting...',
+    answeredOf: (answered: number, total: number) => `${answered} of ${total} answered`,
+    unansweredHint: (remaining: number) =>
+      remaining === 1
+        ? 'Answer the last question to submit'
+        : `Answer all questions to submit — ${remaining} left`,
     multipleChoice: 'Multiple Choice',
     multipleResponse: 'Multiple Response',
     shortAnswer: 'Short Answer',
-    resumingSession: 'Resuming your session...',
     exitDialog: {
       title: 'Exit Quiz?',
       description:
-        'Are you sure you want to exit? Your progress is saved and you can continue later.',
+        'Nothing is saved until you submit, so leaving now discards this attempt entirely.',
       continueQuiz: 'Continue Quiz',
-      exit: 'Exit',
+      exit: 'Discard and exit',
     },
-    toastResumeError: 'Failed to resume session',
-    toastCompleted: 'Quiz completed!',
-    toastCompleteFailed: 'Failed to complete quiz',
+    submitDialog: {
+      title: 'Submit your answers?',
+      description: 'You will not be able to change them afterwards.',
+      cancel: 'Keep checking',
+      confirm: 'Submit',
+    },
+    toastCompleted: 'Quiz submitted!',
+    toastCompleteFailed: 'Failed to submit quiz',
   },
   assessments: {
     title: 'Assessments',
@@ -137,16 +146,9 @@ export default {
     starsEarned: (n: number) =>
       n === 0 ? 'No stars this time' : `Earned ${n} ${n === 1 ? 'star' : 'stars'}`,
     bestSoFar: (score: number) => `Best so far: ${score}%`,
-    aiSummaryTitle: 'AI Summary',
-    aiSummaryRetry: 'Retry',
-    aiSummaryGenerate: 'Generate Summary',
-    aiSummaryGenerating: 'Generating summary...',
-    aiSummaryFailed: 'Failed to generate summary. Click "Retry" to try again.',
-    aiSummaryEmpty: 'No summary available for this session.',
     sessionNotFound: 'Session not found',
     goToStatistics: 'Go to Statistics',
     keyHiddenNote: 'Correct answers are not shown — check the tips on questions you got wrong.',
-    resultsAfterCompletion: 'Results are shown after you finish this session.',
   },
   statistics: {
     title: 'Statistics',
@@ -155,20 +157,10 @@ export default {
     practiceHistoryDesc: 'View your past practice sessions and scores',
     noSessions: 'No practice sessions found for the selected filters.',
     toastLoadFailed: 'Failed to load practice history',
-    resumeDialog: {
-      title: 'Continue Session?',
-      inProgress: (subTopicName: string, subjectName: string) =>
-        `You have an in-progress session for ${subTopicName} (${subjectName}).`,
-      progress: (answered: number, total: number) =>
-        `Progress: ${answered} / ${total} questions answered.`,
-      cancel: 'Cancel',
-      continue: 'Continue',
-    },
   },
   profile: {
     title: 'My Profile',
     subtitle: 'Manage your account settings and preferences',
-    restartTour: 'Restart Tour',
     accountDetailsTitle: 'Account Details',
     accountDetailsDesc: 'Your personal information',
     sectionPersonal: 'Personal',

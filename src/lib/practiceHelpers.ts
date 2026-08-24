@@ -17,9 +17,10 @@ export interface PracticeQuestionOption {
 /**
  * A practice question as the student may see it (decision 76): the bank's
  * `answer`, `option_N_is_correct` and `option_N_tip` columns are revoked from
- * `authenticated`, so this shape — served by `get_practice_session_questions`
- * — carries no correctness whatsoever. Correctness and wrong-option tips reach
- * the student only after completion, via `get_session_result`.
+ * `authenticated`, so this shape — served by `get_practice_questions` while an
+ * attempt is in progress and by `get_practice_session_questions` once it is
+ * stored — carries no correctness whatsoever. Correctness and wrong-option
+ * tips reach the student only after submission, via `get_session_result`.
  */
 export interface PracticeQuestion {
   id: string
@@ -34,7 +35,7 @@ export interface PracticeQuestion {
 
 const OPTION_IDS = ['a', 'b', 'c', 'd'] as const
 
-/** Raw entry of the `get_practice_session_questions` jsonb array (P11A §2). */
+/** Raw entry of the sanitized practice-question jsonb array (P11A §2). */
 interface RawSessionQuestion {
   question_id: string
   question_order: number
@@ -47,24 +48,11 @@ interface RawSessionQuestion {
   options: { number: number; text: string | null; image_path: string | null }[]
 }
 
-/**
- * Fetch the frozen question list of a practice session (owner-only, works both
- * mid-session and after completion). The RPC returns the entries in stored
- * `question_order`, so the ARRAY POSITION is the running order — the stored
- * value itself is not a reliable index (seeded rows are 1-based while
- * `create_practice_session` writes 0-based).
- */
-export async function fetchPracticeSessionQuestions(
-  sessionId: string,
-): Promise<{ questions: PracticeQuestion[]; error: unknown }> {
-  const { data, error } = await supabase.rpc('get_practice_session_questions', {
-    p_session_id: sessionId,
-  })
+/** Both RPCs return the same item shape, so one mapper serves both. */
+function parsePracticeQuestions(data: unknown): PracticeQuestion[] {
+  if (!Array.isArray(data)) return []
 
-  if (error) return { questions: [], error }
-  if (!Array.isArray(data)) return { questions: [], error: null }
-
-  const questions = (data as unknown as RawSessionQuestion[]).map((entry) => ({
+  return (data as unknown as RawSessionQuestion[]).map((entry) => ({
     id: entry.question_id,
     type: entry.type,
     question: entry.question,
@@ -80,8 +68,39 @@ export async function fetchPracticeSessionQuestions(
       }))
       .filter((option): option is PracticeQuestionOption => option.id !== undefined),
   }))
+}
 
-  return { questions, error: null }
+/**
+ * Question content for an attempt that has no session row yet (decision 85).
+ * The array order given here IS the order the student sees and the order
+ * frozen at submit — the RPC preserves it.
+ */
+export async function fetchPracticeQuestions(
+  questionIds: string[],
+): Promise<{ questions: PracticeQuestion[]; error: unknown }> {
+  const { data, error } = await supabase.rpc('get_practice_questions', {
+    p_question_ids: questionIds,
+  })
+
+  if (error) return { questions: [], error }
+  return { questions: parsePracticeQuestions(data), error: null }
+}
+
+/**
+ * Fetch the frozen question list of a STORED practice session (owner-only).
+ * The RPC returns the entries in stored `question_order`, so the ARRAY
+ * POSITION is the running order — the stored value itself is not a reliable
+ * index (seeded rows are 1-based while the submit RPC writes 0-based).
+ */
+export async function fetchPracticeSessionQuestions(
+  sessionId: string,
+): Promise<{ questions: PracticeQuestion[]; error: unknown }> {
+  const { data, error } = await supabase.rpc('get_practice_session_questions', {
+    p_session_id: sessionId,
+  })
+
+  if (error) return { questions: [], error }
+  return { questions: parsePracticeQuestions(data), error: null }
 }
 
 export interface PracticeSession {
@@ -95,13 +114,11 @@ export interface PracticeSession {
   topicName: string
   subTopicName: string
   totalQuestions: number
-  currentQuestionIndex: number
   correctAnswers: number
   answerCount: number // Actual number of answered questions
   durationSeconds: number
   createdAt: string | null
   completedAt: string | null
-  aiSummary: string | null
   // Loaded separately (content only — see PracticeQuestion)
   questions: PracticeQuestion[]
   answers: PracticeAnswer[]

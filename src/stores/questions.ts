@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import type { Database } from '@/types/database.types'
 import { useCurriculumStore } from './curriculum'
@@ -10,7 +10,6 @@ import {
   removeStorageObjects,
   createBucketImageHelpers,
 } from '@/lib/storage'
-import { useCascadingFilters } from '@/composables/useCascadingFilters'
 
 export type QuestionRow = Database['public']['Tables']['questions']['Row']
 export type QuestionType = Database['public']['Enums']['question_type']
@@ -70,18 +69,6 @@ export interface BankQuestionSummary {
   question: string
   subTopicId: string
   subTopicName: string
-}
-
-export interface QuestionStatistics {
-  questionId: string
-  attempts: number
-  correctCount: number
-  correctnessRate: number
-  averageTimeSeconds: number
-}
-
-export interface QuestionWithStats extends Question {
-  stats: QuestionStatistics
 }
 
 export interface CreateQuestionInput {
@@ -220,8 +207,8 @@ function applyOptionsToRow(
  * Read paths after P11a (decision 76) — `questions.answer`,
  * `option_N_is_correct` and `option_N_tip` are REVOKED from `authenticated`,
  * so a `select('*')` on the table now fails with 42501 for every role:
- * - ADMIN authoring/statistics/feedback → `get_bank_questions` /
- *   `get_bank_question` (definer, admin-gated) → `questions` (full fidelity).
+ * - ADMIN authoring → `get_bank_questions` (definer, admin-gated) →
+ *   `questions` (full fidelity).
  * - STAFF (teacher/manager) → `fetchBankSummaries`, named content columns
  *   only → `bankSummaries` (no correctness of any kind).
  * - STUDENTS never read the bank through this store; practice content comes
@@ -233,43 +220,11 @@ function applyOptionsToRow(
 export const useQuestionsStore = defineStore('questions', () => {
   const curriculumStore = useCurriculumStore()
 
-  const questions = ref<Question[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   // Staff-facing, key-free listing (assessment builder's bank picker)
   const bankSummaries = ref<BankQuestionSummary[]>([])
-
-  // Question statistics (fetched separately or computed from practice_answers)
-  const questionStatistics = ref<QuestionStatistics[]>([])
-
-  // ============================================
-  // Question Feedback Page State (persisted across navigation)
-  // ============================================
-  const questionFeedbackFilters = ref({
-    search: '',
-  })
-
-  const questionFeedbackPagination = ref({
-    pageIndex: 0,
-    pageSize: 10,
-  })
-
-  // ============================================
-  // Question Statistics Page State (persisted across navigation)
-  // ============================================
-  const {
-    filters: questionStatisticsFilters,
-    pagination: questionStatisticsPagination,
-    setGradeLevel: setQuestionStatisticsGradeLevel,
-    setSubject: setQuestionStatisticsSubject,
-    setTopic: setQuestionStatisticsTopic,
-    setSubTopic: setQuestionStatisticsSubTopic,
-    setSearch: setQuestionStatisticsSearch,
-    setPageIndex: setQuestionStatisticsPageIndex,
-    setPageSize: setQuestionStatisticsPageSize,
-    resetFilters: resetQuestionStatisticsFilters,
-  } = useCascadingFilters({ hasSearch: true })
 
   /**
    * Resolve a selected name-path to the exact set of sub_topic IDs by walking
@@ -303,52 +258,10 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * ADMIN ONLY — load the whole bank (answer keys and tips included) into the
-   * local `questions` array, for the statistics and feedback pages.
-   * `get_bank_questions` is the only read path left: the key columns are
-   * revoked from `authenticated` (P11a/decision 76), so a direct table read of
-   * `*` fails with 42501 for every role, admins included.
-   */
-  async function fetchBankQuestions(): Promise<void> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      if (curriculumStore.gradeLevels.length === 0) {
-        await curriculumStore.fetchCurriculum()
-      }
-
-      const BATCH_SIZE = 1000
-      const allRows: QuestionRowWithTags[] = []
-      let from = 0
-      let hasMore = true
-
-      while (hasMore) {
-        // SETOF questions ⇒ PostgREST still applies select/order/range and the
-        // question_tags embed, so `rowToQuestion` consumes the same shape.
-        const { data, error: fetchError } = await supabase
-          .rpc('get_bank_questions', {})
-          .select(QUESTION_WITH_TAGS_SELECT)
-          .order('created_at', { ascending: false })
-          .range(from, from + BATCH_SIZE - 1)
-
-        if (fetchError) throw fetchError
-        allRows.push(...(data ?? []))
-        hasMore = (data?.length ?? 0) === BATCH_SIZE
-        from += BATCH_SIZE
-      }
-
-      questions.value = allRows.map((row) => rowToQuestion(row, curriculumStore))
-    } catch (err) {
-      error.value = handleError(err, 'failedFetchQuestions')
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
    * ADMIN ONLY — the authoring panel's questions for one sub-topic, keys and
-   * tips included (see `fetchBankQuestions` for why this is an RPC).
+   * tips included. `get_bank_questions` is the only read path left: the key
+   * columns are revoked from `authenticated` (P11a/decision 76), so a direct
+   * table read of `*` fails with 42501 for every role, admins included.
    */
   async function fetchBankQuestionsBySubTopic(
     subTopicId: string,
@@ -570,47 +483,6 @@ export const useQuestionsStore = defineStore('questions', () => {
     }
   }
 
-  /**
-   * Get a question by ID
-   */
-  function getQuestionById(id: string): Question | undefined {
-    return questions.value.find((q) => q.id === id)
-  }
-
-  /**
-   * ADMIN ONLY — fetch a single question by ID and add/update it in the store.
-   * Used for on-demand loading (e.g., feedback page preview); goes through the
-   * admin definer RPC because the key columns are revoked (P11a).
-   */
-  async function fetchQuestionById(id: string): Promise<{ error: string | null }> {
-    try {
-      const { data, error: fetchError } = await supabase
-        .rpc('get_bank_question', { p_question_id: id })
-        .select(QUESTION_WITH_TAGS_SELECT)
-        .maybeSingle()
-
-      if (fetchError) {
-        return { error: handleError(fetchError, 'failedFetchQuestion') }
-      }
-
-      if (data) {
-        const question = rowToQuestion(data, curriculumStore)
-        // Update existing or add new
-        const existingIndex = questions.value.findIndex((q) => q.id === id)
-        if (existingIndex >= 0) {
-          questions.value[existingIndex] = question
-        } else {
-          questions.value.push(question)
-        }
-      }
-
-      return { error: null }
-    } catch (err) {
-      const message = handleError(err, 'failedFetchQuestion')
-      return { error: message }
-    }
-  }
-
   function uploadQuestionImage(file: File, optionId?: 'a' | 'b' | 'c' | 'd') {
     const folder = optionId ? `options/${optionId}` : 'questions'
     return uploadStorageFile('question-images', file, { folder })
@@ -625,82 +497,6 @@ export const useQuestionsStore = defineStore('questions', () => {
     getOptimizedImageUrl: getOptimizedQuestionImageUrl,
     getThumbnailImageUrl: getThumbnailQuestionImageUrl,
   } = createBucketImageHelpers('question-images')
-
-  /**
-   * Fetch question statistics via admin-only RPC function.
-   * Uses batch pagination to avoid the default 1000-row limit.
-   */
-  async function fetchQuestionStatistics(): Promise<void> {
-    error.value = null
-    try {
-      const BATCH_SIZE = 1000
-      const allRows: NonNullable<
-        Awaited<ReturnType<typeof supabase.rpc<'get_question_statistics'>>>['data']
-      > = []
-      let from = 0
-      let hasMore = true
-
-      while (hasMore) {
-        const { data, error: fetchError } = await supabase
-          .rpc('get_question_statistics')
-          .range(from, from + BATCH_SIZE - 1)
-
-        if (fetchError) throw fetchError
-        allRows.push(...(data ?? []))
-        hasMore = (data?.length ?? 0) === BATCH_SIZE
-        from += BATCH_SIZE
-      }
-
-      questionStatistics.value = allRows
-        .filter((row) => row.question_id !== null)
-        .map((row) => ({
-          questionId: row.question_id!,
-          attempts: row.attempts ?? 0,
-          correctCount: row.correct_count ?? 0,
-          correctnessRate: row.correctness_rate ?? 0,
-          averageTimeSeconds: row.avg_time_seconds ?? 0,
-        }))
-    } catch (err) {
-      error.value = handleError(err, 'failedFetchStatistics')
-    }
-  }
-
-  const statsMap = computed(() => new Map(questionStatistics.value.map((s) => [s.questionId, s])))
-
-  function getStatsByQuestionId(id: string): QuestionStatistics | undefined {
-    return statsMap.value.get(id)
-  }
-
-  /**
-   * Refresh the materialized view for question statistics and re-fetch
-   */
-  async function refreshQuestionStatistics(): Promise<{ error: string | null }> {
-    try {
-      const { error: rpcError } = await supabase.rpc('refresh_question_statistics')
-      if (rpcError) throw rpcError
-
-      await fetchQuestionStatistics()
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedRefreshStatistics') }
-    }
-  }
-
-  /**
-   * Get questions with statistics
-   */
-  const questionsWithStats = computed<QuestionWithStats[]>(() => {
-    return questions.value.map((q) => {
-      const stats = statsMap.value.get(q.id) ?? {
-        questionId: q.id,
-        attempts: 0,
-        correctCount: 0,
-        correctnessRate: 0,
-        averageTimeSeconds: 0,
-      }
-      return { ...q, stats }
-    })
-  })
 
   // Filter helpers — derive from curriculum store (works without loading all questions)
   function getGradeLevels(): string[] {
@@ -783,71 +579,29 @@ export const useQuestionsStore = defineStore('questions', () => {
     return bankSummaries.value.filter((q) => idSet.has(q.subTopicId))
   }
 
-  function getFilteredQuestionsWithStats(
-    gradeLevelName?: string,
-    subjectName?: string,
-    topicName?: string,
-    subTopicName?: string,
-  ): QuestionWithStats[] {
-    const idSet = resolveFilterSubTopicIdSet(gradeLevelName, subjectName, topicName, subTopicName)
-    if (idSet === null) return questionsWithStats.value
-    return questionsWithStats.value.filter((q) => idSet.has(q.subTopicId))
-  }
-
-  // ============================================
-  // Question Feedback Page Setters (simpler, no cascading)
-  // ============================================
-  function setQuestionFeedbackSearch(value: string) {
-    questionFeedbackFilters.value.search = value
-    questionFeedbackPagination.value.pageIndex = 0
-  }
-
-  function setQuestionFeedbackPageIndex(value: number) {
-    questionFeedbackPagination.value.pageIndex = value
-  }
-
-  function setQuestionFeedbackPageSize(value: number) {
-    questionFeedbackPagination.value.pageSize = value
-    questionFeedbackPagination.value.pageIndex = 0
-  }
-
   function $reset() {
-    questions.value = []
     bankSummaries.value = []
-    questionStatistics.value = []
     isLoading.value = false
     error.value = null
-    resetQuestionStatisticsFilters()
-    questionFeedbackFilters.value = { search: '' }
-    questionFeedbackPagination.value = { pageIndex: 0, pageSize: 10 }
   }
 
   return {
     // State
-    questions,
     bankSummaries,
-    questionStatistics,
-    questionsWithStats,
     isLoading,
     error,
 
     // Actions
-    fetchBankQuestions,
     fetchBankQuestionsBySubTopic,
     fetchBankSummaries,
-    fetchQuestionById,
     addQuestion,
     updateQuestion,
     deleteQuestion,
-    getQuestionById,
     uploadQuestionImage,
     deleteQuestionImage,
     getQuestionImageUrl,
     getOptimizedQuestionImageUrl,
     getThumbnailQuestionImageUrl,
-    fetchQuestionStatistics,
-    refreshQuestionStatistics,
-    getStatsByQuestionId,
 
     // Filter helpers
     getGradeLevels,
@@ -855,25 +609,6 @@ export const useQuestionsStore = defineStore('questions', () => {
     getTopics,
     getSubTopics,
     getFilteredBankSummaries,
-    getFilteredQuestionsWithStats,
-
-    // Question Feedback Page State
-    questionFeedbackFilters,
-    questionFeedbackPagination,
-    setQuestionFeedbackSearch,
-    setQuestionFeedbackPageIndex,
-    setQuestionFeedbackPageSize,
-
-    // Question Statistics Page State
-    questionStatisticsFilters,
-    questionStatisticsPagination,
-    setQuestionStatisticsGradeLevel,
-    setQuestionStatisticsSubject,
-    setQuestionStatisticsTopic,
-    setQuestionStatisticsSubTopic,
-    setQuestionStatisticsSearch,
-    setQuestionStatisticsPageIndex,
-    setQuestionStatisticsPageSize,
 
     $reset,
   }

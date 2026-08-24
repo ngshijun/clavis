@@ -58,22 +58,15 @@ export default {
     failedUpdateGradeLevel: 'Failed to update grade level.',
     failedUpdateSchool: 'Failed to update school.',
     failedUpdateLanguage: 'Failed to update language preference.',
-    failedUpdateTour: 'Failed to update tour status.',
     // Practice
     onlyStudentsCanPractice: 'Only students can start practice sessions.',
     subTopicNotFound: 'Sub-topic not found.',
     noQuestionsAvailable: 'No questions available for this sub-topic.',
-    noActiveSessionOrQuestion: 'No active session or question.',
     noActiveSession: 'No active session.',
-    sessionAlreadyCompleted: 'Session is already completed.',
     sessionNotFound: 'Session not found.',
-    sessionQuestionsNotFound: 'Session questions not found.',
     unauthorizedSessionAccess: 'You do not have access to this session.',
     failedStartSession: 'Failed to start session.',
-    failedSubmitAnswer: 'Failed to submit answer.',
     failedCompleteSession: 'Failed to complete session.',
-    failedResumeSession: 'Failed to resume session.',
-    failedGenerateSummary: 'Failed to generate AI summary.',
     failedFetchSession: 'Failed to load session.',
     failedFetchSessionHistory: 'Failed to load session history.',
     failedFetchSubTopicStats: 'Failed to load your learning progress.',
@@ -98,15 +91,9 @@ export default {
     subjectNotFound: 'Subject not found.',
     topicNotFound: 'Topic not found.',
     // Statistics & engagement (shared)
-    failedFetchStatistics: 'Failed to load statistics.',
-    failedRefreshStatistics: 'Failed to refresh statistics.',
     // Feedback
-    failedFetchFeedbacks: 'Failed to load feedback.',
-    failedDeleteFeedback: 'Failed to delete feedback.',
-    failedSubmitFeedback: 'Failed to submit feedback.',
     // Questions (admin & student)
     failedFetchQuestions: 'Failed to load questions.',
-    failedFetchQuestion: 'Failed to load question.',
     failedAddQuestion: 'Failed to add question.',
     failedUpdateQuestion: 'Failed to update question.',
     failedDeleteQuestion: 'Failed to delete question.',
@@ -180,15 +167,6 @@ export default {
     provisionFailed: 'Failed to create the account. Please try again.',
     // Admin dashboard
     failedFetchDashboardStats: 'Failed to load dashboard stats.',
-    // Announcements
-    failedFetchAnnouncements: 'Failed to load announcements.',
-    failedMarkAsRead: 'Failed to mark as read.',
-    failedMarkAllAsRead: 'Failed to mark all as read.',
-    failedCreateAnnouncement: 'Failed to create announcement.',
-    failedUpdateAnnouncement: 'Failed to update announcement.',
-    failedTogglePin: 'Failed to toggle pin status.',
-    failedDeleteAnnouncement: 'Failed to delete announcement.',
-    announcementNotFound: 'Announcement not found.',
     // Storage helpers
     failedUploadImage: 'Failed to upload image.',
     failedDeleteImage: 'Failed to delete image.',
@@ -202,29 +180,6 @@ export default {
     title: 'New version available',
     description: 'Refresh the page to get the latest updates.',
     refresh: 'Refresh',
-  },
-  tours: {
-    prevBtn: '← Previous',
-    nextBtn: 'Next →',
-    doneBtnText: 'Done',
-    mainTour: {
-      student: {
-        step1: {
-          title: 'Navigation Menu',
-          description:
-            'This is your navigation menu. Use it to access all the features of the app.',
-        },
-        step2: {
-          title: 'Your Progress',
-          description: 'See your practice activity and progress at a glance here.',
-        },
-        step3: {
-          title: 'Your Profile',
-          description:
-            'Access your profile and settings here. You can restart this tour anytime from your Profile page.',
-        },
-      },
-    },
   },
   actions: {
     edit: 'Edit',
@@ -242,16 +197,11 @@ export default {
     allSubjects: 'All Subjects',
     allTopics: 'All Topics',
     allSubTopics: 'All Sub-Topics',
-    hideInProgress: 'Hide in progress',
     dateRangeOptions: {
       today: 'Today',
       last7Days: 'Last 7 Days',
       last30Days: 'Last 30 Days',
       allTime: 'All Time',
-    },
-    status: {
-      completed: 'Completed',
-      inProgress: 'In Progress',
     },
     practiceHistoryColumns: {
       grade: 'Grade',
@@ -259,7 +209,6 @@ export default {
       topic: 'Topic',
       subTopic: 'Sub-Topic',
       completedAt: 'Completed At',
-      status: 'Status',
       score: 'Score',
       duration: 'Duration',
     },
@@ -287,53 +236,10 @@ export default {
     cancel: 'Cancel',
     save: 'Save',
   },
-  announcementsWidget: {
-    title: 'Unread Announcements',
-    noUnread: 'No unread announcements',
-    viewAll: 'View All',
-  },
   bestSubjectCard: {
     title: 'Top Topics',
     averageLabel: (score: number) => `Avg: ${score}%`,
     practiceMore: 'Practice more to unlock!',
-  },
-  inProgressSessionsCard: {
-    title: 'In-Progress Sessions',
-    active: (count: number) => `${count} active`,
-    continueWhere: 'Continue where you left off',
-    startedCol: 'Started',
-    subjectCol: 'Subject',
-    topicCol: 'Topic',
-    subTopicCol: 'Sub-Topic',
-    progressCol: 'Progress',
-    questionsProgress: (answered: number, total: number, correct: number) =>
-      `${answered}/${total} questions (${correct} correct)`,
-    continue: 'Continue',
-    noSessions: 'No sessions in progress',
-    noSessionsHint: 'Start a new practice session to see it here',
-    startPractice: 'Start Practice',
-  },
-  questionFeedbackDialog: {
-    title: 'Report an Issue',
-    description: "Let us know if there's something wrong with this question",
-    issueTypeLabel: 'Issue Type',
-    issueTypePlaceholder: 'Select an issue type',
-    additionalDetails: 'Additional Details (optional)',
-    additionalDetailsPlaceholder: 'Describe the issue in more detail...',
-    cancel: 'Cancel',
-    submitFeedback: 'Submit Feedback',
-    submitting: 'Submitting...',
-    toastSuccess: 'Feedback submitted',
-    toastSuccessDesc: 'Thank you for helping us improve!',
-    toastFailed: 'Failed to submit feedback',
-    categories: {
-      question_error: 'Question has an error',
-      image_error: 'Image is incorrect or missing',
-      option_error: 'Answer options are wrong',
-      answer_error: 'Correct answer is wrong',
-      explanation_error: 'Explanation is incorrect',
-      other: 'Other',
-    },
   },
   sessionSummaryCards: {
     score: 'Score',
@@ -409,34 +315,6 @@ export default {
     rubric: 'Marking guide',
     teacherComment: "Teacher's comment",
     explanation: 'Explanation',
-  },
-  announcementDetailDialog: {
-    expiresOn: (date: string) => `Expires on ${date}`,
-    expiredOn: (date: string) => `Expired on ${date}`,
-  },
-  announcementFormDialog: {
-    editTitle: 'Edit Announcement',
-    newTitle: 'New Announcement',
-    editDesc: 'Update announcement details.',
-    newDesc: 'Create a new announcement for users.',
-    titleLabel: 'Title',
-    titlePlaceholder: 'Enter announcement title',
-    contentLabel: 'Content',
-    contentPlaceholder: 'Enter announcement content...',
-    targetAudienceLabel: 'Target Audience',
-    audiencePlaceholder: 'Select audience',
-    pinToTop: 'Pin to Top',
-    imageLabel: 'Image (Optional)',
-    uploadImage: 'Upload Image',
-    expiresAtLabel: 'Expires At (Optional)',
-    noExpiryDate: 'No expiry date - click to set',
-    cancel: 'Cancel',
-    update: 'Update',
-    create: 'Create',
-    toastUpdated: 'Announcement updated successfully',
-    toastCreated: 'Announcement created successfully',
-    yes: 'Yes',
-    no: 'No',
   },
   curriculumDeleteDialog: {
     title: (name: string) => `Delete "${name}"?`,
@@ -583,22 +461,7 @@ export default {
     tipLabel: 'Tip:',
     emptyOption: '(Empty option)',
   },
-  announcements: {
-    audience: {
-      all: 'All Users',
-      studentsOnly: 'Students Only',
-      parentsOnly: 'Parents Only',
-    },
-  },
   pages: {
-    announcements: {
-      title: 'Announcements',
-      subtitle: 'Stay updated with the latest news and updates',
-      markAllAsRead: 'Mark all as read',
-      noAnnouncements: 'No announcements yet. Check back later!',
-      toastMarkAllReadFailed: (error: string) => error,
-      toastMarkedAllRead: 'All announcements marked as read',
-    },
     staffProfile: {
       title: 'My Profile',
       subtitle: 'Manage your account settings',
@@ -635,13 +498,6 @@ export default {
       darkOption: 'Dark',
       continueButton: 'Continue',
     },
-    welcomeTourDialog: {
-      title: 'Welcome to Clavis!',
-      description:
-        'Looks like this is your first time here. Would you like a quick tour of the app?',
-      skip: 'Skip',
-      startTour: 'Start Tour',
-    },
     sidebar: {
       navigation: 'Navigation',
       learningPlatform: 'Learning Platform',
@@ -654,14 +510,11 @@ export default {
       nav: {
         admin: {
           dashboard: 'Dashboard',
-          announcements: 'Announcements',
           organizations: 'Organizations',
           questionBank: 'Question Bank',
           curriculum: 'Curriculum',
           assessmentTemplates: 'Templates',
           learningPoints: 'Learning Points',
-          questionStatistics: 'Question Statistics',
-          questionFeedback: 'Question Feedback',
         },
         manager: {
           dashboard: 'Dashboard',
@@ -679,7 +532,6 @@ export default {
         student: {
           classrooms: 'Classes',
           dashboard: 'Dashboard',
-          announcements: 'Announcements',
           practice: 'Practice',
           assessments: 'Assessments',
           statistics: 'Statistics',

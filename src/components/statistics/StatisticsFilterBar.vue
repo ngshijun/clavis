@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Calendar } from 'lucide-vue-next'
 import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
@@ -24,14 +23,12 @@ defineProps<{
   subTopic: string
   availableTopics: string[]
   availableSubTopics: string[]
-  hideInProgress: boolean
 }>()
 
 const emit = defineEmits<{
   'update:dateRange': [value: DateRangeFilter]
   'update:topic': [value: string]
   'update:subTopic': [value: string]
-  'update:hideInProgress': [value: boolean]
 }>()
 </script>
 
@@ -90,14 +87,5 @@ const emit = defineEmits<{
         </SelectItem>
       </SelectContent>
     </Select>
-
-    <!-- Hide In Progress Checkbox -->
-    <label class="flex items-center gap-2 text-sm">
-      <Checkbox
-        :model-value="hideInProgress"
-        @update:model-value="emit('update:hideInProgress', !!$event)"
-      />
-      {{ t.shared.statsFilterBar.hideInProgress }}
-    </label>
   </div>
 </template>
