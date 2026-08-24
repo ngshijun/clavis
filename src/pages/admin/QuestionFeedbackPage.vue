@@ -311,11 +311,6 @@ const columns: ColumnDef<QuestionFeedback>[] = [
 
 <template>
   <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.admin.questionFeedback.title }}</h1>
-      <p class="text-muted-foreground">{{ t.admin.questionFeedback.subtitle }}</p>
-    </div>
-
     <!-- Loading State -->
     <div v-if="feedbackStore.isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />

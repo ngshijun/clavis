@@ -70,11 +70,7 @@ async function handleMarkAllAsRead() {
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.shared.pages.announcements.title }}</h1>
-        <p class="text-muted-foreground">{{ t.shared.pages.announcements.subtitle }}</p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button
         v-if="announcementsStore.unreadCount > 0"
         variant="outline"

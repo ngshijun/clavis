@@ -1,4 +1,13 @@
 export default {
+  breadcrumbs: {
+    profile: '个人资料',
+    classrooms: '班级',
+    quiz: '练习',
+    sessionResult: '练习结果',
+    attempt: '作答',
+    result: '成绩',
+  },
+
   authErrors: {
     invalidCredentials: '邮箱或密码不正确。',
     emailNotConfirmed: '请先确认您的电子邮件再登录。',
@@ -594,12 +603,6 @@ export default {
     },
   },
   layout: {
-    greetings: {
-      morning: '早上好',
-      afternoon: '下午好',
-      evening: '晚上好',
-      withName: (greeting: string, name: string) => `${greeting}，${name}`,
-    },
     gradeDialog: {
       title: '设置你的年级',
       description: '请选择你目前的年级，以便为你个性化学习体验，帮助我们为你推荐合适的内容。',

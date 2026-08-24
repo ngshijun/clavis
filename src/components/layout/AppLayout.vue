@@ -26,13 +26,17 @@ import { Loader2 } from 'lucide-vue-next'
 import { useTour } from '@/composables/useTour'
 import { useT } from '@/composables/useT'
 import AppSidebar from './AppSidebar.vue'
+import AppBreadcrumbs from './AppBreadcrumbs.vue'
+import HeaderUser from './HeaderUser.vue'
 import ClassroomNotFound from './ClassroomNotFound.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import LanguageToggle from './LanguageToggle.vue'
 import PreferencesDialog from './PreferencesDialog.vue'
 import { useLanguageStore } from '@/stores/language'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
+import { useRoute } from 'vue-router'
 const authStore = useAuthStore()
+const route = useRoute()
 const curriculumStore = useCurriculumStore()
 const t = useT()
 const languageStore = useLanguageStore()
@@ -43,7 +47,23 @@ const { showWelcomeDialog, promptTour, startTour, skipTour } = useTour()
  * identical for students and teachers, and a page that renders its own empty
  * state instead would claim the user has no classroom at all.
  */
-const { isUnknown: isUnknownClassroom } = useActiveClassroom()
+const { isUnknown: isUnknownClassroom, classroomId } = useActiveClassroom()
+
+/**
+ * The class PICKER has no sidebar (decision 84). It is the screen you use to
+ * choose a classroom, and every sidebar link below it belongs to a classroom
+ * you have not chosen yet — so the nav would either be empty or point
+ * somewhere you are not.
+ *
+ * Named explicitly rather than matched on a `-classrooms` suffix: that also
+ * caught `manager-classrooms`, which is the org's classroom MANAGEMENT page
+ * and needs its nav.
+ */
+const PICKER_ROUTES = new Set(['teacher-classrooms', 'student-classrooms'])
+
+const showSidebar = computed(
+  () => !(PICKER_ROUTES.has(String(route.name ?? '')) && !classroomId.value),
+)
 
 const PREFERENCES_STORAGE_KEY = 'preferences_confirmed'
 
@@ -108,23 +128,6 @@ async function handleSaveGrade() {
     isSaving.value = false
   }
 }
-
-const greeting = computed(() => {
-  const hour = new Date().getHours()
-  const greetings = t.value.shared.layout.greetings
-  let timeGreeting: string
-
-  if (hour < 12) {
-    timeGreeting = greetings.morning
-  } else if (hour < 18) {
-    timeGreeting = greetings.afternoon
-  } else {
-    timeGreeting = greetings.evening
-  }
-
-  const userName = authStore.user?.name
-  return userName ? greetings.withName(timeGreeting, userName) : timeGreeting
-})
 </script>
 
 <template>
@@ -145,17 +148,21 @@ const greeting = computed(() => {
   </div>
 
   <SidebarProvider v-else>
-    <AppSidebar />
+    <AppSidebar v-if="showSidebar" />
     <SidebarInset>
       <header class="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-4">
         <div class="flex min-w-0 items-center gap-2">
-          <SidebarTrigger class="-ml-1 shrink-0" />
-          <Separator orientation="vertical" class="mr-2 h-4 shrink-0" />
-          <h1 class="truncate text-lg font-medium">{{ greeting }}</h1>
+          <template v-if="showSidebar">
+            <SidebarTrigger class="-ml-1 shrink-0" />
+            <Separator orientation="vertical" class="mr-2 h-4 shrink-0" />
+          </template>
+          <AppBreadcrumbs />
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
           <LanguageToggle />
           <ThemeToggle />
+          <Separator orientation="vertical" class="h-4" />
+          <HeaderUser />
         </div>
       </header>
       <main class="flex-1 overflow-auto">

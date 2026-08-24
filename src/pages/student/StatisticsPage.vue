@@ -151,11 +151,6 @@ function confirmResume() {
 
 <template>
   <div class="space-y-6 p-6">
-    <div>
-      <h1 class="text-2xl font-bold">{{ t.student.statistics.title }}</h1>
-      <p class="text-muted-foreground">{{ t.student.statistics.subtitle }}</p>
-    </div>
-
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />

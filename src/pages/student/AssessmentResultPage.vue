@@ -43,15 +43,10 @@ onMounted(async () => {
           <ArrowLeft class="size-4" />
           <span class="sr-only">{{ t.student.assessmentResult.back }}</span>
         </Button>
-        <div>
-          <h1 class="text-2xl font-bold">
-            {{ store.review.title || t.student.assessmentResult.title }}
-          </h1>
-          <p v-if="store.review.completedAt" class="text-sm text-muted-foreground">
-            {{ t.student.assessmentResult.completedLabel }}:
-            {{ formatDateTime(store.review.completedAt) }}
-          </p>
-        </div>
+        <p v-if="store.review.completedAt" class="text-sm text-muted-foreground">
+          {{ t.student.assessmentResult.completedLabel }}:
+          {{ formatDateTime(store.review.completedAt) }}
+        </p>
       </div>
 
       <!-- Score withheld (decision 70): no numbers at all, only the awaiting state -->

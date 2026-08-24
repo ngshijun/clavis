@@ -284,17 +284,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">
-          {{ isTemplateMode ? t.staff.assessments.templatesTitle : t.staff.assessments.title }}
-        </h1>
-        <p class="text-muted-foreground">
-          {{
-            isTemplateMode ? t.staff.assessments.templatesSubtitle : t.staff.assessments.subtitle
-          }}
-        </p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button
         v-if="!authStore.isManager"
         :disabled="assessmentsStore.isLoading"

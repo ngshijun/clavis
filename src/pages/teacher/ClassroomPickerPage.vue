@@ -50,11 +50,6 @@ watch(() => classroomsStore.hasLoaded, skipWhenSole)
 
 <template>
   <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.staff.classroomPicker.title }}</h1>
-      <p class="text-muted-foreground">{{ t.staff.classroomPicker.subtitle }}</p>
-    </div>
-
     <div v-if="classroomsStore.isLoading" class="flex items-center justify-center py-16">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>

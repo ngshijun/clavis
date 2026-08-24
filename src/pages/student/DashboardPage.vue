@@ -48,12 +48,6 @@ watch(
 
 <template>
   <div class="p-6">
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.student.dashboard.title }}</h1>
-      <p class="text-muted-foreground">{{ t.student.dashboard.subtitle }}</p>
-    </div>
-
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />

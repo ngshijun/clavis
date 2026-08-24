@@ -309,11 +309,7 @@ const columns: ColumnDef<Announcement>[] = [
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.admin.announcements.title }}</h1>
-        <p class="text-muted-foreground">{{ t.admin.announcements.subtitle }}</p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button :disabled="announcementsStore.isLoading" @click="openAddDialog">
         <Plus class="mr-2 size-4" />
         {{ t.admin.announcements.addAnnouncementBtn }}

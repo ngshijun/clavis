@@ -20,7 +20,7 @@ import { useT } from '@/composables/useT'
 const t = useT()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
-const { classroomId, classroom } = useActiveClassroom()
+const { classroomId } = useActiveClassroom()
 
 /**
  * The classroom table (and its drill-down) is a MANAGER surface: it exists to
@@ -29,16 +29,6 @@ const { classroomId, classroom } = useActiveClassroom()
  * that filtered the student list to the students already shown.
  */
 const showClassrooms = computed(() => authStore.isManager)
-
-const subtitle = computed(() => {
-  // A teacher's dashboard names the classroom it belongs to — the URL says
-  // which one, and so should the page.
-  if (authStore.isTeacher) return classroom.value?.name ?? t.value.staff.dashboard.subtitleTeacher
-  const organizationName = authStore.user?.organizationName
-  return organizationName
-    ? t.value.staff.dashboard.subtitleManager(organizationName)
-    : t.value.staff.dashboard.subtitleManagerFallback
-})
 
 // ── Classroom drill-down ─────────────────────────
 const selectedClassroom = ref<ClassroomRollup | null>(null)
@@ -252,11 +242,6 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
 
 <template>
   <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">{{ t.staff.dashboard.title }}</h1>
-      <p class="text-muted-foreground">{{ subtitle }}</p>
-    </div>
-
     <!-- Loading State -->
     <div v-if="dashboardStore.isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />

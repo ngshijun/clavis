@@ -361,13 +361,10 @@ function handleImageRemoved(
 <template>
   <div class="p-6">
     <div class="editor-column">
-      <!-- Header -->
-      <div class="mb-6">
-        <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-bold">{{ t.admin.curriculum.title }}</h1>
-          <SaveStatusPill :status="saveStatus" />
-        </div>
-        <p class="text-muted-foreground">{{ t.admin.curriculum.subtitle }}</p>
+      <!-- The page name lives in the header breadcrumb (decision 84); only
+           the save state needs a home here. -->
+      <div class="mb-6 flex items-center justify-end">
+        <SaveStatusPill :status="saveStatus" />
       </div>
 
       <!-- Breadcrumb Navigation -->

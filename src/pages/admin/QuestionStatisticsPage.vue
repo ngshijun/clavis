@@ -280,11 +280,7 @@ function handleRowClick(question: QuestionWithStats) {
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{{ t.admin.questionStatistics.title }}</h1>
-        <p class="text-muted-foreground">{{ t.admin.questionStatistics.subtitle }}</p>
-      </div>
+    <div class="mb-6 flex items-center justify-end">
       <Button variant="outline" :disabled="isRefreshing" @click="refreshStatistics">
         <RefreshCw :class="['size-4 mr-2', { 'animate-spin': isRefreshing }]" />
         {{
