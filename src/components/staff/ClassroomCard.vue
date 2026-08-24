@@ -60,11 +60,16 @@ const fallbackHue = computed(() => {
 </script>
 
 <template>
+  <!-- `py-0 gap-0` overrides Card's default vertical padding and gap so the
+       cover is flush with the card's top and side borders. -->
   <Card
-    class="overflow-hidden transition-shadow"
+    class="gap-0 overflow-hidden py-0 transition-shadow"
     :class="clickable ? 'cursor-pointer hover:border-primary/40 hover:shadow-md' : ''"
   >
-    <div class="relative h-24 w-full">
+    <!-- 4:1, the ratio Google Classroom's header images are authored at
+         (800x200), so an image sized for Classroom shows here uncropped. A
+         fixed height instead would change the crop at every breakpoint. -->
+    <div class="relative aspect-[4/1] w-full">
       <img v-if="coverUrl" :src="coverUrl" alt="" class="size-full object-cover" />
       <div
         v-else
@@ -76,7 +81,7 @@ const fallbackHue = computed(() => {
       <slot name="actions" />
     </div>
 
-    <CardContent class="space-y-3 pt-4">
+    <CardContent class="space-y-3 py-4">
       <div class="flex items-start gap-2">
         <School class="mt-0.5 size-5 shrink-0 text-primary" />
         <span class="min-w-0 break-words font-semibold leading-tight">{{ classroom.name }}</span>
