@@ -44,9 +44,17 @@ export default {
     },
   },
 
+  classroomPicker: {
+    title: 'Your classrooms',
+    subtitle: 'Choose a classroom to work in.',
+    empty: 'You have not been assigned to a classroom yet.',
+    unknown: 'That classroom is not one of yours.',
+    backToPicker: 'Back to your classrooms',
+    students: (count: number) => `${count} ${count === 1 ? 'student' : 'students'}`,
+    teachers: (count: number) => `${count} ${count === 1 ? 'teacher' : 'teachers'}`,
+  },
   classrooms: {
     title: 'Classrooms',
-    subtitleTeacher: 'The classrooms you teach',
     subtitleManager: (organization: string) => `Classrooms in ${organization}`,
     subtitleManagerFallback: 'Classrooms in your organization',
     addClassroomBtn: 'Add Classroom',

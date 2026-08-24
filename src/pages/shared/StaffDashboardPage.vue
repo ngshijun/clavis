@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, h, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
 import {
   useStaffDashboardStore,
@@ -7,7 +8,7 @@ import {
   type StudentRollup,
 } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users, X } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,12 +19,15 @@ import { formatTimeAgo } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
+const router = useRouter()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
-const scope = useClassroomScopeStore()
+const { classroomId, classroom, isUnknown } = useActiveClassroom()
 
 const subtitle = computed(() => {
-  if (authStore.isTeacher) return t.value.staff.dashboard.subtitleTeacher
+  // A teacher's dashboard names the classroom it belongs to — the URL says
+  // which one, and so should the page.
+  if (authStore.isTeacher) return classroom.value?.name ?? t.value.staff.dashboard.subtitleTeacher
   const organizationName = authStore.user?.organizationName
   return organizationName
     ? t.value.staff.dashboard.subtitleManager(organizationName)
@@ -37,18 +41,18 @@ const isLoadingClassroomStudents = ref(false)
 
 /**
  * A manager's dashboard is the whole institution (decision 82) and never
- * changes scope, so it loads once. A teacher's belongs to the selected
- * classroom and reloads on every switch.
+ * changes scope, so it loads once. A teacher's belongs to the classroom in the
+ * URL (decision 83) and reloads whenever that segment changes.
  */
 watch(
-  () => (authStore.isManager ? 'organization' : scope.selectedId),
+  () => (authStore.isManager ? 'organization' : classroomId.value),
   async () => {
     selectedClassroom.value = null
     const { error } = await dashboardStore.fetchDashboard(
       authStore.isManager
         ? { kind: 'organization' }
-        : scope.selectedId
-          ? { kind: 'classroom', classroomId: scope.selectedId }
+        : classroomId.value
+          ? { kind: 'classroom', classroomId: classroomId.value }
           : null,
     )
     if (error) {
@@ -241,7 +245,20 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
 </script>
 
 <template>
-  <div class="p-6">
+  <!-- The URL names a classroom this teacher cannot reach (decision 83).
+       Authorization already happened in the DB; this is just an honest page
+       instead of a dashboard full of zeroes. -->
+  <div v-if="isUnknown" class="p-6">
+    <div class="py-16 text-center">
+      <School class="mx-auto size-16 text-muted-foreground/50" />
+      <p class="mt-4 text-muted-foreground">{{ t.staff.classroomPicker.unknown }}</p>
+      <Button variant="outline" class="mt-4" @click="router.push('/teacher/classrooms')">
+        {{ t.staff.classroomPicker.backToPicker }}
+      </Button>
+    </div>
+  </div>
+
+  <div v-else class="p-6">
     <div class="mb-6">
       <h1 class="text-2xl font-bold">{{ t.staff.dashboard.title }}</h1>
       <p class="text-muted-foreground">{{ subtitle }}</p>

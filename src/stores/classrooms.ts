@@ -46,6 +46,8 @@ export const useClassroomsStore = defineStore('classrooms', () => {
 
   const classrooms = ref<ClassroomListItem[]>([])
   const isLoading = ref(false)
+  /** False until the first fetch settles — lets callers tell "empty" from "not yet loaded". */
+  const hasLoaded = ref(false)
   const error = ref<string | null>(null)
 
   const orgStudents = ref<ClassroomStudent[]>([])
@@ -126,6 +128,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
       return { error: message }
     } finally {
       isLoading.value = false
+      hasLoaded.value = true
     }
   }
 
@@ -540,6 +543,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
   }
 
   function $reset() {
+    hasLoaded.value = false
     classrooms.value = []
     isLoading.value = false
     error.value = null
@@ -554,6 +558,7 @@ export const useClassroomsStore = defineStore('classrooms', () => {
   return {
     classrooms,
     isLoading,
+    hasLoaded,
     error,
     filteredClassrooms,
     orgStudents,

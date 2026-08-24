@@ -40,11 +40,6 @@ const pathToNavKey: Record<string, string> = {
   '/manager/students': 'students',
   '/manager/classrooms': 'classrooms',
   '/manager/assessments': 'assessments',
-  '/manager/templates': 'templateLibrary',
-  '/teacher/dashboard': 'dashboard',
-  '/teacher/classrooms': 'classrooms',
-  '/teacher/assessments': 'assessments',
-  '/teacher/templates': 'templateLibrary',
   '/student/dashboard': 'dashboard',
   '/student/announcements': 'announcements',
   '/student/practice': 'practice',
@@ -53,7 +48,9 @@ const pathToNavKey: Record<string, string> = {
 }
 
 function getNavTitle(item: NavItem): string {
-  const key = pathToNavKey[item.path]
+  // Dynamic paths (a teacher's classroom links) carry their key directly;
+  // everything else is looked up by its fixed path.
+  const key = item.navKey ?? pathToNavKey[item.path]
   if (!key) return item.title
   const userType = authStore.userType
   if (!userType) return item.title

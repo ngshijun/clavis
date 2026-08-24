@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
-import { useClassroomScopeStore } from '@/stores/classroom-scope'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import {
   ArrowUpDown,
   BarChart3,
@@ -43,9 +43,7 @@ const t = useT()
 const router = useRouter()
 const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
-const scope = useClassroomScopeStore()
-
-const basePath = computed(() => `/${authStore.userType}`)
+const { classroomId, basePath } = useActiveClassroom()
 
 /**
  * Admin variant: this page lists platform-wide TEMPLATES (is_template=true,
@@ -55,17 +53,17 @@ const basePath = computed(() => `/${authStore.userType}`)
 const isTemplateMode = computed(() => authStore.isAdmin)
 
 /**
- * Keyed to the selected classroom for teachers (decision 79). Admins are
+ * Keyed to the classroom in the URL for teachers (decision 83). Admins are
  * platform-wide and managers institution-wide (decision 82), so both pass
  * null and the list stays whatever RLS returns.
  */
 const isClassroomScoped = computed(() => authStore.isTeacher)
+const scopedClassroomId = computed(() => (isClassroomScoped.value ? classroomId.value : null))
 
 watch(
-  () => (isClassroomScoped.value ? scope.selectedId : 'unscoped'),
+  scopedClassroomId,
   async () => {
-    const classroomId = isClassroomScoped.value ? scope.selectedId : null
-    const { error } = await assessmentsStore.fetchAssessments(classroomId)
+    const { error } = await assessmentsStore.fetchAssessments(scopedClassroomId.value)
     if (error) {
       toast.error(t.value.staff.assessments.toastLoadFailed)
     }
