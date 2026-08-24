@@ -35,12 +35,22 @@ const selectedClassroom = ref<ClassroomRollup | null>(null)
 const classroomStudents = ref<StudentRollup[]>([])
 const isLoadingClassroomStudents = ref(false)
 
-// The dashboard belongs to the selected classroom, so it reloads on a switch.
+/**
+ * A manager's dashboard is the whole institution (decision 82) and never
+ * changes scope, so it loads once. A teacher's belongs to the selected
+ * classroom and reloads on every switch.
+ */
 watch(
-  () => scope.selectedId,
-  async (classroomId) => {
+  () => (authStore.isManager ? 'organization' : scope.selectedId),
+  async () => {
     selectedClassroom.value = null
-    const { error } = await dashboardStore.fetchDashboard(classroomId)
+    const { error } = await dashboardStore.fetchDashboard(
+      authStore.isManager
+        ? { kind: 'organization' }
+        : scope.selectedId
+          ? { kind: 'classroom', classroomId: scope.selectedId }
+          : null,
+    )
     if (error) {
       toast.error(t.value.staff.dashboard.toastLoadFailed)
     }

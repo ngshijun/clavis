@@ -44,9 +44,9 @@ function studentRouteGuard() {
   )
 }
 
-// Manager routes: fire-and-forget data preloading (non-blocking)
+// Manager routes: fire-and-forget data preloading (non-blocking).
+// No classroom scope — a manager's views are institution-wide (decision 82).
 function managerRouteGuard() {
-  classroomScopeGuard()
   Promise.all([import('@/stores/manager-teachers'), import('@/stores/curriculum')]).then(
     ([teachersMod, curriculumMod]) => {
       const teachersStore = teachersMod.useManagerTeachersStore()
