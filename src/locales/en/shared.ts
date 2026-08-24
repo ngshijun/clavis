@@ -227,6 +227,7 @@ export default {
     },
   },
   actions: {
+    edit: 'Edit',
     cancel: 'Cancel',
     delete: 'Delete',
     add: 'Add',

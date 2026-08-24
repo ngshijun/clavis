@@ -2,9 +2,8 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useClassroomsStore } from '@/stores/classrooms'
-import { GraduationCap, Loader2, School, Users } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Loader2, School } from 'lucide-vue-next'
+import ClassroomCard from '@/components/staff/ClassroomCard.vue'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
@@ -60,39 +59,18 @@ watch(() => classroomsStore.hasLoaded, skipWhenSole)
     </div>
 
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card
+      <ClassroomCard
         v-for="classroom in classrooms"
         :key="classroom.id"
-        class="cursor-pointer transition-shadow hover:border-primary/40 hover:shadow-md"
+        :classroom="classroom"
+        show-counts
+        clickable
         role="link"
         tabindex="0"
         @click="open(classroom.id)"
         @keydown.enter="open(classroom.id)"
         @keydown.space.prevent="open(classroom.id)"
-      >
-        <CardHeader>
-          <CardTitle class="flex items-start gap-2">
-            <School class="mt-0.5 size-5 shrink-0 text-primary" />
-            <span class="min-w-0 break-words">{{ classroom.name }}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent class="space-y-3">
-          <div class="flex flex-wrap gap-1">
-            <Badge variant="secondary">{{ classroom.gradeLevelName }}</Badge>
-            <Badge variant="outline">{{ classroom.subjectName }}</Badge>
-          </div>
-          <div class="flex items-center gap-4 text-sm text-muted-foreground">
-            <span class="flex items-center gap-1">
-              <Users class="size-4" />
-              {{ t.staff.classroomPicker.students(classroom.studentCount) }}
-            </span>
-            <span class="flex items-center gap-1">
-              <GraduationCap class="size-4" />
-              {{ t.staff.classroomPicker.teachers(classroom.teacherCount) }}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      />
     </div>
   </div>
 </template>

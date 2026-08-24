@@ -54,6 +54,8 @@ export default {
     teachers: (count: number) => `${count} ${count === 1 ? 'teacher' : 'teachers'}`,
   },
   classrooms: {
+    viewCards: 'Card view',
+    viewTable: 'Table view',
     title: 'Classrooms',
     subtitleManager: (organization: string) => `Classrooms in ${organization}`,
     subtitleManagerFallback: 'Classrooms in your organization',
@@ -81,6 +83,9 @@ export default {
   },
 
   classroomForm: {
+    coverLabel: 'Background',
+    coverAdd: 'Add a background',
+    coverRemove: 'Remove background',
     createTitle: 'Add Classroom',
     createDesc: 'A classroom groups teachers and students around one grade and subject.',
     editTitle: 'Edit Classroom',
