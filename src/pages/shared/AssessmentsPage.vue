@@ -53,11 +53,16 @@ const { classroomId, basePath } = useActiveClassroom()
 const isTemplateMode = computed(() => authStore.isAdmin)
 
 /**
- * Keyed to the classroom in the URL for teachers (decision 83). Admins are
- * platform-wide and managers institution-wide (decision 82), so both pass
- * null and the list stays whatever RLS returns.
+ * Keyed to the classroom in the URL for BOTH org roles (decision 83 for
+ * teachers, decision 87 for managers). Every assessment belongs to exactly one
+ * classroom (decision 81), so this is the only scope in which the list can
+ * answer "which class is this row for?".
+ *
+ * Admins are the exception: they work on the platform template library, which
+ * belongs to no classroom, so they pass null and the list stays whatever RLS
+ * returns.
  */
-const isClassroomScoped = computed(() => authStore.isTeacher)
+const isClassroomScoped = computed(() => !authStore.isAdmin)
 const scopedClassroomId = computed(() => (isClassroomScoped.value ? classroomId.value : null))
 
 watch(

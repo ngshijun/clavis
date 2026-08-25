@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, h, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useClassroomsStore, type ClassroomListItem } from '@/stores/classrooms'
 import { useAuthStore } from '@/stores/auth'
@@ -41,6 +42,7 @@ import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
+const router = useRouter()
 const authStore = useAuthStore()
 const classroomsStore = useClassroomsStore()
 
@@ -48,8 +50,18 @@ const classroomsStore = useClassroomsStore()
  * Manager-only surface: this is where classrooms are CREATED and teachers and
  * students assigned into them, which is inherently org-wide. Teachers get
  * their own picker instead (ClassroomPickerPage, decision 83).
+ *
+ * It doubles as the manager's picker (decision 87) — opening a classroom is
+ * the primary click, and the administrative actions (roster, edit, delete)
+ * are named controls beside it. Roster management used to own the row click,
+ * but "look at how this class is doing" is asked far more often than "change
+ * who is in it", and the roster is still one labelled click away.
  */
 const visibleClassrooms = computed(() => classroomsStore.filteredClassrooms)
+
+function openClassroom(item: ClassroomListItem) {
+  void router.push(`/manager/classrooms/${item.id}/dashboard`)
+}
 
 /**
  * Cards or table. Cards lead because a cover is the fastest way to tell two
@@ -334,14 +346,24 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
           :classroom="classroom"
           show-counts
           clickable
-          role="button"
+          role="link"
           tabindex="0"
-          @click="openMembers(classroom)"
-          @keydown.enter="openMembers(classroom)"
-          @keydown.space.prevent="openMembers(classroom)"
+          @click="openClassroom(classroom)"
+          @keydown.enter="openClassroom(classroom)"
+          @keydown.space.prevent="openClassroom(classroom)"
         >
           <template #actions>
             <div class="absolute right-2 top-2 flex gap-1" @click.stop>
+              <Button
+                variant="secondary"
+                size="icon"
+                class="size-7"
+                :aria-label="t.staff.classrooms.manageMembers"
+                :title="t.staff.classrooms.manageMembers"
+                @click="openMembers(classroom)"
+              >
+                <Users class="size-4" />
+              </Button>
               <Button
                 variant="secondary"
                 size="icon"
@@ -370,7 +392,7 @@ const columns = computed<ColumnDef<ClassroomListItem>[]>(() => {
         v-else
         :columns="columns"
         :data="visibleClassrooms"
-        :on-row-click="openMembers"
+        :on-row-click="openClassroom"
         :page-index="classroomsStore.pagination.pageIndex"
         :page-size="classroomsStore.pagination.pageSize"
         :on-page-index-change="classroomsStore.setPageIndex"

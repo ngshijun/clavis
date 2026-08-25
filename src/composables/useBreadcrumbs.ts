@@ -28,8 +28,9 @@ const SECTION_KEY: Record<string, string> = {
   'manager-teachers': 'teachers',
   'manager-students': 'students',
   'manager-classrooms': 'classrooms',
-  'manager-assessments': 'assessments',
-  'manager-assessment-builder': 'assessments',
+  'manager-classroom-dashboard': 'dashboard',
+  'manager-classroom-assessments': 'assessments',
+  'manager-classroom-assessment-builder': 'assessments',
   'teacher-dashboard': 'dashboard',
   'teacher-assessments': 'assessments',
   'teacher-assessment-builder': 'assessments',
@@ -47,7 +48,7 @@ const SECTION_KEY: Record<string, string> = {
 /** Routes whose section crumb should link back to the section index. */
 const SECTION_PATH: Record<string, string> = {
   'admin-assessment-template-builder': 'assessments',
-  'manager-assessment-builder': 'assessments',
+  'manager-classroom-assessment-builder': 'assessments',
   'teacher-assessment-builder': 'assessments',
   'student-practice-quiz': 'practice',
   'student-session-result': 'practice',

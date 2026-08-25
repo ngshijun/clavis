@@ -27,8 +27,6 @@ export default {
     },
     students: {
       sectionTitle: '学生',
-      classroomFilter: (name: string) => `班级：${name}`,
-      clearClassroomFilter: '显示全部学生',
       nameCol: '姓名',
       usernameCol: '用户名',
       masteryCol: '学习地图掌握度',

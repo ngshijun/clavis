@@ -106,10 +106,11 @@ export type DashboardScope =
  * scopes by role (teacher = classrooms they teach, manager = whole org), and
  * a teacher's selected classroom narrows it further (decision 79).
  *
- * A manager is NOT classroom-scoped (decision 82): they run the institution,
- * so their dashboard is the cross-classroom view. The role scope is the
- * boundary either way — the RPCs cannot be talked into returning another
- * org's rows.
+ * A manager reads this at two altitudes (decision 87): the whole institution,
+ * and — once they step into a classroom — that classroom alone, which is the
+ * same `{ kind: 'classroom' }` load a teacher does. The role scope is the
+ * boundary either way: `get_student_rollups` re-checks that the caller's org
+ * owns the classroom, so the RPCs cannot be talked into another org's rows.
  */
 export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   const classroomRollups = ref<ClassroomRollup[]>([])
@@ -175,26 +176,6 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
   }
 
   /**
-   * Roster of one classroom. Returned (not stored) — the dashboard's
-   * classroom drill-down owns the lifetime of this data.
-   */
-  async function fetchClassroomStudents(
-    classroomId: string,
-  ): Promise<{ students: StudentRollup[]; error: string | null }> {
-    try {
-      const { data, error: fetchError } = await supabase.rpc('get_student_rollups', {
-        p_classroom_id: classroomId,
-      })
-
-      if (fetchError) throw fetchError
-
-      return { students: (data ?? []).map(mapStudentRollup), error: null }
-    } catch (err) {
-      return { students: [], error: handleError(err, 'failedFetchDashboardStats') }
-    }
-  }
-
-  /**
    * Completion summary for one assessment (staff of the assessment's org).
    * Returned (not stored) — the results page owns the lifetime of this data.
    */
@@ -242,7 +223,6 @@ export const useStaffDashboardStore = defineStore('staffDashboard', () => {
     atRiskCount,
     avgMapMastery,
     fetchDashboard,
-    fetchClassroomStudents,
     fetchAssessmentCompletion,
     $reset,
   }

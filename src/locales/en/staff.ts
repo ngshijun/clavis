@@ -27,8 +27,6 @@ export default {
     },
     students: {
       sectionTitle: 'Students',
-      classroomFilter: (name: string) => `Classroom: ${name}`,
-      clearClassroomFilter: 'Show all students',
       nameCol: 'Name',
       usernameCol: 'Username',
       masteryCol: 'Map mastery',

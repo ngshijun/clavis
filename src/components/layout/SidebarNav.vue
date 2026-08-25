@@ -32,7 +32,6 @@ const pathToNavKey: Record<string, string> = {
   '/manager/teachers': 'teachers',
   '/manager/students': 'students',
   '/manager/classrooms': 'classrooms',
-  '/manager/assessments': 'assessments',
 }
 
 function getNavTitle(item: NavItem): string {
