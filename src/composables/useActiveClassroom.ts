@@ -32,12 +32,15 @@ export function useActiveClassroom() {
   const classroomId = computed(() => scope.activeId)
 
   /**
-   * Teachers resolve against `classrooms` (already loaded for their picker,
-   * and it carries the roster counts); everyone else against the scope list.
+   * Staff resolve against `classrooms` — the list both roles already load (a
+   * teacher's picker, a manager's classroom management page), and the only
+   * one carrying roster counts. Students resolve against the scope list.
    */
+  const isStaff = computed(() => authStore.isTeacher || authStore.isManager)
+
   const classroom = computed(() => {
     if (classroomId.value === null) return null
-    if (authStore.isTeacher) {
+    if (isStaff.value) {
       return classroomsStore.classrooms.find((item) => item.id === classroomId.value) ?? null
     }
     return scope.active
@@ -45,9 +48,7 @@ export function useActiveClassroom() {
 
   const isUnknown = computed(() => {
     if (classroomId.value === null) return false
-    return authStore.isTeacher
-      ? classroomsStore.hasLoaded && classroom.value === null
-      : scope.isUnknown
+    return isStaff.value ? classroomsStore.hasLoaded && classroom.value === null : scope.isUnknown
   })
 
   /** Where this role's classroom-scoped pages live. */

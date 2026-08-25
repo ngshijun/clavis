@@ -41,23 +41,35 @@ function studentRouteGuard() {
 }
 
 // Manager routes: fire-and-forget data preloading (non-blocking).
-// No classroom scope — a manager's views are institution-wide (decision 82).
+//
+// A manager keeps the institution-wide overview (decision 82) AND can now step
+// INTO any classroom to inspect it (decision 87), so the classroom list is
+// preloaded here rather than only by the classrooms page — a deep link
+// straight into `/manager/classrooms/:id/…` has to be able to name the
+// classroom it landed in.
 function managerRouteGuard() {
-  Promise.all([import('@/stores/manager-teachers'), import('@/stores/curriculum')]).then(
-    ([teachersMod, curriculumMod]) => {
-      const teachersStore = teachersMod.useManagerTeachersStore()
-      const curriculumStore = curriculumMod.useCurriculumStore()
+  Promise.all([
+    import('@/stores/manager-teachers'),
+    import('@/stores/curriculum'),
+    import('@/stores/classrooms'),
+  ]).then(([teachersMod, curriculumMod, classroomsMod]) => {
+    const teachersStore = teachersMod.useManagerTeachersStore()
+    const curriculumStore = curriculumMod.useCurriculumStore()
+    const classroomsStore = classroomsMod.useClassroomsStore()
 
-      if (teachersStore.teachers.length === 0 && !teachersStore.isLoading) {
-        teachersStore.fetchTeachers()
-      }
+    if (teachersStore.teachers.length === 0 && !teachersStore.isLoading) {
+      teachersStore.fetchTeachers()
+    }
 
-      // Classroom + student provisioning forms need grade levels/subjects.
-      if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
-        curriculumStore.fetchCurriculum()
-      }
-    },
-  )
+    // Classroom + student provisioning forms need grade levels/subjects.
+    if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
+      curriculumStore.fetchCurriculum()
+    }
+
+    if (!classroomsStore.hasLoaded && !classroomsStore.isLoading) {
+      classroomsStore.fetchClassrooms()
+    }
+  })
 }
 
 // Teacher routes: the active classroom comes from the URL (decision 83), so
@@ -188,19 +200,36 @@ const router = createRouter({
           name: 'manager-students',
           component: () => import('@/pages/manager/StudentsPage.vue'),
         },
+        // The org's classroom MANAGEMENT page, and the door into any one of
+        // them (decision 87). Unlike the teacher/student pickers this is a
+        // real page in its own right — classrooms are created and staffed
+        // here — so it keeps its sidebar and never auto-redirects.
         {
           path: 'classrooms',
           name: 'manager-classrooms',
           component: () => import('@/pages/shared/ClassroomsPage.vue'),
         },
+        // Inside one classroom. Same shape and same shared pages as a
+        // teacher's (decision 83), but read-only: a manager reads data, they
+        // do not author teaching material (decision 80, enforced by RLS).
         {
-          path: 'assessments',
-          name: 'manager-assessments',
+          path: 'classrooms/:classroomId/dashboard',
+          name: 'manager-classroom-dashboard',
+          component: () => import('@/pages/shared/StaffDashboardPage.vue'),
+        },
+        {
+          path: 'classrooms/:classroomId/students/:studentId',
+          name: 'manager-classroom-student',
+          component: () => import('@/pages/shared/ClassroomStudentPage.vue'),
+        },
+        {
+          path: 'classrooms/:classroomId/assessments',
+          name: 'manager-classroom-assessments',
           component: () => import('@/pages/shared/AssessmentsPage.vue'),
         },
         {
-          path: 'assessments/:assessmentId',
-          name: 'manager-assessment-builder',
+          path: 'classrooms/:classroomId/assessments/:assessmentId',
+          name: 'manager-classroom-assessment-builder',
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
         },
         {

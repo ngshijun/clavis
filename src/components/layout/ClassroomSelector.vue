@@ -19,9 +19,14 @@ import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui
  * also the only route back to the picker now that the sidebar no longer links
  * to it.
  *
- * With a single classroom it degrades to a static label — the picker redirects
- * straight back in when there is only one class, so a link there would bounce.
- * Managers and admins are unscoped and see nothing here.
+ * With a single classroom it degrades to a static label for a teacher or a
+ * student — their picker redirects straight back in when there is only one
+ * class, so a link there would bounce. A manager's `/manager/classrooms` is a
+ * real management page that never redirects, so their header always links.
+ *
+ * A manager only sees this once they are INSIDE a classroom (decision 87);
+ * above that altitude there is no active classroom to name. Admins are
+ * unscoped and see nothing here at all.
  */
 const t = useT()
 const authStore = useAuthStore()
@@ -36,11 +41,16 @@ interface SwitcherItem {
   subjectName: string
 }
 
-const applies = computed(() => authStore.isTeacher || authStore.isStudent)
+const applies = computed(() =>
+  authStore.isManager ? classroomId.value !== null : authStore.isTeacher || authStore.isStudent,
+)
 
 const items = computed<SwitcherItem[]>(() =>
-  authStore.isTeacher ? classroomsStore.classrooms : scope.classrooms,
+  authStore.isTeacher || authStore.isManager ? classroomsStore.classrooms : scope.classrooms,
 )
+
+/** Only the auto-redirecting pickers make a sole-classroom link pointless. */
+const collapsesWhenSole = computed(() => authStore.isTeacher || authStore.isStudent)
 
 const active = computed(() => items.value.find((item) => item.id === classroomId.value) ?? null)
 
@@ -48,7 +58,7 @@ const pickerPath = computed(() => `/${authStore.userType}/classrooms`)
 
 /** Known to belong to nothing — as opposed to still loading. */
 const belongsToNothing = computed(() =>
-  authStore.isTeacher
+  authStore.isTeacher || authStore.isManager
     ? classroomsStore.hasLoaded && items.value.length === 0
     : scope.hasNoClassrooms,
 )
@@ -57,7 +67,10 @@ const belongsToNothing = computed(() =>
 <template>
   <div v-if="applies" class="px-2 pb-1">
     <!-- Sole classroom: show the context, but not a control that goes nowhere. -->
-    <div v-if="items.length === 1 && active" class="flex items-center gap-2 rounded-md px-2 py-1.5">
+    <div
+      v-if="collapsesWhenSole && items.length === 1 && active"
+      class="flex items-center gap-2 rounded-md px-2 py-1.5"
+    >
       <School class="size-4 shrink-0 text-muted-foreground" />
       <div class="grid flex-1 text-left leading-tight">
         <span class="truncate text-sm font-medium">{{ active.name }}</span>
@@ -67,7 +80,7 @@ const belongsToNothing = computed(() =>
       </div>
     </div>
 
-    <SidebarMenu v-else-if="items.length > 1">
+    <SidebarMenu v-else-if="items.length > 0">
       <SidebarMenuItem>
         <SidebarMenuButton
           as-child

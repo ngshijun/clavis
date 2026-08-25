@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, h, computed, watch } from 'vue'
+import { h, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
 import {
   useStaffDashboardStore,
@@ -8,7 +9,7 @@ import {
 } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
-import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users, X } from 'lucide-vue-next'
+import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
@@ -18,34 +19,29 @@ import { formatTimeAgo } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
+const router = useRouter()
 const authStore = useAuthStore()
 const dashboardStore = useStaffDashboardStore()
 const { classroomId } = useActiveClassroom()
 
 /**
- * The classroom table (and its drill-down) is a MANAGER surface: it exists to
- * compare classrooms. A teacher is already inside exactly one — named in the
- * URL and in the page subtitle — so for them the table listed a single row
- * that filtered the student list to the students already shown.
+ * This one page serves both of a manager's altitudes (decision 87) and a
+ * teacher's single one, told apart by whether the route names a classroom.
  */
-const showClassrooms = computed(() => authStore.isManager)
-
-// ── Classroom drill-down ─────────────────────────
-const selectedClassroom = ref<ClassroomRollup | null>(null)
-const classroomStudents = ref<StudentRollup[]>([])
-const isLoadingClassroomStudents = ref(false)
+const isOrganizationView = computed(() => authStore.isManager && classroomId.value === null)
 
 /**
- * A manager's dashboard is the whole institution (decision 82) and never
- * changes scope, so it loads once. A teacher's belongs to the classroom in the
- * URL (decision 83) and reloads whenever that segment changes.
+ * The classroom table exists to COMPARE classrooms, which only the
+ * institution-wide view does. Inside a classroom — a teacher always, a manager
+ * once they step in — it would list the single row you are already looking at.
  */
+const showClassrooms = computed(() => isOrganizationView.value)
+
 watch(
-  () => (authStore.isManager ? 'organization' : classroomId.value),
+  () => (isOrganizationView.value ? 'organization' : classroomId.value),
   async () => {
-    selectedClassroom.value = null
     const { error } = await dashboardStore.fetchDashboard(
-      authStore.isManager
+      isOrganizationView.value
         ? { kind: 'organization' }
         : classroomId.value
           ? { kind: 'classroom', classroomId: classroomId.value }
@@ -58,29 +54,26 @@ watch(
   { immediate: true },
 )
 
-async function selectClassroom(rollup: ClassroomRollup) {
-  selectedClassroom.value = rollup
-  isLoadingClassroomStudents.value = true
-
-  const { students, error } = await dashboardStore.fetchClassroomStudents(rollup.classroomId)
-  isLoadingClassroomStudents.value = false
-
-  if (error) {
-    toast.error(t.value.staff.dashboard.toastLoadFailed)
-    selectedClassroom.value = null
-    return
-  }
-  classroomStudents.value = students
+/**
+ * A classroom row NAVIGATES into that classroom rather than filtering this
+ * page's student table in place. The classroom then owns the address bar, the
+ * sidebar and the trail, so the drill-in is shareable and Back undoes it —
+ * and its assessments are one click away instead of unreachable.
+ */
+function openClassroom(rollup: ClassroomRollup) {
+  void router.push(`/manager/classrooms/${rollup.classroomId}/dashboard`)
 }
 
-function clearSelectedClassroom() {
-  selectedClassroom.value = null
-  classroomStudents.value = []
-}
+/**
+ * Inside a classroom a manager can open one student's record (decision 87).
+ * A teacher cannot: the route lives under `/manager`, and the rollup row is
+ * already the whole of what their dashboard offers.
+ */
+const canOpenStudent = computed(() => authStore.isManager && classroomId.value !== null)
 
-const displayedStudents = computed(() =>
-  selectedClassroom.value ? classroomStudents.value : dashboardStore.studentRollups,
-)
+function openStudent(rollup: StudentRollup) {
+  void router.push(`/manager/classrooms/${classroomId.value}/students/${rollup.studentId}`)
+}
 
 // ── Formatting helpers ───────────────────────────
 function formatPercent(value: number | null): string {
@@ -292,32 +285,15 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
           v-else
           :columns="classroomColumns"
           :data="dashboardStore.classroomRollups"
-          :on-row-click="selectClassroom"
+          :on-row-click="openClassroom"
         />
       </section>
 
       <!-- Students -->
       <section>
-        <div class="mb-3 flex items-center gap-3">
-          <h2 class="text-lg font-semibold">{{ t.staff.dashboard.students.sectionTitle }}</h2>
-          <Badge v-if="selectedClassroom" variant="outline" class="gap-1">
-            {{ t.staff.dashboard.students.classroomFilter(selectedClassroom.classroomName) }}
-            <button
-              type="button"
-              class="ml-1 rounded-sm hover:text-foreground"
-              :aria-label="t.staff.dashboard.students.clearClassroomFilter"
-              @click="clearSelectedClassroom"
-            >
-              <X class="size-3" />
-            </button>
-          </Badge>
-        </div>
+        <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.students.sectionTitle }}</h2>
 
-        <div v-if="isLoadingClassroomStudents" class="flex items-center justify-center py-10">
-          <Loader2 class="size-6 animate-spin text-muted-foreground" />
-        </div>
-
-        <div v-else-if="displayedStudents.length === 0" class="py-10 text-center">
+        <div v-if="dashboardStore.studentRollups.length === 0" class="py-10 text-center">
           <Users class="mx-auto size-12 text-muted-foreground/50" />
           <p class="mt-3 text-muted-foreground">{{ t.staff.dashboard.students.noStudents }}</p>
         </div>
@@ -325,7 +301,8 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         <DataTable
           v-else
           :columns="studentColumns"
-          :data="displayedStudents"
+          :data="dashboardStore.studentRollups"
+          :on-row-click="canOpenStudent ? openStudent : undefined"
           :initial-sorting="[{ id: 'atRisk', desc: true }]"
         />
       </section>

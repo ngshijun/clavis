@@ -26,7 +26,6 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Teachers', path: '/manager/teachers', icon: Users },
     { title: 'Students', path: '/manager/students', icon: Users },
     { title: 'Classrooms', path: '/manager/classrooms', icon: School },
-    { title: 'Assessments', path: '/manager/assessments', icon: ClipboardList },
   ],
   teacher: [],
   student: [],
@@ -79,5 +78,34 @@ export function studentNavItems(classroomId: string | null): NavItem[] {
       navKey: 'assessments',
     },
     { title: 'Statistics', path: `${base}/statistics`, icon: PieChart, navKey: 'statistics' },
+  ]
+}
+
+/**
+ * A manager works at two altitudes (decision 87). Outside a classroom the nav
+ * is the institution: the org dashboard, the people, the classroom list. Step
+ * INTO a classroom and it becomes that classroom's — the same links a teacher
+ * of it would see, minus the ones that author material (decision 80).
+ *
+ * Assessments live ONLY at the classroom altitude. Every assessment belongs to
+ * a classroom (decision 81), so an org-wide list mixed unrelated classes into
+ * one table that could not say which row belonged where — and "which class is
+ * this?" is the first question asked of any row in it.
+ *
+ * The classroom list is not repeated here: the classroom header above the nav
+ * links back to it (decision 86).
+ */
+export function managerNavItems(classroomId: string | null): NavItem[] {
+  if (!classroomId) return sidebarNavConfig.manager
+
+  const base = `/manager/classrooms/${classroomId}`
+  return [
+    { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
+    {
+      title: 'Assessments',
+      path: `${base}/assessments`,
+      icon: ClipboardList,
+      navKey: 'assessments',
+    },
   ]
 }

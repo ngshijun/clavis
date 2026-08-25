@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAssessmentsStore } from '@/stores/assessments'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
+import { useClassroomStudentStore } from '@/stores/classroom-student'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { useT } from '@/composables/useT'
 
@@ -28,8 +29,12 @@ const SECTION_KEY: Record<string, string> = {
   'manager-teachers': 'teachers',
   'manager-students': 'students',
   'manager-classrooms': 'classrooms',
-  'manager-assessments': 'assessments',
-  'manager-assessment-builder': 'assessments',
+  'manager-classroom-dashboard': 'dashboard',
+  // A student is reached from the classroom dashboard's roster, so that is the
+  // section they belong under.
+  'manager-classroom-student': 'dashboard',
+  'manager-classroom-assessments': 'assessments',
+  'manager-classroom-assessment-builder': 'assessments',
   'teacher-dashboard': 'dashboard',
   'teacher-assessments': 'assessments',
   'teacher-assessment-builder': 'assessments',
@@ -47,7 +52,8 @@ const SECTION_KEY: Record<string, string> = {
 /** Routes whose section crumb should link back to the section index. */
 const SECTION_PATH: Record<string, string> = {
   'admin-assessment-template-builder': 'assessments',
-  'manager-assessment-builder': 'assessments',
+  'manager-classroom-assessment-builder': 'assessments',
+  'manager-classroom-student': 'dashboard',
   'teacher-assessment-builder': 'assessments',
   'student-practice-quiz': 'practice',
   'student-session-result': 'practice',
@@ -71,6 +77,7 @@ export function useBreadcrumbs() {
   const authStore = useAuthStore()
   const assessmentsStore = useAssessmentsStore()
   const studentAssessmentsStore = useStudentAssessmentsStore()
+  const classroomStudentStore = useClassroomStudentStore()
   const { classroomId, basePath } = useActiveClassroom()
 
   const crumbs = computed<Crumb[]>(() => {
@@ -104,6 +111,9 @@ export function useBreadcrumbs() {
     if (name.endsWith('assessment-builder') || name === 'admin-assessment-template-builder') {
       const title = assessmentsStore.currentAssessment?.title
       if (title) trail.push({ label: title })
+    } else if (name === 'manager-classroom-student') {
+      const studentName = classroomStudentStore.student?.name
+      if (studentName) trail.push({ label: studentName })
     } else if (name === 'student-practice-quiz') {
       trail.push({ label: leaves.quiz })
     } else if (name === 'student-session-result') {

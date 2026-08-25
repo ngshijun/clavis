@@ -27,8 +27,6 @@ export default {
     },
     students: {
       sectionTitle: '学生',
-      classroomFilter: (name: string) => `班级：${name}`,
-      clearClassroomFilter: '显示全部学生',
       nameCol: '姓名',
       usernameCol: '用户名',
       masteryCol: '学习地图掌握度',
@@ -44,6 +42,18 @@ export default {
     },
   },
 
+  classroomStudent: {
+    practiceTitle: '练习记录',
+    practiceDesc: '本班级科目下已完成的练习。',
+    noPractice: '该学生尚未练习。',
+    assessmentsTitle: '测验记录',
+    assessmentsDesc: '本班级测验的作答记录，点击可查看批改详情。',
+    assessmentCol: '测验',
+    noAttempts: '该学生尚未作答任何测验。',
+    notInClassroom: '不在本班级',
+    notInClassroomDesc: '该学生不在本班级名单中。',
+    toastLoadFailed: '无法加载该学生的记录',
+  },
   classroomPicker: {
     title: '我的班级',
     subtitle: '选择一个班级开始。',
