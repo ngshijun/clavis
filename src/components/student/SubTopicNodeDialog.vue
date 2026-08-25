@@ -52,7 +52,7 @@ const hasQuestions = computed(() => (props.node?.questionCount ?? 0) > 0)
           role="img"
           :aria-label="t.student.learningMap.nodeAria(node.name, node.stars)"
         />
-        <div class="text-center">
+        <div class="space-y-1 text-center">
           <template v-if="stats">
             <p class="font-semibold">
               {{ t.student.learningMap.bestScore(stats.bestScorePercent) }}
@@ -61,13 +61,17 @@ const hasQuestions = computed(() => (props.node?.questionCount ?? 0) > 0)
               {{ t.student.learningMap.sessionsCompleted(stats.sessionsCompleted) }}
             </p>
           </template>
-          <p v-else class="text-sm text-muted-foreground">
+          <p v-else-if="hasQuestions" class="text-sm text-muted-foreground">
             {{ t.student.learningMap.notPracticedYet }}
+          </p>
+          <!-- Explains the disabled CTA below, so it sits with the other status copy. -->
+          <p v-if="!hasQuestions" class="text-sm text-muted-foreground">
+            {{ t.student.learningMap.noQuestionsYet }}
           </p>
         </div>
       </div>
 
-      <DialogFooter class="flex-col gap-2">
+      <DialogFooter>
         <Button class="w-full" :disabled="isStarting || !hasQuestions" @click="emit('start')">
           <Loader2 v-if="isStarting" class="mr-2 size-4 animate-spin" />
           <Play v-else class="mr-2 size-4" />
@@ -77,9 +81,6 @@ const hasQuestions = computed(() => (props.node?.questionCount ?? 0) > 0)
               : t.student.learningMap.practiceAgain
           }}
         </Button>
-        <p v-if="!hasQuestions" class="text-center text-xs text-muted-foreground">
-          {{ t.student.learningMap.noQuestionsYet }}
-        </p>
       </DialogFooter>
     </DialogContent>
   </Dialog>
