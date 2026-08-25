@@ -42,6 +42,18 @@ export default {
     },
   },
 
+  classroomStudent: {
+    practiceTitle: 'Practice history',
+    practiceDesc: 'Completed practice in this classroom’s subject.',
+    noPractice: 'This student has not practised yet.',
+    assessmentsTitle: 'Assessment history',
+    assessmentsDesc: 'Attempts on this classroom’s assessments. Open one to see it marked.',
+    assessmentCol: 'Assessment',
+    noAttempts: 'This student has not attempted an assessment yet.',
+    notInClassroom: 'Not in this classroom',
+    notInClassroomDesc: 'This student is not on this classroom’s roster.',
+    toastLoadFailed: 'Failed to load this student’s history',
+  },
   classroomPicker: {
     title: 'Your classrooms',
     subtitle: 'Choose a classroom to work in.',

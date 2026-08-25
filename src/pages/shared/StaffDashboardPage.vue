@@ -64,6 +64,17 @@ function openClassroom(rollup: ClassroomRollup) {
   void router.push(`/manager/classrooms/${rollup.classroomId}/dashboard`)
 }
 
+/**
+ * Inside a classroom a manager can open one student's record (decision 87).
+ * A teacher cannot: the route lives under `/manager`, and the rollup row is
+ * already the whole of what their dashboard offers.
+ */
+const canOpenStudent = computed(() => authStore.isManager && classroomId.value !== null)
+
+function openStudent(rollup: StudentRollup) {
+  void router.push(`/manager/classrooms/${classroomId.value}/students/${rollup.studentId}`)
+}
+
 // ── Formatting helpers ───────────────────────────
 function formatPercent(value: number | null): string {
   return value === null ? '—' : `${value}%`
@@ -291,6 +302,7 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
           v-else
           :columns="studentColumns"
           :data="dashboardStore.studentRollups"
+          :on-row-click="canOpenStudent ? openStudent : undefined"
           :initial-sorting="[{ id: 'atRisk', desc: true }]"
         />
       </section>

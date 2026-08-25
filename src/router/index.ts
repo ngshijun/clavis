@@ -218,6 +218,11 @@ const router = createRouter({
           component: () => import('@/pages/shared/StaffDashboardPage.vue'),
         },
         {
+          path: 'classrooms/:classroomId/students/:studentId',
+          name: 'manager-classroom-student',
+          component: () => import('@/pages/shared/ClassroomStudentPage.vue'),
+        },
+        {
           path: 'classrooms/:classroomId/assessments',
           name: 'manager-classroom-assessments',
           component: () => import('@/pages/shared/AssessmentsPage.vue'),
