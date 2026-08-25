@@ -218,6 +218,11 @@ const router = createRouter({
           component: () => import('@/pages/shared/StaffDashboardPage.vue'),
         },
         {
+          path: 'classrooms/:classroomId/students',
+          name: 'manager-classroom-students',
+          component: () => import('@/pages/shared/ClassroomStudentsPage.vue'),
+        },
+        {
           path: 'classrooms/:classroomId/students/:studentId',
           name: 'manager-classroom-student',
           component: () => import('@/pages/shared/ClassroomStudentPage.vue'),
@@ -258,6 +263,19 @@ const router = createRouter({
           path: 'classrooms/:classroomId/dashboard',
           name: 'teacher-dashboard',
           component: () => import('@/pages/shared/StaffDashboardPage.vue'),
+        },
+        // The classroom's roster, and one student's record within it
+        // (decision 87). Identical to the manager's — a teacher of the class
+        // needs the same answer to "how is this student doing?".
+        {
+          path: 'classrooms/:classroomId/students',
+          name: 'teacher-classroom-students',
+          component: () => import('@/pages/shared/ClassroomStudentsPage.vue'),
+        },
+        {
+          path: 'classrooms/:classroomId/students/:studentId',
+          name: 'teacher-classroom-student',
+          component: () => import('@/pages/shared/ClassroomStudentPage.vue'),
         },
         {
           path: 'classrooms/:classroomId/assessments',

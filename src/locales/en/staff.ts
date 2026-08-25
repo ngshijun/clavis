@@ -42,6 +42,10 @@ export default {
     },
   },
 
+  classroomStudents: {
+    searchPlaceholder: 'Search by name or username…',
+    noneMatchSearch: 'No student matches that search.',
+  },
   classroomStudent: {
     practiceTitle: 'Practice history',
     practiceDesc: 'Completed practice in this classroom’s subject.',

@@ -42,6 +42,10 @@ export default {
     },
   },
 
+  classroomStudents: {
+    searchPlaceholder: '按姓名或用户名搜索…',
+    noneMatchSearch: '没有匹配的学生。',
+  },
   classroomStudent: {
     practiceTitle: '练习记录',
     practiceDesc: '本班级科目下已完成的练习。',

@@ -45,6 +45,7 @@ export function teacherNavItems(classroomId: string | null): NavItem[] {
   const base = `/teacher/classrooms/${classroomId}`
   return [
     { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
+    { title: 'Students', path: `${base}/students`, icon: Users, navKey: 'students' },
     {
       title: 'Assessments',
       path: `${base}/assessments`,
@@ -87,6 +88,11 @@ export function studentNavItems(classroomId: string | null): NavItem[] {
  * INTO a classroom and it becomes that classroom's — the same links a teacher
  * of it would see, minus the ones that author material (decision 80).
  *
+ * `Students` is the classroom's roster and the way into one student's record.
+ * It is a page of its own rather than a section of the dashboard: the dashboard
+ * summarises, and a roster you have to scroll a summary to reach is not a
+ * roster. The tiles above it count exactly what it lists.
+ *
  * Assessments live ONLY at the classroom altitude. Every assessment belongs to
  * a classroom (decision 81), so an org-wide list mixed unrelated classes into
  * one table that could not say which row belonged where — and "which class is
@@ -101,6 +107,7 @@ export function managerNavItems(classroomId: string | null): NavItem[] {
   const base = `/manager/classrooms/${classroomId}`
   return [
     { title: 'Dashboard', path: `${base}/dashboard`, icon: LayoutDashboard, navKey: 'dashboard' },
+    { title: 'Students', path: `${base}/students`, icon: Users, navKey: 'students' },
     {
       title: 'Assessments',
       path: `${base}/assessments`,

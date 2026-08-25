@@ -30,12 +30,13 @@ const SECTION_KEY: Record<string, string> = {
   'manager-students': 'students',
   'manager-classrooms': 'classrooms',
   'manager-classroom-dashboard': 'dashboard',
-  // A student is reached from the classroom dashboard's roster, so that is the
-  // section they belong under.
-  'manager-classroom-student': 'dashboard',
+  'manager-classroom-students': 'students',
+  'manager-classroom-student': 'students',
   'manager-classroom-assessments': 'assessments',
   'manager-classroom-assessment-builder': 'assessments',
   'teacher-dashboard': 'dashboard',
+  'teacher-classroom-students': 'students',
+  'teacher-classroom-student': 'students',
   'teacher-assessments': 'assessments',
   'teacher-assessment-builder': 'assessments',
   'teacher-template-library': 'templateLibrary',
@@ -53,7 +54,9 @@ const SECTION_KEY: Record<string, string> = {
 const SECTION_PATH: Record<string, string> = {
   'admin-assessment-template-builder': 'assessments',
   'manager-classroom-assessment-builder': 'assessments',
-  'manager-classroom-student': 'dashboard',
+  // A student's record hangs off the roster that led to it.
+  'manager-classroom-student': 'students',
+  'teacher-classroom-student': 'students',
   'teacher-assessment-builder': 'assessments',
   'student-practice-quiz': 'practice',
   'student-session-result': 'practice',
@@ -111,7 +114,7 @@ export function useBreadcrumbs() {
     if (name.endsWith('assessment-builder') || name === 'admin-assessment-template-builder') {
       const title = assessmentsStore.currentAssessment?.title
       if (title) trail.push({ label: title })
-    } else if (name === 'manager-classroom-student') {
+    } else if (name.endsWith('-classroom-student')) {
       const studentName = classroomStudentStore.student?.name
       if (studentName) trail.push({ label: studentName })
     } else if (name === 'student-practice-quiz') {
