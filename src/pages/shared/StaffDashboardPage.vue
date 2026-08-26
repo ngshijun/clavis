@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { h, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { ColumnDef, HeaderContext } from '@tanstack/vue-table'
-import {
-  useStaffDashboardStore,
-  type ClassroomRollup,
-  type StudentRollup,
-} from '@/stores/staff-dashboard'
+import type { ColumnDef } from '@tanstack/vue-table'
+import { useStaffDashboardStore, type ClassroomRollup } from '@/stores/staff-dashboard'
 import { useAuthStore } from '@/stores/auth'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
-import { ArrowUpDown, Loader2, School, Target, TriangleAlert, Users } from 'lucide-vue-next'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  createStudentRollupColumns,
+  formatRollupPercent,
+  sortableHeader,
+} from '@/lib/rollupColumns'
+import { Loader2, School, Target, TriangleAlert, Users } from 'lucide-vue-next'
 import { DataTable } from '@/components/ui/data-table'
 import StatTile from '@/components/dashboard/StatTile.vue'
 import { toast } from 'vue-sonner'
-import { formatTimeAgo } from '@/lib/date'
 import { useT } from '@/composables/useT'
 
 const t = useT()
@@ -64,34 +62,6 @@ function openClassroom(rollup: ClassroomRollup) {
   void router.push(`/manager/classrooms/${rollup.classroomId}/dashboard`)
 }
 
-/**
- * Inside a classroom a manager can open one student's record (decision 87).
- * A teacher cannot: the route lives under `/manager`, and the rollup row is
- * already the whole of what their dashboard offers.
- */
-const canOpenStudent = computed(() => authStore.isManager && classroomId.value !== null)
-
-function openStudent(rollup: StudentRollup) {
-  void router.push(`/manager/classrooms/${classroomId.value}/students/${rollup.studentId}`)
-}
-
-// ── Formatting helpers ───────────────────────────
-function formatPercent(value: number | null): string {
-  return value === null ? '—' : `${value}%`
-}
-
-function sortableHeader<TData>(label: () => string) {
-  return ({ column }: HeaderContext<TData, unknown>) =>
-    h(
-      Button,
-      {
-        variant: 'ghost',
-        onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-      },
-      () => [label(), h(ArrowUpDown, { class: 'ml-2 size-4' })],
-    )
-}
-
 // ── Classrooms table ─────────────────────────────
 const classroomColumns = computed<ColumnDef<ClassroomRollup>[]>(() => [
   {
@@ -109,15 +79,11 @@ const classroomColumns = computed<ColumnDef<ClassroomRollup>[]>(() => [
     header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.subjectCol),
     cell: ({ row }) => h('div', { class: 'text-muted-foreground' }, row.original.subjectName),
   },
-  ...(authStore.isManager
-    ? [
-        {
-          accessorKey: 'teacherCount',
-          header: () => t.value.staff.dashboard.classrooms.teachersCol,
-          cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.original.teacherCount),
-        } satisfies ColumnDef<ClassroomRollup>,
-      ]
-    : []),
+  {
+    accessorKey: 'teacherCount',
+    header: () => t.value.staff.dashboard.classrooms.teachersCol,
+    cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.original.teacherCount),
+  },
   {
     accessorKey: 'studentCount',
     header: () => t.value.staff.dashboard.classrooms.studentsCol,
@@ -127,7 +93,7 @@ const classroomColumns = computed<ColumnDef<ClassroomRollup>[]>(() => [
     accessorKey: 'avgMapMastery',
     header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.masteryCol),
     cell: ({ row }) =>
-      h('div', { class: 'tabular-nums' }, formatPercent(row.original.avgMapMastery)),
+      h('div', { class: 'tabular-nums' }, formatRollupPercent(row.original.avgMapMastery)),
   },
   {
     id: 'completion',
@@ -156,81 +122,12 @@ const classroomColumns = computed<ColumnDef<ClassroomRollup>[]>(() => [
     accessorKey: 'avgAssessmentScore',
     header: sortableHeader<ClassroomRollup>(() => t.value.staff.dashboard.classrooms.avgScoreCol),
     cell: ({ row }) =>
-      h('div', { class: 'tabular-nums' }, formatPercent(row.original.avgAssessmentScore)),
+      h('div', { class: 'tabular-nums' }, formatRollupPercent(row.original.avgAssessmentScore)),
   },
 ])
 
-// ── Students table ───────────────────────────────
-const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
-  {
-    accessorKey: 'studentName',
-    header: sortableHeader<StudentRollup>(() => t.value.staff.dashboard.students.nameCol),
-    cell: ({ row }) => h('div', { class: 'font-medium' }, row.original.studentName),
-  },
-  {
-    accessorKey: 'username',
-    header: () => t.value.staff.dashboard.students.usernameCol,
-    cell: ({ row }) =>
-      h('div', { class: 'font-mono text-muted-foreground' }, row.original.username ?? '-'),
-  },
-  {
-    accessorKey: 'mapMastery',
-    header: sortableHeader<StudentRollup>(() => t.value.staff.dashboard.students.masteryCol),
-    cell: ({ row }) => h('div', { class: 'tabular-nums' }, formatPercent(row.original.mapMastery)),
-  },
-  {
-    id: 'subTopics',
-    header: () => t.value.staff.dashboard.students.subTopicsCol,
-    cell: ({ row }) =>
-      h(
-        'div',
-        { class: 'tabular-nums' },
-        `${row.original.subTopicsCompleted}/${row.original.subTopicsAttempted}`,
-      ),
-  },
-  {
-    accessorKey: 'lastPracticeAt',
-    header: sortableHeader<StudentRollup>(() => t.value.staff.dashboard.students.lastPracticeCol),
-    cell: ({ row }) =>
-      row.original.lastPracticeAt
-        ? h('div', {}, formatTimeAgo(row.original.lastPracticeAt, t.value.shared.timeAgo))
-        : h('div', { class: 'text-muted-foreground' }, t.value.staff.dashboard.students.never),
-  },
-  {
-    id: 'assessments',
-    header: () => t.value.staff.dashboard.students.assessmentsCol,
-    cell: ({ row }) =>
-      h(
-        'div',
-        { class: 'tabular-nums' },
-        `${row.original.completedCount}/${row.original.assignedCount}`,
-      ),
-  },
-  {
-    accessorKey: 'avgAssessmentScore',
-    header: sortableHeader<StudentRollup>(() => t.value.staff.dashboard.students.avgScoreCol),
-    cell: ({ row }) =>
-      h('div', { class: 'tabular-nums' }, formatPercent(row.original.avgAssessmentScore)),
-  },
-  {
-    accessorKey: 'atRisk',
-    header: sortableHeader<StudentRollup>(() => t.value.staff.dashboard.students.statusCol),
-    cell: ({ row }) =>
-      row.original.atRisk
-        ? h(
-            Badge,
-            {
-              variant: 'secondary',
-              class: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-            },
-            () => [
-              h(TriangleAlert, { class: 'mr-1 size-3' }),
-              t.value.staff.dashboard.students.atRisk,
-            ],
-          )
-        : h(Badge, { variant: 'secondary' }, () => t.value.staff.dashboard.students.onTrack),
-  },
-])
+// ── Students table (institution view only) ───────
+const studentColumns = computed(() => createStudentRollupColumns())
 </script>
 
 <template>
@@ -266,7 +163,7 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         />
         <StatTile
           :label="t.staff.dashboard.tiles.avgMastery"
-          :value="formatPercent(dashboardStore.avgMapMastery)"
+          :value="formatRollupPercent(dashboardStore.avgMapMastery)"
           :icon="Target"
           :subtitle="t.staff.dashboard.tiles.avgMasteryHint"
         />
@@ -289,8 +186,9 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
         />
       </section>
 
-      <!-- Students -->
-      <section>
+      <!-- The institution roster. Inside a classroom the roster has its own
+           page (decision 87), so the dashboard there is the summary alone. -->
+      <section v-if="isOrganizationView">
         <h2 class="mb-3 text-lg font-semibold">{{ t.staff.dashboard.students.sectionTitle }}</h2>
 
         <div v-if="dashboardStore.studentRollups.length === 0" class="py-10 text-center">
@@ -302,7 +200,6 @@ const studentColumns = computed<ColumnDef<StudentRollup>[]>(() => [
           v-else
           :columns="studentColumns"
           :data="dashboardStore.studentRollups"
-          :on-row-click="canOpenStudent ? openStudent : undefined"
           :initial-sorting="[{ id: 'atRisk', desc: true }]"
         />
       </section>

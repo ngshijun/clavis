@@ -525,6 +525,7 @@ export default {
         teacher: {
           dashboard: 'Dashboard',
           classrooms: 'Classrooms',
+          students: 'Students',
           assessments: 'Assessments',
           templateLibrary: 'Template Library',
         },

@@ -20,6 +20,7 @@ describe('managerNavItems', () => {
   it('switches to that classroom inside one', () => {
     expect(managerNavItems('c1').map((item) => item.path)).toEqual([
       '/manager/classrooms/c1/dashboard',
+      '/manager/classrooms/c1/students',
       '/manager/classrooms/c1/assessments',
     ])
   })
@@ -29,5 +30,31 @@ describe('managerNavItems', () => {
     const teacherKeys = teacherNavItems('c1').map((item) => item.navKey)
     expect(teacherKeys).toContain('templateLibrary')
     expect(managerKeys).not.toContain('templateLibrary')
+  })
+})
+
+/**
+ * Both staff roles reach a classroom's roster the same way (decision 87) — a
+ * teacher of the class needs the same answer to "how is this student doing?"
+ * as the manager above them.
+ */
+describe('classroom rosters', () => {
+  it('gives both staff roles a Students link inside a classroom', () => {
+    expect(teacherNavItems('c1').map((item) => item.navKey)).toContain('students')
+    expect(managerNavItems('c1').map((item) => item.navKey)).toContain('students')
+  })
+
+  it('points each role at its own route', () => {
+    const path = (items: ReturnType<typeof teacherNavItems>) =>
+      items.find((item) => item.navKey === 'students')?.path
+    expect(path(teacherNavItems('c1'))).toBe('/teacher/classrooms/c1/students')
+    expect(path(managerNavItems('c1'))).toBe('/manager/classrooms/c1/students')
+  })
+
+  it('offers no roster outside a classroom, since there is no roster to show', () => {
+    expect(teacherNavItems(null)).toEqual([])
+    // The manager's org-level Students page is the whole institution, not a
+    // classroom roster — a different page behind the same word.
+    expect(managerNavItems(null).map((item) => item.path)).toContain('/manager/students')
   })
 })
