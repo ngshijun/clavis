@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { QuestionDifficulty } from '@/stores/assessment-bank'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
@@ -11,7 +12,6 @@ import {
   ArrowLeft,
   ClipboardList,
   Copy,
-  Database,
   Library,
   Eye,
   EyeOff,
@@ -45,7 +45,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
-import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
 import AssessmentBankPickerDialog from '@/components/staff/AssessmentBankPickerDialog.vue'
 import AssignPanel from '@/components/staff/AssignPanel.vue'
 import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
@@ -130,7 +129,6 @@ const settingsError = ref<string | null>(null)
 const isSavingSettings = ref(false)
 
 // Dialogs (confirmations only — question editing is inline in the cards)
-const showBankPicker = ref(false)
 const showAssessmentBankPicker = ref(false)
 
 /**
@@ -230,12 +228,6 @@ function handleScopeGradeChange(gradeLevelId: unknown) {
   scopeGradeLevelId.value = String(gradeLevelId ?? '')
   scopeSubjectId.value = ''
 }
-
-const existingBankQuestionIds = computed(() =>
-  assessmentsStore.currentQuestions
-    .map((question) => question.questionId)
-    .filter((id): id is string => Boolean(id)),
-)
 
 function syncSettings() {
   const current = assessment.value
@@ -468,6 +460,18 @@ function handlePointsChange(item: AssessmentQuestionItem, points: number) {
 }
 
 /**
+ * Difficulty is what the bank copy is tagged with when this template is
+ * published (decision 88). Saved straight through rather than via autosave:
+ * it is a discrete pick from three values, not a stream of keystrokes, and the
+ * store rolls the local value back itself if the write fails.
+ */
+function handleDifficultyChange(item: AssessmentQuestionItem, difficulty: QuestionDifficulty) {
+  void assessmentsStore.persistQuestionDifficulty(item.id, difficulty).then(({ error }) => {
+    if (error) toast.error(error)
+  })
+}
+
+/**
  * Forms model: adding a question INSERTS a valid placeholder immediately
  * (like Forms' "Untitled Question" with two options) and expands it — the
  * card then autosaves every edit in place.
@@ -508,7 +512,6 @@ function handleAddQuestion() {
 }
 
 function handleDuplicate(item: AssessmentQuestionItem) {
-  if (item.source !== 'adhoc' || !item.payload) return
   void insertAdhocQuestion(item.payload, item.id)
 }
 
@@ -679,10 +682,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
                   <Plus class="mr-2 size-4" />
                   {{ t.staff.builder.addAdhoc }}
                 </Button>
-                <Button variant="outline" size="sm" @click="showBankPicker = true">
-                  <Database class="mr-2 size-4" />
-                  {{ t.staff.builder.addFromBank }}
-                </Button>
                 <Button
                   v-if="canPickFromAssessmentBank"
                   variant="outline"
@@ -709,7 +708,8 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @remove="handleRemove"
               @add-question="handleAddQuestion"
               :show-question-bank="canPickFromAssessmentBank"
-              @add-from-bank="showBankPicker = true"
+              :show-difficulty="canPickFromAssessmentBank"
+              @difficulty-change="handleDifficultyChange"
               @add-from-question-bank="showAssessmentBankPicker = true"
             />
           </div>
@@ -888,12 +888,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <BankQuestionPickerDialog
-        v-model:open="showBankPicker"
-        :assessment-id="assessmentId"
-        :existing-question-ids="existingBankQuestionIds"
-      />
 
       <AssessmentBankPickerDialog
         v-if="canPickFromAssessmentBank"

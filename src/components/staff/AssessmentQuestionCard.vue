@@ -113,20 +113,16 @@ const QUESTION_TYPES: AdhocQuestionType[] = [
 ]
 
 const { getImageUrl: getAssessmentImageUrl } = createBucketImageHelpers('assessment-images')
-const { getImageUrl: getBankImageUrl } = createBucketImageHelpers('question-images')
 
 const showExplanation = computed(() => props.showExplanation !== false)
 const isReorderable = computed(() => props.reorderable !== false)
 
-const isAdhocEditor = computed(
-  () => props.expanded && props.editable && props.item.source === 'adhoc',
-)
+const isAdhocEditor = computed(() => props.expanded && props.editable)
 const isReadOnlyPreview = computed(() => props.expanded && !isAdhocEditor.value)
 
-/** Resolve a stored path against the bucket the card's source writes to. */
+/** One bucket: every question the card renders is a payload (decision 88). */
 function imageUrlOf(path: string | null): string {
-  if (!path) return ''
-  return props.item.source === 'bank' ? getBankImageUrl(path) : getAssessmentImageUrl(path)
+  return path ? getAssessmentImageUrl(path) : ''
 }
 
 // ── draft lifecycle ────────────────────────────────────────
@@ -433,9 +429,6 @@ function onPointsChange(event: Event) {
         <p class="truncate font-medium" :title="item.question">{{ item.question }}</p>
         <div class="mt-1 flex items-center gap-2">
           <Badge variant="secondary">{{ t.shared.questionTypes[item.type] }}</Badge>
-          <Badge variant="outline">
-            {{ item.source === 'bank' ? t.staff.builder.bankBadge : t.staff.builder.adhocBadge }}
-          </Badge>
         </div>
       </div>
       <span class="shrink-0 text-sm text-muted-foreground">

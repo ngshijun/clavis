@@ -166,17 +166,13 @@ function formatPoints(points: number): string {
 }
 
 /**
- * Bank questions keep their images in `question-images`; ad-hoc payload
- * images live in `assessment-images` (P10a). The marking view needs both —
- * a long answer whose prompt IS an image is unmarkable without it.
+ * Every assessment question is a self-contained payload now (decision 88), so
+ * there is one bucket. The marking view needs the image — a long answer whose
+ * prompt IS an image is unmarkable without it.
  */
-function imageBucketFor(question: AttemptResultQuestion): string {
-  return sourceOf(question)?.source === 'bank' ? 'question-images' : 'assessment-images'
-}
-
 function questionImageUrl(question: AttemptResultQuestion): string {
   const path = sourceOf(question)?.imagePath
-  return path ? getStorageImageUrl(imageBucketFor(question), path) : ''
+  return path ? getStorageImageUrl('assessment-images', path) : ''
 }
 
 /** Images of the options the student actually picked (mcq/mrq image options). */
@@ -186,7 +182,7 @@ function selectedOptionImages(question: AttemptResultQuestion): string[] {
   return question.selectedOptions
     .map((number) => source.options.find((option) => option.number === number)?.imagePath)
     .filter((path): path is string => Boolean(path))
-    .map((path) => getStorageImageUrl(imageBucketFor(question), path))
+    .map((path) => getStorageImageUrl('assessment-images', path))
 }
 
 function rubricOf(question: AttemptResultQuestion): string | null {

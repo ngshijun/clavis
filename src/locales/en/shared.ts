@@ -337,6 +337,7 @@ export default {
     toastAdded: (label: string) => `${label} added successfully`,
   },
   /** Labels for every question type — bank (mcq/mrq/short_answer) + ad-hoc P9a types. */
+  difficultyLabel: 'Difficulty',
   difficulties: {
     low: 'Low',
     medium: 'Medium',

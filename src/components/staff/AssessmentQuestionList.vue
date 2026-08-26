@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { Database, ImagePlus, Library, Plus } from 'lucide-vue-next'
+import { ImagePlus, Library, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
+import { useLanguageStore } from '@/stores/language'
 import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 import type { AssessmentQuestionItem } from '@/stores/assessments'
+import { DIFFICULTIES, type QuestionDifficulty } from '@/stores/assessment-bank'
 import type { AdhocPayload } from '@/lib/adhocPayload'
 
 /**
@@ -23,9 +32,12 @@ const props = defineProps<{
   assessmentId: string
   /** Offer the admin question bank (P13a) — admin editing a template only. */
   showQuestionBank?: boolean
+  /** Show the per-question difficulty control — admin editing a template only. */
+  showDifficulty?: boolean
 }>()
 
 const showQuestionBank = computed(() => props.showQuestionBank === true)
+const showDifficulty = computed(() => props.showDifficulty === true)
 
 const emit = defineEmits<{
   reorder: [orderedIds: string[]]
@@ -36,11 +48,12 @@ const emit = defineEmits<{
   duplicate: [item: AssessmentQuestionItem]
   remove: [item: AssessmentQuestionItem]
   'add-question': []
-  'add-from-bank': []
   'add-from-question-bank': []
+  'difficulty-change': [item: AssessmentQuestionItem, difficulty: QuestionDifficulty]
 }>()
 
 const t = useT()
+const languageStore = useLanguageStore()
 
 /** One card expanded at a time — v-model so the page can expand a fresh add. */
 const expandedId = defineModel<string | null>('expandedId', { default: null })
@@ -125,12 +138,11 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
   immediate: true,
 })
 
-/** The expanded ad-hoc card, if any — the "add image" target. */
+/** The expanded card, if any — the "add image" target. */
 const activeAdhocCard = computed(() => {
   const activeId = expandedId.value
   if (!activeId) return null
-  const item = props.items.find((candidate) => candidate.id === activeId)
-  return item?.source === 'adhoc' ? item : null
+  return props.items.find((candidate) => candidate.id === activeId) ?? null
 })
 
 function addImageToActiveCard() {
@@ -167,7 +179,32 @@ function addImageToActiveCard() {
         @move="(delta) => moveCard(index, delta)"
         @duplicate="emit('duplicate', item)"
         @remove="emit('remove', item)"
-      />
+      >
+        <!-- Difficulty is what the bank copy is tagged with when an admin
+             publishes a template (decision 88); nobody else has a bank to
+             contribute to, so nobody else sees the control. -->
+        <template v-if="showDifficulty" #meta>
+          <div class="mr-auto flex items-center gap-2">
+            <span class="text-sm text-muted-foreground">{{ t.shared.difficultyLabel }}</span>
+            <Select
+              :key="`diff-${item.id}-${languageStore.language}`"
+              :model-value="item.difficulty"
+              @update:model-value="
+                (value) => emit('difficulty-change', item, value as QuestionDifficulty)
+              "
+            >
+              <SelectTrigger class="h-8 w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="level in DIFFICULTIES" :key="level" :value="level">
+                  {{ t.shared.difficulties[level] }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </template>
+      </AssessmentQuestionCard>
     </VueDraggable>
 
     <!-- Floating action toolbar — moves with the active card (Forms model) -->
@@ -185,16 +222,6 @@ function addImageToActiveCard() {
         @click="emit('add-question')"
       >
         <Plus class="size-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="size-8"
-        :aria-label="t.staff.builder.addFromBank"
-        :title="t.staff.builder.addFromBank"
-        @click="emit('add-from-bank')"
-      >
-        <Database class="size-4" />
       </Button>
       <Button
         v-if="showQuestionBank"
@@ -225,10 +252,6 @@ function addImageToActiveCard() {
       <Button variant="outline" size="sm" @click="emit('add-question')">
         <Plus class="mr-2 size-4" />
         {{ t.staff.builder.addAdhoc }}
-      </Button>
-      <Button variant="outline" size="sm" @click="emit('add-from-bank')">
-        <Database class="mr-2 size-4" />
-        {{ t.staff.builder.addFromBank }}
       </Button>
       <Button
         v-if="showQuestionBank"

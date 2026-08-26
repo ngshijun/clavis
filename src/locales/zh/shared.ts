@@ -331,6 +331,7 @@ export default {
     toastAdded: (label: string) => `${label}已成功添加`,
   },
   /** 所有题型的名称——题库题型（单选/多选/简答）+ P9a 新增的自编题型。 */
+  difficultyLabel: '难度',
   difficulties: {
     low: '低',
     medium: '中',

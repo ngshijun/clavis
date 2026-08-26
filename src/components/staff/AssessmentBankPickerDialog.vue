@@ -109,7 +109,12 @@ async function handleAdd() {
   isSaving.value = true
   const { error } = await assessmentsStore.addQuestionsFromBank(
     props.assessmentId,
-    picked.map((question) => ({ payload: question.payload, points: question.points })),
+    picked.map((question) => ({
+      bankQuestionId: question.id,
+      payload: question.payload,
+      points: question.points,
+      difficulty: question.difficulty,
+    })),
   )
   isSaving.value = false
 

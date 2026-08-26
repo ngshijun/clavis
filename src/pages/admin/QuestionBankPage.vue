@@ -95,7 +95,6 @@ watch([gradeLevelId, subjectId, difficultyFilter], () => {
 function toCardItem(question: BankQuestion): QuestionCardItem {
   return {
     id: question.id,
-    source: 'adhoc',
     type: question.type,
     question: 'question' in question.payload ? (question.payload.question ?? '') : '',
     imagePath: question.payload.image_path ?? null,

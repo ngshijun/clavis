@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.4'
+    PostgrestVersion: '14.17'
   }
   graphql_public: {
     Tables: {
@@ -240,30 +240,33 @@ export type Database = {
       assessment_questions: {
         Row: {
           assessment_id: string
+          banked_question_id: string | null
           created_at: string
+          difficulty: Database['public']['Enums']['question_difficulty']
           id: string
-          payload: Json | null
+          payload: Json
           points: number
           position: number
-          question_id: string | null
         }
         Insert: {
           assessment_id: string
+          banked_question_id?: string | null
           created_at?: string
+          difficulty?: Database['public']['Enums']['question_difficulty']
           id?: string
-          payload?: Json | null
+          payload: Json
           points?: number
           position: number
-          question_id?: string | null
         }
         Update: {
           assessment_id?: string
+          banked_question_id?: string | null
           created_at?: string
+          difficulty?: Database['public']['Enums']['question_difficulty']
           id?: string
-          payload?: Json | null
+          payload?: Json
           points?: number
           position?: number
-          question_id?: string | null
         }
         Relationships: [
           {
@@ -274,10 +277,10 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'assessment_questions_question_id_fkey'
-            columns: ['question_id']
+            foreignKeyName: 'assessment_questions_banked_question_id_fkey'
+            columns: ['banked_question_id']
             isOneToOne: false
-            referencedRelation: 'questions'
+            referencedRelation: 'assessment_bank_questions'
             referencedColumns: ['id']
           },
         ]

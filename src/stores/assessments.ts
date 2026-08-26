@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
+import type { QuestionDifficulty } from './assessment-bank'
 import { handleError, errorMessages } from '@/lib/errors'
 import {
   collectAdhocPayloadImagePaths,
@@ -17,33 +18,7 @@ export type { AttemptAnswerResponse }
 
 export type AssessmentStatus = Database['public']['Enums']['assessment_status']
 export type QuestionType = Database['public']['Enums']['question_type']
-type QuestionRow = Database['public']['Tables']['questions']['Row']
 
-/**
- * The bank columns a staff member may actually SELECT: `answer`,
- * `option_N_is_correct` and `option_N_tip` are revoked from `authenticated`
- * (P11a/decision 76), so the embed MUST name its columns — `questions (*)`
- * fails with 42501 for teachers, managers and admins alike.
- */
-const BANK_QUESTION_EMBED =
-  'id, type, question, image_path, option_1_text, option_1_image_path, option_2_text, option_2_image_path, option_3_text, option_3_image_path, option_4_text, option_4_image_path'
-
-/** A bank question as embedded by BANK_QUESTION_EMBED — content only, no key. */
-type BankQuestionContent = Pick<
-  QuestionRow,
-  | 'id'
-  | 'type'
-  | 'question'
-  | 'image_path'
-  | 'option_1_text'
-  | 'option_1_image_path'
-  | 'option_2_text'
-  | 'option_2_image_path'
-  | 'option_3_text'
-  | 'option_3_image_path'
-  | 'option_4_text'
-  | 'option_4_image_path'
->
 type AssessmentQuestionRow = Database['public']['Tables']['assessment_questions']['Row']
 
 export interface AssessmentListItem {
@@ -97,20 +72,22 @@ export interface AssessmentQuestionItem {
   assessmentId: string
   position: number
   points: number
-  source: 'bank' | 'adhoc'
-  questionId: string | null
+  /**
+   * Difficulty the bank copy is tagged with when an admin publishes a template
+   * (decision 88). Carried on every question, meaningful only on an admin's —
+   * a teacher's question reaches no bank.
+   */
+  difficulty: QuestionDifficulty
+  /** The bank row this question contributed, or null. Never set on a copy taken OUT of the bank. */
+  bankedQuestionId: string | null
   type: AdhocQuestionType
   question: string
-  /**
-   * Question-level image. Bank questions store it in `question-images`;
-   * ad-hoc payload images live in `assessment-images` (P10a) — resolve the
-   * bucket from `source`.
-   */
+  /** Question-level image — always a path in `assessment-images` (P10a). */
   imagePath: string | null
   /** Display options (mcq/mrq); `number` is the 1-based ordinal the grader expects. */
   options: { number: number; text: string; imagePath: string | null }[]
-  /** Raw payload for ad-hoc edit round-trips and result rendering; null for bank questions. */
-  payload: AdhocPayload | null
+  /** Raw payload — every assessment question is a self-contained ad-hoc payload (decision 88). */
+  payload: AdhocPayload
 }
 
 export interface AssessmentAssignment {
@@ -208,49 +185,15 @@ function adhocDisplayFields(payload: AdhocPayload): {
   }
 }
 
-function rowToAssessmentQuestion(
-  row: AssessmentQuestionRow & { questions: BankQuestionContent | null },
-): AssessmentQuestionItem {
-  if (row.question_id && row.questions) {
-    const bank = row.questions
-    const bankOptions = [
-      { text: bank.option_1_text, imagePath: bank.option_1_image_path },
-      { text: bank.option_2_text, imagePath: bank.option_2_image_path },
-      { text: bank.option_3_text, imagePath: bank.option_3_image_path },
-      { text: bank.option_4_text, imagePath: bank.option_4_image_path },
-    ]
-    return {
-      id: row.id,
-      assessmentId: row.assessment_id,
-      position: row.position,
-      points: row.points,
-      source: 'bank',
-      questionId: row.question_id,
-      type: bank.type,
-      question: bank.question,
-      imagePath: bank.image_path,
-      options:
-        bank.type === 'short_answer'
-          ? []
-          : bankOptions
-              .map((option, index) => ({
-                number: index + 1,
-                text: option.text ?? '',
-                imagePath: option.imagePath,
-              }))
-              .filter((option) => Boolean(option.text) || Boolean(option.imagePath)),
-      payload: null,
-    }
-  }
-
-  const payload = (row.payload ?? {}) as unknown as AdhocPayload
+function rowToAssessmentQuestion(row: AssessmentQuestionRow): AssessmentQuestionItem {
+  const payload = row.payload as unknown as AdhocPayload
   return {
     id: row.id,
     assessmentId: row.assessment_id,
     position: row.position,
     points: row.points,
-    source: 'adhoc',
-    questionId: null,
+    difficulty: row.difficulty,
+    bankedQuestionId: row.banked_question_id,
     ...adhocDisplayFields(payload),
     payload,
   }
@@ -688,7 +631,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('assessment_questions')
-        .select(`*, questions (${BANK_QUESTION_EMBED})`)
+        .select('*')
         .eq('assessment_id', assessmentId)
         .order('position')
 
@@ -706,39 +649,29 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     return currentQuestions.value.reduce((max, q) => Math.max(max, q.position), -1) + 1
   }
 
-  async function addBankQuestions(
-    assessmentId: string,
-    questionIds: string[],
-  ): Promise<{ error: string | null }> {
-    if (questionIds.length === 0) return { error: null }
-
-    try {
-      const base = nextPosition()
-      const { error: insertError } = await supabase.from('assessment_questions').insert(
-        questionIds.map((questionId, index) => ({
-          assessment_id: assessmentId,
-          question_id: questionId,
-          position: base + index,
-        })),
-      )
-
-      if (insertError) throw insertError
-
-      return await fetchAssessmentQuestions(assessmentId)
-    } catch (err) {
-      return { error: handleError(err, 'failedAddAssessmentQuestions') }
-    }
-  }
-
   /**
    * Copy questions out of the admin question bank (P13a) into this
    * assessment. A COPY, not a link: a later bank edit must never mutate a
    * published assessment or an in-flight attempt, and the payload contract is
    * identical, so the copied rows need no translation and no new grader path.
+   *
+   * The source bank row is recorded in `banked_question_id`, which reads "the
+   * bank already holds this question" — set here because the copy came FROM
+   * the bank, and set by the publish trigger when an admin's own question goes
+   * INTO it. Without it, publishing a template that contains bank copies would
+   * contribute them all over again as duplicates.
+   *
+   * It is a marker, not a live link: nothing writes back to the bank when the
+   * copy is edited, so P13a's one-way rule holds in both directions.
    */
   async function addQuestionsFromBank(
     assessmentId: string,
-    entries: { payload: AdhocPayload; points: number }[],
+    entries: {
+      bankQuestionId: string
+      payload: AdhocPayload
+      points: number
+      difficulty: QuestionDifficulty
+    }[],
   ): Promise<{ error: string | null }> {
     if (entries.length === 0) return { error: null }
 
@@ -749,6 +682,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           assessment_id: assessmentId,
           payload: entry.payload as unknown as Json,
           points: entry.points,
+          difficulty: entry.difficulty,
+          banked_question_id: entry.bankQuestionId,
           position: base + index,
         })),
       )
@@ -789,12 +724,11 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   /**
    * Optimistic local payload update for the Forms-style inline card
    * (autosave). Rewrites the derived display fields in place and returns the
-   * previous payload (the rollback baseline), or null for an unknown /
-   * bank-sourced question.
+   * previous payload (the rollback baseline), or null for an unknown question.
    */
   function applyAdhocPayload(id: string, payload: AdhocPayload): AdhocPayload | null {
     const item = currentQuestions.value.find((q) => q.id === id)
-    if (!item || item.source !== 'adhoc' || !item.payload) return null
+    if (!item) return null
     const previous = item.payload
     Object.assign(item, adhocDisplayFields(payload), { payload })
     return previous
@@ -845,6 +779,33 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Persist a question's difficulty. Only an admin authoring a template has a
+   * control for this — it is what the bank copy is tagged with on publish
+   * (decision 88).
+   */
+  async function persistQuestionDifficulty(
+    id: string,
+    difficulty: QuestionDifficulty,
+  ): Promise<{ error: string | null }> {
+    const item = currentQuestions.value.find((q) => q.id === id)
+    const previous = item?.difficulty ?? null
+    if (item) item.difficulty = difficulty
+
+    try {
+      const { error: updateError } = await supabase
+        .from('assessment_questions')
+        .update({ difficulty })
+        .eq('id', id)
+
+      if (updateError) throw updateError
+      return { error: null }
+    } catch (err) {
+      if (item && previous) item.difficulty = previous
+      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
+    }
+  }
+
   async function removeQuestion(id: string): Promise<{ error: string | null }> {
     const removed = currentQuestions.value.find((q) => q.id === id)
     try {
@@ -860,11 +821,9 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       // Storage cleanup (decision 78): drop the deleted payload's objects,
       // EXCEPT paths a duplicated sibling still references (duplicate copies
       // paths, not objects — P10b deviation 5). Best-effort, never blocking.
-      if (removed?.source === 'adhoc' && removed.payload) {
+      if (removed) {
         const stillReferenced = new Set(
-          currentQuestions.value
-            .filter((q) => q.source === 'adhoc' && q.payload)
-            .flatMap((q) => collectAdhocPayloadImagePaths(q.payload!)),
+          currentQuestions.value.flatMap((q) => collectAdhocPayloadImagePaths(q.payload)),
         )
         void removeStorageObjects(
           'assessment-images',
@@ -1331,13 +1290,13 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     deleteAssessment,
     fetchAssessmentDetail,
     fetchAssessmentQuestions,
-    addBankQuestions,
     addQuestionsFromBank,
     addAdhocQuestion,
     applyAdhocPayload,
     persistAdhocPayload,
     applyQuestionPoints,
     persistQuestionPoints,
+    persistQuestionDifficulty,
     removeQuestion,
     applyQuestionOrder,
     persistQuestionOrder,
