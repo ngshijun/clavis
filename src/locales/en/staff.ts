@@ -243,6 +243,37 @@ export default {
     toastCloned: 'Template copied — this draft is now your own assessment',
   },
 
+  /** Decision 90: build an assessment (or template) from random bank picks. */
+  generate: {
+    btn: 'Generate from Bank',
+    title: 'Generate from the question bank',
+    desc: 'Describe what you want and the system draws matching questions at random. You can swap any question afterwards.',
+    templateTitle: 'Generate a template',
+    templateDesc:
+      'Describe what you want and the system draws matching bank questions at random into a new draft template.',
+    lineSubTopic: 'Sub-topic',
+    lineSubTopicPlaceholder: 'Choose a sub-topic',
+    lineTags: 'Learning points',
+    lineTagsHint: 'Optional — a question qualifies if it carries any of them.',
+    lineDifficulty: 'Difficulty',
+    anyDifficulty: 'Any difficulty',
+    lineCount: 'Questions',
+    addLine: 'Add another line',
+    removeLine: 'Remove line',
+    totalQuestions: (n: number) => `${n} question${n === 1 ? '' : 's'} in total`,
+    generate: 'Generate',
+    toastGenerated: 'Assessment generated',
+    toastTemplateGenerated: 'Template generated',
+    toastShortfall: (picked: number, requested: number) =>
+      `Only ${picked} of ${requested} questions matched — the bank has no more for one or more lines.`,
+    regenerate: 'Regenerate',
+    regenerateTitle: 'Swap this question for another?',
+    regenerateDesc:
+      'Another random question matching the same criteria replaces this one. Any edits you made to it are lost.',
+    toastRegenerated: 'Question replaced',
+    generatedBadge: 'From bank',
+  },
+
   assessmentCreate: {
     title: 'New Assessment',
     description: 'Give the assessment a title. You can add questions next.',

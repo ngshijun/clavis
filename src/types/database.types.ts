@@ -230,7 +230,9 @@ export type Database = {
       assessment_questions: {
         Row: {
           assessment_id: string
+          bank_question_id: string | null
           created_at: string
+          generation_line: number | null
           id: string
           payload: Json
           points: number
@@ -238,7 +240,9 @@ export type Database = {
         }
         Insert: {
           assessment_id: string
+          bank_question_id?: string | null
           created_at?: string
+          generation_line?: number | null
           id?: string
           payload: Json
           points?: number
@@ -246,7 +250,9 @@ export type Database = {
         }
         Update: {
           assessment_id?: string
+          bank_question_id?: string | null
           created_at?: string
+          generation_line?: number | null
           id?: string
           payload?: Json
           points?: number
@@ -258,6 +264,13 @@ export type Database = {
             columns: ['assessment_id']
             isOneToOne: false
             referencedRelation: 'assessments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_questions_bank_question_id_fkey'
+            columns: ['bank_question_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_bank_questions'
             referencedColumns: ['id']
           },
         ]
@@ -367,6 +380,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          generation_spec: Json | null
           id: string
           organization_id: string
           show_auto_score_while_pending: boolean
@@ -383,6 +397,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          generation_spec?: Json | null
           id?: string
           organization_id: string
           show_auto_score_while_pending?: boolean
@@ -399,6 +414,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          generation_spec?: Json | null
           id?: string
           organization_id?: string
           show_auto_score_while_pending?: boolean
@@ -1421,6 +1437,19 @@ export type Database = {
         Args: { p_attempt_id: string }
         Returns: Json
       }
+      generate_assessment_from_bank: {
+        Args: { p_classroom_id: string; p_spec: Json; p_title: string }
+        Returns: Json
+      }
+      generate_template_from_bank: {
+        Args: {
+          p_grade_level_id: string
+          p_spec: Json
+          p_subject_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
       get_assessment_completion: {
         Args: { p_assessment_id: string }
         Returns: Json
@@ -1542,6 +1571,10 @@ export type Database = {
       }
       mark_attempt_answer: {
         Args: { p_answer_id: string; p_comment?: string; p_points: number }
+        Returns: Json
+      }
+      regenerate_assessment_question: {
+        Args: { p_question_id: string }
         Returns: Json
       }
       release_assessment_answers: {

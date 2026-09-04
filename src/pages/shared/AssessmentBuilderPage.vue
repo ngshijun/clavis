@@ -14,6 +14,7 @@ import {
   Loader2,
   Lock,
   Plus,
+  RefreshCw,
   Send,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -376,6 +377,32 @@ function handleDuplicate(item: AssessmentQuestionItem) {
   void insertAdhocQuestion(item.payload, item.id)
 }
 
+// ── regenerate (decision 90) ───────────────────────────────
+// A generated question can be swapped for another random pick from its
+// spec line while the assessment is a draft. Confirmed first: the swap
+// discards any edit made to the question.
+
+const regenerateTarget = ref<AssessmentQuestionItem | null>(null)
+const isRegenerating = ref(false)
+
+async function handleRegenerate() {
+  const item = regenerateTarget.value
+  if (!item) return
+  isRegenerating.value = true
+  try {
+    const { error } = await assessmentsStore.regenerateQuestion(item.id)
+    if (error) {
+      toast.error(error)
+      return
+    }
+    pendingImageDeletes.delete(item.id)
+    toast.success(t.value.staff.generate.toastRegenerated)
+    regenerateTarget.value = null
+  } finally {
+    isRegenerating.value = false
+  }
+}
+
 async function handleRemove(item: AssessmentQuestionItem) {
   const { error } = await assessmentsStore.removeQuestion(item.id)
   if (error) {
@@ -521,7 +548,20 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @duplicate="handleDuplicate"
               @remove="handleRemove"
               @add-question="handleAddQuestion"
-            />
+            >
+              <template v-if="isEditable" #meta="{ item }">
+                <Button
+                  v-if="item.generationLine !== null"
+                  variant="outline"
+                  size="sm"
+                  class="mr-auto"
+                  @click="regenerateTarget = item"
+                >
+                  <RefreshCw class="mr-2 size-4" />
+                  {{ t.staff.generate.regenerate }}
+                </Button>
+              </template>
+            </AssessmentQuestionList>
           </div>
         </TabsContent>
 
@@ -644,6 +684,28 @@ async function handleRemove(item: AssessmentQuestionItem) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <!-- Regenerate confirmation (decision 90) -->
+      <Dialog
+        :open="regenerateTarget !== null"
+        @update:open="(value) => !value && !isRegenerating && (regenerateTarget = null)"
+      >
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{{ t.staff.generate.regenerateTitle }}</DialogTitle>
+            <DialogDescription>{{ t.staff.generate.regenerateDesc }}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" :disabled="isRegenerating" @click="regenerateTarget = null">
+              {{ t.staff.builder.cancel }}
+            </Button>
+            <Button :disabled="isRegenerating" @click="handleRegenerate">
+              <Loader2 v-if="isRegenerating" class="mr-2 size-4 animate-spin" />
+              {{ t.staff.generate.regenerate }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <!-- Release / un-release answers confirmation (decision 71) -->
       <Dialog v-model:open="showReleaseDialog">

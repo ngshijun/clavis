@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
+import type { QuestionDifficulty } from '@/stores/assessment-bank'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
 import {
@@ -67,6 +68,36 @@ export interface AssessmentQuestionItem {
   options: { number: number; text: string; imagePath: string | null }[]
   /** Raw payload — every assessment question is a self-contained ad-hoc payload (decision 88). */
   payload: AdhocPayload
+  /**
+   * Which spec line this question was generated for (decision 90), or null
+   * for a hand-written one. Generated questions can be regenerated while the
+   * assessment is a draft.
+   */
+  generationLine: number | null
+}
+
+/** One line of a generation spec (decision 90): what to draw, and how many. */
+export interface GenerationLine {
+  subTopicId: string
+  tagIds: string[]
+  difficulty: QuestionDifficulty | null
+  count: number
+}
+
+/** A line that asked for more than the bank could give. */
+export interface GenerationShortfall {
+  line: number
+  requested: number
+  picked: number
+}
+
+function specToJson(lines: GenerationLine[]): Json {
+  return lines.map((line) => ({
+    sub_topic_id: line.subTopicId,
+    tag_ids: line.tagIds,
+    difficulty: line.difficulty,
+    count: line.count,
+  }))
 }
 
 export interface AssessmentAssignment {
@@ -151,6 +182,7 @@ function rowToAssessmentQuestion(row: AssessmentQuestionRow): AssessmentQuestion
     points: row.points,
     ...adhocDisplayFields(payload),
     payload,
+    generationLine: row.generation_line,
   }
 }
 
@@ -321,6 +353,57 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       return { id: data.id, error: null }
     } catch (err) {
       return { id: null, error: handleError(err, 'failedCreateAssessment') }
+    }
+  }
+
+  /**
+   * Decision 90: a draft built from random bank picks matching `lines`, in
+   * the classroom. The RPC copies the picks, so the teacher owns them and
+   * can edit or regenerate each one. Lines the bank could not fill come
+   * back as shortfalls.
+   */
+  async function generateAssessment(input: {
+    classroomId: string
+    title: string
+    lines: GenerationLine[]
+  }): Promise<{ id: string | null; shortfalls: GenerationShortfall[]; error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('generate_assessment_from_bank', {
+        p_classroom_id: input.classroomId,
+        p_title: input.title,
+        p_spec: specToJson(input.lines),
+      })
+      if (rpcError) throw rpcError
+      const result = data as unknown as { assessment_id: string; shortfalls: GenerationShortfall[] }
+      return { id: result.assessment_id, shortfalls: result.shortfalls, error: null }
+    } catch (err) {
+      return { id: null, shortfalls: [], error: handleError(err, 'failedCreateAssessment') }
+    }
+  }
+
+  /**
+   * Replace one generated question with another random pick from its spec
+   * line — the RPC excludes everything already in the assessment and
+   * rewrites the row in place, so the id and position survive.
+   */
+  async function regenerateQuestion(id: string): Promise<{ error: string | null }> {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('regenerate_assessment_question', {
+        p_question_id: id,
+      })
+      if (rpcError) throw rpcError
+      const result = data as unknown as { payload: Json; points: number }
+      const payload = result.payload as unknown as AdhocPayload
+      const item = currentQuestions.value.find((q) => q.id === id)
+      if (item) {
+        Object.assign(item, adhocDisplayFields(payload), {
+          payload,
+          points: Number(result.points),
+        })
+      }
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
     }
   }
 
@@ -1027,6 +1110,8 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     isLoadingCurrent,
     fetchAssessments,
     createAssessment,
+    generateAssessment,
+    regenerateQuestion,
     updateAssessment,
     publishAssessment,
     deleteAssessment,

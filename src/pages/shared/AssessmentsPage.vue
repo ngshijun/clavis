@@ -14,6 +14,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import AssessmentCreateDialog from '@/components/staff/AssessmentCreateDialog.vue'
+import GenerateAssessmentDialog from '@/components/staff/GenerateAssessmentDialog.vue'
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
@@ -67,6 +69,7 @@ watch(
 )
 
 const showCreateDialog = ref(false)
+const showGenerateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const selectedAssessment = ref<AssessmentListItem | null>(null)
 const isDeleting = ref(false)
@@ -249,12 +252,16 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-end">
+    <div v-if="!authStore.isManager" class="mb-6 flex items-center justify-end gap-2">
       <Button
-        v-if="!authStore.isManager"
+        variant="outline"
         :disabled="assessmentsStore.isLoading"
-        @click="showCreateDialog = true"
+        @click="showGenerateDialog = true"
       >
+        <Sparkles class="mr-2 size-4" />
+        {{ t.staff.generate.btn }}
+      </Button>
+      <Button :disabled="assessmentsStore.isLoading" @click="showCreateDialog = true">
         <Plus class="mr-2 size-4" />
         {{ t.staff.assessments.createBtn }}
       </Button>
@@ -306,6 +313,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
     </template>
 
     <AssessmentCreateDialog v-model:open="showCreateDialog" @created="handleCreated" />
+    <GenerateAssessmentDialog v-model:open="showGenerateDialog" @generated="handleCreated" />
 
     <!-- Delete confirmation -->
     <Dialog v-model:open="showDeleteDialog">

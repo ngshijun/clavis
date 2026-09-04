@@ -11,12 +11,14 @@ import { useT } from '@/composables/useT'
 
 /**
  * Multi-select over the global learning-point tag library, with inline
- * creation. Each tag names ONE learning point; new names are normalized
- * (lowercased + trimmed) before insert — the DB CHECK rejects anything else.
+ * creation for admins. Each tag names ONE learning point; new names are
+ * normalized (lowercased + trimmed) before insert — the DB CHECK rejects
+ * anything else. Tag writes are admin-only at RLS, so a staff picker passes
+ * `allowCreate=false` and never offers what would 403.
  */
-const props = defineProps<{
-  disabled?: boolean
-}>()
+const props = withDefaults(defineProps<{ disabled?: boolean; allowCreate?: boolean }>(), {
+  allowCreate: true,
+})
 
 const modelValue = defineModel<string[]>({ required: true })
 
@@ -47,6 +49,7 @@ const filteredTags = computed(() => {
 
 /** Offer "create" only for a non-empty query with no exact (normalized) match. */
 const creatableName = computed(() => {
+  if (!props.allowCreate) return null
   const normalized = normalizeTagName(search.value)
   if (!normalized) return null
   return tagsStore.tags.some((tag) => tag.name === normalized) ? null : normalized
