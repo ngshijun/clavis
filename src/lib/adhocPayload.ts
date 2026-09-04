@@ -508,3 +508,25 @@ export function collectAdhocPayloadImagePaths(payload: AdhocPayload): string[] {
   }
   return paths
 }
+
+/** Display fields derived from an ad-hoc payload (list rows, result dialogs). */
+export function adhocDisplayFields(payload: AdhocPayload): {
+  type: AdhocQuestionType
+  question: string
+  imagePath: string | null
+  options: { number: number; text: string; imagePath: string | null }[]
+} {
+  return {
+    type: payload.type ?? 'mcq',
+    question: payloadPrompt(payload) ?? '',
+    imagePath: payload.image_path ?? null,
+    options:
+      payload.type === 'mcq' || payload.type === 'mrq'
+        ? payload.options.map((option, index) => ({
+            number: index + 1,
+            text: option.text,
+            imagePath: option.image_path ?? null,
+          }))
+        : [],
+  }
+}

@@ -404,6 +404,8 @@ ON CONFLICT (id) DO NOTHING;
 DELETE FROM public.attempt_answers;
 DELETE FROM public.attempt_questions;
 DELETE FROM public.assessment_questions;
+DELETE FROM public.assessment_template_questions;
+DELETE FROM public.assessment_bank_questions;
 DELETE FROM public.practice_answers;
 DELETE FROM public.session_questions;
 DELETE FROM public.student_question_progress;
@@ -695,93 +697,92 @@ ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9d. ADMIN ASSESSMENT TEMPLATES (Revamp 2.3/2.4 — decisions 54-56, 60-61) ║
+-- ║ 9d. ADMIN QUESTION BANK + TEMPLATES (decision 89)                        ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Platform-wide templates authored by the admin (000001): is_template = true,
--- organization_id NULL (enforced by assessments_template_org_check). They are
--- read-only library items; a center clones one via
--- clone_assessment_template(id) to get an editable, org-scoped copy.
--- Section 8's DELETE FROM assessment_questions clears the template questions on
--- a re-run (assessments rows persist via ON CONFLICT), so all re-create here.
+-- The bank is the only store of admin questions, filed under a sub-topic. A
+-- template is an ordered list of references into it; a center clones one via
+-- clone_assessment_template(id, classroom_id), which COPIES the referenced
+-- payloads into an editable, classroom-owned assessment.
+-- Section 8 wipes assessment_template_questions and assessment_bank_questions
+-- on a re-run (template rows persist via ON CONFLICT), so all re-create here.
 --
--- Revamp 2.4 (decision 60): every template carries a grade+subject pairing,
--- and decision 61 makes a template visible ONLY to staff who have a matching
--- classroom. The seeded classrooms (9b) are Year 1 + Year 1 Mathematics, so:
+-- Decision 61: a template is visible ONLY to staff who have a classroom of
+-- its grade+subject. The seeded classrooms (9b) are Year 1 Mathematics, so:
 --   * templates 1 and 3 (Year 1 Math)     -> VISIBLE to Ms Lee + Mr Wong
 --   * template 2 (Year 2 English)         -> HIDDEN from them (deliberate:
 --     it makes the matching filter observable on staging; the admin sees all)
+--
+-- A template may only hold questions filed under its own subject (DB trigger),
+-- so every bank row below is filed under a sub-topic of the template it joins.
 
-INSERT INTO public.assessments (
-  id, organization_id, created_by, title, description, status, is_template,
-  grade_level_id, subject_id
+INSERT INTO public.assessment_bank_questions (
+  id, payload, difficulty, sub_topic_id, points, created_by
 ) VALUES
-  ('a5000000-0000-4000-8000-000000000002', NULL,
+  -- Year 1 Mathematics — 第一课 / 基础计算 (4e61c11b) and 高阶思维 (a5cf5c0e)
+  ('a9200000-0000-4000-8000-000000000001',
+   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}]}'::jsonb,
+   'low', '4e61c11b-d12e-449f-bdd6-44cf5639a692', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000002',
+   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}]}'::jsonb,
+   'medium', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000003',
+   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"]}'::jsonb,
+   'low', '4e61c11b-d12e-449f-bdd6-44cf5639a692', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000007',
+   '{"type":"mcq","question":"Which of these is an even number?","options":[{"text":"3","is_correct":false},{"text":"6","is_correct":true},{"text":"9","is_correct":false}]}'::jsonb,
+   'medium', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000008',
+   '{"type":"mrq","question":"Select every number smaller than 20.","options":[{"text":"12","is_correct":true},{"text":"25","is_correct":false},{"text":"18","is_correct":true},{"text":"31","is_correct":false}]}'::jsonb,
+   'high', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 2, '00000000-0000-0000-0000-000000000001'),
+  -- Year 2 English — 语法 Grammar / Verbs (8e74125c)
+  ('a9200000-0000-4000-8000-000000000004',
+   '{"type":"mcq","question":"Choose the correct verb: They ___ football on Sundays.","options":[{"text":"plays","is_correct":false},{"text":"play","is_correct":true},{"text":"playing","is_correct":false}]}'::jsonb,
+   'low', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000005',
+   '{"type":"mcq","question":"Which sentence is in the past tense?","options":[{"text":"I walk to school.","is_correct":false},{"text":"I walked to school.","is_correct":true},{"text":"I am walking to school.","is_correct":false}]}'::jsonb,
+   'medium', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000006',
+   '{"type":"mcq","question":"Choose the correct verb: She ___ to school every day.","options":[{"text":"walk","is_correct":false},{"text":"walks","is_correct":true},{"text":"walking","is_correct":false},{"text":"walked","is_correct":false}]}'::jsonb,
+   'low', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assessment_templates (
+  id, created_by, title, description, status, grade_level_id, subject_id
+) VALUES
+  ('a5000000-0000-4000-8000-000000000002',
    '00000000-0000-0000-0000-000000000001',
    'Template: Year 1 Math Basics',
-   '100 以内的整数 — starter quiz any center can clone.', 'published', true,
+   '100 以内的整数 — starter quiz any center can clone.', 'published',
    '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
    '9d077a3d-b673-4760-9c44-218f0f25b2b1'),  -- Year 1 Mathematics  (MATCHES 9b)
-  ('a5000000-0000-4000-8000-000000000003', NULL,
+  ('a5000000-0000-4000-8000-000000000003',
    '00000000-0000-0000-0000-000000000001',
    'Template: Year 2 English Grammar',
-   'Verbs warm-up — bank questions plus one ad-hoc item.', 'published', true,
+   'Verbs warm-up.', 'published',
    'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a',   -- Year 2
    'f73988ca-1c4e-4b22-8455-eb32c5c1e1c8'),  -- Year 2 English      (NO match)
-  ('a5000000-0000-4000-8000-000000000004', NULL,
+  ('a5000000-0000-4000-8000-000000000004',
    '00000000-0000-0000-0000-000000000001',
    'Template: Year 1 Math — Numbers & Counting',
-   '双数、比较大小与加法 — second Year 1 Math library item.', 'published', true,
+   '双数、比较大小与加法 — second Year 1 Math library item.', 'published',
    '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
    '9d077a3d-b673-4760-9c44-218f0f25b2b1')   -- Year 1 Mathematics  (MATCHES 9b)
 ON CONFLICT (id) DO NOTHING;
 
--- Template 1: three questions.
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
+-- References. Question ...0003 sits in BOTH Year 1 Math templates: one bank
+-- row, two templates — the reach an edit has is observable on staging.
+INSERT INTO public.assessment_template_questions (template_id, bank_question_id, position)
 VALUES
-  ('a9200000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000002',
-   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}],"explanation":"5 加 3 等于 8。"}'::jsonb,
-   0, 1),
-  ('a9200000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000002',
-   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}],"explanation":"74 的十位是 7，比 47 的十位 4 大。"}'::jsonb,
-   1, 1),
-  ('a9200000-0000-4000-8000-000000000003', 'a5000000-0000-4000-8000-000000000002',
-   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"],"explanation":"29 的下一个整数是 30。"}'::jsonb,
-   2, 1)
-ON CONFLICT (id) DO NOTHING;
-
--- Template 2: three questions (every assessment question is a payload now).
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
-VALUES
-  ('a9200000-0000-4000-8000-000000000004', 'a5000000-0000-4000-8000-000000000003',
-   '{"type":"mcq","question":"Which shape has three sides?","options":[{"text":"Square","is_correct":false},{"text":"Triangle","is_correct":true},{"text":"Circle","is_correct":false}],"explanation":"三角形有三条边。"}'::jsonb,
-   0, 1),
-  ('a9200000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000003',
-   '{"type":"mcq","question":"10 - 4 = ?","options":[{"text":"5","is_correct":false},{"text":"6","is_correct":true},{"text":"7","is_correct":false}],"explanation":"10 减 4 等于 6。"}'::jsonb,
-   1, 1)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
-VALUES
-  ('a9200000-0000-4000-8000-000000000006', 'a5000000-0000-4000-8000-000000000003',
-   '{"type":"mcq","question":"Choose the correct verb: She ___ to school every day.","options":[{"text":"walk","is_correct":false},{"text":"walks","is_correct":true},{"text":"walking","is_correct":false},{"text":"walked","is_correct":false}],"explanation":"Third person singular takes -s."}'::jsonb,
-   2, 1)
-ON CONFLICT (id) DO NOTHING;
-
--- Template 3: three questions (MCQ + MRQ + short answer), same Year 1
--- Math pairing as template 1 — so a matched teacher/manager sees TWO library
--- items and template 2 stays hidden.
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
-VALUES
-  ('a9200000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000004',
-   '{"type":"mcq","question":"Which of these is an even number?","options":[{"text":"3","is_correct":false},{"text":"6","is_correct":true},{"text":"9","is_correct":false}],"explanation":"6 可以被 2 整除，是双数。"}'::jsonb,
-   0, 1),
-  ('a9200000-0000-4000-8000-000000000008', 'a5000000-0000-4000-8000-000000000004',
-   '{"type":"mrq","question":"Select every number smaller than 20.","options":[{"text":"12","is_correct":true},{"text":"25","is_correct":false},{"text":"18","is_correct":true},{"text":"31","is_correct":false}],"explanation":"12 和 18 都小于 20。"}'::jsonb,
-   1, 2),
-  ('a9200000-0000-4000-8000-000000000009', 'a5000000-0000-4000-8000-000000000004',
-   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"],"explanation":"29 的下一个整数是 30。"}'::jsonb,
-   2, 1)
-ON CONFLICT (id) DO NOTHING;
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000001', 0),
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000002', 1),
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000003', 2),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000004', 0),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000005', 1),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000006', 2),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000007', 0),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000008', 1),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000003', 2)
+ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗

@@ -110,14 +110,19 @@ export default {
   questionBank: {
     title: 'Question Bank',
     subtitle:
-      'Exam questions you compose templates from. Separate from practice questions, which are authored under a sub-topic.',
+      'Every exam question lives here, filed under a sub-topic. Templates point at these questions, so an edit here reaches every template that holds it.',
     addBtn: 'Add question',
     gradeLabel: 'Grade level',
     subjectLabel: 'Subject',
+    topicLabel: 'Topic',
+    subTopicLabel: 'Sub-topic',
+    allTopics: 'All topics',
+    allSubTopics: 'All sub-topics',
     difficultyLabel: 'Difficulty',
     allDifficulties: 'All difficulties',
     empty: 'No questions here yet. Add one to start building this bank.',
-    pickCurriculum: 'Choose a grade level and subject to begin.',
+    pickSubTopic: 'No questions here yet. Choose a sub-topic to add one.',
+    usedIn: (n: number) => `In ${n} template${n === 1 ? '' : 's'}`,
   },
   tags: {
     title: 'Learning Points',

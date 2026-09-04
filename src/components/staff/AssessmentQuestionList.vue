@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends QuestionCardItem">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { ImagePlus, Library, Plus } from 'lucide-vue-next'
@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
 import { moveItem, refocusReorderHandle } from '@/lib/reorder'
-import type { AssessmentQuestionItem } from '@/stores/assessments'
-import type { AdhocPayload } from '@/lib/adhocPayload'
+import type { AdhocPayload, QuestionCardItem } from '@/lib/adhocPayload'
 
 /**
  * The Google-Forms-style question composer: a vertical stack of
@@ -16,27 +15,41 @@ import type { AdhocPayload } from '@/lib/adhocPayload'
  * via the card's top grip, with the parent owning persistence (debounced +
  * non-blocking, decision 72b) — this component only emits intents and never
  * locks dragging; `editable` reflects edit permission, not save state.
+ *
+ * Generic over the item: an assessment's own questions and a template's bank
+ * questions render through the same list, each parent keeping its own type.
  */
 const props = defineProps<{
-  items: AssessmentQuestionItem[]
+  items: T[]
   editable: boolean
-  assessmentId: string
-  /** Offer the admin question bank (P13a) — admin editing a template only. */
+  /**
+   * Storage folder for a card's image uploads (the bucket RLS reads the first
+   * segment): `{assessmentId}` for an assessment, `bank/{id}` for a bank row.
+   */
+  imageFolderOf: (item: T) => string
+  /** Offer the admin question bank — a template's composer only. */
   showQuestionBank?: boolean
+  /** Bank questions carry no explanation; a template's list hides the field. */
+  showExplanation?: boolean
 }>()
 
 const showQuestionBank = computed(() => props.showQuestionBank === true)
 
 const emit = defineEmits<{
   reorder: [orderedIds: string[]]
-  'payload-change': [item: AssessmentQuestionItem, payload: AdhocPayload]
-  'points-change': [item: AssessmentQuestionItem, points: number]
+  'payload-change': [item: T, payload: AdhocPayload]
+  'points-change': [item: T, points: number]
   /** A replaced/removed image object awaiting confirmed-save deletion (decision 78). */
-  'image-orphaned': [item: AssessmentQuestionItem, path: string]
-  duplicate: [item: AssessmentQuestionItem]
-  remove: [item: AssessmentQuestionItem]
+  'image-orphaned': [item: T, path: string]
+  duplicate: [item: T]
+  remove: [item: T]
   'add-question': []
   'add-from-question-bank': []
+}>()
+
+defineSlots<{
+  /** Card footer extras (difficulty, tags, filing) beside the points input. */
+  meta?: (props: { item: T }) => unknown
 }>()
 
 const t = useT()
@@ -51,7 +64,7 @@ const expandedId = defineModel<string | null>('expandedId', { default: null })
  */
 const list = computed({
   get: () => props.items,
-  set: (value: AssessmentQuestionItem[]) =>
+  set: (value: T[]) =>
     emit(
       'reorder',
       value.map((item) => item.id),
@@ -125,7 +138,7 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
 })
 
 /** The expanded card, if any — the "add image" target. */
-const activeAdhocCard = computed(() => {
+const activeCard = computed(() => {
   const activeId = expandedId.value
   if (!activeId) return null
   return props.items.find((candidate) => candidate.id === activeId) ?? null
@@ -157,7 +170,8 @@ function addImageToActiveCard() {
         :index="index"
         :expanded="expandedId === item.id"
         :editable="editable"
-        :image-folder="assessmentId"
+        :image-folder="imageFolderOf(item)"
+        :show-explanation="showExplanation"
         @select="expandedId = item.id"
         @payload-change="(payload) => emit('payload-change', item, payload)"
         @points-change="(points) => emit('points-change', item, points)"
@@ -165,7 +179,11 @@ function addImageToActiveCard() {
         @move="(delta) => moveCard(index, delta)"
         @duplicate="emit('duplicate', item)"
         @remove="emit('remove', item)"
-      />
+      >
+        <template v-if="$slots.meta" #meta>
+          <slot name="meta" :item="item" />
+        </template>
+      </AssessmentQuestionCard>
     </VueDraggable>
 
     <!-- Floating action toolbar — moves with the active card (Forms model) -->
@@ -199,7 +217,7 @@ function addImageToActiveCard() {
         variant="ghost"
         size="icon"
         class="size-8"
-        :disabled="!activeAdhocCard"
+        :disabled="!activeCard"
         :aria-label="t.staff.adhocForm.addImage"
         :title="t.staff.adhocForm.addImage"
         @click="addImageToActiveCard"

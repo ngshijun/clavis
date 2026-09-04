@@ -6,7 +6,7 @@ import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
 import {
   collectAdhocPayloadImagePaths,
-  payloadPrompt,
+  adhocDisplayFields,
   type AdhocPayload,
   type AdhocQuestionType,
 } from '@/lib/adhocPayload'
@@ -25,18 +25,6 @@ export interface AssessmentListItem {
   title: string
   description: string | null
   status: AssessmentStatus
-  /** Platform-wide template (admin-authored, org-less, never assignable). */
-  isTemplate: boolean
-  /**
-   * Grade+subject scope (P8a). TEMPLATES ONLY: it decides which centers may
-   * see and clone a template. Non-templates carry NULL and are scoped by
-   * `classroomId` instead (decision 81) — the pairing cannot identify a
-   * classroom, since two classrooms may share one.
-   */
-  gradeLevelId: string | null
-  gradeLevelName: string | null
-  subjectId: string | null
-  subjectName: string | null
   timeLimitSeconds: number | null
   shuffleQuestions: boolean
   /**
@@ -52,8 +40,8 @@ export interface AssessmentListItem {
    * column is not client-writable.
    */
   answersReleasedAt: string | null
-  /** The owning classroom (decision 81). NULL only for templates. */
-  classroomId: string | null
+  /** The owning classroom (decision 81). */
+  classroomId: string
   /**
    * Embedded with the row rather than looked up in a store: which store holds
    * the classroom list differs by role, and a manager holds none at all.
@@ -154,28 +142,6 @@ export interface MarkAnswerResult {
   pendingCount: number
 }
 
-/** Display fields derived from an ad-hoc payload (list rows, result dialogs). */
-function adhocDisplayFields(payload: AdhocPayload): {
-  type: AdhocQuestionType
-  question: string
-  imagePath: string | null
-  options: { number: number; text: string; imagePath: string | null }[]
-} {
-  return {
-    type: payload.type ?? 'mcq',
-    question: payloadPrompt(payload) ?? '',
-    imagePath: payload.image_path ?? null,
-    options:
-      payload.type === 'mcq' || payload.type === 'mrq'
-        ? payload.options.map((option, index) => ({
-            number: index + 1,
-            text: option.text,
-            imagePath: option.image_path ?? null,
-          }))
-        : [],
-  }
-}
-
 function rowToAssessmentQuestion(row: AssessmentQuestionRow): AssessmentQuestionItem {
   const payload = row.payload as unknown as AdhocPayload
   return {
@@ -204,10 +170,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Staff template library (platform templates, cross-center read-only)
-  const templates = ref<AssessmentListItem[]>([])
-  const isLoadingTemplates = ref(false)
-
   const filters = ref({ search: '' })
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
@@ -230,10 +192,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   })
 
   /**
-   * Managers may edit any org assessment; teachers only their own (RLS
-   * mirror). Admins may edit any template (admin FOR ALL policy).
-   */
-  /**
    * Managers are deliberately excluded (decision 80): their role is to manage
    * people and read data, not to author teaching material. The exclusion is
    * unconditional — a manager who authored an assessment before this rule
@@ -242,7 +200,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
    */
   function canEdit(item: Pick<AssessmentListItem, 'createdBy'>): boolean {
     if (authStore.isManager) return false
-    return authStore.isAdmin || item.createdBy === authStore.user?.id
+    return item.createdBy === authStore.user?.id
   }
 
   const ASSESSMENT_SELECT = `
@@ -250,9 +208,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title,
     description,
     status,
-    is_template,
-    grade_level_id,
-    subject_id,
     time_limit_seconds,
     shuffle_questions,
     show_auto_score_while_pending,
@@ -261,8 +216,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     created_at,
     updated_at,
     profiles!assessments_created_by_fkey (name),
-    grade_levels!assessments_grade_level_id_fkey (name),
-    subjects!assessments_subject_id_fkey (name),
     classroom_id,
     classrooms!assessments_classroom_id_fkey (name),
     assessment_questions (count)
@@ -273,9 +226,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     title: string
     description: string | null
     status: AssessmentStatus
-    is_template: boolean
-    grade_level_id: string | null
-    subject_id: string | null
     time_limit_seconds: number | null
     shuffle_questions: boolean
     show_auto_score_while_pending: boolean
@@ -284,9 +234,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     created_at: string
     updated_at: string
     profiles: { name: string } | null
-    grade_levels: { name: string } | null
-    subjects: { name: string } | null
-    classroom_id: string | null
+    classroom_id: string
     classrooms: { name: string } | null
     assessment_questions: { count: number }[]
   }
@@ -297,11 +245,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       title: row.title,
       description: row.description,
       status: row.status,
-      isTemplate: row.is_template,
-      gradeLevelId: row.grade_level_id,
-      gradeLevelName: row.grade_levels?.name ?? null,
-      subjectId: row.subject_id,
-      subjectName: row.subjects?.name ?? null,
       timeLimitSeconds: row.time_limit_seconds,
       shuffleQuestions: row.shuffle_questions,
       showAutoScoreWhilePending: row.show_auto_score_while_pending,
@@ -317,22 +260,11 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   /**
-   * Admin lists platform templates; org staff list their org's assessments.
-   * The `is_template` filter is load-bearing for staff: templates are
-   * RLS-readable cross-center (P7a) and would otherwise pollute the org list.
+   * The classroom's assessments (decisions 79/81). Every assessment belongs
+   * to exactly one classroom — set at creation, never null — so the
+   * classroom in the URL is the only scope the list needs.
    */
-  /**
-   * Org assessments, narrowed to the selected classroom for staff (decisions
-   * 79/81). Admins are unscoped — they work on the platform template library,
-   * which belongs to no classroom — so `classroomId` is ignored for them.
-   *
-   * The bound is the assessment's own `classroom_id`. It is set at creation
-   * and never null for a non-template, so there is no "draft with no
-   * classroom" case to special-case any more, and no reliance on the
-   * grade+subject pairing, which cannot tell two classrooms of the same grade
-   * and subject apart.
-   */
-  async function fetchAssessments(classroomId: string | null): Promise<{ error: string | null }> {
+  async function fetchAssessments(classroomId: string): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
 
@@ -340,18 +272,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       const { data, error: fetchError } = await supabase
         .from('assessments')
         .select(ASSESSMENT_SELECT)
-        .eq('is_template', authStore.isAdmin)
+        .eq('classroom_id', classroomId)
         .order('updated_at', { ascending: false })
 
       if (fetchError) throw fetchError
 
-      const rows = (data ?? []) as unknown as AssessmentSelectRow[]
-      const scoped =
-        authStore.isAdmin || !classroomId
-          ? rows
-          : rows.filter((row) => row.classroom_id === classroomId)
-
-      assessments.value = scoped.map(rowToListItem)
+      assessments.value = ((data ?? []) as unknown as AssessmentSelectRow[]).map(rowToListItem)
 
       return { error: null }
     } catch (err) {
@@ -364,112 +290,29 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   /**
-   * The platform template library, for org staff (manager/teacher).
-   * DELIBERATELY separate from `fetchAssessments` — that one hard-filters
-   * staff to `is_template=false` so templates never pollute the org list.
-   * Templates are read-only for staff; "using" one goes through
-   * `cloneTemplate`.
-   */
-  async function fetchTemplates(): Promise<{ error: string | null }> {
-    isLoadingTemplates.value = true
-
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('assessments')
-        .select(ASSESSMENT_SELECT)
-        .eq('is_template', true)
-        .order('title')
-
-      if (fetchError) throw fetchError
-
-      templates.value = ((data ?? []) as unknown as AssessmentSelectRow[]).map(rowToListItem)
-
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedFetchTemplates') }
-    } finally {
-      isLoadingTemplates.value = false
-    }
-  }
-
-  /**
-   * Clone a platform template INTO a classroom (decision 81): the clone is a
-   * normal editable draft owned by that classroom; the template is untouched.
-   * The RPC checks the caller teaches the classroom and that it matches the
-   * template's grade+subject. Returns the new assessment id.
-   */
-  async function cloneTemplate(
-    templateId: string,
-    classroomId: string,
-  ): Promise<{ id: string | null; error: string | null }> {
-    try {
-      const { data, error: rpcError } = await supabase.rpc('clone_assessment_template', {
-        p_template_id: templateId,
-        p_classroom_id: classroomId,
-      })
-
-      if (rpcError) throw rpcError
-
-      // No refetch here: both callers navigate straight into the new
-      // assessment's builder, and the list reloads on mount anyway now that it
-      // is keyed to the selected classroom.
-      return { id: data, error: null }
-    } catch (err) {
-      return { id: null, error: handleError(err, 'failedCloneTemplate') }
-    }
-  }
-
-  /**
-   * Admin creates a platform TEMPLATE (is_template=true, no org — the DB
-   * CHECK requires org NULL for templates; a template must also carry a
-   * grade+subject pairing, P8a CHECK); org staff create a normal, unscoped
-   * org assessment.
-   */
-  /**
-   * Admin templates are platform-wide and carry a grade+subject pairing;
-   * everything else is born INTO a classroom (decision 81) and carries
-   * `classroom_id` instead. Both are enforced by a DB CHECK, and RLS
-   * additionally requires the caller to teach the classroom.
+   * An assessment is born INTO a classroom (decision 81) and carries
+   * `classroom_id` from the start; RLS additionally requires the caller to
+   * teach that classroom.
    */
   async function createAssessment(input: {
     title: string
-    /** REQUIRED for admin templates (the DB CHECK rejects an unpaired template). */
-    gradeLevelId?: string
-    subjectId?: string
-    /** REQUIRED for staff assessments — the classroom the assessment belongs to. */
-    classroomId?: string
+    classroomId: string
   }): Promise<{ id: string | null; error: string | null }> {
     const userId = authStore.user?.id
     const organizationId = authStore.organizationId
-    if (!userId || (!authStore.isAdmin && !organizationId)) {
+    if (!userId || !organizationId) {
       return { id: null, error: errorMessages().notAuthenticated }
-    }
-    if (authStore.isAdmin && (!input.gradeLevelId || !input.subjectId)) {
-      return { id: null, error: errorMessages().dbMissingField }
-    }
-    if (!authStore.isAdmin && !input.classroomId) {
-      return { id: null, error: errorMessages().dbMissingField }
     }
 
     try {
       const { data, error: insertError } = await supabase
         .from('assessments')
-        .insert(
-          authStore.isAdmin
-            ? {
-                title: input.title,
-                is_template: true,
-                grade_level_id: input.gradeLevelId,
-                subject_id: input.subjectId,
-                created_by: userId,
-              }
-            : {
-                title: input.title,
-                organization_id: organizationId,
-                created_by: userId,
-                classroom_id: input.classroomId,
-              },
-        )
+        .insert({
+          title: input.title,
+          organization_id: organizationId,
+          created_by: userId,
+          classroom_id: input.classroomId,
+        })
         .select('id')
         .single()
 
@@ -489,12 +332,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       timeLimitSeconds?: number | null
       shuffleQuestions?: boolean
       showAutoScoreWhilePending?: boolean
-      /**
-       * Template pairing edit (admin). Always pass BOTH — the DB CHECK
-       * forbids a half-set pairing and a template without one.
-       */
-      gradeLevelId?: string
-      subjectId?: string
     },
   ): Promise<{ error: string | null }> {
     try {
@@ -509,10 +346,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       }
       if (updates.showAutoScoreWhilePending !== undefined) {
         updateData.show_auto_score_while_pending = updates.showAutoScoreWhilePending
-      }
-      if (updates.gradeLevelId !== undefined && updates.subjectId !== undefined) {
-        updateData.grade_level_id = updates.gradeLevelId
-        updateData.subject_id = updates.subjectId
       }
 
       const { error: updateError } = await supabase
@@ -636,39 +469,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
 
   function nextPosition(): number {
     return currentQuestions.value.reduce((max, q) => Math.max(max, q.position), -1) + 1
-  }
-
-  /**
-   * Copy questions out of the admin question bank (P13a) into this
-   * assessment. A COPY, not a link: a later bank edit must never mutate a
-   * published assessment or an in-flight attempt, and the payload contract is
-   * identical, so the copied rows need no translation and no new grader path.
-   * Nothing records where a copy came from: it is the assessment's own
-   * question from the moment it lands.
-   */
-  async function addQuestionsFromBank(
-    assessmentId: string,
-    entries: { payload: AdhocPayload; points: number }[],
-  ): Promise<{ error: string | null }> {
-    if (entries.length === 0) return { error: null }
-
-    try {
-      const base = nextPosition()
-      const { error: insertError } = await supabase.from('assessment_questions').insert(
-        entries.map((entry, index) => ({
-          assessment_id: assessmentId,
-          payload: entry.payload as unknown as Json,
-          points: entry.points,
-          position: base + index,
-        })),
-      )
-
-      if (insertError) throw insertError
-
-      return await fetchAssessmentQuestions(assessmentId)
-    } catch (err) {
-      return { error: handleError(err, 'failedAddAssessmentQuestions') }
-    }
   }
 
   /** Insert an ad-hoc question and return its id (the builder expands it). */
@@ -1199,8 +999,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     assessments.value = []
     isLoading.value = false
     error.value = null
-    templates.value = []
-    isLoadingTemplates.value = false
     currentAssessment.value = null
     currentQuestions.value = []
     currentAssignments.value = []
@@ -1227,10 +1025,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAssignments,
     currentAttempts,
     isLoadingCurrent,
-    templates,
-    isLoadingTemplates,
-    fetchTemplates,
-    cloneTemplate,
     fetchAssessments,
     createAssessment,
     updateAssessment,
@@ -1238,7 +1032,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     deleteAssessment,
     fetchAssessmentDetail,
     fetchAssessmentQuestions,
-    addQuestionsFromBank,
     addAdhocQuestion,
     applyAdhocPayload,
     persistAdhocPayload,

@@ -133,7 +133,6 @@ export default {
     failedFetchTemplates: '加载模板失败。',
     failedCloneTemplate: '复制模板失败。',
     // P8a assignment-scope guard + clone RPC (exact DB RAISE strings mapped in errors.ts)
-    assignTemplateBlocked: '模板不能直接分配给学生，请先创建你自己的副本。',
     assignClassroomScopeMismatch: '该班级与此测评的年级和科目不匹配。',
     assignStudentScopeMismatch: '该学生不属于任何与此测评年级和科目匹配的班级。',
     cloneNoMatchingClassroom: '需要先拥有与此模板年级和科目匹配的班级，才能使用该模板。',

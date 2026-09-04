@@ -2,7 +2,7 @@
 import { ref, h, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ColumnDef } from '@tanstack/vue-table'
-import { useAssessmentsStore, type AssessmentListItem } from '@/stores/assessments'
+import { useAssessmentTemplatesStore, type AssessmentTemplate } from '@/stores/assessment-templates'
 import { ArrowUpDown, Copy, Eye, Library, Loader2, Search } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -20,15 +20,14 @@ import { useT } from '@/composables/useT'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
 
 /**
- * Staff (manager/teacher) template library: platform templates are strictly
- * READ-ONLY here — no edit, assign, publish or delete affordances exist for
- * a raw template anywhere (the DB blocks those writes too). "Use Template"
- * clones the template into the caller's org as a normal editable draft that
- * then flows through the ordinary builder/assign path.
+ * A teacher's template library: published admin templates are strictly
+ * READ-ONLY here (the DB blocks every write). "Use Template" clones one into
+ * the classroom in the URL as a normal editable draft — a copy of each bank
+ * question, so nothing the admin edits later reaches it.
  */
 const t = useT()
 const router = useRouter()
-const assessmentsStore = useAssessmentsStore()
+const templatesStore = useAssessmentTemplatesStore()
 const { classroomId, classroom, basePath } = useActiveClassroom()
 
 const search = ref('')
@@ -41,7 +40,7 @@ const search = ref('')
 const scopedTemplates = computed(() => {
   const active = classroom.value
   if (!active) return []
-  return assessmentsStore.templates.filter(
+  return templatesStore.templates.filter(
     (item) => item.gradeLevelId === active.gradeLevelId && item.subjectId === active.subjectId,
   )
 })
@@ -57,22 +56,22 @@ const filteredTemplates = computed(() => {
 })
 
 onMounted(async () => {
-  const { error } = await assessmentsStore.fetchTemplates()
+  const { error } = await templatesStore.fetchTemplates()
   if (error) {
-    toast.error(t.value.staff.assessments.toastTemplatesLoadFailed)
+    toast.error(t.value.staff.templates.toastLoadFailed)
   }
 })
 
-function openPreview(item: AssessmentListItem) {
-  router.push(`${basePath.value}/assessments/${item.id}`)
+function openPreview(item: AssessmentTemplate) {
+  router.push(`${basePath.value}/templates/${item.id}`)
 }
 
 // "Use template" confirmation (the copy explains the clone semantics)
 const showUseDialog = ref(false)
-const selectedTemplate = ref<AssessmentListItem | null>(null)
+const selectedTemplate = ref<AssessmentTemplate | null>(null)
 const isCloning = ref(false)
 
-function openUseTemplate(item: AssessmentListItem) {
+function openUseTemplate(item: AssessmentTemplate) {
   selectedTemplate.value = item
   showUseDialog.value = true
 }
@@ -87,7 +86,7 @@ async function handleUseTemplate() {
       toast.error(t.value.shared.errors.failedCloneTemplate)
       return
     }
-    const { id, error } = await assessmentsStore.cloneTemplate(
+    const { id, error } = await templatesStore.cloneTemplate(
       selectedTemplate.value.id,
       targetClassroomId,
     )
@@ -95,7 +94,7 @@ async function handleUseTemplate() {
       toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
       return
     }
-    toast.success(t.value.staff.assessments.toastCloned)
+    toast.success(t.value.staff.templates.toastCloned)
     showUseDialog.value = false
     router.push(`${basePath.value}/assessments/${id}`)
   } finally {
@@ -103,7 +102,7 @@ async function handleUseTemplate() {
   }
 }
 
-const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
+const columns = computed<ColumnDef<AssessmentTemplate>[]>(() => [
   {
     accessorKey: 'title',
     header: ({ column }) =>
@@ -123,24 +122,8 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       ),
   },
   {
-    // The grade+subject pairing a template is scoped to: it explains why the
-    // template is visible here (a matching classroom exists) and what a clone
-    // will be locked to when assigning.
-    id: 'scope',
-    accessorFn: (row: AssessmentListItem) => `${row.gradeLevelName ?? ''} ${row.subjectName ?? ''}`,
-    header: () => t.value.staff.assessments.scopeCol,
-    cell: ({ row }) =>
-      h(
-        'div',
-        { class: 'text-muted-foreground' },
-        row.original.gradeLevelName && row.original.subjectName
-          ? `${row.original.gradeLevelName} · ${row.original.subjectName}`
-          : '—',
-      ),
-  },
-  {
     accessorKey: 'description',
-    header: () => t.value.staff.assessments.descriptionCol,
+    header: () => t.value.staff.templates.descriptionCol,
     cell: ({ row }) =>
       h(
         'div',
@@ -171,7 +154,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
               openPreview(item)
             },
           },
-          () => [h(Eye, { class: 'mr-2 size-4' }), t.value.staff.assessments.previewAction],
+          () => [h(Eye, { class: 'mr-2 size-4' }), t.value.staff.templates.previewAction],
         ),
         h(
           Button,
@@ -182,7 +165,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
               openUseTemplate(item)
             },
           },
-          () => [h(Copy, { class: 'mr-2 size-4' }), t.value.staff.assessments.useTemplate],
+          () => [h(Copy, { class: 'mr-2 size-4' }), t.value.staff.templates.useTemplate],
         ),
       ])
     },
@@ -193,7 +176,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
 <template>
   <div class="p-6">
     <!-- Loading State -->
-    <div v-if="assessmentsStore.isLoadingTemplates" class="flex items-center justify-center py-12">
+    <div v-if="templatesStore.isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
@@ -202,23 +185,17 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       <div class="mb-4">
         <div class="relative w-[400px]">
           <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            v-model="search"
-            :placeholder="t.staff.assessments.searchTemplatesPlaceholder"
-            class="pl-9"
-          />
+          <Input v-model="search" :placeholder="t.staff.templates.searchPlaceholder" class="pl-9" />
         </div>
       </div>
 
       <!-- Empty State -->
       <div v-if="filteredTemplates.length === 0" class="py-16 text-center">
         <Library class="mx-auto size-16 text-muted-foreground/50" />
-        <h2 class="mt-4 text-lg font-semibold">{{ t.staff.assessments.libraryEmpty }}</h2>
+        <h2 class="mt-4 text-lg font-semibold">{{ t.staff.templates.libraryEmpty }}</h2>
         <p class="mt-2 text-muted-foreground">
           {{
-            search
-              ? t.staff.assessments.noTemplatesMatchSearch
-              : t.staff.assessments.libraryEmptyDesc
+            search ? t.staff.templates.noTemplatesMatchSearch : t.staff.templates.libraryEmptyDesc
           }}
         </p>
       </div>
@@ -231,9 +208,9 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
     <Dialog v-model:open="showUseDialog">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{{ t.staff.assessments.useTemplateTitle }}</DialogTitle>
+          <DialogTitle>{{ t.staff.templates.useTemplateTitle }}</DialogTitle>
           <DialogDescription>{{
-            t.staff.assessments.useTemplateDesc(selectedTemplate?.title ?? '')
+            t.staff.templates.useTemplateDesc(selectedTemplate?.title ?? '')
           }}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -242,7 +219,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
           </Button>
           <Button :disabled="isCloning" @click="handleUseTemplate">
             <Loader2 v-if="isCloning" class="mr-2 size-4 animate-spin" />
-            {{ t.staff.assessments.useTemplateConfirm }}
+            {{ t.staff.templates.useTemplateConfirm }}
           </Button>
         </DialogFooter>
       </DialogContent>

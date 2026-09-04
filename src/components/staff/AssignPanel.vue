@@ -52,52 +52,30 @@ const dueAtLocal = ref('')
 const targetMissing = ref(false)
 
 /**
- * A SCOPED assessment (non-null grade+subject pairing — a template clone, or
- * any scoped assessment) may only be assigned to a classroom matching BOTH,
- * or to a student who belongs to at least one matching classroom. The DB
- * trigger (P8a) is authoritative; the panel simply never offers a target the
- * DB would reject. Unscoped assessments (both NULL) keep the full lists.
+ * An assessment reaches its OWN classroom, or a student enrolled in it, and
+ * nothing else (decision 81). The DB trigger is authoritative; the panel
+ * simply never offers a target the DB would reject.
  */
-const isScoped = computed(
-  () => Boolean(props.assessment.gradeLevelId) && Boolean(props.assessment.subjectId),
+const ownClassrooms = computed(() =>
+  classroomsStore.classrooms.filter((item) => item.id === props.assessment.classroomId),
 )
 
-const matchingClassrooms = computed(() =>
-  isScoped.value
-    ? classroomsStore.classrooms.filter(
-        (item) =>
-          item.gradeLevelId === props.assessment.gradeLevelId &&
-          item.subjectId === props.assessment.subjectId,
-      )
-    : classroomsStore.classrooms,
-)
-
-// Students eligible for a scoped assessment: the deduped rosters of the
-// matching classrooms (fetched per mount — panel-owned lifetime).
-const scopedStudents = ref<ClassroomStudent[]>([])
+/** The classroom's roster (fetched per mount — panel-owned lifetime). */
+const classroomStudents = ref<ClassroomStudent[]>([])
 
 onMounted(async () => {
   isLoading.value = true
-  // Classrooms first: the scoped student roster is derived from the
-  // classrooms matching the assessment's pairing.
   if (classroomsStore.classrooms.length === 0) {
     await classroomsStore.fetchClassrooms()
   }
 
   const [assignmentsResult] = await Promise.all([
     assessmentsStore.fetchAssignments(props.assessment.id),
-    isScoped.value
-      ? classroomsStore
-          .fetchStudentsInClassrooms(matchingClassrooms.value.map((item) => item.id))
-          .then(({ students }) => {
-            scopedStudents.value = students
-          })
-      : // A teacher may only assign to students in the classrooms they teach
-        // (P6d), so their picker draws from that roster union; a manager
-        // assigns org-wide.
-        authStore.isManager
-        ? classroomsStore.fetchOrgStudents()
-        : classroomsStore.fetchTeacherStudents(),
+    classroomsStore
+      .fetchStudentsInClassrooms([props.assessment.classroomId])
+      .then(({ students }) => {
+        classroomStudents.value = students
+      }),
   ])
   isLoading.value = false
 
@@ -121,16 +99,11 @@ const assignedStudentIds = computed(() =>
 )
 
 const availableClassrooms = computed(() =>
-  matchingClassrooms.value.filter((item) => !assignedClassroomIds.value.has(item.id)),
+  ownClassrooms.value.filter((item) => !assignedClassroomIds.value.has(item.id)),
 )
 
 const studentPicks = computed<PickableMember[]>(() =>
-  (isScoped.value
-    ? scopedStudents.value
-    : authStore.isManager
-      ? classroomsStore.orgStudents
-      : classroomsStore.teacherStudents
-  ).map((student) => ({
+  classroomStudents.value.map((student) => ({
     id: student.id,
     name: student.name,
     detail: [student.username, student.gradeLevelName].filter(Boolean).join(' · ') || null,
@@ -202,17 +175,6 @@ async function handleRemove(assignmentId: string) {
     >
       <Info class="mt-0.5 size-4 shrink-0" />
       {{ t.staff.assign.draftWarning }}
-    </div>
-
-    <!-- Scoped assessment: only matching classrooms/students are offered -->
-    <div
-      v-if="isScoped"
-      class="flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
-    >
-      <Info class="mt-0.5 size-4 shrink-0" />
-      {{
-        t.staff.assign.scopedNotice(assessment.gradeLevelName ?? '', assessment.subjectName ?? '')
-      }}
     </div>
 
     <!-- Current assignments -->
@@ -303,7 +265,7 @@ async function handleRemove(assignmentId: string) {
           </SelectContent>
         </Select>
         <p v-if="availableClassrooms.length === 0" class="text-sm text-muted-foreground">
-          {{ isScoped ? t.staff.assign.noMatchingClassrooms : t.staff.assign.noClassrooms }}
+          {{ t.staff.assign.noClassrooms }}
         </p>
       </Field>
 
@@ -316,9 +278,7 @@ async function handleRemove(assignmentId: string) {
           :disabled-label="t.staff.assign.alreadyAssigned"
           single
           :search-placeholder="t.staff.assign.studentSearchPlaceholder"
-          :empty-text="
-            isScoped ? t.staff.assign.noMatchingStudents : t.staff.assign.noStudentsFound
-          "
+          :empty-text="t.staff.assign.noStudentsFound"
         />
       </Field>
 
