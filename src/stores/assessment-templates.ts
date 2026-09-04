@@ -10,7 +10,8 @@ import {
   type QuestionDifficulty,
 } from '@/stores/assessment-bank'
 import { adhocDisplayFields, type AdhocPayload, type QuestionCardItem } from '@/lib/adhocPayload'
-import type { Database } from '@/types/database.types'
+import type { Database, Json } from '@/types/database.types'
+import type { GenerationLine, GenerationShortfall } from '@/stores/assessments'
 
 type AssessmentStatus = Database['public']['Enums']['assessment_status']
 
@@ -226,6 +227,34 @@ export const useAssessmentTemplatesStore = defineStore('assessmentTemplates', ()
       return { id: data.id, error: null }
     } catch (err) {
       return { id: null, error: handleError(err, 'failedCreateAssessment') }
+    }
+  }
+
+  /** Decision 90, admin variant: a draft template of random bank references. */
+  async function generateTemplate(input: {
+    title: string
+    gradeLevelId: string
+    subjectId: string
+    lines: GenerationLine[]
+  }): Promise<{ id: string | null; shortfalls: GenerationShortfall[]; error: string | null }> {
+    try {
+      const spec: Json = input.lines.map((line) => ({
+        sub_topic_id: line.subTopicId,
+        tag_ids: line.tagIds,
+        difficulty: line.difficulty,
+        count: line.count,
+      }))
+      const { data, error: rpcError } = await supabase.rpc('generate_template_from_bank', {
+        p_title: input.title,
+        p_grade_level_id: input.gradeLevelId,
+        p_subject_id: input.subjectId,
+        p_spec: spec,
+      })
+      if (rpcError) throw rpcError
+      const result = data as unknown as { template_id: string; shortfalls: GenerationShortfall[] }
+      return { id: result.template_id, shortfalls: result.shortfalls, error: null }
+    } catch (err) {
+      return { id: null, shortfalls: [], error: handleError(err, 'failedCreateAssessment') }
     }
   }
 
@@ -455,6 +484,7 @@ export const useAssessmentTemplatesStore = defineStore('assessmentTemplates', ()
     fetchTemplates,
     fetchTemplateDetail,
     createTemplate,
+    generateTemplate,
     updateTemplate,
     deleteTemplate,
     addBankQuestions,

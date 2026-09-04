@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -32,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import TemplateCreateDialog from '@/components/admin/TemplateCreateDialog.vue'
+import GenerateTemplateDialog from '@/components/admin/GenerateTemplateDialog.vue'
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
@@ -59,6 +61,7 @@ onMounted(async () => {
 })
 
 const showCreateDialog = ref(false)
+const showGenerateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const selectedTemplate = ref<AssessmentTemplate | null>(null)
 const isDeleting = ref(false)
@@ -214,7 +217,15 @@ const columns = computed<ColumnDef<AssessmentTemplate>[]>(() => [
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-end">
+    <div class="mb-6 flex items-center justify-end gap-2">
+      <Button
+        variant="outline"
+        :disabled="templatesStore.isLoading"
+        @click="showGenerateDialog = true"
+      >
+        <Sparkles class="mr-2 size-4" />
+        {{ t.staff.generate.btn }}
+      </Button>
       <Button :disabled="templatesStore.isLoading" @click="showCreateDialog = true">
         <Plus class="mr-2 size-4" />
         {{ t.staff.templates.createBtn }}
@@ -247,6 +258,7 @@ const columns = computed<ColumnDef<AssessmentTemplate>[]>(() => [
     </template>
 
     <TemplateCreateDialog v-model:open="showCreateDialog" @created="handleCreated" />
+    <GenerateTemplateDialog v-model:open="showGenerateDialog" @generated="handleCreated" />
 
     <Dialog v-model:open="showDeleteDialog">
       <DialogContent class="sm:max-w-md">

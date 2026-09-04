@@ -141,6 +141,11 @@ export default {
       'This student is not in any classroom matching the grade and subject of the assessment.',
     cloneNoMatchingClassroom:
       'You need a classroom with the grade and subject of this template before you can use it.',
+    regenerateExhausted: 'No other bank question matches these criteria.',
+    regenerateLocked: 'Only draft assessments can be regenerated.',
+    generateSpecInvalid:
+      'Check the criteria: each line needs a sub-topic and a count from 1 to 50.',
+    generateSubTopicMismatch: 'Every sub-topic must belong to this subject.',
     failedFetchAttempts: 'Failed to load attempts.',
     failedFetchAttemptResult: 'Failed to load the attempt result.',
     resultNotAuthorized: 'You do not have access to this attempt result.',
