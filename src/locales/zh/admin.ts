@@ -107,14 +107,20 @@ export default {
 
   questionBank: {
     title: '题库',
-    subtitle: '用于组建试卷模板的考试题目。与在子主题下编写的练习题分开管理。',
+    subtitle:
+      '所有考试题目都在这里，按子主题归档。模板引用这些题目，因此在此处的修改会同步到所有引用它的模板。',
     addBtn: '添加题目',
     gradeLabel: '年级',
     subjectLabel: '科目',
+    topicLabel: '主题',
+    subTopicLabel: '子主题',
+    allTopics: '所有主题',
+    allSubTopics: '所有子主题',
     difficultyLabel: '难度',
     allDifficulties: '所有难度',
     empty: '这里还没有题目。添加一道题以开始建立题库。',
-    pickCurriculum: '请先选择年级和科目。',
+    pickSubTopic: '这里还没有题目。请先选择一个子主题再添加。',
+    usedIn: (n: number) => `${n} 个模板引用`,
   },
   tags: {
     title: '学习点',

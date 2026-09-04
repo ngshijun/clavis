@@ -126,7 +126,6 @@ function mapAuthError(err: AuthError, errors: ErrorMessages): string {
  * (P8A-HANDOFF §4-5, P9B-HANDOFF §1-2).
  */
 const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
-  'Cannot assign a template assessment': 'assignTemplateBlocked',
   'Classroom does not match the assessment grade and subject': 'assignClassroomScopeMismatch',
   'Student is not in a classroom matching the assessment grade and subject':
     'assignStudentScopeMismatch',

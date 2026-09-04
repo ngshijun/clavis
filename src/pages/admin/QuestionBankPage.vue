@@ -11,11 +11,14 @@ import {
 } from '@/lib/adhocPayload'
 import { Library, Loader2, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Field, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -27,42 +30,54 @@ import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
 
 /**
- * The admin assessment question bank (P13a) — exam items, kept deliberately
- * apart from the practice `questions` bank (which is filed under a sub_topic
- * and carries option tips).
+ * The admin assessment question bank — the only store of admin questions
+ * (decision 89). Filed under a sub-topic, so the filters walk the curriculum:
+ * grade → subject → topic → sub-topic, with "all" at the two inner levels.
+ * A new question needs one sub-topic pinned.
  *
  * A bank question IS an ad-hoc payload, so this page reuses the builder's
- * `AssessmentQuestionCard` verbatim: same nine types, same validator, same
- * background autosave. What the bank adds is the footer `meta` slot —
- * difficulty (MOE `Aras Kesukaran`) and learning-point tags. What it drops is
- * the explanation field and the drag grip: a bank is an unordered set.
+ * `AssessmentQuestionCard` verbatim. What the bank adds is the footer `meta`
+ * slot — difficulty (MOE `Aras Kesukaran`), filing and learning-point tags,
+ * plus how many templates hold the question, since editing it here edits
+ * them all. What it drops is the explanation field and the drag grip.
  *
- * Images upload to `assessment-images` under `bank/{id}/…`, the same bucket
- * an assessment uses, so picking a question into a template copies the
- * payload verbatim with no path rewrite and no object duplication.
+ * Images upload to `assessment-images` under `bank/{id}/…`.
  */
 const t = useT()
 const languageStore = useLanguageStore()
 const bankStore = useAssessmentBankStore()
 const curriculumStore = useCurriculumStore()
 
+const ALL_VALUE = '__all__'
+
 const gradeLevelId = ref('')
 const subjectId = ref('')
-const difficultyFilter = ref<string>('')
+const topicId = ref(ALL_VALUE)
+const subTopicId = ref(ALL_VALUE)
+const difficultyFilter = ref<string>(ALL_VALUE)
 const expandedId = ref<string | null>(null)
 const isAdding = ref(false)
 
 const autosave = useAutosave({ onError: (message) => toast.error(message) })
 
-const ALL_VALUE = '__all__'
-
 const gradeLevels = computed(() => curriculumStore.gradeLevels)
 const subjects = computed(
   () => gradeLevels.value.find((grade) => grade.id === gradeLevelId.value)?.subjects ?? [],
 )
+const subject = computed(() => subjects.value.find((item) => item.id === subjectId.value))
+const topics = computed(() => subject.value?.topics ?? [])
+const topic = computed(() => topics.value.find((item) => item.id === topicId.value))
+const subTopics = computed(() => topic.value?.subTopics ?? [])
 
-/** A question can only be authored once its grade + subject are pinned. */
-const canAdd = computed(() => Boolean(gradeLevelId.value && subjectId.value))
+/** The sub-topics in view: one, a topic's, or the whole subject's. */
+const scopedSubTopicIds = computed(() => {
+  if (subTopicId.value !== ALL_VALUE) return [subTopicId.value]
+  if (topic.value) return topic.value.subTopics.map((item) => item.id)
+  return topics.value.flatMap((item) => item.subTopics.map((subTopic) => subTopic.id))
+})
+
+/** A question can only be authored once its sub-topic is pinned. */
+const canAdd = computed(() => subTopicId.value !== ALL_VALUE)
 
 onMounted(async () => {
   await curriculumStore.fetchCurriculum()
@@ -73,19 +88,23 @@ onMounted(async () => {
   }
 })
 
-// Selecting a grade invalidates the subject beneath it.
+// Selecting a level invalidates everything beneath it.
 watch(gradeLevelId, () => {
   subjectId.value = subjects.value[0]?.id ?? ''
 })
+watch(subjectId, () => {
+  topicId.value = ALL_VALUE
+})
+watch(topicId, () => {
+  subTopicId.value = ALL_VALUE
+})
 
-watch([gradeLevelId, subjectId, difficultyFilter], () => {
+watch([scopedSubTopicIds, difficultyFilter], () => {
   expandedId.value = null
-  if (!gradeLevelId.value || !subjectId.value) return
   void bankStore.fetchQuestions({
-    gradeLevelId: gradeLevelId.value,
-    subjectId: subjectId.value,
+    subTopicIds: scopedSubTopicIds.value,
     difficulty:
-      difficultyFilter.value && difficultyFilter.value !== ALL_VALUE
+      difficultyFilter.value !== ALL_VALUE
         ? (difficultyFilter.value as BankQuestion['difficulty'])
         : null,
   })
@@ -119,8 +138,7 @@ async function addQuestion() {
       ],
     },
     difficulty: 'medium',
-    gradeLevelId: gradeLevelId.value,
-    subjectId: subjectId.value,
+    subTopicId: subTopicId.value,
   })
   isAdding.value = false
 
@@ -176,7 +194,7 @@ function handlePointsChange(question: BankQuestion, points: number) {
   })
 }
 
-/** Difficulty and tags are discrete picks — saved on change, not debounced. */
+/** Difficulty, filing and tags are discrete picks — saved on change, not debounced. */
 async function handleDifficultyChange(question: BankQuestion, value: unknown) {
   const difficulty = value as BankQuestion['difficulty']
   if (difficulty === question.difficulty) return
@@ -184,8 +202,23 @@ async function handleDifficultyChange(question: BankQuestion, value: unknown) {
   if (error) toast.error(error)
 }
 
+async function handleSubTopicChange(question: BankQuestion, value: unknown) {
+  const nextSubTopicId = String(value ?? '')
+  if (!nextSubTopicId || nextSubTopicId === question.subTopicId) return
+  const { error } = await bankStore.updateQuestion(question.id, { subTopicId: nextSubTopicId })
+  if (error) {
+    toast.error(error)
+    return
+  }
+  // Moved out of the current view: drop it from the list.
+  if (!scopedSubTopicIds.value.includes(nextSubTopicId)) {
+    bankStore.questions = bankStore.questions.filter((item) => item.id !== question.id)
+    if (expandedId.value === question.id) expandedId.value = null
+  }
+}
+
 async function handleTagsChange(question: BankQuestion, tagIds: string[]) {
-  const { error } = await bankStore.setTags(question.id, tagIds)
+  const { error } = await bankStore.setTags(question.id, tagIds, question.tagIds)
   if (error) toast.error(error)
 }
 
@@ -204,15 +237,14 @@ async function handleDuplicate(question: BankQuestion) {
   const { question: copy, error } = await bankStore.createQuestion({
     payload: question.payload,
     difficulty: question.difficulty,
-    gradeLevelId: question.gradeLevelId,
-    subjectId: question.subjectId,
+    subTopicId: question.subTopicId,
     points: question.points,
   })
   if (error || !copy) {
     toast.error(error ?? '')
     return
   }
-  await bankStore.setTags(copy.id, question.tagIds)
+  await bankStore.setTags(copy.id, question.tagIds, [])
   expandedId.value = copy.id
 }
 </script>
@@ -234,9 +266,9 @@ async function handleDuplicate(question: BankQuestion) {
       </div>
     </div>
 
-    <!-- Grade -> subject -> difficulty. Grade+subject also file a new question. -->
+    <!-- Grade → subject → topic → sub-topic → difficulty. The sub-topic files a new question. -->
     <div class="mb-6 flex flex-wrap items-end gap-3">
-      <Field class="w-48">
+      <Field class="w-44">
         <FieldLabel>{{ t.admin.questionBank.gradeLabel }}</FieldLabel>
         <Select :key="`g-${languageStore.language}`" v-model="gradeLevelId">
           <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
@@ -248,24 +280,52 @@ async function handleDuplicate(question: BankQuestion) {
         </Select>
       </Field>
 
-      <Field class="w-48">
+      <Field class="w-44">
         <FieldLabel>{{ t.admin.questionBank.subjectLabel }}</FieldLabel>
         <Select :key="`s-${languageStore.language}`" v-model="subjectId">
           <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="subject in subjects" :key="subject.id" :value="subject.id">
-              {{ subject.name }}
+            <SelectItem v-for="item in subjects" :key="item.id" :value="item.id">
+              {{ item.name }}
             </SelectItem>
           </SelectContent>
         </Select>
       </Field>
 
-      <Field class="w-48">
+      <Field class="w-56">
+        <FieldLabel>{{ t.admin.questionBank.topicLabel }}</FieldLabel>
+        <Select :key="`t-${languageStore.language}`" v-model="topicId">
+          <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL_VALUE">{{ t.admin.questionBank.allTopics }}</SelectItem>
+            <SelectItem v-for="item in topics" :key="item.id" :value="item.id">
+              {{ item.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field class="w-56">
+        <FieldLabel>{{ t.admin.questionBank.subTopicLabel }}</FieldLabel>
+        <Select
+          :key="`st-${languageStore.language}`"
+          v-model="subTopicId"
+          :disabled="topicId === ALL_VALUE"
+        >
+          <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL_VALUE">{{ t.admin.questionBank.allSubTopics }}</SelectItem>
+            <SelectItem v-for="item in subTopics" :key="item.id" :value="item.id">
+              {{ item.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field class="w-44">
         <FieldLabel>{{ t.admin.questionBank.difficultyLabel }}</FieldLabel>
         <Select :key="`d-${languageStore.language}`" v-model="difficultyFilter">
-          <SelectTrigger class="w-full">
-            <SelectValue :placeholder="t.admin.questionBank.allDifficulties" />
-          </SelectTrigger>
+          <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem :value="ALL_VALUE">{{ t.admin.questionBank.allDifficulties }}</SelectItem>
             <SelectItem v-for="level in DIFFICULTIES" :key="level" :value="level">
@@ -283,7 +343,7 @@ async function handleDuplicate(question: BankQuestion) {
     <div v-else-if="bankStore.questions.length === 0" class="py-16 text-center">
       <Library class="mx-auto size-16 text-muted-foreground/50" />
       <p class="mt-4 text-muted-foreground">
-        {{ canAdd ? t.admin.questionBank.empty : t.admin.questionBank.pickCurriculum }}
+        {{ canAdd ? t.admin.questionBank.empty : t.admin.questionBank.pickSubTopic }}
       </p>
     </div>
 
@@ -312,19 +372,39 @@ async function handleDuplicate(question: BankQuestion) {
               :model-value="question.difficulty"
               @update:model-value="(value) => handleDifficultyChange(question, value)"
             >
-              <SelectTrigger class="h-8 w-36">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger class="h-8 w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="level in DIFFICULTIES" :key="level" :value="level">
                   {{ t.shared.difficulties[level] }}
                 </SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              :key="`file-${question.id}-${languageStore.language}`"
+              :model-value="question.subTopicId"
+              @update:model-value="(value) => handleSubTopicChange(question, value)"
+            >
+              <SelectTrigger class="h-8 w-52"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup v-for="group in topics" :key="group.id">
+                  <SelectLabel>{{ group.name }}</SelectLabel>
+                  <SelectItem
+                    v-for="subTopic in group.subTopics"
+                    :key="subTopic.id"
+                    :value="subTopic.id"
+                  >
+                    {{ subTopic.name }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
             <TagMultiSelect
               :model-value="question.tagIds"
               @update:model-value="(tagIds) => handleTagsChange(question, tagIds)"
             />
+            <Badge v-if="question.usedInTemplates > 0" variant="outline">
+              {{ t.admin.questionBank.usedIn(question.usedInTemplates) }}
+            </Badge>
           </div>
         </template>
       </AssessmentQuestionCard>

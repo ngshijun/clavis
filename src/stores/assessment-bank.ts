@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { handleError } from '@/lib/errors'
 import { useAuthStore } from '@/stores/auth'
 import type { AdhocPayload, AdhocQuestionType } from '@/lib/adhocPayload'
-import type { Database } from '@/types/database.types'
+import type { Database, Json } from '@/types/database.types'
 
 export type QuestionDifficulty = Database['public']['Enums']['question_difficulty']
 
@@ -20,70 +20,86 @@ export interface BankQuestion {
   payload: AdhocPayload
   type: AdhocQuestionType
   difficulty: QuestionDifficulty
-  gradeLevelId: string
-  subjectId: string
+  /** Where the question is filed; topic, subject and grade follow from it. */
+  subTopicId: string
   points: number
   tagIds: string[]
+  /** How many templates reference this question — the reach of an edit. */
+  usedInTemplates: number
   createdAt: string
 }
 
 const BANK_SELECT =
-  'id, payload, difficulty, grade_level_id, subject_id, points, created_at, assessment_bank_question_tags (tag_id)'
+  'id, payload, difficulty, sub_topic_id, points, created_at, assessment_bank_question_tags (tag_id), assessment_template_questions (count)'
 
 interface BankRow {
   id: string
-  payload: unknown
+  payload: Json
   difficulty: QuestionDifficulty
-  grade_level_id: string
-  subject_id: string
+  sub_topic_id: string
   points: number
   created_at: string
   assessment_bank_question_tags: { tag_id: string }[]
+  assessment_template_questions: { count: number }[]
 }
 
 function mapRow(row: BankRow): BankQuestion {
-  const payload = row.payload as AdhocPayload
+  const payload = row.payload as unknown as AdhocPayload
   return {
     id: row.id,
     payload,
     type: payload.type,
     difficulty: row.difficulty,
-    gradeLevelId: row.grade_level_id,
-    subjectId: row.subject_id,
+    subTopicId: row.sub_topic_id,
     points: Number(row.points),
     tagIds: row.assessment_bank_question_tags.map((link) => link.tag_id),
+    usedInTemplates: row.assessment_template_questions[0]?.count ?? 0,
     createdAt: row.created_at,
   }
 }
 
+export interface BankQuestionPatch {
+  payload?: AdhocPayload
+  difficulty?: QuestionDifficulty
+  points?: number
+  subTopicId?: string
+}
+
 /**
- * The admin assessment question bank (P13a) — exam items, distinct from the
- * practice `questions` bank reached by `get_bank_questions()`.
+ * The admin assessment question bank — the ONLY store of admin questions
+ * (decision 89). Filed under a sub-topic; a template is an ordered list of
+ * references into it, so an edit here is an edit of every template that
+ * holds the question. A teacher's clone copies the payload out, so nothing
+ * here can reach an attempt.
  *
  * Admin-only at every layer: RLS rejects every other role, so there is no
- * client-side role branch here. A bank question is picked into a template BY
- * COPY (see `AssessmentBankPickerDialog`), so nothing in this store mutates a
- * live assessment.
+ * client-side role branch here.
  */
 export const useAssessmentBankStore = defineStore('assessmentBank', () => {
   const questions = ref<BankQuestion[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchQuestions(filters?: {
-    gradeLevelId?: string | null
-    subjectId?: string | null
+  /** Questions filed under any of `subTopicIds` (a subject, a topic, or one sub-topic). */
+  async function fetchQuestions(filters: {
+    subTopicIds: string[]
     difficulty?: QuestionDifficulty | null
   }): Promise<{ error: string | null }> {
     isLoading.value = true
     error.value = null
 
     try {
-      let query = supabase.from('assessment_bank_questions').select(BANK_SELECT)
+      if (filters.subTopicIds.length === 0) {
+        questions.value = []
+        return { error: null }
+      }
 
-      if (filters?.gradeLevelId) query = query.eq('grade_level_id', filters.gradeLevelId)
-      if (filters?.subjectId) query = query.eq('subject_id', filters.subjectId)
-      if (filters?.difficulty) query = query.eq('difficulty', filters.difficulty)
+      let query = supabase
+        .from('assessment_bank_questions')
+        .select(BANK_SELECT)
+        .in('sub_topic_id', filters.subTopicIds)
+
+      if (filters.difficulty) query = query.eq('difficulty', filters.difficulty)
 
       const { data, error: fetchError } = await query.order('created_at', { ascending: false })
 
@@ -103,8 +119,7 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
   async function createQuestion(input: {
     payload: AdhocPayload
     difficulty: QuestionDifficulty
-    gradeLevelId: string
-    subjectId: string
+    subTopicId: string
     points?: number
   }): Promise<{ question: BankQuestion | null; error: string | null }> {
     try {
@@ -112,11 +127,9 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
       const { data, error: insertError } = await supabase
         .from('assessment_bank_questions')
         .insert({
-          payload:
-            input.payload as unknown as Database['public']['Tables']['assessment_bank_questions']['Insert']['payload'],
+          payload: input.payload as unknown as Json,
           difficulty: input.difficulty,
-          grade_level_id: input.gradeLevelId,
-          subject_id: input.subjectId,
+          sub_topic_id: input.subTopicId,
           points: input.points ?? 1,
           created_by: authStore.user!.id,
         })
@@ -133,42 +146,41 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
     }
   }
 
+  /** Apply a patch to the local row, if this store holds it. */
+  function applyPatch(id: string, patch: BankQuestionPatch) {
+    const existing = questions.value.find((question) => question.id === id)
+    if (!existing) return
+    if (patch.payload) {
+      existing.payload = patch.payload
+      existing.type = patch.payload.type
+    }
+    if (patch.difficulty) existing.difficulty = patch.difficulty
+    if (patch.points !== undefined) existing.points = patch.points
+    if (patch.subTopicId) existing.subTopicId = patch.subTopicId
+  }
+
   /**
    * Patch one bank question. `payload` and `points` arrive from the shared
-   * question card's autosave; `difficulty` and the tags from the bank's own
-   * footer controls.
+   * question card's autosave; the rest from the card's footer controls.
    */
   async function updateQuestion(
     id: string,
-    patch: { payload?: AdhocPayload; difficulty?: QuestionDifficulty; points?: number },
+    patch: BankQuestionPatch,
   ): Promise<{ error: string | null }> {
     try {
       const { error: updateError } = await supabase
         .from('assessment_bank_questions')
         .update({
-          ...(patch.payload
-            ? {
-                payload:
-                  patch.payload as unknown as Database['public']['Tables']['assessment_bank_questions']['Update']['payload'],
-              }
-            : {}),
+          ...(patch.payload ? { payload: patch.payload as unknown as Json } : {}),
           ...(patch.difficulty ? { difficulty: patch.difficulty } : {}),
           ...(patch.points !== undefined ? { points: patch.points } : {}),
+          ...(patch.subTopicId ? { sub_topic_id: patch.subTopicId } : {}),
         })
         .eq('id', id)
 
       if (updateError) throw updateError
 
-      const existing = questions.value.find((question) => question.id === id)
-      if (existing) {
-        if (patch.payload) {
-          existing.payload = patch.payload
-          existing.type = patch.payload.type
-        }
-        if (patch.difficulty) existing.difficulty = patch.difficulty
-        if (patch.points !== undefined) existing.points = patch.points
-      }
-
+      applyPatch(id, patch)
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedUpdateQuestion') }
@@ -194,12 +206,15 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
   /**
    * Replace a question's tags. The join row is nothing but its primary key,
    * so the diff is a delete of the dropped ids plus an insert of the new —
-   * there is no UPDATE grant on the table.
+   * there is no UPDATE grant on the table. `before` is the caller's view of
+   * the current tags: the template builder holds rows this store does not.
    */
-  async function setTags(id: string, tagIds: string[]): Promise<{ error: string | null }> {
+  async function setTags(
+    id: string,
+    tagIds: string[],
+    before: string[],
+  ): Promise<{ error: string | null }> {
     try {
-      const existing = questions.value.find((question) => question.id === id)
-      const before = existing?.tagIds ?? []
       const removed = before.filter((tagId) => !tagIds.includes(tagId))
       const added = tagIds.filter((tagId) => !before.includes(tagId))
 
@@ -219,6 +234,7 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
         if (insertError) throw insertError
       }
 
+      const existing = questions.value.find((question) => question.id === id)
       if (existing) existing.tagIds = tagIds
       return { error: null }
     } catch (err) {
@@ -239,6 +255,7 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
     fetchQuestions,
     createQuestion,
     updateQuestion,
+    applyPatch,
     deleteQuestion,
     setTags,
     $reset,

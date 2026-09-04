@@ -18,7 +18,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Organizations', path: '/admin/organizations', icon: Building2 },
     { title: 'Curriculum', path: '/admin/curriculum', icon: BookOpen },
     { title: 'Question Bank', path: '/admin/question-bank', icon: Library },
-    { title: 'Assessment Templates', path: '/admin/assessments', icon: ClipboardList },
+    { title: 'Templates', path: '/admin/templates', icon: ClipboardList },
     { title: 'Learning Points', path: '/admin/tags', icon: Tags },
   ],
   manager: [

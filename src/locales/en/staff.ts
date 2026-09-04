@@ -154,7 +154,6 @@ export default {
     searchPlaceholder: 'Search by title or creator...',
     titleCol: 'Title',
     statusCol: 'Status',
-    scopeCol: 'Grade · Subject',
     questionsCol: 'Questions',
     creatorCol: 'Created By',
     updatedCol: 'Updated',
@@ -173,23 +172,68 @@ export default {
     deleteConfirm: 'Delete',
     cancel: 'Cancel',
     toastDeleted: 'Assessment deleted',
-    // Admin template variant (platform-wide template library)
-    templatesTitle: 'Assessment Templates',
-    templatesSubtitle: 'Platform-wide templates every center can browse and clone',
-    createTemplateBtn: 'New Template',
-    noTemplates: 'No Templates Yet',
-    noTemplatesDesc: 'Create the first platform-wide template.',
-    deleteTemplateTitle: 'Delete Template',
-    deleteTemplateDesc: (title: string) =>
-      `Delete the template "${title}"? Copies centers have already cloned are not affected. This cannot be undone.`,
-    // Staff template library (browse + clone platform templates)
-    libraryTitle: 'Template Library',
-    librarySubtitle: 'Platform templates — using one creates your own editable copy',
+  },
+
+  /**
+   * Admin templates (decision 89): a template is an ordered list of bank
+   * questions. The same block serves the admin's list and composer and the
+   * teacher's read-only library.
+   */
+  templates: {
+    createBtn: 'New Template',
+    createTitle: 'New Template',
+    createDesc: 'Give the template a title and its grade and subject. You can add questions next.',
+    scopeHint:
+      'Only centers with a classroom of this grade and subject can see the template, and it can only hold questions filed under this subject. This cannot be changed later.',
+    scopeCol: 'Grade · Subject',
     descriptionCol: 'Description',
-    searchTemplatesPlaceholder: 'Search by title...',
-    libraryEmpty: 'No Templates Available',
-    libraryEmptyDesc: 'The platform has not published any templates yet.',
+    searchPlaceholder: 'Search by title...',
+    noTemplates: 'No Templates Yet',
+    noTemplatesDesc: 'Create the first template.',
     noTemplatesMatchSearch: 'No templates match your search criteria.',
+    deleteTitle: 'Delete Template',
+    deleteDesc: (title: string) =>
+      `Delete the template "${title}"? Its questions stay in the question bank, and copies centers have already made are not affected. This cannot be undone.`,
+    toastDeleted: 'Template deleted',
+    toastLoadFailed: 'Failed to load templates',
+    notFound: 'Template not found.',
+    backToTemplates: 'Templates',
+    backToLibrary: 'Template Library',
+    banner:
+      'A template is a list of question-bank questions. Editing a question here edits it in the bank — and in every other template that holds it. Removing one only takes it out of this template.',
+    previewBanner:
+      'This is a read-only template. "Use Template" creates your own editable copy that you can change and assign to your students.',
+    publish: 'Publish',
+    unpublish: 'Unpublish',
+    publishTitle: 'Publish this template?',
+    publishDesc:
+      'Every center with a classroom of this grade and subject will be able to browse and use it. You can keep editing it afterwards.',
+    unpublishTitle: 'Unpublish this template?',
+    unpublishDesc:
+      'Centers will no longer see it in their library. Copies they have already made are not affected.',
+    toastPublished: 'Template published',
+    toastUnpublished: 'Template unpublished',
+    questionsDesc: (n: number) => `${n} question${n === 1 ? '' : 's'} in this template`,
+    noQuestionsDesc: 'Pick questions from the bank or write new ones — they go into the bank too.',
+    noSubTopics: 'This subject has no sub-topic to file a question under yet.',
+    toastQuestionRemoved: 'Question removed from this template — it stays in the bank',
+    usedIn: (n: number) => `In ${n} template${n === 1 ? '' : 's'}`,
+    // Bank picker (adds references)
+    pickerTitle: 'Add from Question Bank',
+    pickerDesc:
+      'The template will point at these bank questions. Editing one later changes it everywhere it is used.',
+    pickerSearchPlaceholder: 'Search questions...',
+    allSubTopics: 'All sub-topics',
+    allTags: 'All learning points',
+    pickerEmpty: 'No bank questions match these filters.',
+    pickerAlreadyIn: 'Already in this template',
+    pickerPoints: (points: number) => `${points} ${points === 1 ? 'point' : 'points'}`,
+    pickerAddBtn: (count: number) => (count === 0 ? 'Add' : `Add ${count}`),
+    pickerToastAdded: (count: number) =>
+      `${count} ${count === 1 ? 'question' : 'questions'} added to this template.`,
+    // Teacher library (browse + clone)
+    libraryEmpty: 'No Templates Available',
+    libraryEmptyDesc: 'The platform has not published any templates for this classroom yet.',
     previewAction: 'Preview',
     useTemplate: 'Use Template',
     useTemplateTitle: 'Use this template?',
@@ -197,47 +241,23 @@ export default {
       `"${title}" is copied into your assessments as a new editable draft. You can change its questions and assign it to your students — the template itself stays unchanged.`,
     useTemplateConfirm: 'Create My Copy',
     toastCloned: 'Template copied — this draft is now your own assessment',
-    toastTemplatesLoadFailed: 'Failed to load templates',
   },
 
   assessmentCreate: {
     title: 'New Assessment',
     description: 'Give the assessment a title. You can add questions next.',
-    templateTitle: 'New Template',
-    templateDescription: 'Give the platform-wide template a title. You can add questions next.',
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. P5 Fractions — Term 2 Quiz',
     gradeLabel: 'Grade Level',
     gradePlaceholder: 'Select a grade level',
     subjectLabel: 'Subject',
     subjectPlaceholder: 'Select a subject',
-    scopeHint:
-      'Only centers with a classroom of this grade and subject can see and use the template.',
     cancel: 'Cancel',
     create: 'Create',
   },
 
-  assessmentBankPicker: {
-    title: 'Add from Question Bank',
-    description:
-      'Questions are copied into this assessment, so editing them here never changes the bank.',
-    searchPlaceholder: 'Search questions...',
-    allTags: 'All learning points',
-    empty: 'No bank questions match these filters.',
-    points: (points: number) => `${points} ${points === 1 ? 'point' : 'points'}`,
-    addBtn: (count: number) => (count === 0 ? 'Add' : `Add ${count}`),
-    toastAdded: (count: number) =>
-      `${count} ${count === 1 ? 'question' : 'questions'} added to this assessment.`,
-  },
   builder: {
     backToList: 'Assessments',
-    backToTemplates: 'Templates',
-    backToLibrary: 'Template Library',
-    templateBadge: 'Platform template',
-    templateBanner:
-      'This is a platform-wide template. Every center can browse it and clone an editable copy into their own assessments — the template itself can never be assigned to students.',
-    templatePreviewBanner:
-      'This is a read-only platform template. "Use Template" creates your own editable copy that you can edit and assign to your students.',
     notFound: 'Assessment not found.',
     readOnly: 'Only the creating teacher or a manager can edit this assessment.',
     publishedLocked:
@@ -252,21 +272,14 @@ export default {
     shuffleHint: 'Each student gets the questions in a random order.',
     saveSettings: 'Save Settings',
     toastSettingsSaved: 'Settings saved',
-    gradeLabel: 'Grade Level',
-    subjectLabel: 'Subject',
-    scopeHint:
-      'Only centers with a classroom of this grade and subject can see this template; copies can only be assigned within it.',
-    scopedAssessmentHint:
-      'Copied from a template — it can only be assigned to classrooms and students of this grade and subject.',
     validationTitle: 'Title is required',
     validationTimeLimit: 'Time limit must be a positive number of minutes',
-    validationScope: 'Grade level and subject are both required',
     questionsTitle: 'Questions',
     questionsDesc: (n: number) => `${n} question${n === 1 ? '' : 's'} in this assessment`,
     addFromQuestionBank: 'Add from Question Bank',
     addAdhoc: 'Write Question',
     noQuestions: 'No Questions Yet',
-    noQuestionsDesc: 'Pick questions from the bank or write your own.',
+    noQuestionsDesc: 'Write your own questions, or start from a template in the library.',
     pointsLabel: 'Points',
     questionNumber: (n: number) => `Question ${n}`,
     removeQuestion: 'Remove question',
@@ -405,10 +418,6 @@ export default {
     classroomLabel: 'Classroom',
     classroomPlaceholder: 'Select a classroom',
     noClassrooms: 'No classrooms available.',
-    scopedNotice: (grade: string, subject: string) =>
-      `This assessment is for ${grade} · ${subject}. Only matching classrooms and their students can be assigned.`,
-    noMatchingClassrooms: 'No classrooms match the grade and subject of this assessment.',
-    noMatchingStudents: 'No students in a matching classroom.',
     studentLabel: 'Student',
     studentSearchPlaceholder: 'Search by name or username...',
     noStudentsFound: 'No students found.',

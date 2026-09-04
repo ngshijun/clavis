@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAssessmentsStore } from '@/stores/assessments'
+import { useAssessmentTemplatesStore } from '@/stores/assessment-templates'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
 import { useClassroomStudentStore } from '@/stores/classroom-student'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
@@ -21,8 +22,8 @@ export interface Crumb {
 const SECTION_KEY: Record<string, string> = {
   'admin-dashboard': 'dashboard',
   'admin-curriculum': 'curriculum',
-  'admin-assessment-templates': 'assessmentTemplates',
-  'admin-assessment-template-builder': 'assessmentTemplates',
+  'admin-templates': 'assessmentTemplates',
+  'admin-template-builder': 'assessmentTemplates',
   'admin-tags': 'learningPoints',
   'admin-organizations': 'organizations',
   'manager-dashboard': 'dashboard',
@@ -40,6 +41,7 @@ const SECTION_KEY: Record<string, string> = {
   'teacher-assessments': 'assessments',
   'teacher-assessment-builder': 'assessments',
   'teacher-template-library': 'templateLibrary',
+  'teacher-template-preview': 'templateLibrary',
   'student-dashboard': 'dashboard',
   'student-practice': 'practice',
   'student-practice-quiz': 'practice',
@@ -52,7 +54,8 @@ const SECTION_KEY: Record<string, string> = {
 
 /** Routes whose section crumb should link back to the section index. */
 const SECTION_PATH: Record<string, string> = {
-  'admin-assessment-template-builder': 'assessments',
+  'admin-template-builder': 'templates',
+  'teacher-template-preview': 'templates',
   'manager-classroom-assessment-builder': 'assessments',
   // A student's record hangs off the roster that led to it.
   'manager-classroom-student': 'students',
@@ -79,6 +82,7 @@ export function useBreadcrumbs() {
   const route = useRoute()
   const authStore = useAuthStore()
   const assessmentsStore = useAssessmentsStore()
+  const templatesStore = useAssessmentTemplatesStore()
   const studentAssessmentsStore = useStudentAssessmentsStore()
   const classroomStudentStore = useClassroomStudentStore()
   const { classroomId, basePath } = useActiveClassroom()
@@ -111,8 +115,11 @@ export function useBreadcrumbs() {
     }
 
     // Leaf: the entity being viewed, or what is being done to it.
-    if (name.endsWith('assessment-builder') || name === 'admin-assessment-template-builder') {
+    if (name.endsWith('assessment-builder')) {
       const title = assessmentsStore.currentAssessment?.title
+      if (title) trail.push({ label: title })
+    } else if (name === 'admin-template-builder' || name === 'teacher-template-preview') {
+      const title = templatesStore.currentTemplate?.title
       if (title) trail.push({ label: title })
     } else if (name.endsWith('-classroom-student')) {
       const studentName = classroomStudentStore.student?.name

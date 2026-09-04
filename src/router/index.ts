@@ -152,14 +152,14 @@ const router = createRouter({
           component: () => import('@/pages/admin/QuestionBankPage.vue'),
         },
         {
-          path: 'assessments',
-          name: 'admin-assessment-templates',
-          component: () => import('@/pages/shared/AssessmentsPage.vue'),
+          path: 'templates',
+          name: 'admin-templates',
+          component: () => import('@/pages/admin/TemplatesPage.vue'),
         },
         {
-          path: 'assessments/:assessmentId',
-          name: 'admin-assessment-template-builder',
-          component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
+          path: 'templates/:templateId',
+          name: 'admin-template-builder',
+          component: () => import('@/pages/shared/TemplateBuilderPage.vue'),
         },
         {
           path: 'tags',
@@ -293,6 +293,11 @@ const router = createRouter({
           path: 'classrooms/:classroomId/templates',
           name: 'teacher-template-library',
           component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
+        },
+        {
+          path: 'classrooms/:classroomId/templates/:templateId',
+          name: 'teacher-template-preview',
+          component: () => import('@/pages/shared/TemplateBuilderPage.vue'),
         },
         {
           path: 'profile',

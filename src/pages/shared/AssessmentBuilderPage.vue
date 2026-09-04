@@ -2,16 +2,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
-import { useAuthStore } from '@/stores/auth'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
-import { useCurriculumStore } from '@/stores/curriculum'
 import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
 import { removeStorageObjects } from '@/lib/storage'
 import {
   ArrowLeft,
   ClipboardList,
-  Copy,
-  Library,
   Eye,
   EyeOff,
   Info,
@@ -36,15 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
-import AssessmentBankPickerDialog from '@/components/staff/AssessmentBankPickerDialog.vue'
 import AssignPanel from '@/components/staff/AssignPanel.vue'
 import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
 import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
@@ -55,18 +43,16 @@ import { useT } from '@/composables/useT'
 
 /**
  * Google-Forms-style builder (decision 75 / P10b): top tabs
- * Questions · Assign · Results · Settings (templates keep only
- * Questions · Settings), question cards that expand in place with background
+ * Questions · Assign · Results · Settings, question cards that expand in
+ * place with background
  * autosave (no Save button, no editing dialog), and a floating action toolbar
  * beside the active card.
  */
 const t = useT()
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 const assessmentsStore = useAssessmentsStore()
-const { classroomId, basePath } = useActiveClassroom()
-const curriculumStore = useCurriculumStore()
+const { basePath } = useActiveClassroom()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
 
@@ -120,77 +106,33 @@ async function handlePendingVisibilityChange(value: boolean) {
     isSavingPendingVisibility.value = false
   }
 }
-// Template pairing (admin template mode only): both required, never
-// half-set — the P8a DB CHECK forbids clearing one side of the pairing.
-const scopeGradeLevelId = ref('')
-const scopeSubjectId = ref('')
 const settingsError = ref<string | null>(null)
 const isSavingSettings = ref(false)
 
 // Dialogs (confirmations only — question editing is inline in the cards)
-const showAssessmentBankPicker = ref(false)
-
-/**
- * The admin question bank (P13a) is admin-only at the RLS layer, so only an
- * admin editing a template is ever offered it.
- */
-const canPickFromAssessmentBank = computed(
-  () => authStore.isAdmin && isTemplate.value && isEditable.value,
-)
 const showPublishDialog = ref(false)
 const isPublishing = ref(false)
 
 const assessment = computed(() => assessmentsStore.currentAssessment)
 const isPublished = computed(() => assessment.value?.status === 'published')
-/**
- * Platform template (admin-authored): never assigned or attempted, so the
- * assign/results/publish surfaces are hidden and the publish lock does not
- * apply — a template stays editable regardless of its status.
- */
-const isTemplate = computed(() => assessment.value?.isTemplate ?? false)
-/**
- * Org staff previewing a platform template: EXPLICITLY read-only.
- * `canEdit()` alone would pass for any manager (it mirrors the org-scoped
- * RLS), but template writes are admin-only — every edit would 403 — so the
- * template case is gated here instead of relying on canEdit.
- */
-const isTemplatePreview = computed(() => isTemplate.value && !authStore.isAdmin)
 const canEdit = computed(() =>
-  assessment.value && !isTemplatePreview.value ? assessmentsStore.canEdit(assessment.value) : false,
+  assessment.value ? assessmentsStore.canEdit(assessment.value) : false,
 )
 /**
  * Published assessments are locked: `attempt_questions` snapshots reference
  * `assessment_questions` rows (ON DELETE CASCADE), so editing or removing a
  * question after publish would silently corrupt in-flight attempts.
- * Templates are exempt — they have no attempts to corrupt.
  */
-const isEditable = computed(() => canEdit.value && (isTemplate.value || !isPublished.value))
-/**
- * Admin editing a template's grade+subject pairing (P8a): the pairing decides
- * which centers can see the template and where clones can be assigned.
- */
-const canEditScope = computed(() => isTemplate.value && authStore.isAdmin && isEditable.value)
-/**
- * What this assessment belongs to, in the header. A template shows its
- * grade+subject pairing (who may clone it); everything else shows its owning
- * classroom, which is what actually scopes it (decision 81).
- */
-const scopeLabel = computed(() => {
-  if (!assessment.value) return null
-  if (assessment.value.isTemplate) {
-    return assessment.value.gradeLevelName && assessment.value.subjectName
-      ? `${assessment.value.gradeLevelName} · ${assessment.value.subjectName}`
-      : null
-  }
-  return assessment.value?.classroomName ?? null
-})
+const isEditable = computed(() => canEdit.value && !isPublished.value)
+/** The owning classroom, in the header — what actually scopes it (decision 81). */
+const scopeLabel = computed(() => assessment.value?.classroomName ?? null)
 
 // Manual answer release (decision 71): client mirror of the RPC authz —
-// admin/manager always; a teacher only when the assessment reaches one of
-// their classrooms/students. Templates are never assigned, so no release.
+// manager always; a teacher only when the assessment reaches one of their
+// classrooms/students.
 const { canMark, loadMarkingAuthz } = useMarkingAuthz()
 const isReleased = computed(() => Boolean(assessment.value?.answersReleasedAt))
-const canRelease = computed(() => !isTemplate.value && isPublished.value && canMark.value)
+const canRelease = computed(() => isPublished.value && canMark.value)
 const showReleaseDialog = ref(false)
 const isReleasing = ref(false)
 
@@ -216,18 +158,6 @@ async function handleToggleRelease() {
   }
 }
 
-// Cascading selectors: subjects belong to the selected grade level.
-const scopeSubjects = computed(
-  () =>
-    curriculumStore.gradeLevels.find((grade) => grade.id === scopeGradeLevelId.value)?.subjects ??
-    [],
-)
-
-function handleScopeGradeChange(gradeLevelId: unknown) {
-  scopeGradeLevelId.value = String(gradeLevelId ?? '')
-  scopeSubjectId.value = ''
-}
-
 function syncSettings() {
   const current = assessment.value
   if (!current) return
@@ -237,16 +167,6 @@ function syncSettings() {
     current.timeLimitSeconds !== null ? String(Math.round(current.timeLimitSeconds / 60)) : ''
   shuffleQuestions.value = current.shuffleQuestions
   showAutoScoreWhilePending.value = current.showAutoScoreWhilePending
-  scopeGradeLevelId.value = current.gradeLevelId ?? ''
-  scopeSubjectId.value = current.subjectId ?? ''
-
-  if (
-    canEditScope.value &&
-    curriculumStore.gradeLevels.length === 0 &&
-    !curriculumStore.isLoading
-  ) {
-    curriculumStore.fetchCurriculum()
-  }
 }
 
 async function loadAssessment() {
@@ -258,27 +178,17 @@ async function loadAssessment() {
     return
   }
   syncSettings()
-  // Teacher branch of the release authz (admin/manager short-circuit).
-  if (!assessmentsStore.currentAssessment.isTemplate) {
-    void loadMarkingAuthz(assessmentId.value)
-  }
-  // Land on the deep-linked tab, but only one that exists for this mode.
+  // Teacher branch of the release authz (manager short-circuit).
+  void loadMarkingAuthz(assessmentId.value)
+  // Land on the deep-linked tab.
   const requested = route.query.tab
-  if (
-    isBuilderTab(requested) &&
-    !(
-      assessmentsStore.currentAssessment.isTemplate &&
-      (requested === 'assign' || requested === 'results')
-    )
-  ) {
-    activeTab.value = requested
-  }
+  if (isBuilderTab(requested)) activeTab.value = requested
 }
 
 onMounted(loadAssessment)
 
-// Same route record, new id (template preview → its fresh clone): remount
-// does not happen, so refetch on the param change.
+// Same route record, new id: remount does not happen, so refetch on the
+// param change.
 watch(assessmentId, () => {
   if (route.params.assessmentId) loadAssessment()
 })
@@ -302,10 +212,6 @@ async function handleSaveSettings() {
     timeLimitSeconds = minutes * 60
   }
 
-  if (canEditScope.value && (!scopeGradeLevelId.value || !scopeSubjectId.value)) {
-    settingsError.value = t.value.staff.builder.validationScope
-    return
-  }
   settingsError.value = null
 
   isSavingSettings.value = true
@@ -315,9 +221,6 @@ async function handleSaveSettings() {
       description: description.value.trim() || null,
       timeLimitSeconds,
       shuffleQuestions: shuffleQuestions.value,
-      ...(canEditScope.value
-        ? { gradeLevelId: scopeGradeLevelId.value, subjectId: scopeSubjectId.value }
-        : {}),
     })
 
     if (error) {
@@ -342,35 +245,6 @@ async function handlePublish() {
     showPublishDialog.value = false
   } finally {
     isPublishing.value = false
-  }
-}
-
-// Staff template preview: "Use Template" clones into the caller's org and
-// lands in the (now editable) clone — same route record, param watch reloads.
-const showUseTemplateDialog = ref(false)
-const isCloning = ref(false)
-
-async function handleUseTemplate() {
-  isCloning.value = true
-  try {
-    const targetClassroomId = classroomId.value
-    if (!targetClassroomId) {
-      toast.error(t.value.shared.errors.failedCloneTemplate)
-      return
-    }
-    const { id, error } = await assessmentsStore.cloneTemplate(
-      assessmentId.value,
-      targetClassroomId,
-    )
-    if (error || !id) {
-      toast.error(error ?? t.value.shared.errors.failedCloneTemplate)
-      return
-    }
-    toast.success(t.value.staff.assessments.toastCloned)
-    showUseTemplateDialog.value = false
-    router.push(`${basePath.value}/assessments/${id}`)
-  } finally {
-    isCloning.value = false
   }
 }
 
@@ -523,16 +397,10 @@ async function handleRemove(item: AssessmentQuestionItem) {
       variant="ghost"
       size="sm"
       class="-ml-2 mb-4"
-      @click="router.push(isTemplatePreview ? `${basePath}/templates` : `${basePath}/assessments`)"
+      @click="router.push(`${basePath}/assessments`)"
     >
       <ArrowLeft class="mr-2 size-4" />
-      {{
-        isTemplatePreview
-          ? t.staff.builder.backToLibrary
-          : authStore.isAdmin
-            ? t.staff.builder.backToTemplates
-            : t.staff.builder.backToList
-      }}
+      {{ t.staff.builder.backToList }}
     </Button>
 
     <!-- Loading -->
@@ -553,14 +421,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-3">
             <Badge
-              v-if="isTemplate"
-              variant="secondary"
-              class="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
-            >
-              {{ t.staff.builder.templateBadge }}
-            </Badge>
-            <Badge
-              v-else-if="isPublished"
+              v-if="isPublished"
               variant="secondary"
               class="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
             >
@@ -580,17 +441,8 @@ async function handleRemove(item: AssessmentQuestionItem) {
             <!-- Background autosave status (questions, points, order) -->
             <SaveStatusPill :status="autosave.status.value" />
           </div>
-          <p v-if="scopeLabel && !isTemplate" class="mt-1 text-sm text-muted-foreground">
-            {{ t.staff.builder.scopedAssessmentHint }}
-          </p>
         </div>
-        <div v-if="isTemplatePreview" class="flex shrink-0 items-center gap-2">
-          <Button @click="showUseTemplateDialog = true">
-            <Copy class="mr-2 size-4" />
-            {{ t.staff.assessments.useTemplate }}
-          </Button>
-        </div>
-        <div v-else-if="!isTemplate" class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
           <Button
             v-if="!isPublished && canEdit"
             :disabled="assessmentsStore.currentQuestions.length === 0"
@@ -604,25 +456,11 @@ async function handleRemove(item: AssessmentQuestionItem) {
 
       <!-- Read-only notices -->
       <div
-        v-if="isTemplatePreview"
-        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
-      >
-        <Info class="mt-0.5 size-4 shrink-0" />
-        {{ t.staff.builder.templatePreviewBanner }}
-      </div>
-      <div
-        v-else-if="!canEdit"
+        v-if="!canEdit"
         class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
       >
         <Info class="mt-0.5 size-4 shrink-0" />
         {{ t.staff.builder.readOnly }}
-      </div>
-      <div
-        v-else-if="isTemplate"
-        class="mb-4 flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground"
-      >
-        <Info class="mt-0.5 size-4 shrink-0" />
-        {{ t.staff.builder.templateBanner }}
       </div>
       <div
         v-else-if="isPublished"
@@ -639,10 +477,8 @@ async function handleRemove(item: AssessmentQuestionItem) {
       >
         <TabsList class="mx-auto">
           <TabsTrigger value="questions">{{ t.staff.builder.questionsTitle }}</TabsTrigger>
-          <TabsTrigger v-if="!isTemplate" value="assign">{{ t.staff.builder.assign }}</TabsTrigger>
-          <TabsTrigger v-if="!isTemplate" value="results">{{
-            t.staff.builder.tabResults
-          }}</TabsTrigger>
+          <TabsTrigger value="assign">{{ t.staff.builder.assign }}</TabsTrigger>
+          <TabsTrigger value="results">{{ t.staff.builder.tabResults }}</TabsTrigger>
           <TabsTrigger value="settings">{{ t.staff.builder.settingsTitle }}</TabsTrigger>
         </TabsList>
 
@@ -669,15 +505,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
                   <Plus class="mr-2 size-4" />
                   {{ t.staff.builder.addAdhoc }}
                 </Button>
-                <Button
-                  v-if="canPickFromAssessmentBank"
-                  variant="outline"
-                  size="sm"
-                  @click="showAssessmentBankPicker = true"
-                >
-                  <Library class="mr-2 size-4" />
-                  {{ t.staff.builder.addFromQuestionBank }}
-                </Button>
               </div>
             </div>
 
@@ -686,7 +513,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
               v-model:expanded-id="expandedId"
               :items="assessmentsStore.currentQuestions"
               :editable="isEditable"
-              :assessment-id="assessmentId"
+              :image-folder-of="() => assessmentId"
               @reorder="handleReorder"
               @payload-change="handlePayloadChange"
               @points-change="handlePointsChange"
@@ -694,19 +521,17 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @duplicate="handleDuplicate"
               @remove="handleRemove"
               @add-question="handleAddQuestion"
-              :show-question-bank="canPickFromAssessmentBank"
-              @add-from-question-bank="showAssessmentBankPicker = true"
             />
           </div>
         </TabsContent>
 
         <!-- Assign -->
-        <TabsContent v-if="!isTemplate" value="assign" class="pt-4">
+        <TabsContent value="assign" class="pt-4">
           <AssignPanel :assessment="assessment" />
         </TabsContent>
 
         <!-- Results -->
-        <TabsContent v-if="!isTemplate" value="results" class="pt-4">
+        <TabsContent value="results" class="pt-4">
           <AssessmentResultsPanel :assessment-id="assessmentId" :can-mark="canMark" />
         </TabsContent>
 
@@ -769,9 +594,8 @@ async function handleRemove(item: AssessmentQuestionItem) {
                 />
               </Field>
 
-              <!-- Pending-score visibility (decision 70). Hidden on templates:
-                   they are never attempted and the clone RPC does not copy it. -->
-              <Field v-if="!isTemplate" orientation="horizontal">
+              <!-- Pending-score visibility (decision 70) -->
+              <Field orientation="horizontal">
                 <div>
                   <FieldLabel for="builder-pending-visibility">{{
                     t.staff.builder.pendingVisibilityLabel
@@ -785,59 +609,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
                   @update:model-value="handlePendingVisibilityChange"
                 />
               </Field>
-
-              <!-- Template pairing (admin template mode): both always required -->
-              <template v-if="canEditScope">
-                <Field>
-                  <FieldLabel
-                    >{{ t.staff.builder.gradeLabel }}
-                    <span class="text-destructive">*</span></FieldLabel
-                  >
-                  <Select
-                    :model-value="scopeGradeLevelId"
-                    :disabled="isSavingSettings || curriculumStore.isLoading"
-                    @update:model-value="handleScopeGradeChange"
-                  >
-                    <SelectTrigger class="w-full">
-                      <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="gradeLevel in curriculumStore.gradeLevels"
-                        :key="gradeLevel.id"
-                        :value="gradeLevel.id"
-                      >
-                        {{ gradeLevel.name }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Field>
-                  <FieldLabel
-                    >{{ t.staff.builder.subjectLabel }}
-                    <span class="text-destructive">*</span></FieldLabel
-                  >
-                  <Select
-                    v-model="scopeSubjectId"
-                    :disabled="isSavingSettings || !scopeGradeLevelId"
-                  >
-                    <SelectTrigger class="w-full">
-                      <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="subject in scopeSubjects"
-                        :key="subject.id"
-                        :value="subject.id"
-                      >
-                        {{ subject.name }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>{{ t.staff.builder.scopeHint }}</FieldDescription>
-                </Field>
-              </template>
 
               <FieldError :errors="settingsError ? [settingsError] : []" />
 
@@ -873,35 +644,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <AssessmentBankPickerDialog
-        v-if="canPickFromAssessmentBank"
-        v-model:open="showAssessmentBankPicker"
-        :assessment-id="assessmentId"
-        :grade-level-id="assessment.gradeLevelId"
-        :subject-id="assessment.subjectId"
-      />
-
-      <!-- Use template confirmation (staff preview only) -->
-      <Dialog v-if="isTemplatePreview" v-model:open="showUseTemplateDialog">
-        <DialogContent class="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{{ t.staff.assessments.useTemplateTitle }}</DialogTitle>
-            <DialogDescription>{{
-              t.staff.assessments.useTemplateDesc(assessment.title)
-            }}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" :disabled="isCloning" @click="showUseTemplateDialog = false">
-              {{ t.staff.assessments.cancel }}
-            </Button>
-            <Button :disabled="isCloning" @click="handleUseTemplate">
-              <Loader2 v-if="isCloning" class="mr-2 size-4 animate-spin" />
-              {{ t.staff.assessments.useTemplateConfirm }}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <!-- Release / un-release answers confirmation (decision 71) -->
       <Dialog v-model:open="showReleaseDialog">

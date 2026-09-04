@@ -184,55 +184,45 @@ export type Database = {
           created_at: string
           created_by: string
           difficulty: Database['public']['Enums']['question_difficulty']
-          grade_level_id: string
           id: string
           payload: Json
           points: number
-          subject_id: string
+          sub_topic_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
           difficulty: Database['public']['Enums']['question_difficulty']
-          grade_level_id: string
           id?: string
           payload: Json
           points?: number
-          subject_id: string
+          sub_topic_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
           difficulty?: Database['public']['Enums']['question_difficulty']
-          grade_level_id?: string
           id?: string
           payload?: Json
           points?: number
-          subject_id?: string
+          sub_topic_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'assessment_bank_questions_sub_topic_id_fkey'
+            columns: ['sub_topic_id']
+            isOneToOne: false
+            referencedRelation: 'sub_topics'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'bank_questions_created_by_fkey'
             columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'bank_questions_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'grade_levels'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'bank_questions_subject_id_fkey'
-            columns: ['subject_id']
-            isOneToOne: false
-            referencedRelation: 'subjects'
             referencedColumns: ['id']
           },
         ]
@@ -272,22 +262,116 @@ export type Database = {
           },
         ]
       }
+      assessment_template_questions: {
+        Row: {
+          bank_question_id: string
+          position: number
+          template_id: string
+        }
+        Insert: {
+          bank_question_id: string
+          position: number
+          template_id: string
+        }
+        Update: {
+          bank_question_id?: string
+          position?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessment_template_questions_bank_question_id_fkey'
+            columns: ['bank_question_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_bank_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_template_questions_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_templates'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      assessment_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          grade_level_id: string
+          id: string
+          shuffle_questions: boolean
+          status: Database['public']['Enums']['assessment_status']
+          subject_id: string
+          time_limit_seconds: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          grade_level_id: string
+          id?: string
+          shuffle_questions?: boolean
+          status?: Database['public']['Enums']['assessment_status']
+          subject_id: string
+          time_limit_seconds?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          grade_level_id?: string
+          id?: string
+          shuffle_questions?: boolean
+          status?: Database['public']['Enums']['assessment_status']
+          subject_id?: string
+          time_limit_seconds?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assessment_templates_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_templates_grade_level_id_fkey'
+            columns: ['grade_level_id']
+            isOneToOne: false
+            referencedRelation: 'grade_levels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessment_templates_subject_id_fkey'
+            columns: ['subject_id']
+            isOneToOne: false
+            referencedRelation: 'subjects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       assessments: {
         Row: {
           answers_released_at: string | null
           answers_released_by: string | null
-          classroom_id: string | null
+          classroom_id: string
           created_at: string
           created_by: string
           description: string | null
-          grade_level_id: string | null
           id: string
-          is_template: boolean
-          organization_id: string | null
+          organization_id: string
           show_auto_score_while_pending: boolean
           shuffle_questions: boolean
           status: Database['public']['Enums']['assessment_status']
-          subject_id: string | null
           time_limit_seconds: number | null
           title: string
           updated_at: string
@@ -295,18 +379,15 @@ export type Database = {
         Insert: {
           answers_released_at?: string | null
           answers_released_by?: string | null
-          classroom_id?: string | null
+          classroom_id: string
           created_at?: string
           created_by: string
           description?: string | null
-          grade_level_id?: string | null
           id?: string
-          is_template?: boolean
-          organization_id?: string | null
+          organization_id: string
           show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
-          subject_id?: string | null
           time_limit_seconds?: number | null
           title: string
           updated_at?: string
@@ -314,18 +395,15 @@ export type Database = {
         Update: {
           answers_released_at?: string | null
           answers_released_by?: string | null
-          classroom_id?: string | null
+          classroom_id?: string
           created_at?: string
           created_by?: string
           description?: string | null
-          grade_level_id?: string | null
           id?: string
-          is_template?: boolean
-          organization_id?: string | null
+          organization_id?: string
           show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
-          subject_id?: string | null
           time_limit_seconds?: number | null
           title?: string
           updated_at?: string
@@ -353,24 +431,10 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'assessments_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'grade_levels'
-            referencedColumns: ['id']
-          },
-          {
             foreignKeyName: 'assessments_organization_id_fkey'
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessments_subject_id_fkey'
-            columns: ['subject_id']
-            isOneToOne: false
-            referencedRelation: 'subjects'
             referencedColumns: ['id']
           },
         ]
@@ -1464,6 +1528,18 @@ export type Database = {
           sub_topic_id: string
         }[]
       }
+      get_template_questions: {
+        Args: { p_template_id: string }
+        Returns: {
+          difficulty: Database['public']['Enums']['question_difficulty']
+          id: string
+          payload: Json
+          points: number
+          position: number
+          sub_topic_id: string
+          tag_ids: string[]
+        }[]
+      }
       mark_attempt_answer: {
         Args: { p_answer_id: string; p_comment?: string; p_points: number }
         Returns: Json
@@ -1483,6 +1559,10 @@ export type Database = {
       }
       reorder_subjects: {
         Args: { p_grade_level_id: string; p_ids: string[] }
+        Returns: undefined
+      }
+      reorder_template_questions: {
+        Args: { p_ids: string[]; p_template_id: string }
         Returns: undefined
       }
       reorder_topics: {

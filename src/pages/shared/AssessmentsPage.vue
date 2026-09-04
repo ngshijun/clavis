@@ -46,37 +46,22 @@ const assessmentsStore = useAssessmentsStore()
 const { classroomId, basePath } = useActiveClassroom()
 
 /**
- * Admin variant: this page lists platform-wide TEMPLATES (is_template=true,
- * org-less). Templates are never assigned or attempted, so there is no
- * results surface and no status column — they are always editable.
- */
-const isTemplateMode = computed(() => authStore.isAdmin)
-
-/**
  * Keyed to the classroom in the URL for BOTH org roles (decision 83 for
  * teachers, decision 87 for managers). Every assessment belongs to exactly one
  * classroom (decision 81), so this is the only scope in which the list can
  * answer "which class is this row for?".
- *
- * Admins are the exception: they work on the platform template library, which
- * belongs to no classroom, so they pass null and the list stays whatever RLS
- * returns.
  */
-const isClassroomScoped = computed(() => !authStore.isAdmin)
-const scopedClassroomId = computed(() => (isClassroomScoped.value ? classroomId.value : null))
-
 watch(
-  scopedClassroomId,
-  async () => {
-    const { error } = await assessmentsStore.fetchAssessments(scopedClassroomId.value)
+  classroomId,
+  async (id) => {
+    if (!id) return
+    const { error } = await assessmentsStore.fetchAssessments(id)
     if (error) {
       toast.error(t.value.staff.assessments.toastLoadFailed)
     }
-    // Marking queue entry point (P9b): flag org assessments with submitted
-    // attempts still awaiting manual marking. Templates are never attempted.
-    if (!isTemplateMode.value) {
-      void assessmentsStore.fetchPendingMarkingCounts()
-    }
+    // Marking queue entry point (P9b): flag assessments with submitted
+    // attempts still awaiting manual marking.
+    void assessmentsStore.fetchPendingMarkingCounts()
   },
   { immediate: true },
 )
@@ -153,46 +138,25 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         row.original.title,
       ),
   },
-  // Templates carry no meaningful status (never assigned/attempted), but
-  // always carry a grade+subject pairing that gates which centers see them.
-  ...(isTemplateMode.value
-    ? [
-        {
-          id: 'scope',
-          accessorFn: (row: AssessmentListItem) =>
-            `${row.gradeLevelName ?? ''} ${row.subjectName ?? ''}`,
-          header: () => t.value.staff.assessments.scopeCol,
-          cell: ({ row }) =>
-            h(
-              'div',
-              { class: 'text-muted-foreground' },
-              row.original.gradeLevelName && row.original.subjectName
-                ? `${row.original.gradeLevelName} · ${row.original.subjectName}`
-                : '—',
-            ),
-        } satisfies ColumnDef<AssessmentListItem>,
-      ]
-    : [
-        {
-          accessorKey: 'status',
-          header: () => t.value.staff.assessments.statusCol,
-          cell: ({ row }) => {
-            const pending = assessmentsStore.pendingMarkingCounts.get(row.original.id) ?? 0
-            if (pending === 0) return statusBadge(row.original.status)
-            return h('div', { class: 'flex items-center gap-1' }, [
-              statusBadge(row.original.status),
-              h(
-                Badge,
-                {
-                  variant: 'secondary',
-                  class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-                },
-                () => t.value.staff.results.toMarkBadge(pending),
-              ),
-            ])
+  {
+    accessorKey: 'status',
+    header: () => t.value.staff.assessments.statusCol,
+    cell: ({ row }) => {
+      const pending = assessmentsStore.pendingMarkingCounts.get(row.original.id) ?? 0
+      if (pending === 0) return statusBadge(row.original.status)
+      return h('div', { class: 'flex items-center gap-1' }, [
+        statusBadge(row.original.status),
+        h(
+          Badge,
+          {
+            variant: 'secondary',
+            class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
           },
-        } satisfies ColumnDef<AssessmentListItem>,
-      ]),
+          () => t.value.staff.results.toMarkBadge(pending),
+        ),
+      ])
+    },
+  },
   {
     accessorKey: 'questionCount',
     header: () => t.value.staff.assessments.questionsCol,
@@ -231,21 +195,17 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
           },
           () => [h(Pencil, { class: 'mr-2 size-4' }), t.value.staff.assessments.openBuilder],
         ),
-      ]
-      if (!isTemplateMode.value) {
-        items.push(
-          h(
-            DropdownMenuItem,
-            {
-              onClick: (event: Event) => {
-                event.stopPropagation()
-                openResults(item)
-              },
+        h(
+          DropdownMenuItem,
+          {
+            onClick: (event: Event) => {
+              event.stopPropagation()
+              openResults(item)
             },
-            () => [h(BarChart3, { class: 'mr-2 size-4' }), t.value.staff.assessments.viewResults],
-          ),
-        )
-      }
+          },
+          () => [h(BarChart3, { class: 'mr-2 size-4' }), t.value.staff.assessments.viewResults],
+        ),
+      ]
       if (assessmentsStore.canEdit(item)) {
         items.push(
           h(
@@ -296,7 +256,7 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         @click="showCreateDialog = true"
       >
         <Plus class="mr-2 size-4" />
-        {{ isTemplateMode ? t.staff.assessments.createTemplateBtn : t.staff.assessments.createBtn }}
+        {{ t.staff.assessments.createBtn }}
       </Button>
     </div>
 
@@ -322,16 +282,12 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       <!-- Empty State -->
       <div v-if="assessmentsStore.filteredAssessments.length === 0" class="py-16 text-center">
         <ClipboardList class="mx-auto size-16 text-muted-foreground/50" />
-        <h2 class="mt-4 text-lg font-semibold">
-          {{ isTemplateMode ? t.staff.assessments.noTemplates : t.staff.assessments.noAssessments }}
-        </h2>
+        <h2 class="mt-4 text-lg font-semibold">{{ t.staff.assessments.noAssessments }}</h2>
         <p class="mt-2 text-muted-foreground">
           {{
             assessmentsStore.filters.search
               ? t.staff.assessments.noAssessmentsMatchSearch
-              : isTemplateMode
-                ? t.staff.assessments.noTemplatesDesc
-                : t.staff.assessments.noAssessmentsDesc
+              : t.staff.assessments.noAssessmentsDesc
           }}
         </p>
       </div>
@@ -349,25 +305,15 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
       />
     </template>
 
-    <AssessmentCreateDialog
-      v-model:open="showCreateDialog"
-      :is-template="isTemplateMode"
-      @created="handleCreated"
-    />
+    <AssessmentCreateDialog v-model:open="showCreateDialog" @created="handleCreated" />
 
     <!-- Delete confirmation -->
     <Dialog v-model:open="showDeleteDialog">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{{
-            isTemplateMode
-              ? t.staff.assessments.deleteTemplateTitle
-              : t.staff.assessments.deleteTitle
-          }}</DialogTitle>
+          <DialogTitle>{{ t.staff.assessments.deleteTitle }}</DialogTitle>
           <DialogDescription>{{
-            isTemplateMode
-              ? t.staff.assessments.deleteTemplateDesc(selectedAssessment?.title ?? '')
-              : t.staff.assessments.deleteDesc(selectedAssessment?.title ?? '')
+            t.staff.assessments.deleteDesc(selectedAssessment?.title ?? '')
           }}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
