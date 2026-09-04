@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   ClipboardList,
   Copy,
-  Database,
   Library,
   Eye,
   EyeOff,
@@ -45,7 +44,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
-import BankQuestionPickerDialog from '@/components/staff/BankQuestionPickerDialog.vue'
 import AssessmentBankPickerDialog from '@/components/staff/AssessmentBankPickerDialog.vue'
 import AssignPanel from '@/components/staff/AssignPanel.vue'
 import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
@@ -130,7 +128,6 @@ const settingsError = ref<string | null>(null)
 const isSavingSettings = ref(false)
 
 // Dialogs (confirmations only — question editing is inline in the cards)
-const showBankPicker = ref(false)
 const showAssessmentBankPicker = ref(false)
 
 /**
@@ -230,12 +227,6 @@ function handleScopeGradeChange(gradeLevelId: unknown) {
   scopeGradeLevelId.value = String(gradeLevelId ?? '')
   scopeSubjectId.value = ''
 }
-
-const existingBankQuestionIds = computed(() =>
-  assessmentsStore.currentQuestions
-    .map((question) => question.questionId)
-    .filter((id): id is string => Boolean(id)),
-)
 
 function syncSettings() {
   const current = assessment.value
@@ -508,7 +499,6 @@ function handleAddQuestion() {
 }
 
 function handleDuplicate(item: AssessmentQuestionItem) {
-  if (item.source !== 'adhoc' || !item.payload) return
   void insertAdhocQuestion(item.payload, item.id)
 }
 
@@ -679,10 +669,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
                   <Plus class="mr-2 size-4" />
                   {{ t.staff.builder.addAdhoc }}
                 </Button>
-                <Button variant="outline" size="sm" @click="showBankPicker = true">
-                  <Database class="mr-2 size-4" />
-                  {{ t.staff.builder.addFromBank }}
-                </Button>
                 <Button
                   v-if="canPickFromAssessmentBank"
                   variant="outline"
@@ -709,7 +695,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @remove="handleRemove"
               @add-question="handleAddQuestion"
               :show-question-bank="canPickFromAssessmentBank"
-              @add-from-bank="showBankPicker = true"
               @add-from-question-bank="showAssessmentBankPicker = true"
             />
           </div>
@@ -888,12 +873,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <BankQuestionPickerDialog
-        v-model:open="showBankPicker"
-        :assessment-id="assessmentId"
-        :existing-question-ids="existingBankQuestionIds"
-      />
 
       <AssessmentBankPickerDialog
         v-if="canPickFromAssessmentBank"

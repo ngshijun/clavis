@@ -394,9 +394,9 @@ ON CONFLICT (id) DO NOTHING;
 -- grade_practice_answer BEFORE trigger, so the values written here are
 -- only illustrative.
 
--- Wipe order: children before parents. assessment_questions.question_id is
--- ON DELETE RESTRICT, so it MUST be cleared before questions (its own
--- children attempt_questions/attempt_answers cascade from it). The rest
+-- Wipe order: children before parents. assessment_questions no longer
+-- references the practice bank at all (decision 88) — it is cleared here only
+-- for its own children (attempt_questions/attempt_answers cascade). The rest
 -- (session_questions, student_question_progress) cascade on question
 -- delete, and practice_answers.question_id is ON DELETE SET
 -- NULL, but we clear the practice trio explicitly so no orphan rows remain
@@ -675,12 +675,14 @@ SELECT
 FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
 VALUES
   ('a9100000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
-   '073d50c7-22e1-43c1-be30-ba53e7b04e66', 0, 1),
+   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}],"explanation":"5 加 3 等于 8。"}'::jsonb,
+   0, 1),
   ('a9100000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000001',
-   '0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 1, 1)
+   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}],"explanation":"74 的十位是 7，比 47 的十位 4 大。"}'::jsonb,
+   1, 1)
 ON CONFLICT (id) DO NOTHING;
 
 -- Assigned to Classroom A, due in 7 days, by Ms Lee.
@@ -733,25 +735,29 @@ INSERT INTO public.assessments (
    '9d077a3d-b673-4760-9c44-218f0f25b2b1')   -- Year 1 Mathematics  (MATCHES 9b)
 ON CONFLICT (id) DO NOTHING;
 
--- Template 1: three bank questions.
-INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+-- Template 1: three questions.
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
 VALUES
   ('a9200000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000002',
-   '073d50c7-22e1-43c1-be30-ba53e7b04e66', 0, 1),
+   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}],"explanation":"5 加 3 等于 8。"}'::jsonb,
+   0, 1),
   ('a9200000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000002',
-   '0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 1, 1),
+   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}],"explanation":"74 的十位是 7，比 47 的十位 4 大。"}'::jsonb,
+   1, 1),
   ('a9200000-0000-4000-8000-000000000003', 'a5000000-0000-4000-8000-000000000002',
-   'a1000000-0000-4000-8000-000000000002', 2, 1)
+   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"],"explanation":"29 的下一个整数是 30。"}'::jsonb,
+   2, 1)
 ON CONFLICT (id) DO NOTHING;
 
--- Template 2: two bank questions + one ad-hoc payload question (demonstrates
--- the payload branch survives cloning).
-INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+-- Template 2: three questions (every assessment question is a payload now).
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
 VALUES
   ('a9200000-0000-4000-8000-000000000004', 'a5000000-0000-4000-8000-000000000003',
-   '49f16772-57a6-44a8-8d27-76d8f29eb8bc', 0, 1),
+   '{"type":"mcq","question":"Which shape has three sides?","options":[{"text":"Square","is_correct":false},{"text":"Triangle","is_correct":true},{"text":"Circle","is_correct":false}],"explanation":"三角形有三条边。"}'::jsonb,
+   0, 1),
   ('a9200000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000003',
-   'bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 1, 1)
+   '{"type":"mcq","question":"10 - 4 = ?","options":[{"text":"5","is_correct":false},{"text":"6","is_correct":true},{"text":"7","is_correct":false}],"explanation":"10 减 4 等于 6。"}'::jsonb,
+   1, 1)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
@@ -761,17 +767,20 @@ VALUES
    2, 1)
 ON CONFLICT (id) DO NOTHING;
 
--- Template 3: three bank questions (MCQ + MRQ + short answer), same Year 1
+-- Template 3: three questions (MCQ + MRQ + short answer), same Year 1
 -- Math pairing as template 1 — so a matched teacher/manager sees TWO library
 -- items and template 2 stays hidden.
-INSERT INTO public.assessment_questions (id, assessment_id, question_id, position, points)
+INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
 VALUES
   ('a9200000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000004',
-   '11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 0, 1),
+   '{"type":"mcq","question":"Which of these is an even number?","options":[{"text":"3","is_correct":false},{"text":"6","is_correct":true},{"text":"9","is_correct":false}],"explanation":"6 可以被 2 整除，是双数。"}'::jsonb,
+   0, 1),
   ('a9200000-0000-4000-8000-000000000008', 'a5000000-0000-4000-8000-000000000004',
-   'a1000000-0000-4000-8000-000000000001', 1, 2),
+   '{"type":"mrq","question":"Select every number smaller than 20.","options":[{"text":"12","is_correct":true},{"text":"25","is_correct":false},{"text":"18","is_correct":true},{"text":"31","is_correct":false}],"explanation":"12 和 18 都小于 20。"}'::jsonb,
+   1, 2),
   ('a9200000-0000-4000-8000-000000000009', 'a5000000-0000-4000-8000-000000000004',
-   'a1000000-0000-4000-8000-000000000002', 2, 1)
+   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"],"explanation":"29 的下一个整数是 30。"}'::jsonb,
+   2, 1)
 ON CONFLICT (id) DO NOTHING;
 
 

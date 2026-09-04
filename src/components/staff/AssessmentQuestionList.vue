@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { Database, ImagePlus, Library, Plus } from 'lucide-vue-next'
+import { ImagePlus, Library, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
@@ -36,7 +36,6 @@ const emit = defineEmits<{
   duplicate: [item: AssessmentQuestionItem]
   remove: [item: AssessmentQuestionItem]
   'add-question': []
-  'add-from-bank': []
   'add-from-question-bank': []
 }>()
 
@@ -125,12 +124,11 @@ watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
   immediate: true,
 })
 
-/** The expanded ad-hoc card, if any — the "add image" target. */
+/** The expanded card, if any — the "add image" target. */
 const activeAdhocCard = computed(() => {
   const activeId = expandedId.value
   if (!activeId) return null
-  const item = props.items.find((candidate) => candidate.id === activeId)
-  return item?.source === 'adhoc' ? item : null
+  return props.items.find((candidate) => candidate.id === activeId) ?? null
 })
 
 function addImageToActiveCard() {
@@ -187,16 +185,6 @@ function addImageToActiveCard() {
         <Plus class="size-4" />
       </Button>
       <Button
-        variant="ghost"
-        size="icon"
-        class="size-8"
-        :aria-label="t.staff.builder.addFromBank"
-        :title="t.staff.builder.addFromBank"
-        @click="emit('add-from-bank')"
-      >
-        <Database class="size-4" />
-      </Button>
-      <Button
         v-if="showQuestionBank"
         variant="ghost"
         size="icon"
@@ -225,10 +213,6 @@ function addImageToActiveCard() {
       <Button variant="outline" size="sm" @click="emit('add-question')">
         <Plus class="mr-2 size-4" />
         {{ t.staff.builder.addAdhoc }}
-      </Button>
-      <Button variant="outline" size="sm" @click="emit('add-from-bank')">
-        <Database class="mr-2 size-4" />
-        {{ t.staff.builder.addFromBank }}
       </Button>
       <Button
         v-if="showQuestionBank"

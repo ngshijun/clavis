@@ -103,13 +103,11 @@ export type AdhocPayload =
  */
 export interface QuestionCardItem {
   id: string
-  /** `bank` = a practice-bank reference (read-only preview); `adhoc` = editable payload. */
-  source: 'bank' | 'adhoc'
   type: AdhocQuestionType
   question: string
   imagePath: string | null
   options: { number: number; text: string; imagePath: string | null }[]
-  payload: AdhocPayload | null
+  payload: AdhocPayload
   points: number
 }
 
