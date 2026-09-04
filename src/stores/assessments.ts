@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import type { Database, Json } from '@/types/database.types'
 import { useAuthStore } from './auth'
-import type { QuestionDifficulty } from './assessment-bank'
 import { handleError, errorMessages } from '@/lib/errors'
 import {
   collectAdhocPayloadImagePaths,
@@ -72,14 +71,6 @@ export interface AssessmentQuestionItem {
   assessmentId: string
   position: number
   points: number
-  /**
-   * Difficulty the bank copy is tagged with when an admin publishes a template
-   * (decision 88). Carried on every question, meaningful only on an admin's —
-   * a teacher's question reaches no bank.
-   */
-  difficulty: QuestionDifficulty
-  /** The bank row this question contributed, or null. Never set on a copy taken OUT of the bank. */
-  bankedQuestionId: string | null
   type: AdhocQuestionType
   question: string
   /** Question-level image — always a path in `assessment-images` (P10a). */
@@ -192,8 +183,6 @@ function rowToAssessmentQuestion(row: AssessmentQuestionRow): AssessmentQuestion
     assessmentId: row.assessment_id,
     position: row.position,
     points: row.points,
-    difficulty: row.difficulty,
-    bankedQuestionId: row.banked_question_id,
     ...adhocDisplayFields(payload),
     payload,
   }
@@ -654,24 +643,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
    * assessment. A COPY, not a link: a later bank edit must never mutate a
    * published assessment or an in-flight attempt, and the payload contract is
    * identical, so the copied rows need no translation and no new grader path.
-   *
-   * The source bank row is recorded in `banked_question_id`, which reads "the
-   * bank already holds this question" — set here because the copy came FROM
-   * the bank, and set by the publish trigger when an admin's own question goes
-   * INTO it. Without it, publishing a template that contains bank copies would
-   * contribute them all over again as duplicates.
-   *
-   * It is a marker, not a live link: nothing writes back to the bank when the
-   * copy is edited, so P13a's one-way rule holds in both directions.
+   * Nothing records where a copy came from: it is the assessment's own
+   * question from the moment it lands.
    */
   async function addQuestionsFromBank(
     assessmentId: string,
-    entries: {
-      bankQuestionId: string
-      payload: AdhocPayload
-      points: number
-      difficulty: QuestionDifficulty
-    }[],
+    entries: { payload: AdhocPayload; points: number }[],
   ): Promise<{ error: string | null }> {
     if (entries.length === 0) return { error: null }
 
@@ -682,8 +659,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
           assessment_id: assessmentId,
           payload: entry.payload as unknown as Json,
           points: entry.points,
-          difficulty: entry.difficulty,
-          banked_question_id: entry.bankQuestionId,
           position: base + index,
         })),
       )
@@ -775,33 +750,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       if (updateError) throw updateError
       return { error: null }
     } catch (err) {
-      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
-    }
-  }
-
-  /**
-   * Persist a question's difficulty. Only an admin authoring a template has a
-   * control for this — it is what the bank copy is tagged with on publish
-   * (decision 88).
-   */
-  async function persistQuestionDifficulty(
-    id: string,
-    difficulty: QuestionDifficulty,
-  ): Promise<{ error: string | null }> {
-    const item = currentQuestions.value.find((q) => q.id === id)
-    const previous = item?.difficulty ?? null
-    if (item) item.difficulty = difficulty
-
-    try {
-      const { error: updateError } = await supabase
-        .from('assessment_questions')
-        .update({ difficulty })
-        .eq('id', id)
-
-      if (updateError) throw updateError
-      return { error: null }
-    } catch (err) {
-      if (item && previous) item.difficulty = previous
       return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
     }
   }
@@ -1296,7 +1244,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     persistAdhocPayload,
     applyQuestionPoints,
     persistQuestionPoints,
-    persistQuestionDifficulty,
     removeQuestion,
     applyQuestionOrder,
     persistQuestionOrder,

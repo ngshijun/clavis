@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.17'
+    PostgrestVersion: '14.5'
   }
   graphql_public: {
     Tables: {
@@ -240,9 +240,7 @@ export type Database = {
       assessment_questions: {
         Row: {
           assessment_id: string
-          banked_question_id: string | null
           created_at: string
-          difficulty: Database['public']['Enums']['question_difficulty']
           id: string
           payload: Json
           points: number
@@ -250,9 +248,7 @@ export type Database = {
         }
         Insert: {
           assessment_id: string
-          banked_question_id?: string | null
           created_at?: string
-          difficulty?: Database['public']['Enums']['question_difficulty']
           id?: string
           payload: Json
           points?: number
@@ -260,9 +256,7 @@ export type Database = {
         }
         Update: {
           assessment_id?: string
-          banked_question_id?: string | null
           created_at?: string
-          difficulty?: Database['public']['Enums']['question_difficulty']
           id?: string
           payload?: Json
           points?: number
@@ -274,13 +268,6 @@ export type Database = {
             columns: ['assessment_id']
             isOneToOne: false
             referencedRelation: 'assessments'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessment_questions_banked_question_id_fkey'
-            columns: ['banked_question_id']
-            isOneToOne: false
-            referencedRelation: 'assessment_bank_questions'
             referencedColumns: ['id']
           },
         ]

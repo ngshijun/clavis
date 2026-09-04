@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { QuestionDifficulty } from '@/stores/assessment-bank'
 import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
 import { useAuthStore } from '@/stores/auth'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
@@ -460,18 +459,6 @@ function handlePointsChange(item: AssessmentQuestionItem, points: number) {
 }
 
 /**
- * Difficulty is what the bank copy is tagged with when this template is
- * published (decision 88). Saved straight through rather than via autosave:
- * it is a discrete pick from three values, not a stream of keystrokes, and the
- * store rolls the local value back itself if the write fails.
- */
-function handleDifficultyChange(item: AssessmentQuestionItem, difficulty: QuestionDifficulty) {
-  void assessmentsStore.persistQuestionDifficulty(item.id, difficulty).then(({ error }) => {
-    if (error) toast.error(error)
-  })
-}
-
-/**
  * Forms model: adding a question INSERTS a valid placeholder immediately
  * (like Forms' "Untitled Question" with two options) and expands it — the
  * card then autosaves every edit in place.
@@ -708,8 +695,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
               @remove="handleRemove"
               @add-question="handleAddQuestion"
               :show-question-bank="canPickFromAssessmentBank"
-              :show-difficulty="canPickFromAssessmentBank"
-              @difficulty-change="handleDifficultyChange"
               @add-from-question-bank="showAssessmentBankPicker = true"
             />
           </div>
