@@ -15,6 +15,12 @@ import type { Database, Json } from '@/types/database.types'
 
 type AssessmentStatus = Database['public']['Enums']['assessment_status']
 
+/** A grade+subject a paper covers, derived from the items it holds. */
+export interface PaperPairing {
+  gradeLevelId: string
+  subjectId: string
+}
+
 export interface Paper {
   id: string
   /** NULL = the platform's paper (admin-authored); set = that center's own. */
@@ -28,6 +34,8 @@ export interface Paper {
   shuffleQuestions: boolean
   createdBy: string
   itemCount: number
+  /** Empty for a paper with no items yet — it covers nothing so far. */
+  pairings: PaperPairing[]
   createdAt: string
   updatedAt: string
 }
@@ -75,6 +83,7 @@ function rowToPaper(row: PaperRow): Paper {
     shuffleQuestions: row.shuffle_questions,
     createdBy: row.created_by,
     itemCount: row.paper_items[0]?.count ?? 0,
+    pairings: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -134,6 +143,25 @@ export const usePapersStore = defineStore('papers', () => {
     return authStore.isAdmin ? null : authStore.organizationId
   }
 
+  /**
+   * A paper stores no grade+subject — its items decide it — so the pairings
+   * come from the DB, which can see the items of a platform paper the caller
+   * may read but may not open in the bank.
+   */
+  async function attachPairings(papers: Paper[]): Promise<void> {
+    if (papers.length === 0) return
+    const { data, error: rpcError } = await supabase.rpc('get_paper_pairings')
+    if (rpcError) throw rpcError
+
+    const byPaper = new Map<string, PaperPairing[]>()
+    for (const row of data ?? []) {
+      const list = byPaper.get(row.paper_id) ?? []
+      list.push({ gradeLevelId: row.grade_level_id, subjectId: row.subject_id })
+      byPaper.set(row.paper_id, list)
+    }
+    for (const paper of papers) paper.pairings = byPaper.get(paper.id) ?? []
+  }
+
   async function fetchOwnPapers(): Promise<{ error: string | null }> {
     isLoading.value = true
     try {
@@ -145,7 +173,9 @@ export const usePapersStore = defineStore('papers', () => {
       const { data, error: fetchError } = await query.order('updated_at', { ascending: false })
       if (fetchError) throw fetchError
 
-      ownPapers.value = ((data ?? []) as unknown as PaperRow[]).map(rowToPaper)
+      const papers = ((data ?? []) as unknown as PaperRow[]).map(rowToPaper)
+      await attachPairings(papers)
+      ownPapers.value = papers
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedFetchPapers') }
@@ -165,7 +195,9 @@ export const usePapersStore = defineStore('papers', () => {
         .order('updated_at', { ascending: false })
       if (fetchError) throw fetchError
 
-      libraryPapers.value = ((data ?? []) as unknown as PaperRow[]).map(rowToPaper)
+      const papers = ((data ?? []) as unknown as PaperRow[]).map(rowToPaper)
+      await attachPairings(papers)
+      libraryPapers.value = papers
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedFetchPapers') }

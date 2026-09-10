@@ -152,6 +152,7 @@ export default {
     regenerateNotInPaper: 'This question is no longer in this paper.',
     assessmentAlreadyPublished: 'This assessment is already published.',
     itemOtherCenter: 'That question belongs to another center.',
+    deliverPairingMismatch: 'This paper does not cover the grade and subject this class is taught.',
     generateSpecInvalid:
       'Check the criteria: each line needs a sub-topic and a count from 1 to 50.',
     generateSubTopicMismatch: 'Every sub-topic must belong to this subject.',

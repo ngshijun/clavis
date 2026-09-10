@@ -193,6 +193,8 @@ export default {
     centerOwner: "Our center's paper",
     noPapers: 'No Papers Yet',
     noPapersDesc: 'Create the first paper, or generate one from the question bank.',
+    noPapersForClassDesc:
+      'No paper covers what this class is taught yet. Create one, or generate it from the question bank.',
     noPapersMatchSearch: 'No papers match your search criteria.',
     deleteTitle: 'Delete Paper',
     deleteDesc: (title: string) =>
@@ -236,7 +238,7 @@ export default {
       `${count} ${count === 1 ? 'question' : 'questions'} added to this paper.`,
     // Platform library (browse, adopt, deliver)
     libraryEmpty: 'No Papers Available',
-    libraryEmptyDesc: 'The platform has not published any papers for your classrooms yet.',
+    libraryEmptyDesc: 'The platform has not published a paper for this class yet.',
     previewAction: 'Preview',
     adopt: 'Adopt',
     toastAdopted: "Adopted — this copy is your center's to edit",

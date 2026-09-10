@@ -1599,6 +1599,14 @@ export type Database = {
           tag_ids: string[]
         }[]
       }
+      get_paper_pairings: {
+        Args: never
+        Returns: {
+          grade_level_id: string
+          paper_id: string
+          subject_id: string
+        }[]
+      }
       get_platform_totals: { Args: never; Returns: Json }
       get_practice_questions: {
         Args: { p_question_ids: string[] }
