@@ -14,7 +14,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Sparkles,
   Trash2,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -35,8 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import AssessmentCreateDialog from '@/components/staff/AssessmentCreateDialog.vue'
-import GenerateAssessmentDialog from '@/components/staff/GenerateAssessmentDialog.vue'
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
@@ -68,8 +65,6 @@ watch(
   { immediate: true },
 )
 
-const showCreateDialog = ref(false)
-const showGenerateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const selectedAssessment = ref<AssessmentListItem | null>(null)
 const isDeleting = ref(false)
@@ -80,10 +75,6 @@ function openBuilder(item: AssessmentListItem) {
 
 function openResults(item: AssessmentListItem) {
   router.push(`${basePath.value}/assessments/${item.id}?tab=results`)
-}
-
-function handleCreated(id: string) {
-  router.push(`${basePath.value}/assessments/${id}`)
 }
 
 function openDelete(item: AssessmentListItem) {
@@ -252,18 +243,12 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
 
 <template>
   <div class="p-6">
+    <!-- An assessment is always a DELIVERY of a paper (decision 91), so it is
+         created from the library rather than here. -->
     <div v-if="!authStore.isManager" class="mb-6 flex items-center justify-end gap-2">
-      <Button
-        variant="outline"
-        :disabled="assessmentsStore.isLoading"
-        @click="showGenerateDialog = true"
-      >
-        <Sparkles class="mr-2 size-4" />
-        {{ t.staff.generate.btn }}
-      </Button>
-      <Button :disabled="assessmentsStore.isLoading" @click="showCreateDialog = true">
+      <Button :disabled="assessmentsStore.isLoading" @click="router.push(`${basePath}/papers`)">
         <Plus class="mr-2 size-4" />
-        {{ t.staff.assessments.createBtn }}
+        {{ t.staff.assessments.deliverBtn }}
       </Button>
     </div>
 
@@ -311,9 +296,6 @@ const columns = computed<ColumnDef<AssessmentListItem>[]>(() => [
         :on-page-size-change="assessmentsStore.setPageSize"
       />
     </template>
-
-    <AssessmentCreateDialog v-model:open="showCreateDialog" @created="handleCreated" />
-    <GenerateAssessmentDialog v-model:open="showGenerateDialog" @generated="handleCreated" />
 
     <!-- Delete confirmation -->
     <Dialog v-model:open="showDeleteDialog">

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useAssessmentTemplatesStore } from '@/stores/assessment-templates'
-import type { GenerationLine } from '@/stores/assessments'
+import { usePapersStore } from '@/stores/papers'
+import {
+  emptyGenerationLine,
+  isGenerationLineValid,
+  type GenerationLine,
+} from '@/lib/generationSpec'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { Loader2, Sparkles } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -26,9 +30,14 @@ import GenerationSpecEditor from '@/components/staff/GenerationSpecEditor.vue'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
-/** The admin's generator: the same spec, written as references into a new draft template. */
+/**
+ * The generator (decision 91): a spec in, a draft PAPER out — the platform's
+ * for an admin, the caller's center's for a teacher. The grade and subject
+ * here only scope the sub-topics on offer; the paper stores the spec, not the
+ * pairing, and the RPC rejects a spec that spans two subjects.
+ */
 const t = useT()
-const templatesStore = useAssessmentTemplatesStore()
+const papersStore = usePapersStore()
 const curriculumStore = useCurriculumStore()
 
 const open = defineModel<boolean>('open', { default: false })
@@ -57,7 +66,7 @@ watch(open, (isOpen) => {
   title.value = ''
   gradeLevelId.value = ''
   subjectId.value = ''
-  lines.value = [{ subTopicId: '', tagIds: [], difficulty: null, count: 5 }]
+  lines.value = [emptyGenerationLine()]
   error.value = null
   if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
     curriculumStore.fetchCurriculum()
@@ -69,7 +78,7 @@ watch(gradeLevelId, () => {
   subjectId.value = ''
 })
 watch(subjectId, () => {
-  lines.value = lines.value.map((line) => ({ ...line, subTopicId: '' }))
+  lines.value = lines.value.map((line) => ({ ...line, subTopicIds: [], tagIds: [] }))
 })
 
 const isValid = computed(
@@ -78,13 +87,7 @@ const isValid = computed(
     gradeLevelId.value !== '' &&
     subjectId.value !== '' &&
     lines.value.length > 0 &&
-    lines.value.every(
-      (line) =>
-        line.subTopicId !== '' &&
-        Number.isInteger(line.count) &&
-        line.count >= 1 &&
-        line.count <= 50,
-    ),
+    lines.value.every(isGenerationLineValid),
 )
 
 async function handleGenerate() {
@@ -99,10 +102,8 @@ async function handleGenerate() {
       id,
       shortfalls,
       error: rpcError,
-    } = await templatesStore.generateTemplate({
+    } = await papersStore.generatePaper({
       title: title.value.trim(),
-      gradeLevelId: gradeLevelId.value,
-      subjectId: subjectId.value,
       lines: lines.value,
     })
     if (rpcError || !id) {
@@ -114,7 +115,7 @@ async function handleGenerate() {
       const missing = shortfalls.reduce((sum, s) => sum + (s.requested - s.picked), 0)
       toast.warning(t.value.staff.generate.toastShortfall(requested - missing, requested))
     } else {
-      toast.success(t.value.staff.generate.toastTemplateGenerated)
+      toast.success(t.value.staff.generate.toastPaperGenerated)
     }
     open.value = false
     emit('generated', id)
@@ -128,18 +129,18 @@ async function handleGenerate() {
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ t.staff.generate.templateTitle }}</DialogTitle>
-        <DialogDescription>{{ t.staff.generate.templateDesc }}</DialogDescription>
+        <DialogTitle>{{ t.staff.generate.paperTitle }}</DialogTitle>
+        <DialogDescription>{{ t.staff.generate.paperDesc }}</DialogDescription>
       </DialogHeader>
 
       <div class="space-y-4 py-2">
         <Field>
-          <FieldLabel for="generate-template-title"
+          <FieldLabel for="generate-paper-title"
             >{{ t.staff.assessmentCreate.titleLabel }}
             <span class="text-destructive">*</span></FieldLabel
           >
           <Input
-            id="generate-template-title"
+            id="generate-paper-title"
             v-model="title"
             :placeholder="t.staff.assessmentCreate.titlePlaceholder"
             :disabled="isGenerating"
@@ -192,8 +193,6 @@ async function handleGenerate() {
           :disabled="isGenerating || !subjectId"
           allow-create-tags
         />
-
-        <p class="text-sm text-muted-foreground">{{ t.staff.templates.scopeHint }}</p>
 
         <FieldError :errors="error ? [error] : []" />
       </div>

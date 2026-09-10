@@ -17,8 +17,9 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { title: 'Organizations', path: '/admin/organizations', icon: Building2 },
     { title: 'Curriculum', path: '/admin/curriculum', icon: BookOpen },
-    { title: 'Question Bank', path: '/admin/question-bank', icon: Library },
-    { title: 'Templates', path: '/admin/templates', icon: ClipboardList },
+    { title: 'Practice Bank', path: '/admin/practice-bank', icon: PenTool },
+    { title: 'Assessment Bank', path: '/admin/question-bank', icon: Library },
+    { title: 'Papers', path: '/admin/papers', icon: ClipboardList },
     { title: 'Learning Points', path: '/admin/tags', icon: Tags },
   ],
   manager: [
@@ -26,6 +27,7 @@ export const sidebarNavConfig: SidebarNavConfig = {
     { title: 'Teachers', path: '/manager/teachers', icon: Users },
     { title: 'Students', path: '/manager/students', icon: Users },
     { title: 'Classrooms', path: '/manager/classrooms', icon: School },
+    { title: 'Question Bank', path: '/manager/question-bank', icon: Library },
   ],
   teacher: [],
   student: [],
@@ -53,10 +55,16 @@ export function teacherNavItems(classroomId: string | null): NavItem[] {
       navKey: 'assessments',
     },
     {
-      title: 'Template Library',
-      path: `${base}/templates`,
+      title: 'Question Bank',
+      path: `${base}/question-bank`,
       icon: Library,
-      navKey: 'templateLibrary',
+      navKey: 'questionBank',
+    },
+    {
+      title: 'Papers',
+      path: `${base}/papers`,
+      icon: ClipboardList,
+      navKey: 'papers',
     },
   ]
 }

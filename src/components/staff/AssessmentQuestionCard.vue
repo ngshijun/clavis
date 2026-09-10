@@ -13,16 +13,7 @@ import {
 } from '@/lib/adhocPayload'
 import { createBucketImageHelpers, uploadStorageFile } from '@/lib/storage'
 import { moveItem, refocusReorderHandle } from '@/lib/reorder'
-import {
-  Copy,
-  GripHorizontal,
-  GripVertical,
-  ImagePlus,
-  Loader2,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-vue-next'
+import { Copy, GripVertical, ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -42,13 +33,13 @@ import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
 
 /**
- * One Google-Forms-style question card. Collapsed it is a compact one-line
- * preview; clicking it expands IN PLACE. An expanded ad-hoc card is the full
- * editor (the former AdhocQuestionDialog body): every draft change is built
- * through `buildAdhocPayload` (the single validator) and, when valid, emitted
- * as `payload-change` for the page's background autosave — there is no Save
- * button. Bank-sourced questions expand into a read-only preview (their
- * content lives in the question bank).
+ * One question card in two shapes. Collapsed it is a compact one-line row
+ * (the builder's list on the left; the bank's accordion header). Expanded it
+ * is the full editor (the builder's pane on the right; the bank's open
+ * accordion item): every draft change is built through `buildAdhocPayload`
+ * (the single validator) and, when valid, emitted as `payload-change` for the
+ * page's background autosave — there is no Save button. Without edit
+ * permission the expanded shape is a read-only preview.
  *
  * Images (P10a): a question-level image for every ad-hoc type and per-option
  * images for mcq/mrq, uploaded into `assessment-images` under
@@ -75,8 +66,10 @@ const props = defineProps<{
    * every payload variant, so hiding it simply never sets one.
    */
   showExplanation?: boolean
-  /** The bank is an unordered set; only the builder shows the drag grip. */
+  /** The bank is an unordered set; only the builder's list shows the drag grip. */
   reorderable?: boolean
+  /** Collapsed row highlight: the question open in the builder's editor pane. */
+  selected?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -282,12 +275,6 @@ const isUploadingQuestionImage = ref(false)
 const uploadingOptionIndex = ref<number | null>(null)
 let optionImageTarget = 0
 
-/** The floating toolbar's "add image" button targets the active card. */
-function openImagePicker() {
-  if (isAdhocEditor.value) questionImageInput.value?.click()
-}
-defineExpose({ openImagePicker })
-
 function pickOptionImage(index: number) {
   optionImageTarget = index
   optionImageInput.value?.click()
@@ -395,49 +382,53 @@ function onPointsChange(event: Event) {
 <template>
   <div
     class="rounded-lg border bg-card transition-shadow"
-    :class="expanded ? 'border-l-4 border-l-primary shadow-md' : 'hover:border-primary/40'"
+    :class="
+      expanded
+        ? 'border-l-4 border-l-primary shadow-md'
+        : selected
+          ? 'border-l-4 border-l-primary'
+          : 'hover:border-primary/40'
+    "
   >
-    <!-- Drag handle strip (Forms-style, centered at the top of the card).
-         Also the keyboard-reorder control: arrow keys move the card. -->
-    <button
-      v-if="editable && isReorderable"
-      type="button"
-      data-card-drag-handle
-      :data-reorder-id="item.id"
-      class="flex w-full cursor-grab justify-center rounded pt-1 text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      :aria-label="`${t.staff.builder.questionNumber(index + 1)} — ${t.shared.reorder.handleLabel}`"
-      @keydown.up.prevent="emit('move', -1)"
-      @keydown.down.prevent="emit('move', 1)"
-    >
-      <GripHorizontal class="size-4" />
-    </button>
-
-    <!-- Collapsed: compact one-line preview -->
-    <button
-      v-if="!expanded"
-      type="button"
-      class="flex w-full items-center gap-3 p-3 text-left"
-      :class="editable && isReorderable ? 'pt-1' : ''"
-      @click="emit('select')"
-    >
-      <span
-        class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+    <!-- Collapsed: compact one-line row, with the drag grip on the left.
+         The grip is also the keyboard-reorder control: arrow keys move the row. -->
+    <div v-if="!expanded" class="flex items-center">
+      <button
+        v-if="editable && isReorderable"
+        type="button"
+        data-card-drag-handle
+        :data-reorder-id="item.id"
+        class="ml-2 shrink-0 cursor-grab rounded p-1 text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        :aria-label="`${t.staff.builder.questionNumber(index + 1)} — ${t.shared.reorder.handleLabel}`"
+        @keydown.up.prevent="emit('move', -1)"
+        @keydown.down.prevent="emit('move', 1)"
       >
-        {{ index + 1 }}
-      </span>
-      <div class="min-w-0 flex-1">
-        <p class="truncate font-medium" :title="item.question">{{ item.question }}</p>
-        <div class="mt-1 flex items-center gap-2">
-          <Badge variant="secondary">{{ t.shared.questionTypes[item.type] }}</Badge>
+        <GripVertical class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+        @click="emit('select')"
+      >
+        <span
+          class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+        >
+          {{ index + 1 }}
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-medium" :title="item.question">{{ item.question }}</p>
+          <div class="mt-1 flex items-center gap-2">
+            <Badge variant="secondary">{{ t.shared.questionTypes[item.type] }}</Badge>
+          </div>
         </div>
-      </div>
-      <span class="shrink-0 text-sm text-muted-foreground">
-        {{ t.staff.builder.pointsFmt(item.points) }}
-      </span>
-    </button>
+        <span class="shrink-0 text-sm text-muted-foreground">
+          {{ t.staff.builder.pointsFmt(item.points) }}
+        </span>
+      </button>
+    </div>
 
     <!-- Expanded read-only preview (bank questions, or no edit permission) -->
-    <div v-else-if="isReadOnlyPreview" class="space-y-3 p-4 pt-2">
+    <div v-else-if="isReadOnlyPreview" class="space-y-3 p-4">
       <div class="flex items-start justify-between gap-4">
         <p class="font-medium leading-relaxed">{{ item.question }}</p>
         <Badge variant="secondary" class="shrink-0">{{ t.shared.questionTypes[item.type] }}</Badge>
@@ -494,7 +485,7 @@ function onPointsChange(event: Event) {
     </div>
 
     <!-- Expanded ad-hoc editor -->
-    <div v-else-if="draft" class="space-y-4 p-4 pt-2">
+    <div v-else-if="draft" class="space-y-4 p-4">
       <div class="flex flex-wrap items-start gap-3">
         <!-- Question text (optional instructions for cloze) -->
         <Field class="min-w-0 flex-1 basis-64">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useAssessmentBankStore, DIFFICULTIES, type BankQuestion } from '@/stores/assessment-bank'
-import { useAssessmentTemplatesStore } from '@/stores/assessment-templates'
+import { usePapersStore } from '@/stores/papers'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useTagsStore } from '@/stores/tags'
 import { Loader2, Search } from 'lucide-vue-next'
@@ -26,20 +26,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import CurriculumTopicPicker from '@/components/shared/CurriculumTopicPicker.vue'
 import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
 
 /**
- * Adds existing bank questions to a template BY REFERENCE (decision 89): the
- * template gains a pointer, the bank row stays the one and only question.
- * Only questions filed under the template's subject are offered — the DB
- * rejects any other.
+ * Adds existing bank items to a paper BY REFERENCE (decision 91): the paper
+ * gains a pointer, the bank row stays the one and only question. A paper
+ * stores no subject, so the topic is chosen here — one popover over
+ * grade → subject → topic, then that topic's sub-topics.
+ *
+ * The bank store scopes itself to the caller's own library (the platform's
+ * for an admin, their center's for staff), which is exactly the set a paper
+ * of theirs may reference.
  */
 const props = defineProps<{
-  templateId: string
-  subjectId: string
-  /** Bank questions the template already holds — listed, but not pickable twice. */
+  paperId: string
+  /** Items the paper already holds — listed, but not pickable twice. */
   excludeIds: string[]
 }>()
 
@@ -48,7 +52,7 @@ const open = defineModel<boolean>('open', { default: false })
 const t = useT()
 const languageStore = useLanguageStore()
 const bankStore = useAssessmentBankStore()
-const templatesStore = useAssessmentTemplatesStore()
+const papersStore = usePapersStore()
 const curriculumStore = useCurriculumStore()
 const tagsStore = useTagsStore()
 
@@ -60,11 +64,9 @@ const search = ref('')
 const subTopicId = ref(ALL_VALUE)
 const difficulty = ref(ALL_VALUE)
 const tagId = ref(ALL_VALUE)
+const topicId = ref<string | null>(null)
 
-const subject = computed(() => curriculumStore.getSubjectById(props.subjectId))
-const subjectSubTopicIds = computed(() =>
-  (subject.value?.topics ?? []).flatMap((topic) => topic.subTopics.map((subTopic) => subTopic.id)),
-)
+const topic = computed(() => (topicId.value ? curriculumStore.getTopicById(topicId.value) : null))
 
 watch(open, async (isOpen) => {
   if (!isOpen) return
@@ -75,9 +77,20 @@ watch(open, async (isOpen) => {
   tagId.value = ALL_VALUE
   if (tagsStore.tags.length === 0) void tagsStore.fetchTags()
   if (curriculumStore.gradeLevels.length === 0) await curriculumStore.fetchCurriculum()
-  const { error } = await bankStore.fetchQuestions({ subTopicIds: subjectSubTopicIds.value })
-  if (error) toast.error(error)
+  if (topicId.value) await loadTopicQuestions()
 })
+
+async function loadTopicQuestions() {
+  const ids = (topic.value?.subTopics ?? []).map((subTopic) => subTopic.id)
+  const { error } = await bankStore.fetchQuestions({ subTopicIds: ids })
+  if (error) toast.error(error)
+}
+
+async function selectTopic(nextTopicId: string) {
+  topicId.value = nextTopicId
+  subTopicId.value = ALL_VALUE
+  await loadTopicQuestions()
+}
 
 function promptOf(question: BankQuestion): string {
   const payload = question.payload
@@ -118,7 +131,7 @@ async function handleAdd() {
   if (selectedIds.value.length === 0) return
 
   isSaving.value = true
-  const { error } = await templatesStore.addBankQuestions(props.templateId, selectedIds.value)
+  const { error } = await papersStore.addBankItems(props.paperId, selectedIds.value)
   isSaving.value = false
 
   if (error) {
@@ -126,7 +139,7 @@ async function handleAdd() {
     return
   }
 
-  toast.success(t.value.staff.templates.pickerToastAdded(selectedIds.value.length))
+  toast.success(t.value.staff.papers.pickerToastAdded(selectedIds.value.length))
   open.value = false
 }
 </script>
@@ -135,16 +148,22 @@ async function handleAdd() {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ t.staff.templates.pickerTitle }}</DialogTitle>
-        <DialogDescription>{{ t.staff.templates.pickerDesc }}</DialogDescription>
+        <DialogTitle>{{ t.staff.papers.pickerTitle }}</DialogTitle>
+        <DialogDescription>{{ t.staff.papers.pickerDesc }}</DialogDescription>
       </DialogHeader>
 
       <div class="flex flex-wrap gap-2">
+        <CurriculumTopicPicker
+          :model-value="topicId"
+          :placeholder="t.admin.practiceBank.pickTopic"
+          @update:model-value="selectTopic"
+        />
+
         <div class="relative min-w-[200px] flex-1">
           <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             v-model="search"
-            :placeholder="t.staff.templates.pickerSearchPlaceholder"
+            :placeholder="t.staff.papers.pickerSearchPlaceholder"
             class="pl-9"
           />
         </div>
@@ -152,8 +171,8 @@ async function handleAdd() {
         <Select :key="`st-${languageStore.language}`" v-model="subTopicId">
           <SelectTrigger class="w-52"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem :value="ALL_VALUE">{{ t.staff.templates.allSubTopics }}</SelectItem>
-            <SelectGroup v-for="topic in subject?.topics ?? []" :key="topic.id">
+            <SelectItem :value="ALL_VALUE">{{ t.staff.papers.allSubTopics }}</SelectItem>
+            <SelectGroup v-if="topic" :key="topic.id">
               <SelectLabel>{{ topic.name }}</SelectLabel>
               <SelectItem
                 v-for="subTopic in topic.subTopics"
@@ -169,7 +188,7 @@ async function handleAdd() {
         <Select :key="`d-${languageStore.language}`" v-model="difficulty">
           <SelectTrigger class="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem :value="ALL_VALUE">{{ t.admin.questionBank.allDifficulties }}</SelectItem>
+            <SelectItem :value="ALL_VALUE">{{ t.shared.questionBank.allDifficulties }}</SelectItem>
             <SelectItem v-for="level in DIFFICULTIES" :key="level" :value="level">
               {{ t.shared.difficulties[level] }}
             </SelectItem>
@@ -179,7 +198,7 @@ async function handleAdd() {
         <Select :key="`t-${languageStore.language}`" v-model="tagId">
           <SelectTrigger class="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem :value="ALL_VALUE">{{ t.staff.templates.allTags }}</SelectItem>
+            <SelectItem :value="ALL_VALUE">{{ t.staff.papers.allTags }}</SelectItem>
             <SelectItem v-for="tag in tagsStore.tags" :key="tag.id" :value="tag.id">
               {{ tag.name }}
             </SelectItem>
@@ -191,8 +210,12 @@ async function handleAdd() {
         <Loader2 class="size-6 animate-spin text-muted-foreground" />
       </div>
 
+      <p v-else-if="!topicId" class="py-12 text-center text-muted-foreground">
+        {{ t.staff.papers.pickerPickTopic }}
+      </p>
+
       <p v-else-if="visibleQuestions.length === 0" class="py-12 text-center text-muted-foreground">
-        {{ t.staff.templates.pickerEmpty }}
+        {{ t.staff.papers.pickerEmpty }}
       </p>
 
       <ul v-else class="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
@@ -218,10 +241,10 @@ async function handleAdd() {
                 {{ name }}
               </Badge>
               <span class="text-xs text-muted-foreground">
-                {{ t.staff.templates.pickerPoints(question.points) }}
+                {{ t.staff.papers.pickerPoints(question.points) }}
               </span>
               <span v-if="excluded.has(question.id)" class="text-xs text-muted-foreground">
-                {{ t.staff.templates.pickerAlreadyIn }}
+                {{ t.staff.papers.pickerAlreadyIn }}
               </span>
             </div>
           </div>
@@ -234,7 +257,7 @@ async function handleAdd() {
         </Button>
         <Button :disabled="selectedIds.length === 0 || isSaving" @click="handleAdd">
           <Loader2 v-if="isSaving" class="mr-2 size-4 animate-spin" />
-          {{ t.staff.templates.pickerAddBtn(selectedIds.length) }}
+          {{ t.staff.papers.pickerAddBtn(selectedIds.length) }}
         </Button>
       </DialogFooter>
     </DialogContent>

@@ -28,8 +28,8 @@ describe('managerNavItems', () => {
   it('omits the authoring links a teacher gets (decision 80)', () => {
     const managerKeys = managerNavItems('c1').map((item) => item.navKey)
     const teacherKeys = teacherNavItems('c1').map((item) => item.navKey)
-    expect(teacherKeys).toContain('templateLibrary')
-    expect(managerKeys).not.toContain('templateLibrary')
+    expect(teacherKeys).toContain('papers')
+    expect(managerKeys).not.toContain('papers')
   })
 })
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAssessmentsStore, type AssessmentQuestionItem } from '@/stores/assessments'
+import { useAssessmentsStore } from '@/stores/assessments'
+import { usePapersStore } from '@/stores/papers'
+import type { QuestionCardItem } from '@/lib/adhocPayload'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
-import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
-import { removeStorageObjects } from '@/lib/storage'
 import {
   ArrowLeft,
   ClipboardList,
@@ -13,8 +13,8 @@ import {
   Info,
   Loader2,
   Lock,
+  Pencil,
   Plus,
-  RefreshCw,
   Send,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
@@ -36,23 +36,22 @@ import {
 import AssessmentQuestionList from '@/components/staff/AssessmentQuestionList.vue'
 import AssignPanel from '@/components/staff/AssignPanel.vue'
 import AssessmentResultsPanel from '@/components/staff/AssessmentResultsPanel.vue'
-import SaveStatusPill from '@/components/shared/SaveStatusPill.vue'
 import { toast } from 'vue-sonner'
-import { useAutosave } from '@/composables/useAutosave'
 import { useMarkingAuthz } from '@/composables/useMarkingAuthz'
 import { useT } from '@/composables/useT'
 
 /**
- * Google-Forms-style builder (decision 75 / P10b): top tabs
- * Questions · Assign · Results · Settings, question cards that expand in
- * place with background
- * autosave (no Save button, no editing dialog), and a floating action toolbar
- * beside the active card.
+ * The delivery screen (decision 91): top tabs Questions · Assign · Results ·
+ * Settings. An assessment holds no content of its own — it delivers a PAPER
+ * into one classroom — so the Questions tab reads rather than edits: the
+ * paper's items while the assessment is a draft, its own frozen snapshot once
+ * it is published. Authoring lives in the paper builder, one link away.
  */
 const t = useT()
 const route = useRoute()
 const router = useRouter()
 const assessmentsStore = useAssessmentsStore()
+const papersStore = usePapersStore()
 const { basePath } = useActiveClassroom()
 
 const assessmentId = computed(() => String(route.params.assessmentId))
@@ -179,6 +178,9 @@ async function loadAssessment() {
     return
   }
   syncSettings()
+  // A draft reads its paper live; a published one already has its snapshot.
+  const current = assessmentsStore.currentAssessment
+  if (current.status === 'draft') void papersStore.fetchPaperDetail(current.paperId)
   // Teacher branch of the release authz (manager short-circuit).
   void loadMarkingAuthz(assessmentId.value)
   // Land on the deep-linked tab.
@@ -249,172 +251,25 @@ async function handlePublish() {
   }
 }
 
-// ── Forms-style inline editing with background autosave ────
+// ── the paper this assessment delivers ─────────────────────
+//
+// A DRAFT shows its paper live: editing happens in the paper builder, which
+// every classroom delivering that paper shares. Publishing freezes those
+// items into the assessment's own snapshot (decision 91), and from then on
+// this page shows the snapshot, which nothing can change.
 
 /** The one expanded card (Forms model: exactly one card is active). */
 const expandedId = ref<string | null>(null)
 
-const autosave = useAutosave({ onError: (message) => toast.error(message) })
+const paperPath = computed(() =>
+  assessment.value ? `${basePath.value}/papers/${assessment.value.paperId}` : '',
+)
 
-// Seamless reorder (decision 72b): the drag applies instantly in the store;
-// persistence is debounced/coalesced fire-and-forget via the positional RPC.
-// Dragging is never blocked — the pill in the header is the affordance.
-function handleReorder(orderedIds: string[]) {
-  const id = assessmentId.value
-  const previousIds = assessmentsStore.applyQuestionOrder(orderedIds)
-  if (!previousIds) return
-  autosave.enqueue(`order:${id}`, orderedIds, {
-    previous: previousIds,
-    save: (ids) => assessmentsStore.persistQuestionOrder(id, ids),
-    rollback: (ids) => void assessmentsStore.applyQuestionOrder(ids),
-  })
-}
+const displayedQuestions = computed<QuestionCardItem[]>(() =>
+  isPublished.value ? assessmentsStore.currentQuestions : papersStore.currentItems,
+)
 
-/**
- * Storage objects a card replaced/removed, per question id (decision 78).
- * They are deleted only once a payload save CONFIRMS the stored payload no
- * longer references them — a failed save rolls back to the confirmed payload
- * (which still references the old object), so deleting earlier would leave a
- * broken image. Pending paths of a finally-failed save are simply dropped
- * (the freshly-uploaded object becomes the orphan instead — an orphan is
- * always preferable to a broken row).
- */
-const pendingImageDeletes = new Map<string, Set<string>>()
-
-function handleImageOrphaned(item: AssessmentQuestionItem, path: string) {
-  let pending = pendingImageDeletes.get(item.id)
-  if (!pending) {
-    pending = new Set()
-    pendingImageDeletes.set(item.id, pending)
-  }
-  pending.add(path)
-}
-
-/** After a CONFIRMED save: delete every pending object the payload no longer references. */
-function flushOrphanedImages(id: string, savedPayload: AdhocPayload) {
-  const pending = pendingImageDeletes.get(id)
-  if (!pending) return
-  const referenced = new Set(collectAdhocPayloadImagePaths(savedPayload))
-  const removable = [...pending].filter((path) => !referenced.has(path))
-  for (const path of removable) pending.delete(path)
-  void removeStorageObjects('assessment-images', removable)
-}
-
-/**
- * A card emitted a VALID payload (built + validated by `buildAdhocPayload`).
- * Apply optimistically and enqueue the debounced background save — no Save
- * button anywhere. On final failure the store rolls back to the last
- * server-confirmed payload and the error toasts.
- */
-function handlePayloadChange(item: AssessmentQuestionItem, payload: AdhocPayload) {
-  const previous = assessmentsStore.applyAdhocPayload(item.id, payload)
-  if (!previous) return
-  autosave.enqueue(`payload:${item.id}`, payload, {
-    previous,
-    save: async (value) => {
-      const result = await assessmentsStore.persistAdhocPayload(item.id, value)
-      if (!result.error) flushOrphanedImages(item.id, value)
-      return result
-    },
-    rollback: (confirmed) => {
-      pendingImageDeletes.delete(item.id)
-      void assessmentsStore.applyAdhocPayload(item.id, confirmed)
-    },
-  })
-}
-
-function handlePointsChange(item: AssessmentQuestionItem, points: number) {
-  const previous = assessmentsStore.applyQuestionPoints(item.id, points)
-  if (previous === null) return
-  autosave.enqueue(`points:${item.id}`, points, {
-    previous,
-    save: (value) => assessmentsStore.persistQuestionPoints(item.id, value),
-    rollback: (confirmed) => void assessmentsStore.applyQuestionPoints(item.id, confirmed),
-  })
-}
-
-/**
- * Forms model: adding a question INSERTS a valid placeholder immediately
- * (like Forms' "Untitled Question" with two options) and expands it — the
- * card then autosaves every edit in place.
- */
-function placeholderPayload(): AdhocPayload {
-  return {
-    type: 'mcq',
-    question: t.value.staff.builder.untitledQuestion,
-    options: [
-      { text: t.value.staff.adhocForm.optionPlaceholder(1), is_correct: true },
-      { text: t.value.staff.adhocForm.optionPlaceholder(2), is_correct: false },
-    ],
-  }
-}
-
-/** Insert an ad-hoc question, position it after `afterId`, and expand it. */
-async function insertAdhocQuestion(payload: AdhocPayload, afterId: string | null) {
-  const { id, error } = await assessmentsStore.addAdhocQuestion(assessmentId.value, payload)
-  if (error || !id) {
-    toast.error(error ?? '')
-    return
-  }
-  if (afterId) {
-    const ids = assessmentsStore.currentQuestions
-      .map((question) => question.id)
-      .filter((questionId) => questionId !== id)
-    const anchor = ids.indexOf(afterId)
-    if (anchor !== -1 && anchor < ids.length - 1) {
-      ids.splice(anchor + 1, 0, id)
-      handleReorder(ids)
-    }
-  }
-  expandedId.value = id
-}
-
-function handleAddQuestion() {
-  void insertAdhocQuestion(placeholderPayload(), expandedId.value)
-}
-
-function handleDuplicate(item: AssessmentQuestionItem) {
-  void insertAdhocQuestion(item.payload, item.id)
-}
-
-// ── regenerate (decision 90) ───────────────────────────────
-// A generated question can be swapped for another random pick from its
-// spec line while the assessment is a draft. Confirmed first: the swap
-// discards any edit made to the question.
-
-const regenerateTarget = ref<AssessmentQuestionItem | null>(null)
-const isRegenerating = ref(false)
-
-async function handleRegenerate() {
-  const item = regenerateTarget.value
-  if (!item) return
-  isRegenerating.value = true
-  try {
-    const { error } = await assessmentsStore.regenerateQuestion(item.id)
-    if (error) {
-      toast.error(error)
-      return
-    }
-    pendingImageDeletes.delete(item.id)
-    toast.success(t.value.staff.generate.toastRegenerated)
-    regenerateTarget.value = null
-  } finally {
-    isRegenerating.value = false
-  }
-}
-
-async function handleRemove(item: AssessmentQuestionItem) {
-  const { error } = await assessmentsStore.removeQuestion(item.id)
-  if (error) {
-    toast.error(error)
-    return
-  }
-  // The store deleted the stored payload's objects; anything still pending
-  // for this question is dropped (rare unconfirmed-replace window).
-  pendingImageDeletes.delete(item.id)
-  if (expandedId.value === item.id) expandedId.value = null
-  toast.success(t.value.staff.builder.toastQuestionRemoved)
-}
+const imageFolderOf = (item: QuestionCardItem) => `bank/${item.id}`
 </script>
 
 <template>
@@ -465,14 +320,12 @@ async function handleRemove(item: AssessmentQuestionItem) {
               <Eye class="mr-1 size-3" />
               {{ t.staff.builder.answersReleasedBadge }}
             </Badge>
-            <!-- Background autosave status (questions, points, order) -->
-            <SaveStatusPill :status="autosave.status.value" />
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <Button
             v-if="!isPublished && canEdit"
-            :disabled="assessmentsStore.currentQuestions.length === 0"
+            :disabled="displayedQuestions.length === 0"
             @click="showPublishDialog = true"
           >
             <Send class="mr-2 size-4" />
@@ -511,13 +364,28 @@ async function handleRemove(item: AssessmentQuestionItem) {
 
         <!-- Questions -->
         <TabsContent value="questions" class="pt-4">
-          <div class="editor-column">
-            <p class="mb-4 text-sm text-muted-foreground">
-              {{ t.staff.builder.questionsDesc(assessmentsStore.currentQuestions.length) }}
-            </p>
+          <div>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <p class="text-sm text-muted-foreground">
+                {{
+                  isPublished
+                    ? t.staff.builder.frozenDesc(displayedQuestions.length)
+                    : t.staff.builder.paperDesc(displayedQuestions.length)
+                }}
+              </p>
+              <Button
+                v-if="canEdit && !isPublished"
+                variant="outline"
+                size="sm"
+                @click="router.push(paperPath)"
+              >
+                <Pencil class="mr-2 size-4" />
+                {{ t.staff.builder.editPaper }}
+              </Button>
+            </div>
 
             <div
-              v-if="assessmentsStore.currentQuestions.length === 0"
+              v-if="displayedQuestions.length === 0"
               class="rounded-lg border border-dashed p-12 text-center"
             >
               <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
@@ -527,10 +395,10 @@ async function handleRemove(item: AssessmentQuestionItem) {
               <p class="mt-2 text-sm text-muted-foreground">
                 {{ t.staff.builder.noQuestionsDesc }}
               </p>
-              <div v-if="isEditable" class="mt-4 flex justify-center gap-2">
-                <Button size="sm" @click="handleAddQuestion">
-                  <Plus class="mr-2 size-4" />
-                  {{ t.staff.builder.addAdhoc }}
+              <div v-if="canEdit && !isPublished" class="mt-4 flex justify-center gap-2">
+                <Button size="sm" @click="router.push(paperPath)">
+                  <Pencil class="mr-2 size-4" />
+                  {{ t.staff.builder.editPaper }}
                 </Button>
               </div>
             </div>
@@ -538,30 +406,10 @@ async function handleRemove(item: AssessmentQuestionItem) {
             <AssessmentQuestionList
               v-else
               v-model:expanded-id="expandedId"
-              :items="assessmentsStore.currentQuestions"
-              :editable="isEditable"
-              :image-folder-of="() => assessmentId"
-              @reorder="handleReorder"
-              @payload-change="handlePayloadChange"
-              @points-change="handlePointsChange"
-              @image-orphaned="handleImageOrphaned"
-              @duplicate="handleDuplicate"
-              @remove="handleRemove"
-              @add-question="handleAddQuestion"
-            >
-              <template v-if="isEditable" #meta="{ item }">
-                <Button
-                  v-if="item.generationLine !== null"
-                  variant="outline"
-                  size="sm"
-                  class="mr-auto"
-                  @click="regenerateTarget = item"
-                >
-                  <RefreshCw class="mr-2 size-4" />
-                  {{ t.staff.generate.regenerate }}
-                </Button>
-              </template>
-            </AssessmentQuestionList>
+              :items="displayedQuestions"
+              :editable="false"
+              :image-folder-of="imageFolderOf"
+            />
           </div>
         </TabsContent>
 
@@ -577,7 +425,7 @@ async function handleRemove(item: AssessmentQuestionItem) {
 
         <!-- Settings -->
         <TabsContent value="settings" class="pt-4">
-          <Card class="editor-column">
+          <Card>
             <CardHeader>
               <CardTitle>{{ t.staff.builder.settingsTitle }}</CardTitle>
             </CardHeader>
@@ -684,28 +532,6 @@ async function handleRemove(item: AssessmentQuestionItem) {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <!-- Regenerate confirmation (decision 90) -->
-      <Dialog
-        :open="regenerateTarget !== null"
-        @update:open="(value) => !value && !isRegenerating && (regenerateTarget = null)"
-      >
-        <DialogContent class="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{{ t.staff.generate.regenerateTitle }}</DialogTitle>
-            <DialogDescription>{{ t.staff.generate.regenerateDesc }}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" :disabled="isRegenerating" @click="regenerateTarget = null">
-              {{ t.staff.builder.cancel }}
-            </Button>
-            <Button :disabled="isRegenerating" @click="handleRegenerate">
-              <Loader2 v-if="isRegenerating" class="mr-2 size-4 animate-spin" />
-              {{ t.staff.generate.regenerate }}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <!-- Release / un-release answers confirmation (decision 71) -->
       <Dialog v-model:open="showReleaseDialog">

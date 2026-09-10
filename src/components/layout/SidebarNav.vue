@@ -25,13 +25,15 @@ const pathToNavKey: Record<string, string> = {
   '/admin/dashboard': 'dashboard',
   '/admin/organizations': 'organizations',
   '/admin/curriculum': 'curriculum',
-  '/admin/question-bank': 'questionBank',
-  '/admin/assessments': 'assessmentTemplates',
+  '/admin/practice-bank': 'practiceBank',
+  '/admin/question-bank': 'assessmentBank',
+  '/admin/papers': 'papers',
   '/admin/tags': 'learningPoints',
   '/manager/dashboard': 'dashboard',
   '/manager/teachers': 'teachers',
   '/manager/students': 'students',
   '/manager/classrooms': 'classrooms',
+  '/manager/question-bank': 'questionBank',
 }
 
 function getNavTitle(item: NavItem): string {

@@ -185,6 +185,7 @@ export type Database = {
           created_by: string
           difficulty: Database['public']['Enums']['question_difficulty']
           id: string
+          organization_id: string | null
           payload: Json
           points: number
           sub_topic_id: string
@@ -195,6 +196,7 @@ export type Database = {
           created_by: string
           difficulty: Database['public']['Enums']['question_difficulty']
           id?: string
+          organization_id?: string | null
           payload: Json
           points?: number
           sub_topic_id: string
@@ -205,12 +207,20 @@ export type Database = {
           created_by?: string
           difficulty?: Database['public']['Enums']['question_difficulty']
           id?: string
+          organization_id?: string | null
           payload?: Json
           points?: number
           sub_topic_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'assessment_bank_questions_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'assessment_bank_questions_sub_topic_id_fkey'
             columns: ['sub_topic_id']
@@ -230,9 +240,7 @@ export type Database = {
       assessment_questions: {
         Row: {
           assessment_id: string
-          bank_question_id: string | null
           created_at: string
-          generation_line: number | null
           id: string
           payload: Json
           points: number
@@ -240,9 +248,7 @@ export type Database = {
         }
         Insert: {
           assessment_id: string
-          bank_question_id?: string | null
           created_at?: string
-          generation_line?: number | null
           id?: string
           payload: Json
           points?: number
@@ -250,9 +256,7 @@ export type Database = {
         }
         Update: {
           assessment_id?: string
-          bank_question_id?: string | null
           created_at?: string
-          generation_line?: number | null
           id?: string
           payload?: Json
           points?: number
@@ -266,110 +270,6 @@ export type Database = {
             referencedRelation: 'assessments'
             referencedColumns: ['id']
           },
-          {
-            foreignKeyName: 'assessment_questions_bank_question_id_fkey'
-            columns: ['bank_question_id']
-            isOneToOne: false
-            referencedRelation: 'assessment_bank_questions'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      assessment_template_questions: {
-        Row: {
-          bank_question_id: string
-          position: number
-          template_id: string
-        }
-        Insert: {
-          bank_question_id: string
-          position: number
-          template_id: string
-        }
-        Update: {
-          bank_question_id?: string
-          position?: number
-          template_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'assessment_template_questions_bank_question_id_fkey'
-            columns: ['bank_question_id']
-            isOneToOne: false
-            referencedRelation: 'assessment_bank_questions'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessment_template_questions_template_id_fkey'
-            columns: ['template_id']
-            isOneToOne: false
-            referencedRelation: 'assessment_templates'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      assessment_templates: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          grade_level_id: string
-          id: string
-          shuffle_questions: boolean
-          status: Database['public']['Enums']['assessment_status']
-          subject_id: string
-          time_limit_seconds: number | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          grade_level_id: string
-          id?: string
-          shuffle_questions?: boolean
-          status?: Database['public']['Enums']['assessment_status']
-          subject_id: string
-          time_limit_seconds?: number | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          grade_level_id?: string
-          id?: string
-          shuffle_questions?: boolean
-          status?: Database['public']['Enums']['assessment_status']
-          subject_id?: string
-          time_limit_seconds?: number | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'assessment_templates_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessment_templates_grade_level_id_fkey'
-            columns: ['grade_level_id']
-            isOneToOne: false
-            referencedRelation: 'grade_levels'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'assessment_templates_subject_id_fkey'
-            columns: ['subject_id']
-            isOneToOne: false
-            referencedRelation: 'subjects'
-            referencedColumns: ['id']
-          },
         ]
       }
       assessments: {
@@ -380,9 +280,9 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
-          generation_spec: Json | null
           id: string
           organization_id: string
+          paper_id: string
           show_auto_score_while_pending: boolean
           shuffle_questions: boolean
           status: Database['public']['Enums']['assessment_status']
@@ -397,9 +297,9 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
-          generation_spec?: Json | null
           id?: string
           organization_id: string
+          paper_id: string
           show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
@@ -414,9 +314,9 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
-          generation_spec?: Json | null
           id?: string
           organization_id?: string
+          paper_id?: string
           show_auto_score_while_pending?: boolean
           shuffle_questions?: boolean
           status?: Database['public']['Enums']['assessment_status']
@@ -451,6 +351,13 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assessments_paper_id_fkey'
+            columns: ['paper_id']
+            isOneToOne: false
+            referencedRelation: 'papers'
             referencedColumns: ['id']
           },
         ]
@@ -734,6 +641,102 @@ export type Database = {
         }
         Relationships: []
       }
+      paper_items: {
+        Row: {
+          generation_difficulty: Database['public']['Enums']['question_difficulty'] | null
+          generation_line: number | null
+          item_id: string
+          paper_id: string
+          position: number
+        }
+        Insert: {
+          generation_difficulty?: Database['public']['Enums']['question_difficulty'] | null
+          generation_line?: number | null
+          item_id: string
+          paper_id: string
+          position: number
+        }
+        Update: {
+          generation_difficulty?: Database['public']['Enums']['question_difficulty'] | null
+          generation_line?: number | null
+          item_id?: string
+          paper_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'paper_items_item_id_fkey'
+            columns: ['item_id']
+            isOneToOne: false
+            referencedRelation: 'assessment_bank_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'paper_items_paper_id_fkey'
+            columns: ['paper_id']
+            isOneToOne: false
+            referencedRelation: 'papers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      papers: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          organization_id: string | null
+          shuffle_questions: boolean
+          spec: Json | null
+          status: Database['public']['Enums']['assessment_status']
+          time_limit_seconds: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          organization_id?: string | null
+          shuffle_questions?: boolean
+          spec?: Json | null
+          status?: Database['public']['Enums']['assessment_status']
+          time_limit_seconds?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          organization_id?: string | null
+          shuffle_questions?: boolean
+          spec?: Json | null
+          status?: Database['public']['Enums']['assessment_status']
+          time_limit_seconds?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'papers_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'papers_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       payment_history: {
         Row: {
           amount_cents: number
@@ -837,8 +840,8 @@ export type Database = {
           created_at: string | null
           grade_level_id: string | null
           id: string
+          stage_id: string
           student_id: string
-          sub_topic_id: string
           subject_id: string | null
           total_questions: number
           total_time_seconds: number | null
@@ -849,8 +852,8 @@ export type Database = {
           created_at?: string | null
           grade_level_id?: string | null
           id?: string
+          stage_id: string
           student_id: string
-          sub_topic_id: string
           subject_id?: string | null
           total_questions: number
           total_time_seconds?: number | null
@@ -861,8 +864,8 @@ export type Database = {
           created_at?: string | null
           grade_level_id?: string | null
           id?: string
+          stage_id?: string
           student_id?: string
-          sub_topic_id?: string
           subject_id?: string | null
           total_questions?: number
           total_time_seconds?: number | null
@@ -876,17 +879,17 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'practice_sessions_stage_id_fkey'
+            columns: ['stage_id']
+            isOneToOne: false
+            referencedRelation: 'stages'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'practice_sessions_student_id_fkey'
             columns: ['student_id']
             isOneToOne: false
             referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'practice_sessions_sub_topic_id_fkey'
-            columns: ['sub_topic_id']
-            isOneToOne: false
-            referencedRelation: 'sub_topics'
             referencedColumns: ['id']
           },
           {
@@ -1000,7 +1003,7 @@ export type Database = {
           option_4_text: string | null
           option_4_tip: string | null
           question: string
-          sub_topic_id: string
+          stage_id: string
           subject_id: string | null
           type: Database['public']['Enums']['question_type']
           updated_at: string
@@ -1029,7 +1032,7 @@ export type Database = {
           option_4_text?: string | null
           option_4_tip?: string | null
           question: string
-          sub_topic_id: string
+          stage_id: string
           subject_id?: string | null
           type: Database['public']['Enums']['question_type']
           updated_at?: string
@@ -1058,7 +1061,7 @@ export type Database = {
           option_4_text?: string | null
           option_4_tip?: string | null
           question?: string
-          sub_topic_id?: string
+          stage_id?: string
           subject_id?: string | null
           type?: Database['public']['Enums']['question_type']
           updated_at?: string
@@ -1072,10 +1075,10 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'questions_sub_topic_id_fkey'
-            columns: ['sub_topic_id']
+            foreignKeyName: 'questions_stage_id_fkey'
+            columns: ['stage_id']
             isOneToOne: false
-            referencedRelation: 'sub_topics'
+            referencedRelation: 'stages'
             referencedColumns: ['id']
           },
           {
@@ -1137,6 +1140,44 @@ export type Database = {
             columns: ['session_id']
             isOneToOne: false
             referencedRelation: 'practice_sessions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      stages: {
+        Row: {
+          cover_image_path: string | null
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image_path?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image_path?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'stages_topic_id_fkey'
+            columns: ['topic_id']
+            isOneToOne: false
+            referencedRelation: 'topics'
             referencedColumns: ['id']
           },
         ]
@@ -1209,24 +1250,24 @@ export type Database = {
           cycle_number: number
           id: string
           question_id: string
+          stage_id: string
           student_id: string
-          sub_topic_id: string
         }
         Insert: {
           created_at?: string
           cycle_number?: number
           id?: string
           question_id: string
+          stage_id: string
           student_id: string
-          sub_topic_id: string
         }
         Update: {
           created_at?: string
           cycle_number?: number
           id?: string
           question_id?: string
+          stage_id?: string
           student_id?: string
-          sub_topic_id?: string
         }
         Relationships: [
           {
@@ -1237,63 +1278,62 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'student_question_progress_stage_id_fkey'
+            columns: ['stage_id']
+            isOneToOne: false
+            referencedRelation: 'stages'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'student_question_progress_student_id_fkey'
             columns: ['student_id']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
-          {
-            foreignKeyName: 'student_question_progress_sub_topic_id_fkey'
-            columns: ['sub_topic_id']
-            isOneToOne: false
-            referencedRelation: 'sub_topics'
-            referencedColumns: ['id']
-          },
         ]
       }
-      student_sub_topic_stats: {
+      student_stage_stats: {
         Row: {
           best_score_percent: number
           last_completed_at: string | null
           sessions_completed: number
+          stage_id: string
           student_id: string
-          sub_topic_id: string
         }
         Insert: {
           best_score_percent?: number
           last_completed_at?: string | null
           sessions_completed?: number
+          stage_id: string
           student_id: string
-          sub_topic_id: string
         }
         Update: {
           best_score_percent?: number
           last_completed_at?: string | null
           sessions_completed?: number
+          stage_id?: string
           student_id?: string
-          sub_topic_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'student_sub_topic_stats_student_id_fkey'
-            columns: ['student_id']
+            foreignKeyName: 'student_stage_stats_stage_id_fkey'
+            columns: ['stage_id']
             isOneToOne: false
-            referencedRelation: 'student_profiles'
+            referencedRelation: 'stages'
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'student_sub_topic_stats_sub_topic_id_fkey'
-            columns: ['sub_topic_id']
+            foreignKeyName: 'student_stage_stats_student_id_fkey'
+            columns: ['student_id']
             isOneToOne: false
-            referencedRelation: 'sub_topics'
+            referencedRelation: 'student_profiles'
             referencedColumns: ['id']
           },
         ]
       }
       sub_topics: {
         Row: {
-          cover_image_path: string | null
           created_at: string | null
           display_order: number | null
           id: string
@@ -1302,7 +1342,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          cover_image_path?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -1311,7 +1350,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          cover_image_path?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -1363,6 +1401,39 @@ export type Database = {
             columns: ['grade_level_id']
             isOneToOne: false
             referencedRelation: 'grade_levels'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      tag_topics: {
+        Row: {
+          created_at: string
+          tag_id: string
+          topic_id: string
+        }
+        Insert: {
+          created_at?: string
+          tag_id: string
+          topic_id: string
+        }
+        Update: {
+          created_at?: string
+          tag_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tag_topics_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tag_topics_topic_id_fkey'
+            columns: ['topic_id']
+            isOneToOne: false
+            referencedRelation: 'topics'
             referencedColumns: ['id']
           },
         ]
@@ -1428,28 +1499,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adopt_paper: { Args: { p_paper_id: string }; Returns: string }
       assessment_payload_is_valid: { Args: { p: Json }; Returns: boolean }
-      clone_assessment_template: {
-        Args: { p_classroom_id: string; p_template_id: string }
-        Returns: string
-      }
       complete_assessment_attempt: {
         Args: { p_attempt_id: string }
         Returns: Json
       }
-      generate_assessment_from_bank: {
-        Args: { p_classroom_id: string; p_spec: Json; p_title: string }
-        Returns: Json
+      deliver_paper: {
+        Args: { p_classroom_id: string; p_paper_id: string; p_title?: string }
+        Returns: string
       }
-      generate_template_from_bank: {
-        Args: {
-          p_grade_level_id: string
-          p_spec: Json
-          p_subject_id: string
-          p_title: string
-        }
-        Returns: Json
-      }
+      generate_paper: { Args: { p_spec: Json; p_title: string }; Returns: Json }
       get_assessment_completion: {
         Args: { p_assessment_id: string }
         Returns: Json
@@ -1457,7 +1517,7 @@ export type Database = {
       get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json }
       get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json }
       get_bank_questions: {
-        Args: { p_sub_topic_id?: string }
+        Args: { p_stage_id?: string }
         Returns: {
           answer: string | null
           created_at: string | null
@@ -1482,7 +1542,7 @@ export type Database = {
           option_4_text: string | null
           option_4_tip: string | null
           question: string
-          sub_topic_id: string
+          stage_id: string
           subject_id: string | null
           type: Database['public']['Enums']['question_type']
           updated_at: string
@@ -1524,6 +1584,21 @@ export type Database = {
           teacher_count: number
         }[]
       }
+      get_paper_items: {
+        Args: { p_paper_id: string }
+        Returns: {
+          difficulty: Database['public']['Enums']['question_difficulty']
+          generation_difficulty: Database['public']['Enums']['question_difficulty']
+          generation_line: number
+          id: string
+          organization_id: string
+          payload: Json
+          points: number
+          position: number
+          sub_topic_id: string
+          tag_ids: string[]
+        }[]
+      }
       get_platform_totals: { Args: never; Returns: Json }
       get_practice_questions: {
         Args: { p_question_ids: string[] }
@@ -1534,6 +1609,13 @@ export type Database = {
         Returns: Json
       }
       get_session_result: { Args: { p_session_id: string }; Returns: Json }
+      get_stage_answered_counts: {
+        Args: never
+        Returns: {
+          answered_count: number
+          stage_id: string
+        }[]
+      }
       get_student_rollups: {
         Args: { p_classroom_id?: string; p_organization_id?: string }
         Returns: {
@@ -1543,59 +1625,44 @@ export type Database = {
           completed_count: number
           last_practice_at: string
           map_mastery: number
+          stages_attempted: number
+          stages_completed: number
           student_id: string
           student_name: string
-          sub_topics_attempted: number
-          sub_topics_completed: number
           username: string
-        }[]
-      }
-      get_subtopic_answered_counts: {
-        Args: never
-        Returns: {
-          answered_count: number
-          sub_topic_id: string
-        }[]
-      }
-      get_template_questions: {
-        Args: { p_template_id: string }
-        Returns: {
-          difficulty: Database['public']['Enums']['question_difficulty']
-          id: string
-          payload: Json
-          points: number
-          position: number
-          sub_topic_id: string
-          tag_ids: string[]
         }[]
       }
       mark_attempt_answer: {
         Args: { p_answer_id: string; p_comment?: string; p_points: number }
         Returns: Json
       }
-      regenerate_assessment_question: {
-        Args: { p_question_id: string }
+      publish_assessment: {
+        Args: { p_assessment_id: string }
+        Returns: undefined
+      }
+      regenerate_paper_item: {
+        Args: { p_item_id: string; p_paper_id: string }
         Returns: Json
       }
       release_assessment_answers: {
         Args: { p_assessment_id: string; p_released?: boolean }
         Returns: Json
       }
-      reorder_assessment_questions: {
-        Args: { p_assessment_id: string; p_ids: string[] }
+      reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_paper_items: {
+        Args: { p_ids: string[]; p_paper_id: string }
         Returns: undefined
       }
-      reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_stages: {
+        Args: { p_ids: string[]; p_topic_id: string }
+        Returns: undefined
+      }
       reorder_sub_topics: {
         Args: { p_ids: string[]; p_topic_id: string }
         Returns: undefined
       }
       reorder_subjects: {
         Args: { p_grade_level_id: string; p_ids: string[] }
-        Returns: undefined
-      }
-      reorder_template_questions: {
-        Args: { p_ids: string[]; p_template_id: string }
         Returns: undefined
       }
       reorder_topics: {
@@ -1607,11 +1674,7 @@ export type Database = {
         Returns: Json
       }
       submit_practice_session: {
-        Args: {
-          p_answers: Json
-          p_cycle_number: number
-          p_sub_topic_id: string
-        }
+        Args: { p_answers: Json; p_cycle_number: number; p_stage_id: string }
         Returns: Json
       }
     }

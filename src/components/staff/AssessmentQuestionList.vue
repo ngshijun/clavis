@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="T extends QuestionCardItem">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { ImagePlus, Library, Plus } from 'lucide-vue-next'
+import { Library, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AssessmentQuestionCard from '@/components/staff/AssessmentQuestionCard.vue'
 import { useT } from '@/composables/useT'
@@ -9,12 +9,12 @@ import { moveItem, refocusReorderHandle } from '@/lib/reorder'
 import type { AdhocPayload, QuestionCardItem } from '@/lib/adhocPayload'
 
 /**
- * The Google-Forms-style question composer: a vertical stack of
- * `AssessmentQuestionCard`s (one expanded at a time) with a floating action
- * toolbar anchored beside the active card. Reordering is vue-draggable-plus
- * via the card's top grip, with the parent owning persistence (debounced +
- * non-blocking, decision 72b) — this component only emits intents and never
- * locks dragging; `editable` reflects edit permission, not save state.
+ * The question composer as a master-detail split: the ordered list of
+ * question rows on the left, the editor for the selected question on the
+ * right. Reordering is vue-draggable-plus via a row's grip, with the parent
+ * owning persistence (debounced + non-blocking, decision 72b) — this
+ * component only emits intents and never locks dragging; `editable` reflects
+ * edit permission, not save state.
  *
  * Generic over the item: an assessment's own questions and a template's bank
  * questions render through the same list, each parent keeping its own type.
@@ -54,7 +54,7 @@ defineSlots<{
 
 const t = useT()
 
-/** One card expanded at a time — v-model so the page can expand a fresh add. */
+/** The question open in the editor pane — v-model so the page can open a fresh add. */
 const expandedId = defineModel<string | null>('expandedId', { default: null })
 
 /**
@@ -72,15 +72,15 @@ const list = computed({
 })
 
 // ── keyboard reorder (decision 77) ─────────────────────────
-// Arrow keys on a card's grip emit the SAME `reorder` event a drop does, so
-// the page's apply/persist + autosave path covers both input methods. The
-// An upward move relocates the moved node itself and Chrome blurs it, so the
+// Arrow keys on a row's grip emit the SAME `reorder` event a drop does, so
+// the page's apply/persist + autosave path covers both input methods. An
+// upward move relocates the moved node itself and Chrome blurs it, so the
 // grip is explicitly re-focused after the patch (refocusReorderHandle).
 
 /** Screen-reader announcement for the latest keyboard move. */
 const reorderAnnouncement = ref('')
 
-function moveCard(index: number, delta: -1 | 1) {
+function moveRow(index: number, delta: -1 | 1) {
   const moving = props.items[index]
   const next = moveItem(props.items, index, delta)
   if (!next || !moving) return
@@ -92,155 +92,97 @@ function moveCard(index: number, delta: -1 | 1) {
   void refocusReorderHandle(moving.id)
 }
 
-// ── floating toolbar anchoring ─────────────────────────────
+// ── editor pane ────────────────────────────────────────────
 
-const containerEl = ref<HTMLElement | null>(null)
-type CardInstance = InstanceType<typeof AssessmentQuestionCard>
-const cardRefs = new Map<string, CardInstance>()
-
-function setCardRef(id: string, instance: unknown) {
-  if (instance) cardRefs.set(id, instance as CardInstance)
-  else cardRefs.delete(id)
-}
-
-const toolbarTop = ref(0)
-
-function updateToolbarTop() {
+const activeIndex = computed(() => {
   const activeId = expandedId.value
-  const active = activeId ? cardRefs.get(activeId) : undefined
-  const el = (active?.$el ?? null) as HTMLElement | null
-  if (!el || !containerEl.value) {
-    toolbarTop.value = 0
-    return
-  }
-  const max = Math.max(0, containerEl.value.offsetHeight - 40)
-  toolbarTop.value = Math.min(el.offsetTop, max)
-}
-
-// The active card's position shifts as cards expand/collapse, type editors
-// change height, or the list reorders — observe the container instead of
-// chasing every cause.
-let resizeObserver: ResizeObserver | null = null
-
-onMounted(() => {
-  resizeObserver = new ResizeObserver(() => updateToolbarTop())
-  if (containerEl.value) resizeObserver.observe(containerEl.value)
+  return activeId ? props.items.findIndex((candidate) => candidate.id === activeId) : -1
 })
 
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect()
-  resizeObserver = null
-})
-
-watch([expandedId, () => props.items], () => void nextTick(updateToolbarTop), {
-  deep: false,
-  immediate: true,
-})
-
-/** The expanded card, if any — the "add image" target. */
-const activeCard = computed(() => {
-  const activeId = expandedId.value
-  if (!activeId) return null
-  return props.items.find((candidate) => candidate.id === activeId) ?? null
-})
-
-function addImageToActiveCard() {
-  const activeId = expandedId.value
-  if (activeId) cardRefs.get(activeId)?.openImagePicker()
-}
+const activeItem = computed(() =>
+  activeIndex.value === -1 ? null : props.items[activeIndex.value]!,
+)
 </script>
 
 <template>
-  <div ref="containerEl" class="relative" :class="editable ? 'lg:pr-14' : ''">
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
     <!-- Announces keyboard moves to screen readers -->
     <p class="sr-only" role="status">{{ reorderAnnouncement }}</p>
-    <VueDraggable
-      v-model="list"
-      handle="[data-card-drag-handle]"
-      ghost-class="opacity-50"
-      :animation="150"
-      :disabled="!editable"
-      class="space-y-3"
-    >
-      <AssessmentQuestionCard
-        v-for="(item, index) in items"
-        :key="item.id"
-        :ref="(instance) => setCardRef(item.id, instance)"
-        :item="item"
-        :index="index"
-        :expanded="expandedId === item.id"
-        :editable="editable"
-        :image-folder="imageFolderOf(item)"
-        :show-explanation="showExplanation"
-        @select="expandedId = item.id"
-        @payload-change="(payload) => emit('payload-change', item, payload)"
-        @points-change="(points) => emit('points-change', item, points)"
-        @image-orphaned="(path) => emit('image-orphaned', item, path)"
-        @move="(delta) => moveCard(index, delta)"
-        @duplicate="emit('duplicate', item)"
-        @remove="emit('remove', item)"
-      >
-        <template v-if="$slots.meta" #meta>
-          <slot name="meta" :item="item" />
-        </template>
-      </AssessmentQuestionCard>
-    </VueDraggable>
 
-    <!-- Floating action toolbar — moves with the active card (Forms model) -->
-    <div
-      v-if="editable"
-      class="absolute right-0 hidden w-11 flex-col items-center gap-1 rounded-lg border bg-card p-1 shadow-sm transition-[top] duration-200 lg:flex"
-      :style="{ top: `${toolbarTop}px` }"
-    >
-      <Button
-        variant="ghost"
-        size="icon"
-        class="size-8"
-        :aria-label="t.staff.builder.addAdhoc"
-        :title="t.staff.builder.addAdhoc"
-        @click="emit('add-question')"
+    <!-- Left: the ordered list. Sticky on wide screens and scrolls on its own,
+         so the editor can grow past the viewport while the list stays put. -->
+    <div class="space-y-3 lg:sticky lg:top-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+      <div v-if="editable" class="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" @click="emit('add-question')">
+          <Plus class="mr-2 size-4" />
+          {{ t.staff.builder.addAdhoc }}
+        </Button>
+        <Button
+          v-if="showQuestionBank"
+          variant="outline"
+          size="sm"
+          @click="emit('add-from-question-bank')"
+        >
+          <Library class="mr-2 size-4" />
+          {{ t.staff.builder.addFromQuestionBank }}
+        </Button>
+      </div>
+
+      <VueDraggable
+        v-model="list"
+        handle="[data-card-drag-handle]"
+        ghost-class="opacity-50"
+        :animation="150"
+        :disabled="!editable"
+        class="space-y-2"
       >
-        <Plus class="size-4" />
-      </Button>
-      <Button
-        v-if="showQuestionBank"
-        variant="ghost"
-        size="icon"
-        class="size-8"
-        :aria-label="t.staff.builder.addFromQuestionBank"
-        :title="t.staff.builder.addFromQuestionBank"
-        @click="emit('add-from-question-bank')"
-      >
-        <Library class="size-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="size-8"
-        :disabled="!activeCard"
-        :aria-label="t.staff.adhocForm.addImage"
-        :title="t.staff.adhocForm.addImage"
-        @click="addImageToActiveCard"
-      >
-        <ImagePlus class="size-4" />
-      </Button>
+        <AssessmentQuestionCard
+          v-for="(item, index) in items"
+          :key="item.id"
+          :item="item"
+          :index="index"
+          :expanded="false"
+          :selected="expandedId === item.id"
+          :editable="editable"
+          :image-folder="imageFolderOf(item)"
+          @select="expandedId = item.id"
+          @move="(delta) => moveRow(index, delta)"
+        />
+      </VueDraggable>
     </div>
 
-    <!-- Small screens: the same actions as a static bar under the list -->
-    <div v-if="editable" class="mt-3 flex items-center gap-2 lg:hidden">
-      <Button variant="outline" size="sm" @click="emit('add-question')">
-        <Plus class="mr-2 size-4" />
-        {{ t.staff.builder.addAdhoc }}
-      </Button>
-      <Button
-        v-if="showQuestionBank"
-        variant="outline"
-        size="sm"
-        @click="emit('add-from-question-bank')"
+    <!-- Right: the editor for the selected question -->
+    <div class="min-w-0">
+      <template v-if="activeItem">
+        <p class="mb-2 text-sm font-medium text-muted-foreground">
+          {{ t.staff.builder.questionNumber(activeIndex + 1) }}
+        </p>
+        <AssessmentQuestionCard
+          :key="activeItem.id"
+          :item="activeItem"
+          :index="activeIndex"
+          expanded
+          :editable="editable"
+          :image-folder="imageFolderOf(activeItem)"
+          :show-explanation="showExplanation"
+          :reorderable="false"
+          @payload-change="(payload) => emit('payload-change', activeItem!, payload)"
+          @points-change="(points) => emit('points-change', activeItem!, points)"
+          @image-orphaned="(path) => emit('image-orphaned', activeItem!, path)"
+          @duplicate="emit('duplicate', activeItem!)"
+          @remove="emit('remove', activeItem!)"
+        >
+          <template v-if="$slots.meta" #meta>
+            <slot name="meta" :item="activeItem" />
+          </template>
+        </AssessmentQuestionCard>
+      </template>
+      <div
+        v-else
+        class="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground"
       >
-        <Library class="mr-2 size-4" />
-        {{ t.staff.builder.addFromQuestionBank }}
-      </Button>
+        {{ t.staff.builder.selectQuestionHint }}
+      </div>
     </div>
   </div>
 </template>

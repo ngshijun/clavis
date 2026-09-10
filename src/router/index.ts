@@ -147,19 +147,24 @@ const router = createRouter({
           component: () => import('@/pages/admin/CurriculumPage.vue'),
         },
         {
+          path: 'practice-bank',
+          name: 'admin-practice-bank',
+          component: () => import('@/pages/admin/PracticeBankPage.vue'),
+        },
+        {
           path: 'question-bank',
           name: 'admin-question-bank',
-          component: () => import('@/pages/admin/QuestionBankPage.vue'),
+          component: () => import('@/pages/shared/QuestionBankPage.vue'),
         },
         {
-          path: 'templates',
-          name: 'admin-templates',
-          component: () => import('@/pages/admin/TemplatesPage.vue'),
+          path: 'papers',
+          name: 'admin-papers',
+          component: () => import('@/pages/shared/PapersPage.vue'),
         },
         {
-          path: 'templates/:templateId',
-          name: 'admin-template-builder',
-          component: () => import('@/pages/shared/TemplateBuilderPage.vue'),
+          path: 'papers/:paperId',
+          name: 'admin-paper-builder',
+          component: () => import('@/pages/shared/PaperBuilderPage.vue'),
         },
         {
           path: 'tags',
@@ -208,6 +213,13 @@ const router = createRouter({
           path: 'classrooms',
           name: 'manager-classrooms',
           component: () => import('@/pages/shared/ClassroomsPage.vue'),
+        },
+        // The center's own question library (decision 91). Center-wide, not a
+        // classroom's, so it stays at the org altitude.
+        {
+          path: 'question-bank',
+          name: 'manager-question-bank',
+          component: () => import('@/pages/shared/QuestionBankPage.vue'),
         },
         // Inside one classroom. Same shape and same shared pages as a
         // teacher's (decision 83), but read-only: a manager reads data, they
@@ -287,17 +299,25 @@ const router = createRouter({
           name: 'teacher-assessment-builder',
           component: () => import('@/pages/shared/AssessmentBuilderPage.vue'),
         },
-        // The library is browsed globally but CLONED into a classroom, so it
-        // lives under one rather than needing a target picker of its own.
+        // The center's own question library (decision 91). Center-wide, like the
+        // template library below: a teacher has no altitude above a classroom,
+        // so it is reached through the one they are in.
         {
-          path: 'classrooms/:classroomId/templates',
-          name: 'teacher-template-library',
-          component: () => import('@/pages/shared/AssessmentTemplatesPage.vue'),
+          path: 'classrooms/:classroomId/question-bank',
+          name: 'teacher-question-bank',
+          component: () => import('@/pages/shared/QuestionBankPage.vue'),
+        },
+        // Papers are center-wide, but they are DELIVERED into a classroom, so
+        // the library is reached through the one the teacher is in.
+        {
+          path: 'classrooms/:classroomId/papers',
+          name: 'teacher-papers',
+          component: () => import('@/pages/shared/PapersPage.vue'),
         },
         {
-          path: 'classrooms/:classroomId/templates/:templateId',
-          name: 'teacher-template-preview',
-          component: () => import('@/pages/shared/TemplateBuilderPage.vue'),
+          path: 'classrooms/:classroomId/papers/:paperId',
+          name: 'teacher-paper-builder',
+          component: () => import('@/pages/shared/PaperBuilderPage.vue'),
         },
         {
           path: 'profile',

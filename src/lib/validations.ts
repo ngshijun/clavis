@@ -55,19 +55,6 @@ export const classroomFormSchema = z.object({
 })
 export type ClassroomFormValues = z.infer<typeof classroomFormSchema>
 
-export const assessmentCreateFormSchema = z.object({
-  title: requiredStringSchema('Title').max(200, 'Title must be 200 characters or less'),
-})
-export type AssessmentCreateFormValues = z.infer<typeof assessmentCreateFormSchema>
-
-// Admin template creation: a template always carries a grade+subject pairing
-// (P8a DB CHECK) — both selectors are required.
-export const assessmentTemplateCreateFormSchema = assessmentCreateFormSchema.extend({
-  gradeLevelId: requiredStringSchema('Grade level'),
-  subjectId: requiredStringSchema('Subject'),
-})
-export type AssessmentTemplateCreateFormValues = z.infer<typeof assessmentTemplateCreateFormSchema>
-
 // Account provisioning forms.
 // Mirrors the server-side rules in supabase/functions/create-user/provisioning.ts.
 export const provisionedPasswordSchema = passwordSchema.max(

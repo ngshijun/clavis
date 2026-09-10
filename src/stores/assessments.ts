@@ -1,17 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import type { Database, Json } from '@/types/database.types'
-import type { QuestionDifficulty } from '@/stores/assessment-bank'
+import type { Database } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
-import {
-  collectAdhocPayloadImagePaths,
-  adhocDisplayFields,
-  type AdhocPayload,
-  type AdhocQuestionType,
-} from '@/lib/adhocPayload'
-import { removeStorageFolder, removeStorageObjects } from '@/lib/storage'
+import { adhocDisplayFields, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
+import { removeStorageFolder } from '@/lib/storage'
 import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
 
 export type { AttemptAnswerResponse }
@@ -43,6 +37,8 @@ export interface AssessmentListItem {
   answersReleasedAt: string | null
   /** The owning classroom (decision 81). */
   classroomId: string
+  /** The paper this assessment delivers (decision 91). */
+  paperId: string
   /**
    * Embedded with the row rather than looked up in a store: which store holds
    * the classroom list differs by role, and a manager holds none at all.
@@ -68,36 +64,6 @@ export interface AssessmentQuestionItem {
   options: { number: number; text: string; imagePath: string | null }[]
   /** Raw payload — every assessment question is a self-contained ad-hoc payload (decision 88). */
   payload: AdhocPayload
-  /**
-   * Which spec line this question was generated for (decision 90), or null
-   * for a hand-written one. Generated questions can be regenerated while the
-   * assessment is a draft.
-   */
-  generationLine: number | null
-}
-
-/** One line of a generation spec (decision 90): what to draw, and how many. */
-export interface GenerationLine {
-  subTopicId: string
-  tagIds: string[]
-  difficulty: QuestionDifficulty | null
-  count: number
-}
-
-/** A line that asked for more than the bank could give. */
-export interface GenerationShortfall {
-  line: number
-  requested: number
-  picked: number
-}
-
-function specToJson(lines: GenerationLine[]): Json {
-  return lines.map((line) => ({
-    sub_topic_id: line.subTopicId,
-    tag_ids: line.tagIds,
-    difficulty: line.difficulty,
-    count: line.count,
-  }))
 }
 
 export interface AssessmentAssignment {
@@ -182,7 +148,6 @@ function rowToAssessmentQuestion(row: AssessmentQuestionRow): AssessmentQuestion
     points: row.points,
     ...adhocDisplayFields(payload),
     payload,
-    generationLine: row.generation_line,
   }
 }
 
@@ -249,6 +214,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     updated_at,
     profiles!assessments_created_by_fkey (name),
     classroom_id,
+    paper_id,
     classrooms!assessments_classroom_id_fkey (name),
     assessment_questions (count)
   `
@@ -267,6 +233,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     updated_at: string
     profiles: { name: string } | null
     classroom_id: string
+    paper_id: string
     classrooms: { name: string } | null
     assessment_questions: { count: number }[]
   }
@@ -282,6 +249,7 @@ export const useAssessmentsStore = defineStore('assessments', () => {
       showAutoScoreWhilePending: row.show_auto_score_while_pending,
       answersReleasedAt: row.answers_released_at,
       classroomId: row.classroom_id,
+      paperId: row.paper_id,
       classroomName: row.classrooms?.name ?? null,
       createdBy: row.created_by,
       createdByName: row.profiles?.name ?? '',
@@ -322,88 +290,27 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   /**
-   * An assessment is born INTO a classroom (decision 81) and carries
-   * `classroom_id` from the start; RLS additionally requires the caller to
-   * teach that classroom.
+   * Deliver a paper into a classroom (decision 91). The assessment carries no
+   * content of its own — it names the paper, inherits its title and delivery
+   * settings, and freezes the paper's items into a snapshot when it is
+   * published. The RPC checks the caller teaches the classroom and may read
+   * the paper.
    */
-  async function createAssessment(input: {
-    title: string
+  async function deliverPaper(input: {
+    paperId: string
     classroomId: string
+    title?: string
   }): Promise<{ id: string | null; error: string | null }> {
-    const userId = authStore.user?.id
-    const organizationId = authStore.organizationId
-    if (!userId || !organizationId) {
-      return { id: null, error: errorMessages().notAuthenticated }
-    }
-
     try {
-      const { data, error: insertError } = await supabase
-        .from('assessments')
-        .insert({
-          title: input.title,
-          organization_id: organizationId,
-          created_by: userId,
-          classroom_id: input.classroomId,
-        })
-        .select('id')
-        .single()
-
-      if (insertError) throw insertError
-
-      return { id: data.id, error: null }
+      const { data, error: rpcError } = await supabase.rpc('deliver_paper', {
+        p_paper_id: input.paperId,
+        p_classroom_id: input.classroomId,
+        p_title: input.title ?? undefined,
+      })
+      if (rpcError) throw rpcError
+      return { id: data, error: null }
     } catch (err) {
       return { id: null, error: handleError(err, 'failedCreateAssessment') }
-    }
-  }
-
-  /**
-   * Decision 90: a draft built from random bank picks matching `lines`, in
-   * the classroom. The RPC copies the picks, so the teacher owns them and
-   * can edit or regenerate each one. Lines the bank could not fill come
-   * back as shortfalls.
-   */
-  async function generateAssessment(input: {
-    classroomId: string
-    title: string
-    lines: GenerationLine[]
-  }): Promise<{ id: string | null; shortfalls: GenerationShortfall[]; error: string | null }> {
-    try {
-      const { data, error: rpcError } = await supabase.rpc('generate_assessment_from_bank', {
-        p_classroom_id: input.classroomId,
-        p_title: input.title,
-        p_spec: specToJson(input.lines),
-      })
-      if (rpcError) throw rpcError
-      const result = data as unknown as { assessment_id: string; shortfalls: GenerationShortfall[] }
-      return { id: result.assessment_id, shortfalls: result.shortfalls, error: null }
-    } catch (err) {
-      return { id: null, shortfalls: [], error: handleError(err, 'failedCreateAssessment') }
-    }
-  }
-
-  /**
-   * Replace one generated question with another random pick from its spec
-   * line — the RPC excludes everything already in the assessment and
-   * rewrites the row in place, so the id and position survive.
-   */
-  async function regenerateQuestion(id: string): Promise<{ error: string | null }> {
-    try {
-      const { data, error: rpcError } = await supabase.rpc('regenerate_assessment_question', {
-        p_question_id: id,
-      })
-      if (rpcError) throw rpcError
-      const result = data as unknown as { payload: Json; points: number }
-      const payload = result.payload as unknown as AdhocPayload
-      const item = currentQuestions.value.find((q) => q.id === id)
-      if (item) {
-        Object.assign(item, adhocDisplayFields(payload), {
-          payload,
-          points: Number(result.points),
-        })
-      }
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
     }
   }
 
@@ -459,25 +366,23 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     }
   }
 
+  /**
+   * Publishing IS the freeze (decision 91): the RPC snapshots the paper's
+   * items into `assessment_questions` and flips the status, and nothing may
+   * write that snapshot afterwards. It refuses an empty paper, so there is no
+   * client-side guard to keep in step.
+   */
   async function publishAssessment(id: string): Promise<{ error: string | null }> {
-    // Guard: an empty assessment must not be published (start_assessment_attempt
-    // would reject every student with "Assessment has no questions").
-    if (currentAssessment.value?.id === id && currentQuestions.value.length === 0) {
-      return { error: errorMessages().assessmentNoQuestions }
-    }
-
     try {
-      const { error: updateError } = await supabase
-        .from('assessments')
-        .update({ status: 'published' })
-        .eq('id', id)
-
-      if (updateError) throw updateError
+      const { error: rpcError } = await supabase.rpc('publish_assessment', {
+        p_assessment_id: id,
+      })
+      if (rpcError) throw rpcError
 
       if (currentAssessment.value?.id === id) {
         currentAssessment.value = { ...currentAssessment.value, status: 'published' }
       }
-
+      await fetchAssessmentQuestions(id)
       return { error: null }
     } catch (err) {
       return { error: handleError(err, 'failedPublishAssessment') }
@@ -548,181 +453,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     } catch (err) {
       return { error: handleError(err, 'failedFetchAssessmentQuestions') }
     }
-  }
-
-  function nextPosition(): number {
-    return currentQuestions.value.reduce((max, q) => Math.max(max, q.position), -1) + 1
-  }
-
-  /** Insert an ad-hoc question and return its id (the builder expands it). */
-  async function addAdhocQuestion(
-    assessmentId: string,
-    payload: AdhocPayload,
-  ): Promise<{ id: string | null; error: string | null }> {
-    try {
-      const { data, error: insertError } = await supabase
-        .from('assessment_questions')
-        .insert({
-          assessment_id: assessmentId,
-          payload: payload as unknown as Json,
-          position: nextPosition(),
-        })
-        .select('id')
-        .single()
-
-      if (insertError) throw insertError
-
-      const { error } = await fetchAssessmentQuestions(assessmentId)
-      return { id: data.id, error }
-    } catch (err) {
-      return { id: null, error: handleError(err, 'failedAddAssessmentQuestions') }
-    }
-  }
-
-  /**
-   * Optimistic local payload update for the Forms-style inline card
-   * (autosave). Rewrites the derived display fields in place and returns the
-   * previous payload (the rollback baseline), or null for an unknown question.
-   */
-  function applyAdhocPayload(id: string, payload: AdhocPayload): AdhocPayload | null {
-    const item = currentQuestions.value.find((q) => q.id === id)
-    if (!item) return null
-    const previous = item.payload
-    Object.assign(item, adhocDisplayFields(payload), { payload })
-    return previous
-  }
-
-  /** Persist an ad-hoc payload (DB only — local state is applied optimistically). */
-  async function persistAdhocPayload(
-    id: string,
-    payload: AdhocPayload,
-  ): Promise<{ error: string | null }> {
-    try {
-      const { error: updateError } = await supabase
-        .from('assessment_questions')
-        .update({ payload: payload as unknown as Json })
-        .eq('id', id)
-
-      if (updateError) throw updateError
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
-    }
-  }
-
-  /** Optimistic local points update; returns the previous points, or null. */
-  function applyQuestionPoints(id: string, points: number): number | null {
-    const item = currentQuestions.value.find((q) => q.id === id)
-    if (!item) return null
-    const previous = item.points
-    item.points = points
-    return previous
-  }
-
-  /** Persist a question's points (DB only — local state is applied optimistically). */
-  async function persistQuestionPoints(
-    id: string,
-    points: number,
-  ): Promise<{ error: string | null }> {
-    try {
-      const { error: updateError } = await supabase
-        .from('assessment_questions')
-        .update({ points })
-        .eq('id', id)
-
-      if (updateError) throw updateError
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedUpdateAssessmentQuestion') }
-    }
-  }
-
-  async function removeQuestion(id: string): Promise<{ error: string | null }> {
-    const removed = currentQuestions.value.find((q) => q.id === id)
-    try {
-      const { error: deleteError } = await supabase
-        .from('assessment_questions')
-        .delete()
-        .eq('id', id)
-
-      if (deleteError) throw deleteError
-
-      currentQuestions.value = currentQuestions.value.filter((q) => q.id !== id)
-
-      // Storage cleanup (decision 78): drop the deleted payload's objects,
-      // EXCEPT paths a duplicated sibling still references (duplicate copies
-      // paths, not objects — P10b deviation 5). Best-effort, never blocking.
-      if (removed) {
-        const stillReferenced = new Set(
-          currentQuestions.value.flatMap((q) => collectAdhocPayloadImagePaths(q.payload)),
-        )
-        void removeStorageObjects(
-          'assessment-images',
-          collectAdhocPayloadImagePaths(removed.payload).filter(
-            (path) => !stillReferenced.has(path),
-          ),
-        )
-      }
-      return { error: null }
-    } catch (err) {
-      return { error: handleError(err, 'failedRemoveAssessmentQuestion') }
-    }
-  }
-
-  /**
-   * Optimistic local question reorder (decision 72b). `position` is rewritten
-   * 1-based to mirror what `reorder_assessment_questions` writes. Persistence
-   * is decoupled: the builder page debounces/coalesces saves through
-   * `useAutosave` and calls `persistQuestionOrder`, rolling back via
-   * this same function on final failure.
-   *
-   * Returns the pre-drag id order (the rollback baseline), or null when
-   * `orderedIds` is not a duplicate-free permutation of the current list —
-   * a cheap pre-check; the RPC enforces the same server-side.
-   */
-  function applyQuestionOrder(orderedIds: string[]): string[] | null {
-    const previousIds = currentQuestions.value.map((q) => q.id)
-    const byId = new Map(currentQuestions.value.map((q) => [q.id, q]))
-    const uniqueIds = new Set(orderedIds)
-    if (
-      orderedIds.length !== currentQuestions.value.length ||
-      uniqueIds.size !== orderedIds.length ||
-      orderedIds.some((id) => !byId.has(id))
-    ) {
-      return null
-    }
-
-    currentQuestions.value = orderedIds.map((id, index) => ({
-      ...byId.get(id)!,
-      position: index + 1,
-    }))
-    return previousIds
-  }
-
-  /**
-   * Persist a question order via the positional RPC (P9a): sends ONLY the
-   * ordered id array — atomic, minimal payload, and it cannot overwrite a
-   * concurrent edit to payload/points/name the way the old full-row upsert
-   * could.
-   */
-  async function persistQuestionOrder(
-    assessmentId: string,
-    orderedIds: string[],
-  ): Promise<{ error: string | null }> {
-    const { error: rpcError } = await supabase.rpc('reorder_assessment_questions', {
-      p_assessment_id: assessmentId,
-      p_ids: orderedIds,
-    })
-
-    if (rpcError) {
-      // Internal/parameterized RAISE text from the reorder RPC — localize.
-      return {
-        error: handleError(rpcError, 'failedReorderAssessmentQuestions', {
-          localizeRaise: true,
-        }),
-      }
-    }
-    return { error: null }
   }
 
   async function fetchAssignments(assessmentId: string): Promise<{ error: string | null }> {
@@ -1109,22 +839,12 @@ export const useAssessmentsStore = defineStore('assessments', () => {
     currentAttempts,
     isLoadingCurrent,
     fetchAssessments,
-    createAssessment,
-    generateAssessment,
-    regenerateQuestion,
+    deliverPaper,
     updateAssessment,
     publishAssessment,
     deleteAssessment,
     fetchAssessmentDetail,
     fetchAssessmentQuestions,
-    addAdhocQuestion,
-    applyAdhocPayload,
-    persistAdhocPayload,
-    applyQuestionPoints,
-    persistQuestionPoints,
-    removeQuestion,
-    applyQuestionOrder,
-    persistQuestionOrder,
     fetchAssignments,
     createAssignment,
     removeAssignment,
