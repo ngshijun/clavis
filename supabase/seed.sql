@@ -290,10 +290,14 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 7. SUB-TOPICS (matches prod)                                             ║
+-- ║ 7. STAGES — the practice map (P19a)                                      ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Practice climbs ordered STAGES under a topic; each holds its own question
+-- pool and its own mastery stats. These carry the ids the sub-topics used to,
+-- exactly as the P19a migration converted them, so practice content and
+-- student history line up with a migrated database.
 
-INSERT INTO public.sub_topics (id, topic_id, name, display_order)
+INSERT INTO public.stages (id, topic_id, name, display_order)
 VALUES
   -- Y1 Math > Chapter 1
   ('4e61c11b-d12e-449f-bdd6-44cf5639a692', 'bc9fb793-5026-4241-94ac-54ab709f0518', '基础计算 Basic Calculation',         1),
@@ -379,6 +383,53 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 7b. SUB-TOPICS — the assessment filing level (P19a/P20b)                 ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Sub-topics now exist for ONE reason: to file assessment items and to give a
+-- generation line something to draw across. The old pair (基础计算 / 高阶思维)
+-- was a difficulty proxy, and difficulty is its own axis since P18b — so the
+-- two per topic name what a question TESTS instead.
+--
+-- Everything filed under the old sub-topics goes first: an item's sub_topic_id
+-- is ON DELETE RESTRICT, so the bank has to be empty before they can be
+-- replaced, and the papers and assessments built on those items go with it.
+
+DELETE FROM public.attempt_answers;
+DELETE FROM public.attempt_questions;
+DELETE FROM public.assessment_attempts;
+DELETE FROM public.assessment_assignments;
+DELETE FROM public.assessment_questions;
+DELETE FROM public.assessments;
+DELETE FROM public.paper_items;
+DELETE FROM public.papers;
+DELETE FROM public.assessment_bank_question_tags;
+DELETE FROM public.assessment_bank_questions;
+DELETE FROM public.sub_topics;
+
+-- Two per topic, named for the subject they sit under. Ids are generated:
+-- everything below finds a sub-topic by (topic_id, display_order).
+INSERT INTO public.sub_topics (topic_id, name, display_order)
+SELECT t.id, v.name, v.display_order
+FROM public.topics t
+JOIN public.subjects s ON s.id = t.subject_id
+CROSS JOIN LATERAL (
+  VALUES
+    (CASE
+       WHEN s.name LIKE '%Mathematics%'    THEN '概念与计算 Concepts & Computation'
+       WHEN s.name LIKE '%Science%'        THEN '概念理解 Concepts'
+       WHEN s.name LIKE '%Bahasa Melayu%'  THEN '词汇与语法 Kosa Kata & Tatabahasa'
+       ELSE 'Vocabulary & Grammar'
+     END, 1),
+    (CASE
+       WHEN s.name LIKE '%Mathematics%'    THEN '应用题 Word Problems'
+       WHEN s.name LIKE '%Science%'        THEN '探究与实验 Inquiry & Experiment'
+       WHEN s.name LIKE '%Bahasa Melayu%'  THEN '理解与写作 Kefahaman & Penulisan'
+       ELSE 'Comprehension & Writing'
+     END, 2)
+) AS v(name, display_order);
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 8. QUESTIONS (fresh new-shape sample with per-option tips)               ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 -- Revamp 2.1 (decision 44): STAGING ONLY. Wipe the whole question bank and
@@ -401,18 +452,14 @@ ON CONFLICT (id) DO NOTHING;
 -- delete, and practice_answers.question_id is ON DELETE SET
 -- NULL, but we clear the practice trio explicitly so no orphan rows remain
 -- (acceptable on staging — this is test data).
-DELETE FROM public.attempt_answers;
-DELETE FROM public.attempt_questions;
-DELETE FROM public.assessment_questions;
-DELETE FROM public.assessment_template_questions;
-DELETE FROM public.assessment_bank_questions;
+-- The assessment side was cleared in 7b, before its sub-topics could go.
 DELETE FROM public.practice_answers;
 DELETE FROM public.session_questions;
 DELETE FROM public.student_question_progress;
 DELETE FROM public.questions;
 
 INSERT INTO public.questions (
-  id, type, question, sub_topic_id, answer,
+  id, type, question, stage_id, answer,
   option_1_text, option_1_is_correct, option_1_tip,
   option_2_text, option_2_is_correct, option_2_tip,
   option_3_text, option_3_is_correct, option_3_tip,
@@ -548,6 +595,20 @@ VALUES
   ('a7000000-0000-4000-8000-000000000006', 'days of the week')
 ON CONFLICT (id) DO NOTHING;
 
+-- Learning points are scoped to TOPICS since P19a — the level practice and
+-- assessments share — and a tag offered nowhere shows up in no picker. The
+-- five number tags belong to Year 1 Mathematics; the two language ones to
+-- Year 2 English.
+INSERT INTO public.tag_topics (tag_id, topic_id)
+VALUES
+  ('a7000000-0000-4000-8000-000000000001', 'bc9fb793-5026-4241-94ac-54ab709f0518'),
+  ('a7000000-0000-4000-8000-000000000002', 'bc9fb793-5026-4241-94ac-54ab709f0518'),
+  ('a7000000-0000-4000-8000-000000000003', 'bc9fb793-5026-4241-94ac-54ab709f0518'),
+  ('a7000000-0000-4000-8000-000000000004', 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'),
+  ('a7000000-0000-4000-8000-000000000005', '50da1a03-8668-4da5-bc88-086ca1cccd2b'),
+  ('a7000000-0000-4000-8000-000000000006', '50da1a03-8668-4da5-bc88-086ca1cccd2b')
+ON CONFLICT DO NOTHING;
+
 -- Tag several seeded questions (a question may carry multiple tags).
 INSERT INTO public.question_tags (question_id, tag_id)
 VALUES
@@ -580,12 +641,12 @@ ON CONFLICT DO NOTHING;
 -- Session hierarchy trigger auto-populates grade_level_id and subject_id.
 
 INSERT INTO public.practice_sessions (
-  id, student_id, sub_topic_id, total_questions,
+  id, student_id, stage_id, total_questions,
   completed_at, correct_count, total_time_seconds
 ) VALUES (
   '70000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000002',
-  '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > Basic Calculation
+  '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > 基础计算 (stage)
   3,
   now() - interval '1 day',
   2, 145   -- Q1 + Q3 correct, Q2 wrong (matches the answers seeded below)
@@ -656,225 +717,298 @@ ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9c. ASSESSMENT (published) assigned to a classroom                       ║
+-- ║ 9c. ASSESSMENT ITEM BANK (P20a/P20b)                                     ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Created by Ms Lee (teacher), two bank questions, assigned to Classroom A so
--- the many-to-many assignment flow is testable end to end.
--- Revamp 2.4: deliberately left UNSCOPED (grade_level_id/subject_id NULL) —
--- it is the fixture for "an unscoped assessment keeps today's assignment
--- behaviour" (decision 60/62). Scoped assessments come from cloning a template.
-
--- Belongs to Classroom A (decision 81): a non-template assessment must name
--- its classroom, and that — not the grade+subject pairing — is what scopes it.
-INSERT INTO public.assessments (
-  id, organization_id, created_by, title, description, status, classroom_id
-)
-SELECT
-  'a5000000-0000-4000-8000-000000000001', o.id,
-  '00000000-0000-0000-0000-000000000006',
-  'Year 1 Math — Quiz 1', '100 以内的整数 warm-up', 'published',
-  'c1000000-0000-4000-8000-000000000001'
-FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
-VALUES
-  ('a9100000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
-   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}],"explanation":"5 加 3 等于 8。"}'::jsonb,
-   0, 1),
-  ('a9100000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000001',
-   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}],"explanation":"74 的十位是 7，比 47 的十位 4 大。"}'::jsonb,
-   1, 1)
-ON CONFLICT (id) DO NOTHING;
-
--- Assigned to Classroom A, due in 7 days, by Ms Lee.
-INSERT INTO public.assessment_assignments (id, assessment_id, classroom_id, due_at, assigned_by)
-VALUES
-  ('a6000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
-   'c1000000-0000-4000-8000-000000000001', now() + interval '7 days',
-   '00000000-0000-0000-0000-000000000006')
-ON CONFLICT DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9d. ADMIN QUESTION BANK + TEMPLATES (decision 89)                        ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- The bank is the only store of admin questions, filed under a sub-topic. A
--- template is an ordered list of references into it; a center clones one via
--- clone_assessment_template(id, classroom_id), which COPIES the referenced
--- payloads into an editable, classroom-owned assessment.
--- Section 8 wipes assessment_template_questions and assessment_bank_questions
--- on a re-run (template rows persist via ON CONFLICT), so all re-create here.
+-- Every assessment question that is meant to be reused lives here, filed under
+-- a sub-topic, owned by the PLATFORM (organization_id NULL) or by one center.
+-- A paper references these rows; a published assessment holds a frozen copy.
 --
--- Decision 61: a template is visible ONLY to staff who have a classroom of
--- its grade+subject. The seeded classrooms (9b) are Year 1 Mathematics, so:
---   * templates 1 and 3 (Year 1 Math)     -> VISIBLE to Ms Lee + Mr Wong
---   * template 2 (Year 2 English)         -> HIDDEN from them (deliberate:
---     it makes the matching filter observable on staging; the admin sees all)
+-- Sub-topics are found by (topic_id, display_order): 1 = concepts/computation,
+-- 2 = word problems, per 7b.
 --
--- A template may only hold questions filed under its own subject (DB trigger),
--- so every bank row below is filed under a sub-topic of the template it joins.
+-- The Year 1 Mathematics pool is deliberately deep enough for the generator:
+-- both topics, both sub-topics, all three difficulties, so a 5:3:2 spec of ten
+-- questions fills without a shortfall.
 
 INSERT INTO public.assessment_bank_questions (
-  id, payload, difficulty, sub_topic_id, points, created_by
-) VALUES
-  -- Year 1 Mathematics — 第一课 / 基础计算 (4e61c11b) and 高阶思维 (a5cf5c0e)
-  ('a9200000-0000-4000-8000-000000000001',
+  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
+)
+SELECT
+  v.id, v.payload, v.difficulty,
+  (SELECT st.id FROM public.sub_topics st
+    WHERE st.topic_id = v.topic_id AND st.display_order = v.sub_topic_order),
+  NULL, v.points, '00000000-0000-0000-0000-000000000001'
+FROM (VALUES
+  -- ── Year 1 Mathematics > 第一课 100 以内的整数 (bc9fb793) ────────────────
+  -- 概念与计算 (display_order 1)
+  ('a9200000-0000-4000-8000-000000000001'::uuid,
    '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}]}'::jsonb,
-   'low', '4e61c11b-d12e-449f-bdd6-44cf5639a692', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000002',
-   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}]}'::jsonb,
-   'medium', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000003',
+   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000002'::uuid,
    '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"]}'::jsonb,
-   'low', '4e61c11b-d12e-449f-bdd6-44cf5639a692', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000007',
-   '{"type":"mcq","question":"Which of these is an even number?","options":[{"text":"3","is_correct":false},{"text":"6","is_correct":true},{"text":"9","is_correct":false}]}'::jsonb,
-   'medium', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000008',
+   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000003'::uuid,
+   '{"type":"mcq","question":"在 15, 20, 25, 30 中，下一个数是多少？","options":[{"text":"31","is_correct":false},{"text":"35","is_correct":true},{"text":"40","is_correct":false}]}'::jsonb,
+   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000004'::uuid,
+   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}]}'::jsonb,
+   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000005'::uuid,
+   '{"type":"mcq","question":"7 的十位数是多少？","options":[{"text":"0","is_correct":true},{"text":"7","is_correct":false},{"text":"1","is_correct":false}]}'::jsonb,
+   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000006'::uuid,
    '{"type":"mrq","question":"Select every number smaller than 20.","options":[{"text":"12","is_correct":true},{"text":"25","is_correct":false},{"text":"18","is_correct":true},{"text":"31","is_correct":false}]}'::jsonb,
-   'high', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 2, '00000000-0000-0000-0000-000000000001'),
-  -- Year 2 English — 语法 Grammar / Verbs (8e74125c)
-  ('a9200000-0000-4000-8000-000000000004',
+   'high'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 2::numeric),
+  -- 应用题 (display_order 2)
+  ('a9200000-0000-4000-8000-000000000007'::uuid,
+   '{"type":"mcq","question":"Ali has 12 marbles and gives 5 away. How many are left?","options":[{"text":"5","is_correct":false},{"text":"7","is_correct":true},{"text":"17","is_correct":false}]}'::jsonb,
+   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000008'::uuid,
+   '{"type":"numeric","question":"一盒有 10 支笔，两盒一共有多少支？","answer":20,"unit":"支"}'::jsonb,
+   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000009'::uuid,
+   '{"type":"long_answer","question":"Explain how you would count 5, 10, 15 up to 50. 说说你怎么五个五个地数到 50。","rubric":"2 pts for a workable strategy, 1 for reaching 50."}'::jsonb,
+   'high'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 3::numeric),
+
+  -- ── Year 1 Mathematics > 第二课 基本运算 (f73c2614) ──────────────────────
+  ('a9200000-0000-4000-8000-000000000010'::uuid,
+   '{"type":"mcq","question":"10 + 10 = ?","options":[{"text":"20","is_correct":true},{"text":"11","is_correct":false},{"text":"100","is_correct":false}]}'::jsonb,
+   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000011'::uuid,
+   '{"type":"true_false","question":"18 - 9 = 9","answer":true}'::jsonb,
+   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000012'::uuid,
+   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"6 + {{1}} = 14, and 14 - 6 = {{2}}.","blanks":[{"index":1,"accepted":["8","eight"]},{"index":2,"accepted":["8","eight"]}]}'::jsonb,
+   'medium'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 2::numeric),
+  ('a9200000-0000-4000-8000-000000000013'::uuid,
+   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
+   'high'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 3::numeric),
+  ('a9200000-0000-4000-8000-000000000014'::uuid,
+   '{"type":"mcq","question":"A bus carries 30 children. 12 get off. How many stay on?","options":[{"text":"18","is_correct":true},{"text":"22","is_correct":false},{"text":"42","is_correct":false}]}'::jsonb,
+   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000015'::uuid,
+   '{"type":"numeric","question":"一支笔 3 令吉，买 4 支要多少令吉？","answer":12,"unit":"RM"}'::jsonb,
+   'medium'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000016'::uuid,
+   '{"type":"matching","question":"Match each sum to its answer. 配对。","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
+   'high'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 3::numeric),
+
+  -- ── Year 2 English > 语法 Grammar (50da1a03) ─────────────────────────────
+  -- No seeded classroom teaches this, which is the point: the paper built from
+  -- these is invisible to Ms Lee and Mr Wong, and visible to the admin.
+  ('a9200000-0000-4000-8000-000000000020'::uuid,
    '{"type":"mcq","question":"Choose the correct verb: They ___ football on Sundays.","options":[{"text":"plays","is_correct":false},{"text":"play","is_correct":true},{"text":"playing","is_correct":false}]}'::jsonb,
-   'low', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000005',
+   'low'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000021'::uuid,
    '{"type":"mcq","question":"Which sentence is in the past tense?","options":[{"text":"I walk to school.","is_correct":false},{"text":"I walked to school.","is_correct":true},{"text":"I am walking to school.","is_correct":false}]}'::jsonb,
-   'medium', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000006',
-   '{"type":"mcq","question":"Choose the correct verb: She ___ to school every day.","options":[{"text":"walk","is_correct":false},{"text":"walks","is_correct":true},{"text":"walking","is_correct":false},{"text":"walked","is_correct":false}]}'::jsonb,
-   'low', '8e74125c-d629-4b0e-ab11-c5dfb57856aa', 1, '00000000-0000-0000-0000-000000000001')
-ON CONFLICT (id) DO NOTHING;
+   'medium'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 1, 1::numeric),
+  ('a9200000-0000-4000-8000-000000000022'::uuid,
+   '{"type":"short_answer","question":"Write the past tense of \"run\".","accepted_answers":["ran"]}'::jsonb,
+   'medium'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 2, 1::numeric)
+) AS v(id, payload, difficulty, topic_id, sub_topic_order, points);
 
-INSERT INTO public.assessment_templates (
-  id, created_by, title, description, status, grade_level_id, subject_id
-) VALUES
-  ('a5000000-0000-4000-8000-000000000002',
-   '00000000-0000-0000-0000-000000000001',
-   'Template: Year 1 Math Basics',
-   '100 以内的整数 — starter quiz any center can clone.', 'published',
-   '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
-   '9d077a3d-b673-4760-9c44-218f0f25b2b1'),  -- Year 1 Mathematics  (MATCHES 9b)
-  ('a5000000-0000-4000-8000-000000000003',
-   '00000000-0000-0000-0000-000000000001',
-   'Template: Year 2 English Grammar',
-   'Verbs warm-up.', 'published',
-   'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a',   -- Year 2
-   'f73988ca-1c4e-4b22-8455-eb32c5c1e1c8'),  -- Year 2 English      (NO match)
-  ('a5000000-0000-4000-8000-000000000004',
-   '00000000-0000-0000-0000-000000000001',
-   'Template: Year 1 Math — Numbers & Counting',
-   '双数、比较大小与加法 — second Year 1 Math library item.', 'published',
-   '54081b95-ee5f-43d0-8f95-d640d48bb734',   -- Year 1
-   '9d077a3d-b673-4760-9c44-218f0f25b2b1')   -- Year 1 Mathematics  (MATCHES 9b)
-ON CONFLICT (id) DO NOTHING;
+-- The nine payloads the showcase assessment delivers — one of every supported
+-- type, so authoring, running, partial credit and pending manual marking are
+-- all visible on staging. They are bank items like any other.
+INSERT INTO public.assessment_bank_questions (
+  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
+)
+SELECT
+  v.id, v.payload, v.difficulty,
+  (SELECT st.id FROM public.sub_topics st
+    WHERE st.topic_id = 'bc9fb793-5026-4241-94ac-54ab709f0518' AND st.display_order = 1),
+  NULL, v.points, '00000000-0000-0000-0000-000000000001'
+FROM (VALUES
+  -- 1. MCQ with a question image AND a per-option image (decision 74). The
+  --    objects are not uploaded — a seed cannot write binaries — so staging
+  --    renders a broken image until someone re-uploads through the authoring
+  --    UI. The payload shape is what matters. Item images live under
+  --    `assessment-images/bank/<item_id>/`.
+  ('a9400000-0000-4000-8000-000000000001'::uuid,
+   '{"type":"mcq","question":"12 + 9 = ?","image_path":"bank/a9400000-0000-4000-8000-000000000001/showcase-q1-ten-frames.webp","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true,"image_path":"bank/a9400000-0000-4000-8000-000000000001/showcase-q1-option-21.webp"},{"text":"22","is_correct":false}]}'::jsonb,
+   'low'::public.question_difficulty, 1::numeric),
+  ('a9400000-0000-4000-8000-000000000002'::uuid,
+   '{"type":"mrq","question":"Which of these are even numbers? 哪些是双数？","options":[{"text":"3","is_correct":false},{"text":"8","is_correct":true},{"text":"11","is_correct":false},{"text":"14","is_correct":true}]}'::jsonb,
+   'medium'::public.question_difficulty, 2::numeric),
+  ('a9400000-0000-4000-8000-000000000003'::uuid,
+   '{"type":"true_false","question":"100 is greater than 99. 100 比 99 大。","answer":true}'::jsonb,
+   'low'::public.question_difficulty, 1::numeric),
+  ('a9400000-0000-4000-8000-000000000004'::uuid,
+   '{"type":"numeric","question":"A pencil is 14.5 cm long. How long are two pencils end to end?","answer":29,"tolerance":0.5,"unit":"cm"}'::jsonb,
+   'medium'::public.question_difficulty, 1::numeric),
+  ('a9400000-0000-4000-8000-000000000005'::uuid,
+   '{"type":"short_answer","question":"What is the name of the shape with three sides?","accepted_answers":["triangle","三角形","tri-angle"]}'::jsonb,
+   'low'::public.question_difficulty, 1::numeric),
+  ('a9400000-0000-4000-8000-000000000006'::uuid,
+   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"5 + {{1}} = 12, and 12 - 4 = {{2}}, so 12 is an {{3}} number.","blanks":[{"index":1,"accepted":["7","seven"]},{"index":2,"accepted":["8","eight"]},{"index":3,"accepted":["even","双数"]}]}'::jsonb,
+   'medium'::public.question_difficulty, 3::numeric),
+  ('a9400000-0000-4000-8000-000000000007'::uuid,
+   '{"type":"matching","question":"Match each sum to its answer. 配对。","image_path":"bank/a9400000-0000-4000-8000-000000000007/showcase-q7-number-line.webp","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
+   'medium'::public.question_difficulty, 3::numeric),
+  ('a9400000-0000-4000-8000-000000000008'::uuid,
+   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
+   'high'::public.question_difficulty, 4::numeric),
+  ('a9400000-0000-4000-8000-000000000009'::uuid,
+   '{"type":"long_answer","question":"Explain how you would add 38 + 27 in your head. 说说你怎么心算 38 + 27。","rubric":"5 pts: 2 for a workable strategy, 2 for correct steps, 1 for the right answer (65)."}'::jsonb,
+   'high'::public.question_difficulty, 5::numeric)
+) AS v(id, payload, difficulty, points);
 
--- References. Question ...0003 sits in BOTH Year 1 Math templates: one bank
--- row, two templates — the reach an edit has is observable on staging.
-INSERT INTO public.assessment_template_questions (template_id, bank_question_id, position)
+-- The center's OWN items (P20a): authored by Ms Lee, visible to her center
+-- alone, and drawn alongside the platform's whenever she generates a paper.
+INSERT INTO public.assessment_bank_questions (
+  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
+)
+SELECT
+  v.id, v.payload, v.difficulty,
+  (SELECT st.id FROM public.sub_topics st
+    WHERE st.topic_id = 'bc9fb793-5026-4241-94ac-54ab709f0518' AND st.display_order = v.sub_topic_order),
+  o.id, v.points, '00000000-0000-0000-0000-000000000006'
+FROM (VALUES
+  ('a9500000-0000-4000-8000-000000000001'::uuid,
+   '{"type":"mcq","question":"班上有 24 名学生，其中 11 名是女生。男生有多少名？","options":[{"text":"13","is_correct":true},{"text":"12","is_correct":false},{"text":"35","is_correct":false}]}'::jsonb,
+   'medium'::public.question_difficulty, 2, 1::numeric),
+  ('a9500000-0000-4000-8000-000000000002'::uuid,
+   '{"type":"short_answer","question":"Count backwards: 40, 35, 30, ___","accepted_answers":["25"]}'::jsonb,
+   'low'::public.question_difficulty, 1, 1::numeric)
+) AS v(id, payload, difficulty, sub_topic_order, points)
+CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
+
+
+-- Learning points on bank items, so the generator's tag filter has something
+-- to bite on (a line may ask for "counting" questions only).
+INSERT INTO public.assessment_bank_question_tags (assessment_bank_question_id, tag_id)
 VALUES
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000001', 0),
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000002', 1),
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000003', 2),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000004', 0),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000005', 1),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000006', 2),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000007', 0),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000008', 1),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000003', 2)
+  ('a9200000-0000-4000-8000-000000000003', 'a7000000-0000-4000-8000-000000000002'),
+  ('a9200000-0000-4000-8000-000000000005', 'a7000000-0000-4000-8000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000004', 'a7000000-0000-4000-8000-000000000001'),
+  ('a9200000-0000-4000-8000-000000000006', 'a7000000-0000-4000-8000-000000000003'),
+  ('a9200000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000004'),
+  ('a9200000-0000-4000-8000-000000000010', 'a7000000-0000-4000-8000-000000000004'),
+  ('a9200000-0000-4000-8000-000000000020', 'a7000000-0000-4000-8000-000000000005'),
+  ('a9200000-0000-4000-8000-000000000021', 'a7000000-0000-4000-8000-000000000005')
 ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9e. QUESTION-TYPE SHOWCASE ASSESSMENT (Revamp 2.5 — decisions 65-68)     ║
+-- ║ 9d. PAPERS — the library (P20b)                                          ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- One published assessment that exercises EVERY ad-hoc question type, so the
--- P9c/d/e surfaces (and a human on staging) can see authoring, running,
--- auto-grading with partial credit, and the pending manual-marking state end
--- to end. Created by Ms Lee, assigned to Classroom A (Alice + Ben).
--- Deliberately UNSCOPED (grade_level_id/subject_id NULL) like 9c.
+-- A paper is an ordered list of REFERENCES into the bank plus the delivery
+-- settings a classroom inherits. organization_id NULL = the platform's,
+-- offered to every center that teaches a grade+subject it covers; set = that
+-- center's own. A paper stores no pairing — its items decide it (P20d).
 --
--- Revamp 2.6 (decision 74): Q1 also carries a question image plus an image on
--- its third option, and Q7 (matching) a question image — proof that the payload
--- contract accepts images on EVERY type, not just mcq. The referenced objects
--- are not uploaded (a seed cannot write binaries); the paths are the contract.
+-- Item ...0004 sits in BOTH Year 1 Math platform papers: one bank row, two
+-- papers, so the reach of an edit is observable on staging.
+
+INSERT INTO public.papers (
+  id, organization_id, title, description, status, created_by
+) VALUES
+  ('a5000000-0000-4000-8000-000000000002', NULL,
+   'Year 1 Math Basics',
+   '100 以内的整数 — starter paper any center can use.', 'published',
+   '00000000-0000-0000-0000-000000000001'),
+  ('a5000000-0000-4000-8000-000000000003', NULL,
+   'Year 2 English Grammar',
+   'Verbs warm-up. No seeded classroom teaches Year 2 English, so this one is
+    deliberately out of the demo teachers'' reach.', 'published',
+   '00000000-0000-0000-0000-000000000001'),
+  ('a5000000-0000-4000-8000-000000000004', NULL,
+   'Year 1 Math — Numbers & Counting',
+   '双数、比较大小与加法 — second Year 1 Math library paper.', 'published',
+   '00000000-0000-0000-0000-000000000001');
+
+INSERT INTO public.paper_items (paper_id, item_id, "position") VALUES
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000001', 0),
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000004', 1),
+  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000002', 2),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000020', 0),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000021', 1),
+  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000022', 2),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000003', 0),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000004', 1),
+  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000006', 2);
+
+-- The center's own papers: what Ms Lee delivers below. Owned by the center, so
+-- her library is not empty on a fresh staging database.
+INSERT INTO public.papers (
+  id, organization_id, title, description, status, created_by
+)
+SELECT v.id, o.id, v.title, v.description, 'published', '00000000-0000-0000-0000-000000000006'
+FROM (VALUES
+  ('a5000000-0000-4000-8000-000000000001'::uuid,
+   'Year 1 Math — Quiz 1', '100 以内的整数 warm-up'),
+  ('a5000000-0000-4000-8000-000000000005'::uuid,
+   'Year 1 Math — Question Type Showcase',
+   '题型示范 — one question of every supported type (auto-graded + one manually marked).')
+) AS v(id, title, description)
+CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
+
+INSERT INTO public.paper_items (paper_id, item_id, "position") VALUES
+  ('a5000000-0000-4000-8000-000000000001', 'a9200000-0000-4000-8000-000000000001', 0),
+  ('a5000000-0000-4000-8000-000000000001', 'a9200000-0000-4000-8000-000000000004', 1),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000001', 0),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000002', 1),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000003', 2),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000004', 3),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000005', 4),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000006', 5),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000007', 6),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000008', 7),
+  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000009', 8);
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 9e. DELIVERIES — an assessment is one paper in one classroom (P20b)      ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Both are PUBLISHED, so each carries a frozen snapshot of its paper's items.
+-- The app builds that snapshot in publish_assessment(); the seed writes it
+-- directly, keeping the ids the attempt fixtures in 9f answer against.
 --
--- Point budget: 1+2+1+1+1+3+3+4+5 = 21. Question 9 (long_answer) grades to
--- is_correct NULL / awarded_points NULL until a teacher marks it (P9b), so a
--- fully-correct submission scores 16/21 = 76% until then.
+-- Point budget on the showcase: 1+2+1+1+1+3+3+4+5 = 21. Question 9
+-- (long_answer) stays unmarked, so a fully-correct submission scores
+-- 16/21 = 76% until a teacher marks it.
 
 INSERT INTO public.assessments (
-  id, organization_id, created_by, title, description, status, classroom_id
+  id, organization_id, classroom_id, paper_id, created_by, title, description, status
 )
-SELECT
-  'a5000000-0000-4000-8000-000000000005', o.id,
-  '00000000-0000-0000-0000-000000000006',
-  'Year 1 Math — Question Type Showcase',
-  '题型示范 — one question of every supported type (auto-graded + one manually marked).',
-  'published',
-  'c1000000-0000-4000-8000-000000000001'
-FROM (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
-ON CONFLICT (id) DO NOTHING;
+SELECT v.id, o.id, 'c1000000-0000-4000-8000-000000000001', v.paper_id,
+       '00000000-0000-0000-0000-000000000006', v.title, v.description, 'published'
+FROM (VALUES
+  ('a5100000-0000-4000-8000-000000000001'::uuid, 'a5000000-0000-4000-8000-000000000001'::uuid,
+   'Year 1 Math — Quiz 1', '100 以内的整数 warm-up'),
+  ('a5100000-0000-4000-8000-000000000005'::uuid, 'a5000000-0000-4000-8000-000000000005'::uuid,
+   'Year 1 Math — Question Type Showcase',
+   '题型示范 — one question of every supported type (auto-graded + one manually marked).')
+) AS v(id, paper_id, title, description)
+CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
 
-INSERT INTO public.assessment_questions (id, assessment_id, payload, position, points)
-VALUES
-  -- 1. MCQ (single correct) — carries a question image AND a per-option image
-  --    (Revamp 2.6 decision 74). Both paths point into the `assessment-images`
-  --    bucket under this assessment's id; the objects are NOT uploaded by this
-  --    seed, so staging renders a broken image until someone re-uploads through
-  --    the P10b authoring UI. The payload shape is what matters here.
-  ('a9300000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"mcq","question":"12 + 9 = ?","image_path":"a5000000-0000-4000-8000-000000000005/showcase-q1-ten-frames.webp","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true,"image_path":"a5000000-0000-4000-8000-000000000005/showcase-q1-option-21.webp"},{"text":"22","is_correct":false}]}'::jsonb,
-   1, 1),
+-- The snapshots: the paper's items as they read at publication.
+INSERT INTO public.assessment_questions (id, assessment_id, payload, "position", points)
+SELECT v.id, v.assessment_id, bq.payload, v."position", bq.points
+FROM (VALUES
+  ('a9100000-0000-4000-8000-000000000001'::uuid, 'a5100000-0000-4000-8000-000000000001'::uuid, 'a9200000-0000-4000-8000-000000000001'::uuid, 0),
+  ('a9100000-0000-4000-8000-000000000002'::uuid, 'a5100000-0000-4000-8000-000000000001'::uuid, 'a9200000-0000-4000-8000-000000000004'::uuid, 1),
+  ('a9300000-0000-4000-8000-000000000001'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000001'::uuid, 0),
+  ('a9300000-0000-4000-8000-000000000002'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000002'::uuid, 1),
+  ('a9300000-0000-4000-8000-000000000003'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000003'::uuid, 2),
+  ('a9300000-0000-4000-8000-000000000004'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000004'::uuid, 3),
+  ('a9300000-0000-4000-8000-000000000005'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000005'::uuid, 4),
+  ('a9300000-0000-4000-8000-000000000006'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000006'::uuid, 5),
+  ('a9300000-0000-4000-8000-000000000007'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000007'::uuid, 6),
+  ('a9300000-0000-4000-8000-000000000008'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000008'::uuid, 7),
+  ('a9300000-0000-4000-8000-000000000009'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000009'::uuid, 8)
+) AS v(id, assessment_id, item_id, "position")
+JOIN public.assessment_bank_questions bq ON bq.id = v.item_id;
 
-  -- 2. MRQ (several correct — all or nothing)
-  ('a9300000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"mrq","question":"Which of these are even numbers? 哪些是双数？","options":[{"text":"3","is_correct":false},{"text":"8","is_correct":true},{"text":"11","is_correct":false},{"text":"14","is_correct":true}]}'::jsonb,
-   2, 2),
-
-  -- 3. TRUE / FALSE  (response: {"value": true|false})
-  ('a9300000-0000-4000-8000-000000000003', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"true_false","question":"100 is greater than 99. 100 比 99 大。","answer":true}'::jsonb,
-   3, 1),
-
-  -- 4. NUMERIC with tolerance + unit  (answer goes in text_answer)
-  ('a9300000-0000-4000-8000-000000000004', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"numeric","question":"A pencil is 14.5 cm long. How long are two pencils end to end?","answer":29,"tolerance":0.5,"unit":"cm"}'::jsonb,
-   4, 1),
-
-  -- 5. SHORT ANSWER, several accepted spellings
-  ('a9300000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"short_answer","question":"What is the name of the shape with three sides?","accepted_answers":["triangle","三角形","tri-angle"]}'::jsonb,
-   5, 1),
-
-  -- 6. CLOZE, 3 blanks, partial credit per blank
-  ('a9300000-0000-4000-8000-000000000006', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"5 + {{1}} = 12, and 12 - 4 = {{2}}, so 12 is an {{3}} number.","blanks":[{"index":1,"accepted":["7","seven"]},{"index":2,"accepted":["8","eight"]},{"index":3,"accepted":["even","双数"]}]}'::jsonb,
-   6, 3),
-
-  -- 7. MATCHING, 3 pairs + 1 distractor on the right, partial credit per pair
-  ('a9300000-0000-4000-8000-000000000007', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"matching","question":"Match each sum to its answer. 配对。","image_path":"a5000000-0000-4000-8000-000000000005/showcase-q7-number-line.webp","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
-   7, 3),
-
-  -- 8. ORDERING, 4 items, partial credit per position
-  ('a9300000-0000-4000-8000-000000000008', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
-   8, 4),
-
-  -- 9. LONG ANSWER — never auto-graded; stays pending until a teacher marks it
-  ('a9300000-0000-4000-8000-000000000009', 'a5000000-0000-4000-8000-000000000005',
-   '{"type":"long_answer","question":"Explain how you would add 38 + 27 in your head. 说说你怎么心算 38 + 27。","rubric":"5 pts: 2 for a workable strategy, 2 for correct steps, 1 for the right answer (65)."}'::jsonb,
-   9, 5)
-ON CONFLICT (id) DO NOTHING;
-
--- Assigned to Classroom A, due in 14 days, by Ms Lee.
+-- Assigned to Classroom A by Ms Lee.
 INSERT INTO public.assessment_assignments (id, assessment_id, classroom_id, due_at, assigned_by)
 VALUES
-  ('a6000000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
+  ('a6000000-0000-4000-8000-000000000001', 'a5100000-0000-4000-8000-000000000001',
+   'c1000000-0000-4000-8000-000000000001', now() + interval '7 days',
+   '00000000-0000-0000-0000-000000000006'),
+  ('a6000000-0000-4000-8000-000000000002', 'a5100000-0000-4000-8000-000000000005',
    'c1000000-0000-4000-8000-000000000001', now() + interval '14 days',
-   '00000000-0000-0000-0000-000000000006')
-ON CONFLICT DO NOTHING;
+   '00000000-0000-0000-0000-000000000006');
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -883,7 +1017,7 @@ ON CONFLICT DO NOTHING;
 -- Two SUBMITTED attempts so the P9b gates are visible on staging without
 -- anyone having to sit an assessment first:
 --
---   * Alice on Quiz 1 (9c)  — fully auto-graded, and Quiz 1's answers are
+--   * Alice on Quiz 1 (9e)  — fully auto-graded, and Quiz 1's answers are
 --     RELEASED, so her result shows the correct answers (the released path).
 --   * Ben on the Showcase (9e) — every type answered, the long_answer left
 --     AWAITING MARKING, and the Showcase is NOT released (the default), so
@@ -892,36 +1026,31 @@ ON CONFLICT DO NOTHING;
 --
 -- Flip the Showcase to the "no score while pending" variant with:
 --   UPDATE public.assessments SET show_auto_score_while_pending = false
---   WHERE id = 'a5000000-0000-4000-8000-000000000005';
+--   WHERE id = 'a5100000-0000-4000-8000-000000000005';
 
 -- Release state (written directly here — the app path is
 -- release_assessment_answers(); the seed runs as postgres).
 UPDATE public.assessments
 SET answers_released_at = now() - interval '1 day',
     answers_released_by = '00000000-0000-0000-0000-000000000006'
-WHERE id = 'a5000000-0000-4000-8000-000000000001';
+WHERE id = 'a5100000-0000-4000-8000-000000000001';
 
 UPDATE public.assessments
 SET answers_released_at = NULL,
     answers_released_by = NULL,
     show_auto_score_while_pending = true
-WHERE id = 'a5000000-0000-4000-8000-000000000005';
+WHERE id = 'a5100000-0000-4000-8000-000000000005';
 
--- The attempts. Section 8 wipes attempt_questions/attempt_answers on every
--- run but assessment_attempts survives, so reopen the attempts first: the
--- time-limit trigger rejects answer writes to a submitted attempt.
+-- The attempts. Section 7b clears every attempt on a re-run, so these are
+-- always fresh; they are created open because the time-limit trigger rejects
+-- answer writes to a submitted attempt.
 INSERT INTO public.assessment_attempts (id, assessment_id, student_id, started_at)
 VALUES
-  ('a8000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001',
+  ('a8000000-0000-4000-8000-000000000001', 'a5100000-0000-4000-8000-000000000001',
    '00000000-0000-0000-0000-000000000002', now() - interval '2 days'),
-  ('a8000000-0000-4000-8000-000000000002', 'a5000000-0000-4000-8000-000000000005',
+  ('a8000000-0000-4000-8000-000000000002', 'a5100000-0000-4000-8000-000000000005',
    '00000000-0000-0000-0000-000000000003', now() - interval '1 day')
 ON CONFLICT (id) DO NOTHING;
-
-UPDATE public.assessment_attempts
-SET completed_at = NULL
-WHERE id IN ('a8000000-0000-4000-8000-000000000001',
-             'a8000000-0000-4000-8000-000000000002');
 
 -- Frozen snapshots (start_assessment_attempt's job in the app).
 INSERT INTO public.attempt_questions (attempt_id, assessment_question_id, question_order)
