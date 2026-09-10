@@ -413,6 +413,20 @@ export const usePapersStore = defineStore('papers', () => {
     return { id: question.id, error: null }
   }
 
+  /**
+   * Delete the item outright: it leaves the bank, and with it every paper
+   * holding it (paper_items cascades). For a question that was written in
+   * this paper and used nowhere else, this is what "remove" usually means.
+   */
+  async function deleteItem(paperId: string, itemId: string): Promise<{ error: string | null }> {
+    const { error } = await bankStore.deleteQuestion(itemId)
+    if (error) return { error }
+
+    currentItems.value = currentItems.value.filter((item) => item.id !== itemId)
+    bumpItemCount(paperId, -1)
+    return { error: null }
+  }
+
   /** Drop the reference; the bank keeps the item. */
   async function removeItem(paperId: string, itemId: string): Promise<{ error: string | null }> {
     try {
@@ -545,6 +559,7 @@ export const usePapersStore = defineStore('papers', () => {
     addBankItems,
     createItem,
     removeItem,
+    deleteItem,
     applyItemOrder,
     persistItemOrder,
     applyItemPatch,

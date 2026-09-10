@@ -378,15 +378,62 @@ async function handleDuplicate(item: PaperItem) {
 }
 
 /** Drops the reference only — the bank keeps the question. */
-async function handleRemove(item: PaperItem) {
-  const { error } = await papersStore.removeItem(paperId.value, item.id)
-  if (error) {
-    toast.error(error)
-    return
+/**
+ * Taking a question out has two meanings, and which one the author wants is
+ * not guessable: dropping the reference leaves the item in the bank (right
+ * for one picked from it, and for one another paper still holds), while
+ * deleting takes it out of the bank entirely (right for one written here and
+ * used nowhere else, which would otherwise linger unnoticed).
+ *
+ * So the dialog asks — and only offers the destructive half when this is the
+ * item's ONLY paper and the caller owns it, since RLS would refuse otherwise.
+ */
+const removeTarget = ref<PaperItem | null>(null)
+const isRemoving = ref(false)
+
+const ownsRemoveTarget = computed(() => {
+  const item = removeTarget.value
+  if (!item) return false
+  return item.organizationId === null
+    ? authStore.isAdmin
+    : authStore.isTeacher && item.organizationId === authStore.organizationId
+})
+
+/** Deleting is only on the table when no other paper would lose the question. */
+const canDeleteRemoveTarget = computed(
+  () => ownsRemoveTarget.value && (removeTarget.value?.usedInPapers ?? 0) <= 1,
+)
+
+function handleRemove(item: PaperItem) {
+  removeTarget.value = item
+}
+
+async function applyRemoval(deleteFromBank: boolean) {
+  const item = removeTarget.value
+  if (!item) return
+  const paths = deleteFromBank ? collectAdhocPayloadImagePaths(item.payload) : []
+
+  isRemoving.value = true
+  try {
+    const { error } = deleteFromBank
+      ? await papersStore.deleteItem(paperId.value, item.id)
+      : await papersStore.removeItem(paperId.value, item.id)
+    if (error) {
+      toast.error(error)
+      return
+    }
+    pendingImageDeletes.delete(item.id)
+    if (expandedId.value === item.id) expandedId.value = null
+    if (deleteFromBank) void removeStorageObjects('assessment-images', paths)
+    toast.success(
+      deleteFromBank
+        ? t.value.staff.papers.toastQuestionDeleted
+        : t.value.staff.papers.toastQuestionRemoved,
+    )
+    removeTarget.value = null
+  } finally {
+    isRemoving.value = false
   }
-  pendingImageDeletes.delete(item.id)
-  if (expandedId.value === item.id) expandedId.value = null
-  toast.success(t.value.staff.papers.toastQuestionRemoved)
 }
 
 // ── teacher: adopt, or deliver into the classroom ──────────
@@ -734,6 +781,42 @@ async function handleAdopt() {
             <Button :disabled="isChangingStatus" @click="handleToggleStatus">
               <Loader2 v-if="isChangingStatus" class="mr-2 size-4 animate-spin" />
               {{ isPublished ? t.staff.papers.unpublish : t.staff.papers.publish }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Take a question out: drop the reference, or delete it from the bank -->
+      <Dialog
+        :open="removeTarget !== null"
+        @update:open="(value) => !value && !isRemoving && (removeTarget = null)"
+      >
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{{ t.staff.papers.removeTitle }}</DialogTitle>
+            <DialogDescription>
+              {{
+                canDeleteRemoveTarget
+                  ? t.staff.papers.removeDesc
+                  : t.staff.papers.removeSharedDesc(removeTarget?.usedInPapers ?? 1)
+              }}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" :disabled="isRemoving" @click="removeTarget = null">
+              {{ t.staff.builder.cancel }}
+            </Button>
+            <Button variant="outline" :disabled="isRemoving" @click="applyRemoval(false)">
+              {{ t.staff.papers.removeKeepInBank }}
+            </Button>
+            <Button
+              v-if="canDeleteRemoveTarget"
+              variant="destructive"
+              :disabled="isRemoving"
+              @click="applyRemoval(true)"
+            >
+              <Loader2 v-if="isRemoving" class="mr-2 size-4 animate-spin" />
+              {{ t.staff.papers.removeDeleteFromBank }}
             </Button>
           </DialogFooter>
         </DialogContent>

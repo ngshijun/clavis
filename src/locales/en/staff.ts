@@ -221,6 +221,14 @@ export default {
     noQuestionsDesc: 'Add questions from the bank — a paper takes its subject from what it holds.',
     noSubTopics: 'This subject has no sub-topic to file a question under yet.',
     toastQuestionRemoved: 'Question removed from this paper — it stays in the bank',
+    toastQuestionDeleted: 'Question deleted from the bank',
+    removeTitle: 'Take this question out?',
+    removeDesc:
+      'No other paper holds it. Keep it in the bank to reuse later, or delete it for good.',
+    removeSharedDesc: (n: number) =>
+      `It stays in the bank, and the ${n === 1 ? 'paper' : `${n} papers`} holding it ${n === 1 ? 'is' : 'are'} untouched.`,
+    removeKeepInBank: 'Remove, keep in bank',
+    removeDeleteFromBank: 'Delete question',
     usedIn: (n: number) => `In ${n} paper${n === 1 ? '' : 's'}`,
     // Bank picker (adds references)
     pickerTitle: 'Add from Question Bank',
