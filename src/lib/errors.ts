@@ -121,22 +121,27 @@ function mapAuthError(err: AuthError, errors: ErrorMessages): string {
 
 /**
  * Exact RAISE strings from the P8a assignment-scope trigger
- * (`enforce_assignment_scope`) and `clone_assessment_template`, plus the
- * P9b marking/release RPCs, mapped to localized error copy
- * (P8A-HANDOFF §4-5, P9B-HANDOFF §1-2).
+ * (`enforce_assignment_scope`), the paper/generation RPCs and the P9b
+ * marking/release RPCs, mapped to localized error copy.
  */
 const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Classroom does not match the assessment grade and subject': 'assignClassroomScopeMismatch',
   'Student is not in a classroom matching the assessment grade and subject':
     'assignStudentScopeMismatch',
-  'No classroom matches this template grade and subject': 'cloneNoMatchingClassroom',
   'Not authenticated': 'notAuthenticated',
   'No other bank question matches these criteria': 'regenerateExhausted',
-  'Only draft assessments can be regenerated': 'regenerateLocked',
+  'Question was not generated': 'regenerateNotGenerated',
+  'Question is not in this paper': 'regenerateNotInPaper',
   'Generation spec must be a non-empty list': 'generateSpecInvalid',
   'Generation spec line is invalid': 'generateSpecInvalid',
   'Generation spec has too many lines': 'generateSpecInvalid',
-  'Sub-topic does not belong to this subject': 'generateSubTopicMismatch',
+  'Sub-topic does not exist': 'generateSubTopicMismatch',
+  'A paper draws from one subject': 'generateSubTopicMismatch',
+  'Add a question before publishing': 'assessmentNoQuestions',
+  'Assessment is already published': 'assessmentAlreadyPublished',
+  'A published assessment cannot return to draft': 'assessmentAlreadyPublished',
+  'Question belongs to another center': 'itemOtherCenter',
+  'Question is used by a paper of another owner': 'itemOtherCenter',
   'Not authorized to mark this answer': 'markNotAuthorized',
   'Only submitted attempts can be marked': 'markAttemptOpen',
   'Only long-answer questions are marked by hand': 'markNotManual',

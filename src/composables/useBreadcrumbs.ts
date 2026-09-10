@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAssessmentsStore } from '@/stores/assessments'
-import { useAssessmentTemplatesStore } from '@/stores/assessment-templates'
+import { usePapersStore } from '@/stores/papers'
 import { useStudentAssessmentsStore } from '@/stores/student-assessments'
 import { useClassroomStudentStore } from '@/stores/classroom-student'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
@@ -22,8 +22,8 @@ export interface Crumb {
 const SECTION_KEY: Record<string, string> = {
   'admin-dashboard': 'dashboard',
   'admin-curriculum': 'curriculum',
-  'admin-templates': 'assessmentTemplates',
-  'admin-template-builder': 'assessmentTemplates',
+  'admin-papers': 'papers',
+  'admin-paper-builder': 'papers',
   'admin-tags': 'learningPoints',
   'admin-organizations': 'organizations',
   'manager-dashboard': 'dashboard',
@@ -40,8 +40,8 @@ const SECTION_KEY: Record<string, string> = {
   'teacher-classroom-student': 'students',
   'teacher-assessments': 'assessments',
   'teacher-assessment-builder': 'assessments',
-  'teacher-template-library': 'templateLibrary',
-  'teacher-template-preview': 'templateLibrary',
+  'teacher-papers': 'papers',
+  'teacher-paper-builder': 'papers',
   'student-dashboard': 'dashboard',
   'student-practice': 'practice',
   'student-practice-quiz': 'practice',
@@ -54,8 +54,8 @@ const SECTION_KEY: Record<string, string> = {
 
 /** Routes whose section crumb should link back to the section index. */
 const SECTION_PATH: Record<string, string> = {
-  'admin-template-builder': 'templates',
-  'teacher-template-preview': 'templates',
+  'admin-paper-builder': 'papers',
+  'teacher-paper-builder': 'papers',
   'manager-classroom-assessment-builder': 'assessments',
   // A student's record hangs off the roster that led to it.
   'manager-classroom-student': 'students',
@@ -82,7 +82,7 @@ export function useBreadcrumbs() {
   const route = useRoute()
   const authStore = useAuthStore()
   const assessmentsStore = useAssessmentsStore()
-  const templatesStore = useAssessmentTemplatesStore()
+  const papersStore = usePapersStore()
   const studentAssessmentsStore = useStudentAssessmentsStore()
   const classroomStudentStore = useClassroomStudentStore()
   const { classroomId, basePath } = useActiveClassroom()
@@ -118,8 +118,8 @@ export function useBreadcrumbs() {
     if (name.endsWith('assessment-builder')) {
       const title = assessmentsStore.currentAssessment?.title
       if (title) trail.push({ label: title })
-    } else if (name === 'admin-template-builder' || name === 'teacher-template-preview') {
-      const title = templatesStore.currentTemplate?.title
+    } else if (name === 'admin-paper-builder' || name === 'teacher-paper-builder') {
+      const title = papersStore.currentPaper?.title
       if (title) trail.push({ label: title })
     } else if (name.endsWith('-classroom-student')) {
       const studentName = classroomStudentStore.student?.name
