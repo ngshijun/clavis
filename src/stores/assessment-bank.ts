@@ -22,25 +22,28 @@ export interface BankQuestion {
   difficulty: QuestionDifficulty
   /** Where the question is filed; topic, subject and grade follow from it. */
   subTopicId: string
+  /** NULL = a platform item (admin-authored); set = that center's own. */
+  organizationId: string | null
   points: number
   tagIds: string[]
-  /** How many templates reference this question — the reach of an edit. */
-  usedInTemplates: number
+  /** How many papers reference this item — the reach of an edit. */
+  usedInPapers: number
   createdAt: string
 }
 
 const BANK_SELECT =
-  'id, payload, difficulty, sub_topic_id, points, created_at, assessment_bank_question_tags (tag_id), assessment_template_questions (count)'
+  'id, payload, difficulty, sub_topic_id, organization_id, points, created_at, assessment_bank_question_tags (tag_id), paper_items (count)'
 
 interface BankRow {
   id: string
   payload: Json
   difficulty: QuestionDifficulty
   sub_topic_id: string
+  organization_id: string | null
   points: number
   created_at: string
   assessment_bank_question_tags: { tag_id: string }[]
-  assessment_template_questions: { count: number }[]
+  paper_items: { count: number }[]
 }
 
 function mapRow(row: BankRow): BankQuestion {
@@ -51,9 +54,10 @@ function mapRow(row: BankRow): BankQuestion {
     type: payload.type,
     difficulty: row.difficulty,
     subTopicId: row.sub_topic_id,
+    organizationId: row.organization_id,
     points: Number(row.points),
     tagIds: row.assessment_bank_question_tags.map((link) => link.tag_id),
-    usedInTemplates: row.assessment_template_questions[0]?.count ?? 0,
+    usedInPapers: row.paper_items[0]?.count ?? 0,
     createdAt: row.created_at,
   }
 }
@@ -66,19 +70,33 @@ export interface BankQuestionPatch {
 }
 
 /**
- * The admin assessment question bank — the ONLY store of admin questions
- * (decision 89). Filed under a sub-topic; a template is an ordered list of
- * references into it, so an edit here is an edit of every template that
- * holds the question. A teacher's clone copies the payload out, so nothing
- * here can reach an attempt.
+ * Every assessment question meant to be reused (decisions 89, 91), filed
+ * under a sub-topic. `organization_id` decides the owner: NULL = a platform
+ * item an admin authors for every center, set = one center's own item.
  *
- * Admin-only at every layer: RLS rejects every other role, so there is no
- * client-side role branch here.
+ * This store always works in the caller's OWN scope — platform for an admin,
+ * their center for staff — because those are the only items either of them
+ * may write. RLS enforces it; `ownerOrgId()` makes the reads match, since the
+ * admin policy is org-agnostic and would otherwise list every center's items
+ * alongside the platform's.
+ *
+ * A paper is an ordered list of references into these items, so an edit here
+ * is an edit of every paper holding the item. A published assessment holds a
+ * frozen snapshot instead, so nothing here can reach an attempt.
  */
 export const useAssessmentBankStore = defineStore('assessmentBank', () => {
   const questions = ref<BankQuestion[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+
+  /**
+   * The owner every read and write of this store is scoped to: NULL for an
+   * admin (the platform library), the caller's center for staff.
+   */
+  function ownerOrgId(): string | null {
+    const authStore = useAuthStore()
+    return authStore.isAdmin ? null : authStore.organizationId
+  }
 
   /** Questions filed under any of `subTopicIds` (a subject, a topic, or one sub-topic). */
   async function fetchQuestions(filters: {
@@ -94,10 +112,14 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
         return { error: null }
       }
 
+      const orgId = ownerOrgId()
       let query = supabase
         .from('assessment_bank_questions')
         .select(BANK_SELECT)
         .in('sub_topic_id', filters.subTopicIds)
+
+      query =
+        orgId === null ? query.is('organization_id', null) : query.eq('organization_id', orgId)
 
       if (filters.difficulty) query = query.eq('difficulty', filters.difficulty)
 
@@ -130,6 +152,7 @@ export const useAssessmentBankStore = defineStore('assessmentBank', () => {
           payload: input.payload as unknown as Json,
           difficulty: input.difficulty,
           sub_topic_id: input.subTopicId,
+          organization_id: ownerOrgId(),
           points: input.points ?? 1,
           created_by: authStore.user!.id,
         })
