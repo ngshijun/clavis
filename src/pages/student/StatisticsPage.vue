@@ -40,7 +40,7 @@ onMounted(async () => {
 // subject are no longer filters — the selected classroom fixes both (decision
 // 79) — so the cascade starts at topic.
 const topicFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.topic))
-const subTopicFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.subTopic))
+const stageFilter = computed(() => resolveFilterValue(practiceStore.historyFilters.stage))
 
 // Get available filter options, within the scoped grade + subject.
 const scopedGrade = computed(() => scope.active?.gradeLevelName)
@@ -48,8 +48,8 @@ const scopedSubject = computed(() => scope.active?.subjectName)
 const availableTopics = computed(() =>
   practiceStore.getHistoryTopics(scopedGrade.value, scopedSubject.value),
 )
-const availableSubTopics = computed(() =>
-  practiceStore.getHistorySubTopics(scopedGrade.value, scopedSubject.value, topicFilter.value),
+const availableStages = computed(() =>
+  practiceStore.getHistoryStages(scopedGrade.value, scopedSubject.value, topicFilter.value),
 )
 
 // Helper type for table row
@@ -59,7 +59,7 @@ interface HistoryRow {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   score: number | null
   totalQuestions: number
   correctAnswers: number
@@ -73,7 +73,7 @@ const historyData = computed<HistoryRow[]>(() => {
     scopedGrade.value,
     scopedSubject.value,
     topicFilter.value,
-    subTopicFilter.value,
+    stageFilter.value,
     practiceStore.historyFilters.dateRange,
   )
 
@@ -87,7 +87,7 @@ const historyData = computed<HistoryRow[]>(() => {
       gradeLevelName: session.gradeLevelName,
       subjectName: session.subjectName,
       topicName: session.topicName,
-      subTopicName: session.subTopicName,
+      stageName: session.stageName,
       score: computeScorePercent(correctAnswers, totalQuestions),
       totalQuestions,
       correctAnswers,
@@ -98,7 +98,7 @@ const historyData = computed<HistoryRow[]>(() => {
 })
 
 // Statistics computed values (only from completed sessions)
-const { averageScore, totalSessions, totalStudyTime, subTopicsPracticed } =
+const { averageScore, totalSessions, totalStudyTime, stagesPracticed } =
   useStatisticsSummary(historyData)
 
 const columns = computed(() => createPracticeHistoryColumns<HistoryRow>())
@@ -120,12 +120,12 @@ function handleRowClick(row: HistoryRow) {
       <StatisticsFilterBar
         :date-range="practiceStore.historyFilters.dateRange"
         :topic="practiceStore.historyFilters.topic"
-        :sub-topic="practiceStore.historyFilters.subTopic"
+        :stage="practiceStore.historyFilters.stage"
         :available-topics="availableTopics"
-        :available-sub-topics="availableSubTopics"
+        :available-stages="availableStages"
         @update:date-range="practiceStore.setHistoryDateRange($event)"
         @update:topic="practiceStore.setHistoryTopic($event)"
-        @update:sub-topic="practiceStore.setHistorySubTopic($event)"
+        @update:stage="practiceStore.setHistoryStage($event)"
       />
 
       <!-- Statistics Cards -->
@@ -133,7 +133,7 @@ function handleRowClick(row: HistoryRow) {
         :average-score="averageScore"
         :total-sessions="totalSessions"
         :total-study-time="totalStudyTime"
-        :sub-topics-practiced="subTopicsPracticed"
+        :stages-practiced="stagesPracticed"
       />
 
       <!-- Practice History Table -->

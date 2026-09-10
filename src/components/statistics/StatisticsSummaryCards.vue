@@ -10,7 +10,7 @@ defineProps<{
   averageScore: number
   totalSessions: number
   totalStudyTime: number
-  subTopicsPracticed: number
+  stagesPracticed: number
 }>()
 </script>
 
@@ -55,12 +55,12 @@ defineProps<{
     <Card>
       <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle class="text-sm font-medium">{{
-          t.shared.statsSummaryCards.subTopicsPracticed
+          t.shared.statsSummaryCards.stagesPracticed
         }}</CardTitle>
         <Layers class="size-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div class="text-3xl font-bold">{{ subTopicsPracticed }}</div>
+        <div class="text-3xl font-bold">{{ stagesPracticed }}</div>
       </CardContent>
     </Card>
   </div>

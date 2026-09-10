@@ -25,8 +25,8 @@ export interface StudentRollup {
   studentName: string
   username: string | null
   mapMastery: number | null
-  subTopicsAttempted: number
-  subTopicsCompleted: number
+  stagesAttempted: number
+  stagesCompleted: number
   lastPracticeAt: string | null
   assignedCount: number
   completedCount: number
@@ -79,8 +79,8 @@ function mapStudentRollup(row: StudentRollupRow): StudentRollup {
     studentName: row.student_name,
     username: row.username ?? null,
     mapMastery: row.map_mastery ?? null,
-    subTopicsAttempted: row.sub_topics_attempted,
-    subTopicsCompleted: row.sub_topics_completed,
+    stagesAttempted: row.stages_attempted,
+    stagesCompleted: row.stages_completed,
     lastPracticeAt: row.last_practice_at ?? null,
     assignedCount: row.assigned_count,
     completedCount: row.completed_count,

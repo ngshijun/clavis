@@ -41,9 +41,9 @@ import { useT } from '@/composables/useT'
 
 const props = defineProps<{
   open: boolean
-  /** Every imported question is created in this sub-topic (the one in view). */
-  subTopicId: string
-  subTopicName: string
+  /** Every imported question is created in this stage (the one in view). */
+  stageId: string
+  stageName: string
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -133,8 +133,8 @@ async function processFile() {
       return
     }
 
-    // Validate questions against the target sub-topic
-    validationResult.value = await validateQuestions(parseResult.value.questions, props.subTopicId)
+    // Validate questions against the target stage
+    validationResult.value = await validateQuestions(parseResult.value.questions, props.stageId)
     step.value = 'preview'
   } catch (error) {
     console.error('Error processing file:', error)
@@ -154,7 +154,7 @@ async function executeUpload() {
   try {
     uploadResult.value = await executeBulkUpload({
       questions: validationResult.value.valid,
-      subTopicId: props.subTopicId,
+      stageId: props.stageId,
       onProgress: (current) => {
         uploadProgress.value = current
       },
@@ -215,7 +215,7 @@ const progressPercent = computed(() => {
         <DialogTitle>{{ t.shared.questionBulkUploadDialog.title }}</DialogTitle>
         <DialogDescription>
           {{ t.shared.questionBulkUploadDialog.description }}
-          {{ t.shared.questionBulkUploadDialog.scopedNotice(subTopicName) }}
+          {{ t.shared.questionBulkUploadDialog.scopedNotice(stageName) }}
         </DialogDescription>
       </DialogHeader>
 

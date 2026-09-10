@@ -105,6 +105,7 @@ const handleAdd = handleSubmit(async (values) => {
       gradeLevelId: dialogGradeLevelId.value,
       subjectId: dialogSubjectId.value,
       topicId: dialogTopicId.value,
+      stageId: '',
       subTopicId: '',
     }
 
@@ -140,6 +141,8 @@ function getItemIdKey(): keyof CurriculumIds {
       return 'subjectId'
     case 'topic':
       return 'topicId'
+    case 'stage':
+      return 'stageId'
     case 'subtopic':
       return 'subTopicId'
     default:
@@ -214,7 +217,7 @@ function getItemIdKey(): keyof CurriculumIds {
           </Field>
         </VeeField>
 
-        <!-- Cover Image (for subject/topic/subtopic) -->
+        <!-- Cover Image (for subject/topic/stage) -->
         <div v-if="config.hasImage" class="space-y-2">
           <FieldLabel>{{ t.shared.curriculumAddDialog.coverImageLabel }}</FieldLabel>
           <div v-if="imagePreview" class="relative">

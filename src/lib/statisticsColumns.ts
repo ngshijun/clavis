@@ -29,7 +29,7 @@ export interface PracticeSessionRow {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   score: number | null
   totalQuestions: number
   correctAnswers: number
@@ -77,9 +77,9 @@ export function createPracticeHistoryColumns<T extends PracticeSessionRow>(): Co
       cell: ({ row }) => h('div', {}, row.original.topicName),
     },
     {
-      accessorKey: 'subTopicName',
-      header: headers.subTopic,
-      cell: ({ row }) => h('div', {}, row.original.subTopicName),
+      accessorKey: 'stageName',
+      header: headers.stage,
+      cell: ({ row }) => h('div', {}, row.original.stageName),
     },
     {
       accessorKey: 'score',

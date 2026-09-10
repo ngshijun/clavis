@@ -60,7 +60,7 @@ watch(
 const practiceColumns = computed(() => createPracticeHistoryColumns<StudentPracticeRow>())
 
 const practiceRows = computed(() => store.practiceSessions)
-const { averageScore, totalSessions, totalStudyTime, subTopicsPracticed } =
+const { averageScore, totalSessions, totalStudyTime, stagesPracticed } =
   useStatisticsSummary(practiceRows)
 
 function openAssessment(row: StudentAttemptRow) {
@@ -151,7 +151,7 @@ const attemptColumns = computed<ColumnDef<StudentAttemptRow>[]>(() => [
         :average-score="averageScore"
         :total-sessions="totalSessions"
         :total-study-time="totalStudyTime"
-        :sub-topics-practiced="subTopicsPracticed"
+        :stages-practiced="stagesPracticed"
       />
 
       <Card>

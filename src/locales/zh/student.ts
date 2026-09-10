@@ -22,10 +22,9 @@ export default {
     noClassroom: '尚未加入班级',
     noClassroomDesc: '练习内容依班级而定。补习中心将你加入班级后，相关课题会显示在这里。',
     topicCompleted: (completed: number, total: number) => `已完成 ${completed}/${total} 个课题`,
-    subTopicCompleted: (completed: number, total: number) =>
-      `已完成 ${completed}/${total} 个子课题`,
+    stageCompleted: (completed: number, total: number) => `已完成 ${completed}/${total} 个阶段`,
     noTopics: '此科目暂无可用课题。',
-    noSubTopics: '此课题暂无可用子课题。',
+    noStages: '此课题暂无可用阶段。',
     startingSession: '正在开始练习...',
   },
   learningMap: {

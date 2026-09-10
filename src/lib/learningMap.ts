@@ -1,6 +1,6 @@
 /**
  * Learning-map derivations (decision 19/20): stars and node states are
- * computed on the client from `student_sub_topic_stats` — never stored.
+ * computed on the client from `student_stage_stats` — never stored.
  * Thresholds can change here without a migration.
  */
 
@@ -21,8 +21,8 @@ export function starsForScore(bestScorePercent: number): StarCount {
   return 0
 }
 
-/** Per-student progress for one sub-topic (a `student_sub_topic_stats` row). */
-export interface SubTopicStats {
+/** Per-student progress for one stage (a `student_stage_stats` row). */
+export interface StageStats {
   bestScorePercent: number
   sessionsCompleted: number
   lastCompletedAt: string | null
@@ -35,7 +35,7 @@ export type NodeState = 'not-started' | 'in-progress' | 'completed'
  * in progress; ≥1★ = completed. States are display-only — every node is
  * always open, there is no gating.
  */
-export function nodeStateForStats(stats: SubTopicStats | null | undefined): NodeState {
+export function nodeStateForStats(stats: StageStats | null | undefined): NodeState {
   if (!stats) return 'not-started'
   return starsForScore(stats.bestScorePercent) >= 1 ? 'completed' : 'in-progress'
 }
@@ -52,7 +52,7 @@ export function recommendedNodeId<
   return orderedNodes.find((node) => node.stars < 1 && node.questionCount > 0)?.id ?? null
 }
 
-/** One sub-topic rendered as a stop on the learning map, in path order. */
+/** One stage rendered as a stop on the learning map, in path order. */
 export interface LearningMapNode {
   id: string
   name: string

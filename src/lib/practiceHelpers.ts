@@ -27,7 +27,7 @@ export interface PracticeQuestion {
   type: QuestionType
   question: string
   imagePath: string | null
-  subTopicId: string
+  stageId: string
   gradeLevelId: string | null
   subjectId: string | null
   options: PracticeQuestionOption[]
@@ -42,7 +42,7 @@ interface RawSessionQuestion {
   type: QuestionType
   question: string
   image_path: string | null
-  sub_topic_id: string
+  stage_id: string
   subject_id: string | null
   grade_level_id: string | null
   options: { number: number; text: string | null; image_path: string | null }[]
@@ -57,7 +57,7 @@ function parsePracticeQuestions(data: unknown): PracticeQuestion[] {
     type: entry.type,
     question: entry.question,
     imagePath: entry.image_path ?? null,
-    subTopicId: entry.sub_topic_id,
+    stageId: entry.stage_id,
     gradeLevelId: entry.grade_level_id ?? null,
     subjectId: entry.subject_id ?? null,
     options: (entry.options ?? [])
@@ -110,9 +110,9 @@ export interface PracticeSession {
   gradeLevelName: string
   subjectId: string | null
   subjectName: string
-  subTopicId: string
+  stageId: string
   topicName: string
-  subTopicName: string
+  stageName: string
   totalQuestions: number
   correctAnswers: number
   answerCount: number // Actual number of answered questions

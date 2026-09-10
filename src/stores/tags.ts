@@ -8,6 +8,13 @@ export interface Tag {
   name: string
   /** Number of questions carrying this tag (from the list embed). */
   questionCount: number
+  /**
+   * The topics this learning point applies to (P19a). A tag picker in the
+   * context of a topic offers only the tags linked to it, so a tag with no
+   * topics here is offered nowhere. The topic is the level practice and
+   * assessment share, so one scope serves both.
+   */
+  topicIds: string[]
   createdAt: string
 }
 
@@ -35,7 +42,7 @@ export const useTagsStore = defineStore('tags', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('tags')
-        .select('id, name, created_at, question_tags(count)')
+        .select('id, name, created_at, question_tags(count), tag_topics(topic_id)')
         .order('name')
 
       if (fetchError) throw fetchError
@@ -44,6 +51,7 @@ export const useTagsStore = defineStore('tags', () => {
         id: row.id,
         name: row.name,
         questionCount: (row.question_tags as { count: number }[])[0]?.count ?? 0,
+        topicIds: row.tag_topics.map((link) => link.topic_id),
         createdAt: row.created_at,
       }))
 
@@ -58,16 +66,29 @@ export const useTagsStore = defineStore('tags', () => {
   }
 
   /**
-   * Create a tag (name normalized to lower+trim before insert). If the
-   * normalized name already exists (unique violation), the existing tag is
-   * returned instead — "create" in the picker is always safe to retry.
+   * Create a tag (name normalized to lower+trim before insert), scoped to
+   * `topicIds` — a learning point nobody can pick is useless, so the scope is
+   * written with it. If the normalized name already exists (unique
+   * violation), the existing tag is returned instead and its scope widened to
+   * cover the requested topics: "create" in a picker is always safe to retry,
+   * and always yields a tag that picker can offer.
    */
-  async function createTag(name: string): Promise<{ tag: Tag | null; error: string | null }> {
+  async function createTag(
+    name: string,
+    topicIds: string[],
+  ): Promise<{ tag: Tag | null; error: string | null }> {
     const normalized = normalizeTagName(name)
     if (!normalized) return { tag: null, error: handleError(null, 'failedCreateTag') }
 
     const existing = tags.value.find((tag) => tag.name === normalized)
-    if (existing) return { tag: existing, error: null }
+    if (existing) {
+      const widened = [...new Set([...existing.topicIds, ...topicIds])]
+      if (widened.length > existing.topicIds.length) {
+        const { error: linkError } = await setTagTopics(existing.id, widened)
+        if (linkError) return { tag: null, error: linkError }
+      }
+      return { tag: existing, error: null }
+    }
 
     try {
       const { data, error: insertError } = await supabase
@@ -89,11 +110,16 @@ export const useTagsStore = defineStore('tags', () => {
             id: existingRow.id,
             name: existingRow.name,
             questionCount: 0,
+            topicIds: [],
             createdAt: existingRow.created_at,
           }
           tags.value = [...tags.value.filter((t) => t.id !== tag.id), tag].sort((a, b) =>
             a.name.localeCompare(b.name),
           )
+
+          const { error: linkError } = await setTagTopics(tag.id, topicIds)
+          if (linkError) return { tag: null, error: linkError }
+
           return { tag, error: null }
         }
         throw insertError
@@ -103,12 +129,53 @@ export const useTagsStore = defineStore('tags', () => {
         id: data.id,
         name: data.name,
         questionCount: 0,
+        topicIds: [],
         createdAt: data.created_at,
       }
       tags.value = [...tags.value, tag].sort((a, b) => a.name.localeCompare(b.name))
+
+      const { error: linkError } = await setTagTopics(tag.id, topicIds)
+      if (linkError) return { tag: null, error: linkError }
+
       return { tag, error: null }
     } catch (err) {
       return { tag: null, error: handleError(err, 'failedCreateTag') }
+    }
+  }
+
+  /**
+   * Replace a tag's topic scope with exactly `topicIds`. Written as a delete
+   * of what went and an insert of what came, so re-saving an unchanged scope
+   * is a no-op rather than a churn of rows.
+   */
+  async function setTagTopics(id: string, topicIds: string[]): Promise<{ error: string | null }> {
+    const tag = tags.value.find((candidate) => candidate.id === id)
+    const current = tag?.topicIds ?? []
+    const next = [...new Set(topicIds)]
+    const removed = current.filter((topicId) => !next.includes(topicId))
+    const added = next.filter((topicId) => !current.includes(topicId))
+
+    try {
+      if (removed.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('tag_topics')
+          .delete()
+          .eq('tag_id', id)
+          .in('topic_id', removed)
+        if (deleteError) throw deleteError
+      }
+
+      if (added.length > 0) {
+        const { error: insertError } = await supabase
+          .from('tag_topics')
+          .insert(added.map((topicId) => ({ tag_id: id, topic_id: topicId })))
+        if (insertError) throw insertError
+      }
+
+      if (tag) tag.topicIds = next
+      return { error: null }
+    } catch (err) {
+      return { error: handleError(err, 'failedUpdateTag') }
     }
   }
 
@@ -159,6 +226,7 @@ export const useTagsStore = defineStore('tags', () => {
     error,
     fetchTags,
     createTag,
+    setTagTopics,
     renameTag,
     deleteTag,
     $reset,

@@ -2,7 +2,17 @@
 import { ref, h, computed, onMounted } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useTagsStore, normalizeTagName, type Tag } from '@/stores/tags'
-import { Loader2, MoreHorizontal, Pencil, Plus, Search, Tags, Trash2 } from 'lucide-vue-next'
+import { useCurriculumStore } from '@/stores/curriculum'
+import {
+  AlertTriangle,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Tags,
+  Trash2,
+} from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +32,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import CurriculumMultiSelect, {
+  type CurriculumMultiSelectGroup,
+} from '@/components/shared/CurriculumMultiSelect.vue'
 import { toast } from 'vue-sonner'
 import { formatDate } from '@/lib/date'
 import { useT } from '@/composables/useT'
@@ -30,9 +43,14 @@ import { useT } from '@/composables/useT'
  * Admin management of the global learning-point tag library (decision 57).
  * Each tag names ONE learning point and is reused across questions; names
  * are stored normalized (lowercased + trimmed).
+ *
+ * A tag is also SCOPED to the topics it applies to (P19a): the topic is the
+ * level practice and assessment share, so one scope serves both pickers. A
+ * tag scoped to nothing is offered nowhere — the table flags those.
  */
 const t = useT()
 const tagsStore = useTagsStore()
+const curriculumStore = useCurriculumStore()
 
 const search = ref('')
 
@@ -41,13 +59,39 @@ const showDeleteDialog = ref(false)
 const editingTag = ref<Tag | null>(null)
 const selectedTag = ref<Tag | null>(null)
 const tagName = ref('')
+const tagTopicIds = ref<string[]>([])
 const formError = ref<string | null>(null)
 const isSaving = ref(false)
 const isDeleting = ref(false)
 
 onMounted(async () => {
-  const { error } = await tagsStore.fetchTags()
+  const [{ error }] = await Promise.all([
+    tagsStore.fetchTags(),
+    curriculumStore.gradeLevels.length === 0 ? curriculumStore.fetchCurriculum() : null,
+  ])
   if (error) toast.error(error)
+})
+
+/**
+ * Every topic in the curriculum, grouped by where it sits, so the picker
+ * reads "Year 4 · Mathematics" over its topics.
+ */
+const topicGroups = computed<CurriculumMultiSelectGroup[]>(() =>
+  curriculumStore.gradeLevels.flatMap((gradeLevel) =>
+    gradeLevel.subjects.map((subject) => ({
+      label: `${gradeLevel.name} · ${subject.name}`,
+      items: subject.topics.map((topic) => ({ id: topic.id, name: topic.name })),
+    })),
+  ),
+)
+
+/** Topic id → its name, for the table's scope column. */
+const topicNames = computed(() => {
+  const names = new Map<string, string>()
+  for (const group of topicGroups.value) {
+    for (const topic of group.items) names.set(topic.id, topic.name)
+  }
+  return names
 })
 
 const filteredTags = computed(() => {
@@ -59,13 +103,15 @@ const filteredTags = computed(() => {
 function openCreate() {
   editingTag.value = null
   tagName.value = ''
+  tagTopicIds.value = []
   formError.value = null
   showFormDialog.value = true
 }
 
-function openRename(tag: Tag) {
+function openEdit(tag: Tag) {
   editingTag.value = tag
   tagName.value = tag.name
+  tagTopicIds.value = [...tag.topicIds]
   formError.value = null
   showFormDialog.value = true
 }
@@ -88,6 +134,10 @@ async function handleSave() {
     formError.value = t.value.admin.tags.validationDuplicate
     return
   }
+  if (tagTopicIds.value.length === 0) {
+    formError.value = t.value.admin.tags.validationTopics
+    return
+  }
   formError.value = null
 
   isSaving.value = true
@@ -98,9 +148,17 @@ async function handleSave() {
         toast.error(error)
         return
       }
-      toast.success(t.value.admin.tags.toastRenamed)
+      const { error: scopeError } = await tagsStore.setTagTopics(
+        editingTag.value.id,
+        tagTopicIds.value,
+      )
+      if (scopeError) {
+        toast.error(scopeError)
+        return
+      }
+      toast.success(t.value.admin.tags.toastSaved)
     } else {
-      const { error } = await tagsStore.createTag(normalized)
+      const { error } = await tagsStore.createTag(normalized, tagTopicIds.value)
       if (error) {
         toast.error(error)
         return
@@ -136,6 +194,26 @@ const columns = computed<ColumnDef<Tag>[]>(() => [
     accessorKey: 'name',
     header: () => t.value.admin.tags.nameCol,
     cell: ({ row }) => h(Badge, { variant: 'secondary' }, () => row.original.name),
+  },
+  {
+    id: 'topics',
+    header: () => t.value.admin.tags.topicsCol,
+    cell: ({ row }) => {
+      const ids = row.original.topicIds
+      if (ids.length === 0) {
+        return h('div', { class: 'flex items-center gap-1.5 text-sm text-destructive' }, [
+          h(AlertTriangle, { class: 'size-4 shrink-0' }),
+          t.value.admin.tags.noTopicsWarning,
+        ])
+      }
+      return h(
+        'div',
+        { class: 'flex flex-wrap gap-1' },
+        ids.map((id) =>
+          h(Badge, { key: id, variant: 'outline' }, () => topicNames.value.get(id) ?? id),
+        ),
+      )
+    },
   },
   {
     accessorKey: 'questionCount',
@@ -174,10 +252,10 @@ const columns = computed<ColumnDef<Tag>[]>(() => [
                 {
                   onClick: (event: Event) => {
                     event.stopPropagation()
-                    openRename(tag)
+                    openEdit(tag)
                   },
                 },
-                () => [h(Pencil, { class: 'mr-2 size-4' }), t.value.admin.tags.rename],
+                () => [h(Pencil, { class: 'mr-2 size-4' }), t.value.admin.tags.edit],
               ),
               h(
                 DropdownMenuItem,
@@ -235,15 +313,15 @@ const columns = computed<ColumnDef<Tag>[]>(() => [
       <DataTable v-else :columns="columns" :data="filteredTags" />
     </template>
 
-    <!-- Create / Rename dialog -->
+    <!-- Create / edit dialog -->
     <Dialog v-model:open="showFormDialog">
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{{
-            editingTag ? t.admin.tags.renameTitle : t.admin.tags.createTitle
+            editingTag ? t.admin.tags.editTitle : t.admin.tags.createTitle
           }}</DialogTitle>
           <DialogDescription>{{
-            editingTag ? t.admin.tags.renameDesc : t.admin.tags.createDesc
+            editingTag ? t.admin.tags.editDesc : t.admin.tags.createDesc
           }}</DialogDescription>
         </DialogHeader>
 
@@ -260,8 +338,22 @@ const columns = computed<ColumnDef<Tag>[]>(() => [
               :aria-invalid="!!formError"
             />
             <FieldDescription>{{ t.admin.tags.nameHint }}</FieldDescription>
-            <FieldError :errors="formError ? [formError] : []" />
           </Field>
+
+          <Field>
+            <FieldLabel
+              >{{ t.admin.tags.topicsLabel }} <span class="text-destructive">*</span></FieldLabel
+            >
+            <CurriculumMultiSelect
+              v-model="tagTopicIds"
+              :groups="topicGroups"
+              :disabled="isSaving"
+              :add-label="t.admin.tags.addTopic"
+            />
+            <FieldDescription>{{ t.admin.tags.topicsHint }}</FieldDescription>
+          </Field>
+
+          <FieldError :errors="formError ? [formError] : []" />
 
           <DialogFooter>
             <Button

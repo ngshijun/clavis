@@ -41,7 +41,7 @@ export interface Question {
   type: QuestionType
   question: string
   imagePath: string | null
-  subTopicId: string
+  stageId: string
   gradeLevelId: string | null
   subjectId: string | null
   answer: string | null // For short_answer type
@@ -55,7 +55,7 @@ export interface Question {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
 }
 
 /**
@@ -67,15 +67,15 @@ export interface BankQuestionSummary {
   id: string
   type: QuestionType
   question: string
-  subTopicId: string
-  subTopicName: string
+  stageId: string
+  stageName: string
 }
 
 export interface CreateQuestionInput {
   type: QuestionType
   question: string
   imagePath?: string | null
-  subTopicId: string
+  stageId: string
   gradeLevelId?: string | null
   subjectId?: string | null
   answer?: string | null
@@ -132,18 +132,18 @@ export function rowToQuestion(
     },
   ]
 
-  // Get names from curriculum store using sub_topic hierarchy
+  // Get names from curriculum store using stage hierarchy
   let gradeLevelName = ''
   let subjectName = ''
   let topicName = ''
-  let subTopicName = ''
+  let stageName = ''
 
-  const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)
+  const hierarchy = curriculumStore.getStageWithHierarchy(row.stage_id)
   if (hierarchy) {
     gradeLevelName = hierarchy.gradeLevel.name
     subjectName = hierarchy.subject.name
     topicName = hierarchy.topic.name
-    subTopicName = hierarchy.subTopic.name
+    stageName = hierarchy.stage.name
   }
 
   return {
@@ -151,7 +151,7 @@ export function rowToQuestion(
     type: row.type,
     question: row.question,
     imagePath: row.image_path,
-    subTopicId: row.sub_topic_id,
+    stageId: row.stage_id,
     gradeLevelId: row.grade_level_id,
     subjectId: row.subject_id,
     answer: row.answer,
@@ -166,7 +166,7 @@ export function rowToQuestion(
     gradeLevelName,
     subjectName,
     topicName,
-    subTopicName,
+    stageName,
   }
 }
 
@@ -227,18 +227,18 @@ export const useQuestionsStore = defineStore('questions', () => {
   const bankSummaries = ref<BankQuestionSummary[]>([])
 
   /**
-   * Resolve a selected name-path to the exact set of sub_topic IDs by walking
+   * Resolve a selected name-path to the exact set of stage IDs by walking
    * the curriculum hierarchy. A level set to `undefined` means "ALL" (no
    * constraint at that level). Crucially, a child name only matches WITHIN
-   * branches whose selected ancestors also match — so a sub-topic/topic/subject
+   * branches whose selected ancestors also match — so a stage/topic/subject
    * name shared across different parents (e.g. "Addition" under multiple topics,
    * or "Math" under P1 and P2) is NOT conflated across unrelated branches.
    */
-  function resolveSubTopicIdsForPath(
+  function resolveStageIdsForPath(
     gradeLevel: string | undefined,
     subject: string | undefined,
     topic: string | undefined,
-    subTopic: string | undefined,
+    stage: string | undefined,
   ): string[] {
     const ids: string[] = []
     for (const gl of curriculumStore.gradeLevels) {
@@ -247,8 +247,8 @@ export const useQuestionsStore = defineStore('questions', () => {
         if (subject && sub.name !== subject) continue
         for (const t of sub.topics) {
           if (topic && t.name !== topic) continue
-          for (const st of t.subTopics) {
-            if (subTopic && st.name !== subTopic) continue
+          for (const st of t.stages) {
+            if (stage && st.name !== stage) continue
             ids.push(st.id)
           }
         }
@@ -258,13 +258,13 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * ADMIN ONLY — the authoring panel's questions for one sub-topic, keys and
+   * ADMIN ONLY — the authoring panel's questions for one stage, keys and
    * tips included. `get_bank_questions` is the only read path left: the key
    * columns are revoked from `authenticated` (P11a/decision 76), so a direct
    * table read of `*` fails with 42501 for every role, admins included.
    */
-  async function fetchBankQuestionsBySubTopic(
-    subTopicId: string,
+  async function fetchBankQuestionsByStage(
+    stageId: string,
   ): Promise<{ questions: Question[]; error: string | null }> {
     try {
       // Ensure curriculum is loaded
@@ -273,7 +273,7 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
 
       const { data, error: fetchError } = await supabase
-        .rpc('get_bank_questions', { p_sub_topic_id: subTopicId })
+        .rpc('get_bank_questions', { p_stage_id: stageId })
         .select(QUESTION_WITH_TAGS_SELECT)
         .order('created_at', { ascending: false })
 
@@ -304,14 +304,14 @@ export const useQuestionsStore = defineStore('questions', () => {
       }
 
       const BATCH_SIZE = 1000
-      const rows: { id: string; type: QuestionType; question: string; sub_topic_id: string }[] = []
+      const rows: { id: string; type: QuestionType; question: string; stage_id: string }[] = []
       let from = 0
       let hasMore = true
 
       while (hasMore) {
         const { data, error: fetchError } = await supabase
           .from('questions')
-          .select('id, type, question, sub_topic_id')
+          .select('id, type, question, stage_id')
           .order('created_at', { ascending: false })
           .range(from, from + BATCH_SIZE - 1)
 
@@ -325,9 +325,8 @@ export const useQuestionsStore = defineStore('questions', () => {
         id: row.id,
         type: row.type,
         question: row.question,
-        subTopicId: row.sub_topic_id,
-        subTopicName:
-          curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)?.subTopic.name ?? '',
+        stageId: row.stage_id,
+        stageName: curriculumStore.getStageWithHierarchy(row.stage_id)?.stage.name ?? '',
       }))
 
       return { error: null }
@@ -371,8 +370,8 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   /**
-   * Add a new question. The caller owns list refreshes (the per-sub-topic
-   * question panel refetches its own sub-topic after a successful write).
+   * Add a new question. The caller owns list refreshes (the per-stage
+   * question panel refetches its own stage after a successful write).
    */
   async function addQuestion(
     input: CreateQuestionInput,
@@ -382,7 +381,7 @@ export const useQuestionsStore = defineStore('questions', () => {
         type: input.type,
         question: input.question,
         image_path: input.imagePath ?? null,
-        sub_topic_id: input.subTopicId,
+        stage_id: input.stageId,
         grade_level_id: input.gradeLevelId ?? null,
         subject_id: input.subjectId ?? null,
         answer: input.type === 'short_answer' ? (input.answer ?? null) : null,
@@ -528,43 +527,39 @@ export const useQuestionsStore = defineStore('questions', () => {
     return [...new Set(topics)]
   }
 
-  function getSubTopics(
-    gradeLevelName?: string,
-    subjectName?: string,
-    topicName?: string,
-  ): string[] {
-    const subTopics: string[] = []
+  function getStages(gradeLevelName?: string, subjectName?: string, topicName?: string): string[] {
+    const stages: string[] = []
     for (const gl of curriculumStore.gradeLevels) {
       if (gradeLevelName && gl.name !== gradeLevelName) continue
       for (const sub of gl.subjects) {
         if (subjectName && sub.name !== subjectName) continue
         for (const t of sub.topics) {
           if (topicName && t.name !== topicName) continue
-          for (const st of t.subTopics) {
-            subTopics.push(st.name)
+          for (const st of t.stages) {
+            stages.push(st.name)
           }
         }
       }
     }
-    return [...new Set(subTopics)]
+    return [...new Set(stages)]
   }
 
   /**
-   * Build the set of sub_topic IDs matching a selected name-path, scoped
+   * Build the set of stage IDs matching a selected name-path, scoped
    * hierarchically. Returns null when no level is constrained (match all).
-   * Filtering by sub_topic ID (rather than independent name equality at each
+   * Filtering by stage ID (rather than independent name equality at each
    * level) prevents questions from same-named branches under different parents
-   * from being conflated — each question's subTopicId belongs to exactly one
+   * from being conflated — each question's stageId belongs to exactly one
    * branch.
    */
-  function resolveFilterSubTopicIdSet(
+  function resolveFilterStageIdSet(
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
-    subTopicName?: string,
+    stageName?: string,
   ): Set<string> | null {
-    if (!gradeLevelName && !subjectName && !topicName && !subTopicName) return null
-    return new Set(resolveSubTopicIdsForPath(gradeLevelName, subjectName, topicName, subTopicName))
+    if (!gradeLevelName && !subjectName && !topicName && !stageName) return null
+    return new Set(resolveStageIdsForPath(gradeLevelName, subjectName, topicName, stageName))
   }
 
   /** Staff bank picker: the same name-path filtering over the key-free list. */
@@ -572,11 +567,11 @@ export const useQuestionsStore = defineStore('questions', () => {
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
-    subTopicName?: string,
+    stageName?: string,
   ): BankQuestionSummary[] {
-    const idSet = resolveFilterSubTopicIdSet(gradeLevelName, subjectName, topicName, subTopicName)
+    const idSet = resolveFilterStageIdSet(gradeLevelName, subjectName, topicName, stageName)
     if (idSet === null) return bankSummaries.value
-    return bankSummaries.value.filter((q) => idSet.has(q.subTopicId))
+    return bankSummaries.value.filter((q) => idSet.has(q.stageId))
   }
 
   function $reset() {
@@ -592,7 +587,7 @@ export const useQuestionsStore = defineStore('questions', () => {
     error,
 
     // Actions
-    fetchBankQuestionsBySubTopic,
+    fetchBankQuestionsByStage,
     fetchBankSummaries,
     addQuestion,
     updateQuestion,
@@ -607,7 +602,7 @@ export const useQuestionsStore = defineStore('questions', () => {
     getGradeLevels,
     getSubjects,
     getTopics,
-    getSubTopics,
+    getStages,
     getFilteredBankSummaries,
 
     $reset,

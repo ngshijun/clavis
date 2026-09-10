@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useQuestionsStore, type Question, type UpdateQuestionInput } from '@/stores/questions'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useQuestionForm } from '@/composables/useQuestionForm'
@@ -37,13 +37,15 @@ import { useT } from '@/composables/useT'
 const props = defineProps<{
   /** `null` = new-question draft (not yet persisted). */
   question: Question | null
-  subTopicId: string
+  stageId: string
   index: number
   expanded: boolean
+  /** Collapsed row highlight: the question open in the panel's editor pane. */
+  selected?: boolean
 }>()
 
 const emit = defineEmits<{
-  /** Request to expand this card (the panel collapses the previous one). */
+  /** Request to open this question in the editor pane. */
   select: []
   /** A VALID state for a persisted question — enqueue for autosave. */
   change: [id: string, input: UpdateQuestionInput, baseline: UpdateQuestionInput]
@@ -335,15 +337,18 @@ function maybePersist() {
   emit('change', savedId.value, input, baseline ?? input)
 }
 
+/** Learning points are scoped to the topic (P19a), which the stage sits under. */
+const topicId = computed(() => curriculumStore.getStageWithHierarchy(props.stageId)?.topic.id ?? '')
+
 async function createQuestion(input: UpdateQuestionInput) {
   isCreating.value = true
   try {
-    const hierarchy = curriculumStore.getSubTopicWithHierarchy(props.subTopicId)
+    const hierarchy = curriculumStore.getStageWithHierarchy(props.stageId)
     const result = await questionsStore.addQuestion({
       type: input.type!,
       question: input.question!,
       imagePath: input.imagePath ?? null,
-      subTopicId: props.subTopicId,
+      stageId: props.stageId,
       gradeLevelId: hierarchy?.gradeLevel.id ?? null,
       subjectId: hierarchy?.subject.id ?? null,
       answer: input.answer ?? null,
@@ -369,7 +374,13 @@ async function createQuestion(input: UpdateQuestionInput) {
 <template>
   <div
     class="rounded-lg border bg-card transition-shadow"
-    :class="expanded ? 'border-l-4 border-l-primary shadow-md' : 'hover:border-primary/40'"
+    :class="
+      expanded
+        ? 'border-l-4 border-l-primary shadow-md'
+        : selected
+          ? 'border-l-4 border-l-primary'
+          : 'hover:border-primary/40'
+    "
   >
     <!-- Collapsed: compact one-line preview -->
     <button
@@ -398,11 +409,15 @@ async function createQuestion(input: UpdateQuestionInput) {
 
     <!-- Expanded: the full editor, autosaved in the background -->
     <div v-else class="space-y-4 p-4">
-      <QuestionFormFields :form="form" :option-image-url-getter="form.getOptionImageUrl" />
+      <QuestionFormFields
+        :form="form"
+        :topic-id="topicId"
+        :option-image-url-getter="form.getOptionImageUrl"
+      />
 
       <!-- Invalid drafts are simply not saved yet — no blocking dialog -->
       <p v-if="showNotSaved" class="text-sm text-destructive" role="alert">
-        {{ t.admin.subTopicQuestions.notSavedHint }}
+        {{ t.admin.stageQuestions.notSavedHint }}
       </p>
 
       <Separator />
@@ -418,13 +433,13 @@ async function createQuestion(input: UpdateQuestionInput) {
           variant="ghost"
           size="icon"
           class="size-8 text-destructive hover:text-destructive"
-          :aria-label="t.admin.subTopicQuestions.delete"
+          :aria-label="t.admin.stageQuestions.delete"
           @click="emit('remove')"
         >
           <Trash2 class="size-4" />
         </Button>
         <Button v-else variant="ghost" size="sm" @click="emit('remove')">
-          {{ t.admin.subTopicQuestions.discardDraft }}
+          {{ t.admin.stageQuestions.discardDraft }}
         </Button>
       </div>
     </div>

@@ -17,7 +17,7 @@ export interface ParsedQuestion {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   question: string
   questionImage: ParsedQuestionImage | null
   optionA: string | null
@@ -107,7 +107,7 @@ const HELPER_CONFIG = {
   COLUMNS: {
     SUBJECTS: 18, // R - INDIRECT formula for subjects based on grade
     TOPICS: 19, // S - INDIRECT formula for topics based on grade+subject
-    SUBTOPICS: 20, // T - INDIRECT formula for sub-topics based on grade+subject+topic
+    STAGES: 20, // T - INDIRECT formula for stages based on grade+subject+topic
   },
 }
 
@@ -123,9 +123,9 @@ function calculateMaxDropdownSize(gradeLevels: GradeLevel[]): number {
     for (const subject of grade.subjects) {
       maxSize = Math.max(maxSize, subject.topics.length)
 
-      // Check max sub-topics per topic
+      // Check max stages per topic
       for (const topic of subject.topics) {
-        maxSize = Math.max(maxSize, topic.subTopics.length)
+        maxSize = Math.max(maxSize, topic.stages.length)
       }
     }
   }
@@ -149,7 +149,7 @@ function setupQuestionsSheet(sheet: ExcelJS.Worksheet) {
     { header: 'Grade Level*', key: 'gradeLevel', width: 15 },
     { header: 'Subject*', key: 'subject', width: 20 },
     { header: 'Topic*', key: 'topic', width: 25 },
-    { header: 'Sub-Topic*', key: 'subTopic', width: 25 },
+    { header: 'Stage*', key: 'stage', width: 25 },
     { header: 'Question Text*', key: 'question', width: 40 },
     { header: 'Question Image', key: 'questionImage', width: 18 },
     { header: 'Option A', key: 'optionA', width: 25 },
@@ -165,7 +165,7 @@ function setupQuestionsSheet(sheet: ExcelJS.Worksheet) {
     // Hidden helper columns for INDIRECT formulas (Google Sheets compatibility)
     { header: '_Subjects', key: '_subjects', width: 15, hidden: true },
     { header: '_Topics', key: '_topics', width: 15, hidden: true },
-    { header: '_SubTopics', key: '_subtopics', width: 15, hidden: true },
+    { header: '_Stages', key: '_stages', width: 15, hidden: true },
   ]
 
   // Style header row
@@ -233,7 +233,7 @@ function setupQuestionsSheet(sheet: ExcelJS.Worksheet) {
   // Hide helper columns (R, S, T)
   sheet.getColumn(HELPER_CONFIG.COLUMNS.SUBJECTS).hidden = true
   sheet.getColumn(HELPER_CONFIG.COLUMNS.TOPICS).hidden = true
-  sheet.getColumn(HELPER_CONFIG.COLUMNS.SUBTOPICS).hidden = true
+  sheet.getColumn(HELPER_CONFIG.COLUMNS.STAGES).hidden = true
 
   // Freeze header row
   sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
@@ -261,7 +261,7 @@ function setupDropdownDataSheet(sheet: ExcelJS.Worksheet, gradeLevels: GradeLeve
   // Column A: Grade Levels list
   // Columns B onwards: Subject lists per grade level
   // After subjects: Topic lists per grade+subject (compound naming)
-  // After topics: Sub-Topic lists per grade+subject+topic (compound naming)
+  // After topics: Stage lists per grade+subject+topic (compound naming)
 
   // Write grade levels in column A
   sheet.getCell('A1').value = 'GradeLevels'
@@ -336,8 +336,8 @@ function setupDropdownDataSheet(sheet: ExcelJS.Worksheet, gradeLevels: GradeLeve
     }
   }
 
-  // For each grade+subject+topic, create a column for its sub-topics
-  // Named range: {gradeName}_{subjectName}_{topicName} -> list of sub-topics
+  // For each grade+subject+topic, create a column for its stages
+  // Named range: {gradeName}_{subjectName}_{topicName} -> list of stages
   for (const grade of gradeLevels) {
     const gradeSafeName = sanitizeName(grade.name)
     for (const subject of grade.subjects) {
@@ -348,18 +348,17 @@ function setupDropdownDataSheet(sheet: ExcelJS.Worksheet, gradeLevels: GradeLeve
         const compoundName = `${gradeSafeName}_${subjectSafeName}_${topicSafeName}`
 
         // Header for reference
-        sheet.getCell(`${colLetter}1`).value =
-          `${grade.name}_${subject.name}_${topic.name}_SubTopics`
+        sheet.getCell(`${colLetter}1`).value = `${grade.name}_${subject.name}_${topic.name}_Stages`
         sheet.getCell(`${colLetter}1`).font = { bold: true }
 
-        // Write sub-topics
-        topic.subTopics.forEach((subTopic, idx) => {
-          sheet.getCell(`${colLetter}${idx + 2}`).value = subTopic.name
+        // Write stages
+        topic.stages.forEach((stage, idx) => {
+          sheet.getCell(`${colLetter}${idx + 2}`).value = stage.name
         })
 
-        // Define named range: {gradeName}_{subjectName}_{topicName} -> sub-topics
-        if (topic.subTopics.length > 0) {
-          const endRow = topic.subTopics.length + 1
+        // Define named range: {gradeName}_{subjectName}_{topicName} -> stages
+        if (topic.stages.length > 0) {
+          const endRow = topic.stages.length + 1
           sheet.workbook.definedNames.add(
             `'DropdownData'!$${colLetter}$2:$${colLetter}$${endRow}`,
             compoundName,
@@ -425,8 +424,8 @@ function applyCascadingValidations(sheet: ExcelJS.Worksheet, gradeLevels: GradeL
       formula: `IFERROR(INDIRECT(SUBSTITUTE($B$${dataRow}&"_"&$C$${dataRow}," ","_")),"")`,
     }
 
-    // Helper column T: INDIRECT formula for sub-topics based on grade+subject+topic
-    // Named range format: {gradeName}_{subjectName}_{topicName} (e.g., "P1_Math_Numbers" -> list of sub-topics)
+    // Helper column T: INDIRECT formula for stages based on grade+subject+topic
+    // Named range format: {gradeName}_{subjectName}_{topicName} (e.g., "P1_Math_Numbers" -> list of stages)
     sheet.getCell(`T${helperRow}`).value = {
       formula: `IFERROR(INDIRECT(SUBSTITUTE($B$${dataRow}&"_"&$C$${dataRow}&"_"&$D$${dataRow}," ","_")),"")`,
     }
@@ -452,14 +451,14 @@ function applyCascadingValidations(sheet: ExcelJS.Worksheet, gradeLevels: GradeL
       error: 'Please select a valid topic for the chosen subject',
     }
 
-    // Column E: Sub-Topic dropdown - references helper area for this row's sub-topics
+    // Column E: Stage dropdown - references helper area for this row's stages
     sheet.getCell(`E${dataRow}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`$T$${helperRow}:$T$${helperEndRow}`],
       showErrorMessage: true,
-      errorTitle: 'Invalid Sub-Topic',
-      error: 'Please select a valid sub-topic for the chosen topic',
+      errorTitle: 'Invalid Stage',
+      error: 'Please select a valid stage for the chosen topic',
     }
 
     // Column P: Correct Answer - no dropdown to allow free text input for short_answer questions
@@ -475,9 +474,7 @@ function setupInstructionsSheet(sheet: ExcelJS.Worksheet) {
     [''],
     ['HOW TO USE THIS TEMPLATE:'],
     ['1. Fill in your questions in the "Questions" sheet'],
-    [
-      '2. Use cascading dropdowns: Select Grade Level first, then Subject, then Topic, then Sub-Topic',
-    ],
+    ['2. Use cascading dropdowns: Select Grade Level first, then Subject, then Topic, then Stage'],
     ['3. Save the file and upload it to the system'],
     [''],
     ['CASCADING DROPDOWNS:'],
@@ -485,9 +482,9 @@ function setupInstructionsSheet(sheet: ExcelJS.Worksheet) {
     ['  1. Select a Grade Level from the dropdown'],
     ['  2. The Subject dropdown will show only subjects for that grade'],
     ['  3. The Topic dropdown will show only topics for that subject'],
-    ['  4. The Sub-Topic dropdown will show only sub-topics for that topic'],
+    ['  4. The Stage dropdown will show only stages for that topic'],
     [
-      '  Note: You must select Grade Level before Subject, Subject before Topic, and Topic before Sub-Topic',
+      '  Note: You must select Grade Level before Subject, Subject before Topic, and Topic before Stage',
     ],
     [''],
     ['COLUMN DESCRIPTIONS:'],
@@ -508,7 +505,7 @@ function setupInstructionsSheet(sheet: ExcelJS.Worksheet) {
     ['  - Select from the dropdown (depends on Subject selection)'],
     ['  - Must select Subject first'],
     [''],
-    ['Sub-Topic* (Required)'],
+    ['Stage* (Required)'],
     ['  - Select from the dropdown (depends on Topic selection)'],
     ['  - Must select Topic first'],
     [''],
@@ -604,7 +601,7 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
     const gradeLevel = getCellValue(row.getCell(COLUMNS.GRADE_LEVEL))
     const subject = getCellValue(row.getCell(COLUMNS.SUBJECT))
     const topic = getCellValue(row.getCell(COLUMNS.TOPIC))
-    const subTopic = getCellValue(row.getCell(COLUMNS.SUB_TOPIC))
+    const stage = getCellValue(row.getCell(COLUMNS.SUB_TOPIC))
     const questionText = getCellValue(row.getCell(COLUMNS.QUESTION_TEXT))
     const optionA = getCellValue(row.getCell(COLUMNS.OPTION_A)) || null
     const optionB = getCellValue(row.getCell(COLUMNS.OPTION_B)) || null
@@ -613,7 +610,7 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
     const correctAnswer = getCellValue(row.getCell(COLUMNS.CORRECT_ANSWER))
 
     // Skip empty rows
-    if (!type && !gradeLevel && !subject && !topic && !subTopic && !questionText) return
+    if (!type && !gradeLevel && !subject && !topic && !stage && !questionText) return
 
     // Detect cells where Excel auto-converted text to dates (e.g. "2/5" -> Date)
     const dateCheckColumns = [
@@ -660,8 +657,8 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
     if (!topic) {
       rowErrors.push({ row: rowNumber, column: 'D', message: 'Topic is required' })
     }
-    if (!subTopic) {
-      rowErrors.push({ row: rowNumber, column: 'E', message: 'Sub-Topic is required' })
+    if (!stage) {
+      rowErrors.push({ row: rowNumber, column: 'E', message: 'Stage is required' })
     }
     if (!questionText) {
       rowErrors.push({ row: rowNumber, column: 'F', message: 'Question Text is required' })
@@ -797,7 +794,7 @@ export async function parseQuestionExcel(file: File): Promise<ParseResult> {
         gradeLevelName: gradeLevel,
         subjectName: subject,
         topicName: topic,
-        subTopicName: subTopic,
+        stageName: stage,
         question: questionText,
         questionImage: imageMap.get(`${rowNumber}-${imageColumns.questionImage}`) || null,
         optionA,

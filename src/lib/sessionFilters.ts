@@ -3,7 +3,7 @@
  *
  * These pure functions operate on any session type that implements
  * FilterableSession, eliminating duplication across stores that
- * all share the same grade→subject→topic→subtopic cascading filter pattern.
+ * all share the same grade→subject→topic→stage cascading filter pattern.
  */
 
 import { toMYTDateString, mytDateToUTCDate, utcDateToString } from '@/lib/date'
@@ -15,7 +15,7 @@ export interface FilterableSession {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   completedAt: string | null
 }
 
@@ -23,7 +23,7 @@ export interface SessionFilterParams {
   gradeLevelName?: string
   subjectName?: string
   topicName?: string
-  subTopicName?: string
+  stageName?: string
   dateRange?: DateRangeFilter
 }
 
@@ -57,7 +57,7 @@ function subtractMYTDays(mytDateStr: string, days: number): string {
 }
 
 /**
- * Filter sessions by cascading criteria (grade, subject, topic, subtopic, date range).
+ * Filter sessions by cascading criteria (grade, subject, topic, stage, date range).
  * In-progress sessions (completedAt === null) are always included regardless of date filter.
  */
 export function filterSessions<T extends FilterableSession>(
@@ -70,7 +70,7 @@ export function filterSessions<T extends FilterableSession>(
     if (filters.gradeLevelName && s.gradeLevelName !== filters.gradeLevelName) return false
     if (filters.subjectName && s.subjectName !== filters.subjectName) return false
     if (filters.topicName && s.topicName !== filters.topicName) return false
-    if (filters.subTopicName && s.subTopicName !== filters.subTopicName) return false
+    if (filters.stageName && s.stageName !== filters.stageName) return false
     // Date filter applies to completedAt; in-progress sessions always shown.
     // Compare MYT calendar dates (string compare is valid for YYYY-MM-DD).
     if (dateRangeStart && s.completedAt) {
@@ -113,8 +113,8 @@ export function getUniqueTopics<T extends FilterableSession>(
   return Array.from(new Set(filtered.map((s) => s.topicName))).sort()
 }
 
-/** Get unique subtopics, optionally filtered by grade level, subject, and topic */
-export function getUniqueSubTopics<T extends FilterableSession>(
+/** Get unique stages, optionally filtered by grade level, subject, and topic */
+export function getUniqueStages<T extends FilterableSession>(
   sessions: T[],
   gradeLevelName?: string,
   subjectName?: string,
@@ -130,7 +130,7 @@ export function getUniqueSubTopics<T extends FilterableSession>(
   if (topicName) {
     filtered = filtered.filter((s) => s.topicName === topicName)
   }
-  return Array.from(new Set(filtered.map((s) => s.subTopicName))).sort()
+  return Array.from(new Set(filtered.map((s) => s.stageName))).sort()
 }
 
 /**
@@ -146,7 +146,7 @@ export function createSessionLookupMethods<T extends FilterableSession>(
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
-    subTopicName?: string,
+    stageName?: string,
     dateRange?: DateRangeFilter,
   ): T[] {
     const sessions = getSessionsForId(id)
@@ -155,7 +155,7 @@ export function createSessionLookupMethods<T extends FilterableSession>(
       gradeLevelName,
       subjectName,
       topicName,
-      subTopicName,
+      stageName,
       dateRange,
     })
   }
@@ -178,7 +178,7 @@ export function createSessionLookupMethods<T extends FilterableSession>(
     return getUniqueTopics(sessions, gradeLevelName, subjectName)
   }
 
-  function getSubTopics(
+  function getStages(
     id: string,
     gradeLevelName?: string,
     subjectName?: string,
@@ -186,8 +186,8 @@ export function createSessionLookupMethods<T extends FilterableSession>(
   ): string[] {
     const sessions = getSessionsForId(id)
     if (!sessions) return []
-    return getUniqueSubTopics(sessions, gradeLevelName, subjectName, topicName)
+    return getUniqueStages(sessions, gradeLevelName, subjectName, topicName)
   }
 
-  return { getFilteredSessions, getGradeLevels, getSubjects, getTopics, getSubTopics }
+  return { getFilteredSessions, getGradeLevels, getSubjects, getTopics, getStages }
 }
