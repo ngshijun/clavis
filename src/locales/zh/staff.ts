@@ -186,6 +186,7 @@ export default {
     centerOwner: '本中心试卷',
     noPapers: '暂无试卷',
     noPapersDesc: '创建第一份试卷，或从题库生成一份。',
+    noPapersForClassDesc: '还没有涵盖本班教学内容的试卷。创建一份，或从题库生成一份。',
     noPapersMatchSearch: '没有符合搜索条件的试卷。',
     deleteTitle: '删除试卷',
     deleteDesc: (title: string) =>
@@ -223,7 +224,7 @@ export default {
     pickerAddBtn: (count: number) => (count === 0 ? '添加' : `添加 ${count} 道`),
     pickerToastAdded: (count: number) => `已向本试卷添加 ${count} 道题。`,
     libraryEmpty: '暂无可用试卷',
-    libraryEmptyDesc: '平台尚未为你的班级发布任何试卷。',
+    libraryEmptyDesc: '平台尚未为本班发布试卷。',
     previewAction: '预览',
     adopt: '采用',
     toastAdopted: '已采用——该副本归本中心所有，可自由编辑',

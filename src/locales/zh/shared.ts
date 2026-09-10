@@ -148,6 +148,7 @@ export default {
     regenerateNotInPaper: '该题目已不在本试卷中。',
     assessmentAlreadyPublished: '该测评已发布。',
     itemOtherCenter: '该题目属于其他中心。',
+    deliverPairingMismatch: '这份试卷不涵盖本班的年级与科目。',
     generateSpecInvalid: '请检查条件：每一行都需要选择子主题，题数为 1 到 50。',
     generateSubTopicMismatch: '所有子主题都必须属于该科目。',
     failedFetchAttempts: '加载作答记录失败。',

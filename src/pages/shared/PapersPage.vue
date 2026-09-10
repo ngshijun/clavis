@@ -47,13 +47,17 @@ import { useT } from '@/composables/useT'
  * the platform library beside it as a second tab to adopt from or deliver.
  *
  * A paper carries no grade+subject of its own — the items decide that — so
- * there is no scope column and nothing to pick when creating one.
+ * there is no scope column and nothing to pick when creating one. What the
+ * items decide is what scopes the list: inside a classroom only papers that
+ * cover its grade and subject are offered, which is also the rule
+ * `deliver_paper` enforces. A paper with no items yet covers nothing, so it
+ * stays visible until it holds one.
  */
 const t = useT()
 const router = useRouter()
 const authStore = useAuthStore()
 const papersStore = usePapersStore()
-const { basePath } = useActiveClassroom()
+const { classroom, basePath } = useActiveClassroom()
 
 /** A teacher browses a second library; an admin owns the only one there is. */
 const showsPlatformLibrary = computed(() => !authStore.isAdmin)
@@ -61,10 +65,22 @@ const showsPlatformLibrary = computed(() => !authStore.isAdmin)
 const search = ref('')
 const activeTab = ref<'own' | 'library'>('own')
 
+/** Papers this classroom can actually take (every paper, outside a classroom). */
+function coversClassroom(paper: Paper): boolean {
+  const active = classroom.value
+  if (!active) return true
+  if (paper.pairings.length === 0) return true
+  return paper.pairings.some(
+    (pairing) =>
+      pairing.gradeLevelId === active.gradeLevelId && pairing.subjectId === active.subjectId,
+  )
+}
+
 function matches(items: Paper[]): Paper[] {
   const query = search.value.toLowerCase().trim()
-  if (!query) return items
-  return items.filter(
+  const scoped = items.filter(coversClassroom)
+  if (!query) return scoped
+  return scoped.filter(
     (item) =>
       item.title.toLowerCase().includes(query) ||
       (item.description ?? '').toLowerCase().includes(query),
@@ -72,6 +88,9 @@ function matches(items: Paper[]): Paper[] {
 }
 
 const filteredOwn = computed(() => matches(papersStore.ownPapers))
+const emptyOwnDesc = computed(() =>
+  classroom.value ? t.value.staff.papers.noPapersForClassDesc : t.value.staff.papers.noPapersDesc,
+)
 const filteredLibrary = computed(() => matches(papersStore.libraryPapers))
 
 onMounted(async () => {
@@ -282,7 +301,7 @@ const libraryColumns = computed<ColumnDef<Paper>[]>(() => [titleColumn, itemsCol
             <ClipboardList class="mx-auto size-16 text-muted-foreground/50" />
             <h2 class="mt-4 text-lg font-semibold">{{ t.staff.papers.noPapers }}</h2>
             <p class="mt-2 text-muted-foreground">
-              {{ search ? t.staff.papers.noPapersMatchSearch : t.staff.papers.noPapersDesc }}
+              {{ search ? t.staff.papers.noPapersMatchSearch : emptyOwnDesc }}
             </p>
           </div>
           <DataTable v-else :columns="ownColumns" :data="filteredOwn" :on-row-click="openBuilder" />
@@ -310,7 +329,7 @@ const libraryColumns = computed<ColumnDef<Paper>[]>(() => [titleColumn, itemsCol
           <ClipboardList class="mx-auto size-16 text-muted-foreground/50" />
           <h2 class="mt-4 text-lg font-semibold">{{ t.staff.papers.noPapers }}</h2>
           <p class="mt-2 text-muted-foreground">
-            {{ search ? t.staff.papers.noPapersMatchSearch : t.staff.papers.noPapersDesc }}
+            {{ search ? t.staff.papers.noPapersMatchSearch : emptyOwnDesc }}
           </p>
         </div>
         <DataTable v-else :columns="ownColumns" :data="filteredOwn" :on-row-click="openBuilder" />

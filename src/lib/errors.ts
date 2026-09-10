@@ -140,6 +140,7 @@ const DB_RAISE_MESSAGE_KEYS: Record<string, ErrorKey> = {
   'Add a question before publishing': 'assessmentNoQuestions',
   'Assessment is already published': 'assessmentAlreadyPublished',
   'A published assessment cannot return to draft': 'assessmentAlreadyPublished',
+  'This paper is not for this classroom grade and subject': 'deliverPairingMismatch',
   'Question belongs to another center': 'itemOtherCenter',
   'Question is used by a paper of another owner': 'itemOtherCenter',
   'Not authorized to mark this answer': 'markNotAuthorized',
