@@ -7,7 +7,7 @@ import {
   type PracticeSessionReview,
   type PracticeReviewQuestion,
 } from '@/stores/practice-history'
-import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
+import { useStudentStageStatsStore } from '@/stores/student-stage-stats'
 import { useT } from '@/composables/useT'
 import { formatDateTime } from '@/lib/date'
 import { starsForScore } from '@/lib/learningMap'
@@ -23,7 +23,7 @@ import { ArrowLeft, Loader2 } from 'lucide-vue-next'
 const route = useRoute()
 const router = useRouter()
 const historyStore = usePracticeHistoryStore()
-const statsStore = useStudentSubTopicStatsStore()
+const statsStore = useStudentStageStatsStore()
 const t = useT()
 const { basePath } = useActiveClassroom()
 
@@ -36,10 +36,8 @@ const isLoading = ref(true)
 // stars match what the map will show once the refetched stats arrive.
 const sessionStars = computed(() => (review.value ? starsForScore(review.value.scorePercent) : 0))
 
-// Best-so-far for this sub-topic, from the stats refetched after completion
-const bestStats = computed(() =>
-  review.value ? statsStore.getStats(review.value.subTopicId) : null,
-)
+// Best-so-far for this stage, from the stats refetched after completion
+const bestStats = computed(() => (review.value ? statsStore.getStats(review.value.stageId) : null))
 const bestStars = computed(() =>
   bestStats.value ? starsForScore(bestStats.value.bestScorePercent) : 0,
 )
@@ -106,7 +104,7 @@ function goToHistory() {
         </div>
       </div>
 
-      <!-- Stars earned this session + best-so-far for the sub-topic -->
+      <!-- Stars earned this session + best-so-far for the stage -->
       <Card
         class="mb-6 border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20"
       >
@@ -117,7 +115,7 @@ function goToHistory() {
               <p class="text-sm font-semibold">
                 {{ t.student.sessionResult.starsEarned(sessionStars) }}
               </p>
-              <p class="text-xs text-muted-foreground">{{ review.subTopicName }}</p>
+              <p class="text-xs text-muted-foreground">{{ review.stageName }}</p>
             </div>
           </div>
           <div v-if="bestStats" class="flex items-center gap-2 text-sm text-muted-foreground">

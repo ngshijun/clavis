@@ -1,11 +1,16 @@
 import type { useCurriculumStore } from '@/stores/curriculum'
 
-export type CurriculumLevel = 'grade' | 'subject' | 'topic' | 'subtopic'
+/**
+ * The trunk (grade → subject → topic) plus a topic's two branches: `stage`
+ * (the practice path) and `subtopic` (assessment bank filing).
+ */
+export type CurriculumLevel = 'grade' | 'subject' | 'topic' | 'stage' | 'subtopic'
 
 export interface CurriculumIds {
   gradeLevelId: string
   subjectId: string
   topicId: string
+  stageId: string
   subTopicId: string
 }
 
@@ -15,7 +20,7 @@ interface CurriculumEntityEntry {
   label: string
   inputLabel: string
   hasImage: boolean
-  imageType: 'subject' | 'topic' | 'subtopic' | null
+  imageType: 'subject' | 'topic' | 'stage' | null
   addDescription: string
   deleteDescription: string
   add: (
@@ -45,11 +50,11 @@ export const curriculumEntityConfig: Record<CurriculumLevel, CurriculumEntityEnt
     imageType: null,
     addDescription: 'Add a new grade level to the curriculum.',
     deleteDescription:
-      'This will permanently delete this grade level and all its subjects, topics, sub-topics, questions, and practice sessions. This action cannot be undone.',
+      'This will permanently delete this grade level and all its subjects, topics, stages, sub-topics, questions, and practice sessions. This action cannot be undone.',
     add: (store, _ids, name) => store.addGradeLevel(name),
     updateName: (store, ids, name) => store.updateGradeLevel(ids.gradeLevelId, name),
     delete: (store, ids) => store.deleteGradeLevel(ids.gradeLevelId),
-    updateCoverImage: () => Promise.resolve({ success: true, error: null }),
+    updateCoverImage: () => Promise.resolve({ error: null }),
     getItemId: (ids) => ids.gradeLevelId,
   },
   subject: {
@@ -59,7 +64,7 @@ export const curriculumEntityConfig: Record<CurriculumLevel, CurriculumEntityEnt
     imageType: 'subject',
     addDescription: 'Add a new subject with an optional cover image.',
     deleteDescription:
-      'This will permanently delete this subject and all its topics, sub-topics, questions, and practice sessions. This action cannot be undone.',
+      'This will permanently delete this subject and all its topics, stages, sub-topics, questions, and practice sessions. This action cannot be undone.',
     add: (store, ids, name) => store.addSubject(ids.gradeLevelId, name),
     updateName: (store, ids, name) =>
       store.updateSubject(ids.gradeLevelId, ids.subjectId, { name }),
@@ -75,7 +80,7 @@ export const curriculumEntityConfig: Record<CurriculumLevel, CurriculumEntityEnt
     imageType: 'topic',
     addDescription: 'Add a new topic with an optional cover image.',
     deleteDescription:
-      'This will permanently delete this topic and all its sub-topics, questions, and practice sessions. This action cannot be undone.',
+      'This will permanently delete this topic and all its stages, sub-topics, questions, and practice sessions. This action cannot be undone.',
     add: (store, ids, name) => store.addTopic(ids.gradeLevelId, ids.subjectId, name),
     updateName: (store, ids, name) =>
       store.updateTopic(ids.gradeLevelId, ids.subjectId, ids.topicId, { name }),
@@ -84,28 +89,32 @@ export const curriculumEntityConfig: Record<CurriculumLevel, CurriculumEntityEnt
       store.updateTopicCoverImage(ids.gradeLevelId, ids.subjectId, ids.topicId, path),
     getItemId: (ids) => ids.topicId,
   },
+  stage: {
+    label: 'Stage',
+    inputLabel: 'Stage Name',
+    hasImage: true,
+    imageType: 'stage',
+    addDescription: 'Add a new practice stage with an optional cover image.',
+    deleteDescription:
+      'This will permanently delete this stage and all its practice questions and practice sessions. This action cannot be undone.',
+    add: (store, ids, name) => store.addStage(ids.topicId, name),
+    updateName: (store, ids, name) => store.updateStage(ids.stageId, { name }),
+    delete: (store, ids) => store.deleteStage(ids.stageId),
+    updateCoverImage: (store, ids, path) => store.updateStageCoverImage(ids.stageId, path),
+    getItemId: (ids) => ids.stageId,
+  },
   subtopic: {
     label: 'Sub-Topic',
     inputLabel: 'Sub-Topic Name',
-    hasImage: true,
-    imageType: 'subtopic',
-    addDescription: 'Add a new sub-topic with an optional cover image.',
+    hasImage: false,
+    imageType: null,
+    addDescription: 'Add a new sub-topic to file assessment bank questions under.',
     deleteDescription:
-      'This will permanently delete this sub-topic and all its questions and practice sessions. This action cannot be undone.',
-    add: (store, ids, name) =>
-      store.addSubTopic(ids.gradeLevelId, ids.subjectId, ids.topicId, name),
-    updateName: (store, ids, name) =>
-      store.updateSubTopic(ids.gradeLevelId, ids.subjectId, ids.topicId, ids.subTopicId, { name }),
-    delete: (store, ids) =>
-      store.deleteSubTopic(ids.gradeLevelId, ids.subjectId, ids.topicId, ids.subTopicId),
-    updateCoverImage: (store, ids, path) =>
-      store.updateSubTopicCoverImage(
-        ids.gradeLevelId,
-        ids.subjectId,
-        ids.topicId,
-        ids.subTopicId,
-        path,
-      ),
+      'This will permanently delete this sub-topic. Bank questions filed under it must be refiled or deleted first. This action cannot be undone.',
+    add: (store, ids, name) => store.addSubTopic(ids.topicId, name),
+    updateName: (store, ids, name) => store.updateSubTopic(ids.subTopicId, { name }),
+    delete: (store, ids) => store.deleteSubTopic(ids.subTopicId),
+    updateCoverImage: () => Promise.resolve({ error: null }),
     getItemId: (ids) => ids.subTopicId,
   },
 }

@@ -4,16 +4,16 @@ import type { Topic } from '@/stores/curriculum'
 export function usePracticeProgress() {
   const practiceStore = usePracticeStore()
 
-  function isSubTopicFullyPracticed(subTopic: { id: string; questionCount: number }) {
+  function isStageFullyPracticed(stage: { id: string; questionCount: number }) {
     return (
-      subTopic.questionCount > 0 &&
-      practiceStore.getSubTopicAnsweredCount(subTopic.id) >= subTopic.questionCount
+      stage.questionCount > 0 &&
+      practiceStore.getStageAnsweredCount(stage.id) >= stage.questionCount
     )
   }
 
   function getTopicProgress(topic: Topic) {
-    const total = topic.subTopics.length
-    const completed = topic.subTopics.filter(isSubTopicFullyPracticed).length
+    const total = topic.stages.length
+    const completed = topic.stages.filter(isStageFullyPracticed).length
     return { total, completed }
   }
 
@@ -23,7 +23,7 @@ export function usePracticeProgress() {
   }
 
   return {
-    isSubTopicFullyPracticed,
+    isStageFullyPracticed,
     getTopicProgress,
     isTopicFullyPracticed,
   }

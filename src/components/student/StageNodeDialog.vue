@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Loader2, Play } from 'lucide-vue-next'
-import type { LearningMapNode, SubTopicStats } from '@/lib/learningMap'
+import type { LearningMapNode, StageStats } from '@/lib/learningMap'
 import StarRating from './StarRating.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +20,7 @@ import { useT } from '@/composables/useT'
  */
 const props = defineProps<{
   node: LearningMapNode | null
-  stats: SubTopicStats | null
+  stats: StageStats | null
   isStarting: boolean
 }>()
 

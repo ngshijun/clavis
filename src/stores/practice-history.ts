@@ -57,11 +57,11 @@ export interface PracticeReviewQuestion {
 
 export interface PracticeSessionReview {
   sessionId: string
-  subTopicId: string
+  stageId: string
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   completedAt: string
   correctCount: number
   total: number
@@ -115,7 +115,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     filters: historyFilters,
     pagination: historyPagination,
     setTopic: setHistoryTopic,
-    setSubTopic: setHistorySubTopic,
+    setStage: setHistoryStage,
     setDateRange: setHistoryDateRange,
     setPageIndex: setHistoryPageIndex,
     setPageSize: setHistoryPageSize,
@@ -135,28 +135,28 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
   })
 
   /**
-   * Get curriculum names for a sub-topic
+   * Get curriculum names for a stage
    */
-  function getCurriculumNames(subTopicId: string): {
+  function getCurriculumNames(stageId: string): {
     gradeLevelName: string
     subjectName: string
     topicName: string
-    subTopicName: string
+    stageName: string
   } {
-    const hierarchy = curriculumStore.getSubTopicWithHierarchy(subTopicId)
+    const hierarchy = curriculumStore.getStageWithHierarchy(stageId)
     if (hierarchy) {
       return {
         gradeLevelName: hierarchy.gradeLevel.name,
         subjectName: hierarchy.subject.name,
         topicName: hierarchy.topic.name,
-        subTopicName: hierarchy.subTopic.name,
+        stageName: hierarchy.stage.name,
       }
     }
     return {
       gradeLevelName: 'Unknown',
       subjectName: 'Unknown',
       topicName: 'Unknown',
-      subTopicName: 'Unknown',
+      stageName: 'Unknown',
     }
   }
 
@@ -165,7 +165,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
    * @param answerCount - Optional answer count from nested query, defaults to 0
    */
   function rowToSession(row: PracticeSessionRow, answerCount: number = 0): PracticeSession {
-    const names = getCurriculumNames(row.sub_topic_id)
+    const names = getCurriculumNames(row.stage_id)
     return {
       id: row.id,
       studentId: row.student_id,
@@ -173,9 +173,9 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       gradeLevelName: names.gradeLevelName,
       subjectId: row.subject_id,
       subjectName: names.subjectName,
-      subTopicId: row.sub_topic_id,
+      stageId: row.stage_id,
       topicName: names.topicName,
-      subTopicName: names.subTopicName,
+      stageName: names.stageName,
       totalQuestions: row.total_questions,
       correctAnswers: row.correct_count ?? 0,
       answerCount,
@@ -259,7 +259,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
-    subTopicName?: string,
+    stageName?: string,
     dateRange?: DateRangeFilter,
   ): PracticeSession[] {
     if (!authStore.user) return []
@@ -274,7 +274,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       gradeLevelName,
       subjectName,
       topicName,
-      subTopicName,
+      stageName,
       dateRange,
     }).sort((a, b) => {
       // Every session is stored already completed (decision 85), so the list
@@ -296,13 +296,13 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       : []
   }
 
-  function getHistorySubTopics(
+  function getHistoryStages(
     gradeLevelName?: string,
     subjectName?: string,
     topicName?: string,
   ): string[] {
     return authStore.user
-      ? sessionLookup.getSubTopics(authStore.user.id, gradeLevelName, subjectName, topicName)
+      ? sessionLookup.getStages(authStore.user.id, gradeLevelName, subjectName, topicName)
       : []
   }
 
@@ -395,7 +395,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       // is no in-progress state to guard against here.
       const { data: sessionRow, error: sessionError } = await supabase
         .from('practice_sessions')
-        .select('id, student_id, sub_topic_id, total_time_seconds')
+        .select('id, student_id, stage_id, total_time_seconds')
         .eq('id', sessionId)
         .single()
 
@@ -443,7 +443,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
 
       const questionsMap = new Map(sessionQuestions.map((q) => [q.id, q]))
 
-      const names = getCurriculumNames(sessionRow.sub_topic_id)
+      const names = getCurriculumNames(sessionRow.stage_id)
 
       const questions: PracticeReviewQuestion[] = [...result.questions]
         .sort((a, b) => a.question_order - b.question_order)
@@ -468,11 +468,11 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
       return {
         review: {
           sessionId: result.session_id,
-          subTopicId: sessionRow.sub_topic_id,
+          stageId: sessionRow.stage_id,
           gradeLevelName: names.gradeLevelName,
           subjectName: names.subjectName,
           topicName: names.topicName,
-          subTopicName: names.subTopicName,
+          stageName: names.stageName,
           completedAt: result.completed_at,
           correctCount: result.correct_count,
           total: result.total,
@@ -514,7 +514,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     historyFilters,
     setHistoryDateRange,
     setHistoryTopic,
-    setHistorySubTopic,
+    setHistoryStage,
     resetHistoryFilters,
 
     // History pagination
@@ -526,7 +526,7 @@ export const usePracticeHistoryStore = defineStore('practice-history', () => {
     fetchSessionHistory,
     getFilteredHistory,
     getHistoryTopics,
-    getHistorySubTopics,
+    getHistoryStages,
     getSessionById,
     getSessionReview,
 

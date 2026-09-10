@@ -53,13 +53,13 @@ export function createStudentRollupColumns(): ColumnDef<StudentRollup>[] {
         h('div', { class: 'tabular-nums' }, formatRollupPercent(row.original.mapMastery)),
     },
     {
-      id: 'subTopics',
-      header: () => labels().subTopicsCol,
+      id: 'stages',
+      header: () => labels().stagesCol,
       cell: ({ row }) =>
         h(
           'div',
           { class: 'tabular-nums' },
-          `${row.original.subTopicsCompleted}/${row.original.subTopicsAttempted}`,
+          `${row.original.stagesCompleted}/${row.original.stagesAttempted}`,
         ),
     },
     {

@@ -4,10 +4,10 @@ import {
   recommendedNodeId,
   starsForScore,
   type StarCount,
-  type SubTopicStats,
+  type StageStats,
 } from './learningMap'
 
-function stats(bestScorePercent: number): SubTopicStats {
+function stats(bestScorePercent: number): StageStats {
   return { bestScorePercent, sessionsCompleted: 1, lastCompletedAt: '2026-08-12T00:00:00Z' }
 }
 

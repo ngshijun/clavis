@@ -19,7 +19,7 @@ export interface StudentPracticeRow {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   score: number | null
   totalQuestions: number
   correctAnswers: number
@@ -96,7 +96,7 @@ export const useClassroomStudentStore = defineStore('classroom-student', () => {
   async function fetchPractice(studentId: string, gradeLevelId: string, subjectId: string) {
     const { data, error: fetchError } = await supabase
       .from('practice_sessions')
-      .select('id, sub_topic_id, total_questions, correct_count, total_time_seconds, completed_at')
+      .select('id, stage_id, total_questions, correct_count, total_time_seconds, completed_at')
       .eq('student_id', studentId)
       .eq('grade_level_id', gradeLevelId)
       .eq('subject_id', subjectId)
@@ -105,7 +105,7 @@ export const useClassroomStudentStore = defineStore('classroom-student', () => {
     if (fetchError) throw fetchError
 
     return (data ?? []).map((row): StudentPracticeRow => {
-      const hierarchy = curriculumStore.getSubTopicWithHierarchy(row.sub_topic_id)
+      const hierarchy = curriculumStore.getStageWithHierarchy(row.stage_id)
       const correctAnswers = row.correct_count ?? 0
       return {
         id: row.id,
@@ -113,7 +113,7 @@ export const useClassroomStudentStore = defineStore('classroom-student', () => {
         gradeLevelName: hierarchy?.gradeLevel.name ?? '',
         subjectName: hierarchy?.subject.name ?? '',
         topicName: hierarchy?.topic.name ?? '',
-        subTopicName: hierarchy?.subTopic.name ?? '',
+        stageName: hierarchy?.stage.name ?? '',
         score: computeScorePercent(correctAnswers, row.total_questions),
         totalQuestions: row.total_questions,
         correctAnswers,

@@ -24,10 +24,10 @@ export default {
       'Practice follows your classroom. Once your tuition center adds you to one, its topics appear here.',
     topicCompleted: (completed: number, total: number) =>
       `${completed}/${total} ${total === 1 ? 'topic' : 'topics'} completed`,
-    subTopicCompleted: (completed: number, total: number) =>
-      `${completed}/${total} ${total === 1 ? 'sub-topic' : 'sub-topics'} completed`,
+    stageCompleted: (completed: number, total: number) =>
+      `${completed}/${total} ${total === 1 ? 'stage' : 'stages'} completed`,
     noTopics: 'No topics available for this subject.',
-    noSubTopics: 'No sub-topics available for this topic.',
+    noStages: 'No stages available for this topic.',
     startingSession: 'Starting practice session...',
   },
   learningMap: {

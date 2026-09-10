@@ -159,20 +159,18 @@
 /**
  * The Google-Forms-style authoring column (revamp 2.6).
  *
- * Every editing surface — curriculum levels, the assessment question list,
+ * Every single-column editing surface — curriculum levels, the question bank,
  * Assign and Settings — is centred at ONE width so switching tabs or drilling
  * down never reflows the content. Fixed rather than fluid on purpose: form
- * fields and question prose are unreadable stretched across a wide monitor,
- * and it keeps drag-reorder travel short. Data tables (assessment Results,
- * Classrooms, Assessments) are NOT editing surfaces and stay full-bleed.
+ * fields and question prose are unreadable stretched across a wide monitor.
+ * Data tables (assessment Results, Classrooms, Assessments) are NOT editing
+ * surfaces and stay full-bleed, and so do the builder's Questions tab and
+ * the curriculum's sub-topic question editor: master-detail splits (list
+ * left, editor right) that need the width.
  *
- * Do not hardcode a max-w-* on an editing surface; use this, so the four
- * surfaces cannot drift apart again (they had reached three widths).
+ * Do not hardcode a max-w-* on a single-column editing surface; use this, so
+ * the surfaces cannot drift apart again (they had reached three widths).
  */
-@utility editor-column {
-  @apply mx-auto max-w-4xl;
-}
-
 @keyframes bounce-slow {
   0%,
   100% {

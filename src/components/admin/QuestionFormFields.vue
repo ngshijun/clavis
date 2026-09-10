@@ -23,6 +23,8 @@ const languageStore = useLanguageStore()
 const props = withDefaults(
   defineProps<{
     form: ReturnType<typeof useQuestionForm>
+    /** The topic this question sits under — learning points are scoped to it. */
+    topicId: string
     optionImageUrlGetter?: (optionId: 'a' | 'b' | 'c' | 'd') => string
   }>(),
   {
@@ -97,7 +99,11 @@ function getOptionImageSrc(option: { id: string; imagePath: string | null }): st
   <Field>
     <FieldLabel>{{ t.shared.questionFormFields.tagsLabel }}</FieldLabel>
     <FieldDescription>{{ t.shared.questionFormFields.tagsHint }}</FieldDescription>
-    <TagMultiSelect v-model="f.selectedTagIds.value" :disabled="f.isSaving.value" />
+    <TagMultiSelect
+      v-model="f.selectedTagIds.value"
+      :topic-ids="[props.topicId]"
+      :disabled="f.isSaving.value"
+    />
   </Field>
 
   <!-- Question Image -->

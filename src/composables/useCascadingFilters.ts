@@ -7,7 +7,7 @@ interface CascadingFiltersBase {
   gradeLevel: string
   subject: string
   topic: string
-  subTopic: string
+  stage: string
 }
 
 interface CascadingFiltersWithDateRange extends CascadingFiltersBase {
@@ -53,7 +53,7 @@ type CascadingFilterReturn<D extends DateRangeFilter | undefined, S extends bool
   setGradeLevel: (value: string) => void
   setSubject: (value: string) => void
   setTopic: (value: string) => void
-  setSubTopic: (value: string) => void
+  setStage: (value: string) => void
   setPageIndex: (value: number) => void
   setPageSize: (value: number) => void
   resetFilters: (overrides?: Partial<CascadingFilters>) => void
@@ -73,7 +73,7 @@ export function useCascadingFilters<
       gradeLevel: ALL_VALUE,
       subject: ALL_VALUE,
       topic: ALL_VALUE,
-      subTopic: ALL_VALUE,
+      stage: ALL_VALUE,
     }
     if (defaultDateRange !== undefined && hasSearch) {
       return { ...base, dateRange: defaultDateRange, search: '' }
@@ -94,25 +94,25 @@ export function useCascadingFilters<
     filters.value.gradeLevel = value
     filters.value.subject = ALL_VALUE
     filters.value.topic = ALL_VALUE
-    filters.value.subTopic = ALL_VALUE
+    filters.value.stage = ALL_VALUE
     pagination.value.pageIndex = 0
   }
 
   function setSubject(value: string) {
     filters.value.subject = value
     filters.value.topic = ALL_VALUE
-    filters.value.subTopic = ALL_VALUE
+    filters.value.stage = ALL_VALUE
     pagination.value.pageIndex = 0
   }
 
   function setTopic(value: string) {
     filters.value.topic = value
-    filters.value.subTopic = ALL_VALUE
+    filters.value.stage = ALL_VALUE
     pagination.value.pageIndex = 0
   }
 
-  function setSubTopic(value: string) {
-    filters.value.subTopic = value
+  function setStage(value: string) {
+    filters.value.stage = value
     pagination.value.pageIndex = 0
   }
 
@@ -137,7 +137,7 @@ export function useCascadingFilters<
     setGradeLevel,
     setSubject,
     setTopic,
-    setSubTopic,
+    setStage,
     setPageIndex,
     setPageSize,
     resetFilters,

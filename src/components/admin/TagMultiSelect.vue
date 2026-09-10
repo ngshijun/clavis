@@ -10,15 +10,28 @@ import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 
 /**
- * Multi-select over the global learning-point tag library, with inline
- * creation for admins. Each tag names ONE learning point; new names are
- * normalized (lowercased + trimmed) before insert — the DB CHECK rejects
- * anything else. Tag writes are admin-only at RLS, so a staff picker passes
+ * Multi-select over the learning-point tag library, scoped to the topics in
+ * context (P19a): only tags linked to one of `topicIds` are offered, so the
+ * picker never shows a learning point that means nothing here. With no topics
+ * in context there is nothing to offer, and the picker says so.
+ *
+ * Each tag names ONE learning point; new names are normalized (lowercased +
+ * trimmed) before insert — the DB CHECK rejects anything else — and a tag
+ * created here is scoped to those same topics, so it is immediately
+ * pickable. Tag writes are admin-only at RLS, so a staff picker passes
  * `allowCreate=false` and never offers what would 403.
  */
-const props = withDefaults(defineProps<{ disabled?: boolean; allowCreate?: boolean }>(), {
-  allowCreate: true,
-})
+const props = withDefaults(
+  defineProps<{
+    /** The topics whose learning points are relevant here. */
+    topicIds: string[]
+    disabled?: boolean
+    allowCreate?: boolean
+  }>(),
+  {
+    allowCreate: true,
+  },
+)
 
 const modelValue = defineModel<string[]>({ required: true })
 
@@ -41,18 +54,26 @@ const selectedTags = computed(() =>
     .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined),
 )
 
+/** The library narrowed to what applies to the topics in context. */
+const scopedTags = computed(() =>
+  tagsStore.tags.filter((tag) => tag.topicIds.some((topicId) => props.topicIds.includes(topicId))),
+)
+
 const filteredTags = computed(() => {
   const query = normalizeTagName(search.value)
-  if (!query) return tagsStore.tags
-  return tagsStore.tags.filter((tag) => tag.name.includes(query))
+  if (!query) return scopedTags.value
+  return scopedTags.value.filter((tag) => tag.name.includes(query))
 })
 
-/** Offer "create" only for a non-empty query with no exact (normalized) match. */
+/**
+ * Offer "create" only for a non-empty query with no exact (normalized) match
+ * already in scope, and only once there is a topic to scope it to.
+ */
 const creatableName = computed(() => {
-  if (!props.allowCreate) return null
+  if (!props.allowCreate || props.topicIds.length === 0) return null
   const normalized = normalizeTagName(search.value)
   if (!normalized) return null
-  return tagsStore.tags.some((tag) => tag.name === normalized) ? null : normalized
+  return scopedTags.value.some((tag) => tag.name === normalized) ? null : normalized
 })
 
 function isSelected(id: string): boolean {
@@ -74,7 +95,7 @@ async function handleCreate() {
 
   isCreating.value = true
   try {
-    const { tag, error } = await tagsStore.createTag(creatableName.value)
+    const { tag, error } = await tagsStore.createTag(creatableName.value, props.topicIds)
     if (error || !tag) {
       toast.error(error ?? '')
       return
@@ -146,7 +167,11 @@ async function handleCreate() {
               v-if="filteredTags.length === 0 && !creatableName"
               class="px-2 py-4 text-center text-sm text-muted-foreground"
             >
-              {{ t.shared.tagMultiSelect.noTags }}
+              {{
+                props.topicIds.length === 0
+                  ? t.shared.tagMultiSelect.noTopicContext
+                  : t.shared.tagMultiSelect.noTags
+              }}
             </p>
             <button
               v-if="creatableName"

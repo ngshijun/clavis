@@ -28,11 +28,11 @@ export interface DraftAnswer {
  * no trace in the database.
  */
 export interface PracticeAttempt {
-  subTopicId: string
+  stageId: string
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
   /** Cycle the selected questions belong to; recorded as progress at submit. */
   cycleNumber: number
   questions: PracticeQuestion[]
@@ -57,8 +57,8 @@ export const usePracticeStore = defineStore('practice', () => {
     selectedTopicId: null as string | null,
   })
 
-  // Sub-topic progress tracking (unique questions answered per sub-topic)
-  const subTopicProgress = ref<Map<string, number>>(new Map())
+  // Stage progress tracking (unique questions answered per stage)
+  const stageProgress = ref<Map<string, number>>(new Map())
 
   const authStore = useAuthStore()
   const curriculumStore = useCurriculumStore()
@@ -105,7 +105,7 @@ export const usePracticeStore = defineStore('practice', () => {
    * and no cycle progress behind.
    */
   async function startAttempt(
-    subTopicId: string,
+    stageId: string,
     questionCount: number = 10,
   ): Promise<{ attempt: PracticeAttempt | null; error: string | null }> {
     if (!authStore.user || authStore.user.userType !== 'student') {
@@ -120,19 +120,19 @@ export const usePracticeStore = defineStore('practice', () => {
         await curriculumStore.fetchCurriculum()
       }
 
-      const hierarchy = curriculumStore.getSubTopicWithHierarchy(subTopicId)
+      const hierarchy = curriculumStore.getStageWithHierarchy(stageId)
       if (!hierarchy) {
-        return { attempt: null, error: errorMessages().subTopicNotFound }
+        return { attempt: null, error: errorMessages().stageNotFound }
       }
 
-      // Question pool for this sub-topic: IDs ONLY. Students have no read path
+      // Question pool for this stage: IDs ONLY. Students have no read path
       // on the bank's key columns (P11a/decision 76), and the cycle/selection
       // logic below needs nothing but ids — the content of the chosen
       // questions is served by get_practice_questions.
       const { data: poolRows, error: poolError } = await supabase
         .from('questions')
         .select('id')
-        .eq('sub_topic_id', subTopicId)
+        .eq('stage_id', stageId)
 
       if (poolError) {
         return { attempt: null, error: handleError(poolError, 'failedStartSession') }
@@ -149,7 +149,7 @@ export const usePracticeStore = defineStore('practice', () => {
         .from('student_question_progress')
         .select('question_id, cycle_number')
         .eq('student_id', authStore.user.id)
-        .eq('sub_topic_id', subTopicId)
+        .eq('stage_id', stageId)
         .order('cycle_number', { ascending: false })
 
       let currentCycle = 1
@@ -208,11 +208,11 @@ export const usePracticeStore = defineStore('practice', () => {
       }
 
       const attempt: PracticeAttempt = {
-        subTopicId,
+        stageId,
         gradeLevelName: hierarchy.gradeLevel.name,
         subjectName: hierarchy.subject.name,
         topicName: hierarchy.topic.name,
-        subTopicName: hierarchy.subTopic.name,
+        stageName: hierarchy.stage.name,
         cycleNumber: currentCycle,
         questions,
         answers: [],
@@ -351,7 +351,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
     try {
       const { data, error: submitError } = await supabase.rpc('submit_practice_session', {
-        p_sub_topic_id: attempt.subTopicId,
+        p_stage_id: attempt.stageId,
         p_cycle_number: attempt.cycleNumber,
         p_answers: payload,
       })
@@ -392,38 +392,38 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /**
-   * Fetch the number of DISTINCT answered questions per sub-topic for the
+   * Fetch the number of DISTINCT answered questions per stage for the
    * current student. Counts from practice_answers rather than
    * student_question_progress: the latter records every question PRESENTED in
    * a submitted attempt, including ones left blank. Server-side aggregation
    * avoids the default 1000-row limit.
    */
-  async function fetchSubTopicProgress(): Promise<void> {
+  async function fetchStageProgress(): Promise<void> {
     if (!authStore.user) return
 
     try {
-      const { data, error: fetchError } = await supabase.rpc('get_subtopic_answered_counts')
+      const { data, error: fetchError } = await supabase.rpc('get_stage_answered_counts')
 
       if (fetchError) {
-        console.error('Error fetching sub-topic progress:', fetchError)
+        console.error('Error fetching stage progress:', fetchError)
         return
       }
 
       const countMap = new Map<string, number>()
       for (const row of data ?? []) {
-        countMap.set(row.sub_topic_id, row.answered_count)
+        countMap.set(row.stage_id, row.answered_count)
       }
-      subTopicProgress.value = countMap
+      stageProgress.value = countMap
     } catch (err) {
-      console.error('Error fetching sub-topic progress:', err)
+      console.error('Error fetching stage progress:', err)
     }
   }
 
   /**
    * Get answered question count for a specific sub-topic
    */
-  function getSubTopicAnsweredCount(subTopicId: string): number {
-    return subTopicProgress.value.get(subTopicId) ?? 0
+  function getStageAnsweredCount(stageId: string): number {
+    return stageProgress.value.get(stageId) ?? 0
   }
 
   // Reset store state (call on logout)
@@ -432,7 +432,7 @@ export const usePracticeStore = defineStore('practice', () => {
     elapsedByQuestion.value = new Map()
     isLoading.value = false
     error.value = null
-    subTopicProgress.value = new Map()
+    stageProgress.value = new Map()
     resetPracticeNavigation()
     usePracticeHistoryStore().$reset()
   }
@@ -454,9 +454,9 @@ export const usePracticeStore = defineStore('practice', () => {
     setPracticeTopic,
     resetPracticeNavigation,
     // Sub-topic progress
-    subTopicProgress,
-    fetchSubTopicProgress,
-    getSubTopicAnsweredCount,
+    stageProgress,
+    fetchStageProgress,
+    getStageAnsweredCount,
     // Actions
     startAttempt,
     recordAnswer,

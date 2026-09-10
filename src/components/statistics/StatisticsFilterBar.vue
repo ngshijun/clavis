@@ -20,15 +20,15 @@ const dateRangeOptions = computed(() => getDateRangeOptions())
 defineProps<{
   dateRange: DateRangeFilter
   topic: string
-  subTopic: string
+  stage: string
   availableTopics: string[]
-  availableSubTopics: string[]
+  availableStages: string[]
 }>()
 
 const emit = defineEmits<{
   'update:dateRange': [value: DateRangeFilter]
   'update:topic': [value: string]
-  'update:subTopic': [value: string]
+  'update:stage': [value: string]
 }>()
 </script>
 
@@ -70,19 +70,19 @@ const emit = defineEmits<{
       </SelectContent>
     </Select>
 
-    <!-- Sub-Topic Selector -->
+    <!-- Stage Selector -->
     <Select
       :key="languageStore.language"
-      :model-value="subTopic"
+      :model-value="stage"
       :disabled="topic === ALL_VALUE"
-      @update:model-value="emit('update:subTopic', $event as string)"
+      @update:model-value="emit('update:stage', $event as string)"
     >
       <SelectTrigger class="w-[150px]">
-        <SelectValue :placeholder="t.shared.statsFilterBar.allSubTopics" />
+        <SelectValue :placeholder="t.shared.statsFilterBar.allStages" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem :value="ALL_VALUE">{{ t.shared.statsFilterBar.allSubTopics }}</SelectItem>
-        <SelectItem v-for="st in availableSubTopics" :key="st" :value="st">
+        <SelectItem :value="ALL_VALUE">{{ t.shared.statsFilterBar.allStages }}</SelectItem>
+        <SelectItem v-for="st in availableStages" :key="st" :value="st">
           {{ st }}
         </SelectItem>
       </SelectContent>

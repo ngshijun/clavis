@@ -31,8 +31,8 @@ export interface UploadValidationResult {
 
 export interface BulkUploadOptions {
   questions: ValidatedQuestion[]
-  /** Every imported question is created in this sub-topic (the one in view). */
-  subTopicId: string
+  /** Every imported question is created in this stage (the one in view). */
+  stageId: string
   onProgress?: (current: number, total: number) => void
 }
 
@@ -50,9 +50,9 @@ function normalizeText(text: string): string {
 }
 
 /**
- * Dedup key within the target sub-topic: normalized question text, plus the
+ * Dedup key within the target stage: normalized question text, plus the
  * image hash when the question carries images. The file's curriculum name
- * columns play no part — the import is scoped to one sub-topic.
+ * columns play no part — the import is scoped to one stage.
  */
 function getQuestionKey(question: string, imageHash?: string | null): string {
   const baseKey = normalizeText(question)
@@ -60,10 +60,10 @@ function getQuestionKey(question: string, imageHash?: string | null): string {
 }
 
 /**
- * Build the dedup lookup map of the target sub-topic's existing questions,
+ * Build the dedup lookup map of the target stage's existing questions,
  * keyed by question text + image hash, mapping to the existing question id.
  */
-async function buildExistingQuestionMap(subTopicId: string): Promise<Map<string, string>> {
+async function buildExistingQuestionMap(stageId: string): Promise<Map<string, string>> {
   const existingMap = new Map<string, string>()
   const BATCH_SIZE = 1000
   let from = 0
@@ -73,7 +73,7 @@ async function buildExistingQuestionMap(subTopicId: string): Promise<Map<string,
     const { data, error } = await supabase
       .from('questions')
       .select('id, question, image_hash')
-      .eq('sub_topic_id', subTopicId)
+      .eq('stage_id', stageId)
       .range(from, from + BATCH_SIZE - 1)
 
     if (error) throw error
@@ -116,10 +116,10 @@ async function computeParsedQuestionHash(q: ParsedQuestion): Promise<string> {
 
 export async function validateQuestions(
   parsed: ParsedQuestion[],
-  subTopicId: string,
+  stageId: string,
 ): Promise<UploadValidationResult> {
-  // Build the existing-question dedup map for the target sub-topic only.
-  const existingMap = await buildExistingQuestionMap(subTopicId)
+  // Build the existing-question dedup map for the target stage only.
+  const existingMap = await buildExistingQuestionMap(stageId)
 
   // Pre-compute image hashes for all parsed questions with images
   const parsedHashes = new Map<number, string>()
@@ -194,16 +194,16 @@ export async function validateQuestions(
 // ============================================
 
 export async function executeBulkUpload(options: BulkUploadOptions): Promise<BulkUploadResult> {
-  const { questions, subTopicId, onProgress } = options
+  const { questions, stageId, onProgress } = options
   const questionsStore = useQuestionsStore()
   const curriculumStore = useCurriculumStore()
 
-  // The whole import targets one sub-topic; resolve its hierarchy once for the
+  // The whole import targets one stage; resolve its hierarchy once for the
   // denormalized grade_level_id / subject_id columns.
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
-  const hierarchy = curriculumStore.getSubTopicWithHierarchy(subTopicId)
+  const hierarchy = curriculumStore.getStageWithHierarchy(stageId)
 
   let success = 0
   const failed: Array<{ row: number; error: string }> = []
@@ -219,7 +219,7 @@ export async function executeBulkUpload(options: BulkUploadOptions): Promise<Bul
       // Build question input (including pre-computed image hash for duplicate detection)
       const input: CreateQuestionInput = {
         type: q.type,
-        subTopicId,
+        stageId,
         gradeLevelId: hierarchy?.gradeLevel.id ?? null,
         subjectId: hierarchy?.subject.id ?? null,
         question: q.question,

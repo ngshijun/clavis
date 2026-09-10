@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { useClassroomScopeStore } from '@/stores/classroom-scope'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { usePracticeStore } from '@/stores/practice'
-import { useStudentSubTopicStatsStore } from '@/stores/student-sub-topic-stats'
+import { useStudentStageStatsStore } from '@/stores/student-stage-stats'
 import { usePracticeProgress } from '@/composables/usePracticeProgress'
 import { useT } from '@/composables/useT'
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/lib/learningMap'
 import { Loader2, CircleCheck, School, ArrowLeft } from 'lucide-vue-next'
 import LearningMapPath from '@/components/student/LearningMapPath.vue'
-import SubTopicNodeDialog from '@/components/student/SubTopicNodeDialog.vue'
+import StageNodeDialog from '@/components/student/StageNodeDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -26,7 +26,7 @@ const router = useRouter()
 const scope = useClassroomScopeStore()
 const curriculumStore = useCurriculumStore()
 const practiceStore = usePracticeStore()
-const statsStore = useStudentSubTopicStatsStore()
+const statsStore = useStudentStageStatsStore()
 const t = useT()
 const { basePath } = useActiveClassroom()
 const { getTopicProgress, isTopicFullyPracticed } = usePracticeProgress()
@@ -40,16 +40,16 @@ const isStartingSession = ref(false)
 
 // Node detail dialog state
 const showNodeDialog = ref(false)
-const pendingSubTopicId = ref<string | null>(null)
+const pendingStageId = ref<string | null>(null)
 
-// Fetch curriculum, sub-topic progress, and map stats on mount.
+// Fetch curriculum, stage progress, and map stats on mount.
 // A stats fetch failure is non-fatal: the map renders with every node
 // defaulting to not-started (the store logs the error).
 onMounted(async () => {
   if (curriculumStore.gradeLevels.length === 0) {
     await curriculumStore.fetchCurriculum()
   }
-  await Promise.all([practiceStore.fetchSubTopicProgress(), statsStore.fetchStats()])
+  await Promise.all([practiceStore.fetchStageProgress(), statsStore.fetchStats()])
 })
 
 /**
@@ -83,14 +83,14 @@ const selectedTopic = computed(() => {
 // gaps or duplicate orders, so sort by displayOrder — never index into it.
 const mapNodes = computed<LearningMapNode[]>(() => {
   if (!selectedTopic.value) return []
-  return [...selectedTopic.value.subTopics]
+  return [...selectedTopic.value.stages]
     .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map((subTopic) => {
-      const stats = statsStore.getStats(subTopic.id)
+    .map((stage) => {
+      const stats = statsStore.getStats(stage.id)
       return {
-        id: subTopic.id,
-        name: subTopic.name,
-        questionCount: subTopic.questionCount,
+        id: stage.id,
+        name: stage.name,
+        questionCount: stage.questionCount,
         stars: stats ? starsForScore(stats.bestScorePercent) : 0,
         state: nodeStateForStats(stats),
       }
@@ -102,12 +102,12 @@ const recommendedId = computed(() => recommendedNodeId(mapNodes.value))
 
 // Node shown in the detail dialog
 const pendingNode = computed(() => {
-  if (!pendingSubTopicId.value) return null
-  return mapNodes.value.find((node) => node.id === pendingSubTopicId.value) ?? null
+  if (!pendingStageId.value) return null
+  return mapNodes.value.find((node) => node.id === pendingStageId.value) ?? null
 })
 
 const pendingStats = computed(() =>
-  pendingSubTopicId.value ? statsStore.getStats(pendingSubTopicId.value) : null,
+  pendingStageId.value ? statsStore.getStats(pendingStageId.value) : null,
 )
 
 function getImageUrl(coverImagePath: string | null): string {
@@ -118,11 +118,11 @@ function getImageUrl(coverImagePath: string | null): string {
   return curriculumStore.getOptimizedImageUrl(coverImagePath)
 }
 
-function selectSubTopic(subTopicId: string) {
+function selectStage(stageId: string) {
   if (!selectedTopic.value || isStartingSession.value) return
 
   // Show node detail dialog
-  pendingSubTopicId.value = subTopicId
+  pendingStageId.value = stageId
   showNodeDialog.value = true
 }
 
@@ -131,13 +131,13 @@ function goBack() {
 }
 
 async function confirmStartSession() {
-  if (!pendingSubTopicId.value) return
+  if (!pendingStageId.value) return
 
   showNodeDialog.value = false
   isStartingSession.value = true
 
   try {
-    const result = await practiceStore.startAttempt(pendingSubTopicId.value)
+    const result = await practiceStore.startAttempt(pendingStageId.value)
 
     if (result.error) {
       toast.error(result.error)
@@ -149,7 +149,7 @@ async function confirmStartSession() {
     }
   } finally {
     isStartingSession.value = false
-    pendingSubTopicId.value = null
+    pendingStageId.value = null
   }
 }
 </script>
@@ -228,7 +228,7 @@ async function confirmStartSession() {
                 :class="isTopicFullyPracticed(topic) ? 'text-green-600' : 'text-muted-foreground'"
               >
                 {{
-                  t.student.practice.subTopicCompleted(
+                  t.student.practice.stageCompleted(
                     getTopicProgress(topic).completed,
                     getTopicProgress(topic).total,
                   )
@@ -252,18 +252,18 @@ async function confirmStartSession() {
         </div>
       </div>
 
-      <!-- Learning map: sub-topics as stops along a winding path -->
+      <!-- Learning map: stages as stops along a winding path -->
       <div v-else>
         <LearningMapPath
           v-if="mapNodes.length > 0"
           :nodes="mapNodes"
           :recommended-id="recommendedId"
           :class="{ 'pointer-events-none opacity-60': isStartingSession }"
-          @select="selectSubTopic"
+          @select="selectStage"
         />
 
         <div v-else class="py-12 text-center">
-          <p class="text-muted-foreground">{{ t.student.practice.noSubTopics }}</p>
+          <p class="text-muted-foreground">{{ t.student.practice.noStages }}</p>
         </div>
       </div>
     </template>
@@ -280,7 +280,7 @@ async function confirmStartSession() {
     </div>
 
     <!-- Node detail dialog: stars, best score, start CTA -->
-    <SubTopicNodeDialog
+    <StageNodeDialog
       v-model:open="showNodeDialog"
       :node="pendingNode"
       :stats="pendingStats"

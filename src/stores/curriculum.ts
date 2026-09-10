@@ -4,13 +4,26 @@ import { supabase } from '@/lib/supabaseClient'
 import { handleError, errorMessages } from '@/lib/errors'
 import { uploadStorageFile, removeStorageObjects, createBucketImageHelpers } from '@/lib/storage'
 
-export interface SubTopic {
+/**
+ * A topic branches twice (P19a): `stages` are the practice path a student
+ * climbs, `subTopics` are the assessment bank's filing level. The trunk above
+ * — grade level → subject → topic — is shared by both.
+ */
+export interface Stage {
   id: string
   name: string
   coverImagePath: string | null
   displayOrder: number
   topicId: string
+  /** Practice questions filed under this stage (drives the cycle + map). */
   questionCount: number
+}
+
+export interface SubTopic {
+  id: string
+  name: string
+  displayOrder: number
+  topicId: string
 }
 
 export interface Topic {
@@ -19,6 +32,7 @@ export interface Topic {
   coverImagePath: string | null
   displayOrder: number
   subjectId: string
+  stages: Stage[]
   subTopics: SubTopic[]
 }
 
@@ -41,7 +55,14 @@ export interface GradeLevel {
 // Cache TTL for curriculum data (rarely changes)
 const CURRICULUM_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 
-// Type for sub-topic with full hierarchy info (for O(1) lookups)
+// Leaf + full ancestry, for O(1) lookups from an id alone
+export interface StageWithHierarchy {
+  stage: Stage
+  topic: Topic
+  subject: Subject
+  gradeLevel: GradeLevel
+}
+
 export interface SubTopicWithHierarchy {
   subTopic: SubTopic
   topic: Topic
@@ -71,17 +92,18 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const gradeLevelMap = ref<Map<string, GradeLevel>>(new Map())
   const subjectMap = ref<Map<string, Subject>>(new Map())
   const topicMap = ref<Map<string, Topic>>(new Map())
+  const stageMap = ref<Map<string, Stage>>(new Map())
+  const stageHierarchyMap = ref<Map<string, StageWithHierarchy>>(new Map())
   const subTopicMap = ref<Map<string, SubTopic>>(new Map())
   const subTopicHierarchyMap = ref<Map<string, SubTopicWithHierarchy>>(new Map())
   const topicHierarchyMap = ref<Map<string, TopicWithHierarchy>>(new Map())
 
-  // Admin CurriculumPage navigation state (persisted across navigation)
-  const adminCurriculumNavigation = ref({
-    selectedGradeLevelId: null as string | null,
-    selectedSubjectId: null as string | null,
-    selectedTopicId: null as string | null,
-    selectedSubTopicId: null as string | null,
-  })
+  /**
+   * Which grade levels / subjects the admin curriculum tree has open. The tree
+   * shows the whole trunk at once, so the only state worth persisting across
+   * navigation is what is expanded.
+   */
+  const adminCurriculumExpandedIds = ref<string[]>([])
 
   /**
    * Check if curriculum cache is stale
@@ -99,6 +121,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     gradeLevelMap.value.clear()
     subjectMap.value.clear()
     topicMap.value.clear()
+    stageMap.value.clear()
+    stageHierarchyMap.value.clear()
     subTopicMap.value.clear()
     subTopicHierarchyMap.value.clear()
     topicHierarchyMap.value.clear()
@@ -112,6 +136,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         for (const topic of subject.topics) {
           topicMap.value.set(topic.id, topic)
           topicHierarchyMap.value.set(topic.id, { topic, subject, gradeLevel })
+
+          for (const stage of topic.stages) {
+            stageMap.value.set(stage.id, stage)
+            stageHierarchyMap.value.set(stage.id, { stage, topic, subject, gradeLevel })
+          }
 
           for (const subTopic of topic.subTopics) {
             subTopicMap.value.set(subTopic.id, subTopic)
@@ -128,8 +157,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Fetch all curriculum data (grade levels, subjects, topics, sub_topics)
-   * Uses parallel queries for better performance
+   * Fetch the whole curriculum — the trunk (grade levels, subjects, topics)
+   * plus both of a topic's branches: stages (practice) and sub_topics
+   * (assessment). Parallel queries, one per level.
    */
   async function fetchCurriculum(force = false): Promise<void> {
     // Skip if cache is still valid and not forced
@@ -142,37 +172,42 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
     try {
       // Fetch all data in parallel for better performance
-      // Use resource embedding on sub_topics to get question counts efficiently
-      // (avoids Supabase's default 1000-row limit on a separate questions query).
-      // The count MUST be a column aggregate (`questions(id.count())`): the
-      // bare `questions(count)` form needs whole-table SELECT on questions,
-      // which `authenticated` no longer has (P11a revoked the key columns).
-      const [gradeResult, subjectResult, topicResult, subTopicResult] = await Promise.all([
-        supabase.from('grade_levels').select('*').order('display_order', { ascending: true }),
-        supabase.from('subjects').select('*').order('display_order', { ascending: true }),
-        supabase.from('topics').select('*').order('display_order', { ascending: true }),
-        supabase
-          .from('sub_topics')
-          .select('*, questions(id.count())')
-          .order('display_order', { ascending: true }),
-      ])
+      // Use resource embedding on stages to get practice question counts
+      // efficiently (avoids Supabase's default 1000-row limit on a separate
+      // questions query). The count MUST be a column aggregate
+      // (`questions(id.count())`): the bare `questions(count)` form needs
+      // whole-table SELECT on questions, which `authenticated` no longer has
+      // (P11a revoked the key columns).
+      const [gradeResult, subjectResult, topicResult, stageResult, subTopicResult] =
+        await Promise.all([
+          supabase.from('grade_levels').select('*').order('display_order', { ascending: true }),
+          supabase.from('subjects').select('*').order('display_order', { ascending: true }),
+          supabase.from('topics').select('*').order('display_order', { ascending: true }),
+          supabase
+            .from('stages')
+            .select('*, questions(id.count())')
+            .order('display_order', { ascending: true }),
+          supabase.from('sub_topics').select('*').order('display_order', { ascending: true }),
+        ])
 
       // Check for errors
       if (gradeResult.error) throw gradeResult.error
       if (subjectResult.error) throw subjectResult.error
       if (topicResult.error) throw topicResult.error
+      if (stageResult.error) throw stageResult.error
       if (subTopicResult.error) throw subTopicResult.error
 
       const gradeData = gradeResult.data
       const subjectData = subjectResult.data
       const topicData = topicResult.data
+      const stageData = stageResult.data
       const subTopicData = subTopicResult.data
 
       // Build question count map from embedded counts
       const questionCountMap = new Map<string, number>()
-      for (const st of subTopicData ?? []) {
-        const count = st.questions[0]?.count ?? 0
-        questionCountMap.set(st.id, count)
+      for (const stage of stageData ?? []) {
+        const count = stage.questions[0]?.count ?? 0
+        questionCountMap.set(stage.id, count)
       }
 
       // Build hierarchical structure
@@ -217,6 +252,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
             coverImagePath: topic.cover_image_path,
             displayOrder: topic.display_order ?? 0,
             subjectId: topic.subject_id,
+            stages: [],
             subTopics: [],
           }
           topicMap.set(topic.id, topicObj)
@@ -224,17 +260,30 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         }
       }
 
-      // Map sub_topics to topics
+      // Map stages (practice) to topics
+      for (const stage of stageData ?? []) {
+        const topic = topicMap.get(stage.topic_id)
+        if (topic) {
+          topic.stages.push({
+            id: stage.id,
+            name: stage.name,
+            coverImagePath: stage.cover_image_path,
+            displayOrder: stage.display_order,
+            topicId: stage.topic_id,
+            questionCount: questionCountMap.get(stage.id) ?? 0,
+          })
+        }
+      }
+
+      // Map sub_topics (assessment filing) to topics
       for (const subTopic of subTopicData ?? []) {
         const topic = topicMap.get(subTopic.topic_id)
         if (topic) {
           topic.subTopics.push({
             id: subTopic.id,
             name: subTopic.name,
-            coverImagePath: subTopic.cover_image_path,
             displayOrder: subTopic.display_order ?? 0,
             topicId: subTopic.topic_id,
-            questionCount: questionCountMap.get(subTopic.id) ?? 0,
           })
         }
       }
@@ -339,7 +388,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   function collectTopicCovers(topics: Topic[]): (string | null)[] {
     return topics.flatMap((topic) => [
       topic.coverImagePath,
-      ...topic.subTopics.map((subTopic) => subTopic.coverImagePath),
+      ...topic.stages.map((stage) => stage.coverImagePath),
     ])
   }
 
@@ -540,6 +589,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
         coverImagePath: data.cover_image_path,
         displayOrder: data.display_order ?? 0,
         subjectId: data.subject_id,
+        stages: [],
         subTopics: [],
       }
       subject.topics.push(newTopic)
@@ -646,27 +696,24 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Add a new sub_topic
+   * Add a practice stage to a topic
    */
-  async function addSubTopic(
-    gradeLevelId: string,
-    subjectId: string,
+  async function addStage(
     topicId: string,
     name: string,
     coverImagePath?: string,
   ): Promise<{ success: boolean; error: string | null; id?: string }> {
     try {
-      const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-      const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-      const topic = subject?.topics.find((t) => t.id === topicId)
-      if (!topic) {
+      const hierarchy = topicHierarchyMap.value.get(topicId)
+      if (!hierarchy) {
         return { success: false, error: errorMessages().topicNotFound }
       }
+      const { topic, subject, gradeLevel } = hierarchy
 
-      const maxOrder = Math.max(0, ...topic.subTopics.map((st) => st.displayOrder))
+      const maxOrder = Math.max(0, ...topic.stages.map((stage) => stage.displayOrder))
 
       const { data, error: insertError } = await supabase
-        .from('sub_topics')
+        .from('stages')
         .insert({
           topic_id: topicId,
           name,
@@ -678,27 +725,135 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
       if (insertError) throw insertError
 
-      // Add to local state
-      const newSubTopic: SubTopic = {
+      const newStage: Stage = {
         id: data.id,
         name: data.name,
         coverImagePath: data.cover_image_path,
-        displayOrder: data.display_order ?? 0,
+        displayOrder: data.display_order,
         topicId: data.topic_id,
         questionCount: 0,
       }
+      topic.stages.push(newStage)
+
+      stageMap.value.set(newStage.id, newStage)
+      stageHierarchyMap.value.set(newStage.id, { stage: newStage, topic, subject, gradeLevel })
+
+      return { success: true, error: null, id: data.id }
+    } catch (err) {
+      console.error('Error adding stage:', err)
+      const message = handleError(err, 'failedAddStage')
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * Update a practice stage
+   */
+  async function updateStage(
+    stageId: string,
+    updates: { name?: string; coverImagePath?: string | null },
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const updateData: { name?: string; cover_image_path?: string | null } = {}
+      if (updates.name !== undefined) updateData.name = updates.name
+      if (updates.coverImagePath !== undefined) updateData.cover_image_path = updates.coverImagePath
+
+      const { error: updateError } = await supabase
+        .from('stages')
+        .update(updateData)
+        .eq('id', stageId)
+
+      if (updateError) throw updateError
+
+      // Local state is owned by the caller: the page applies the edit
+      // optimistically and rolls back on failure (useAutosave). Writing the
+      // SENT value back here would let a slow in-flight save clobber a newer
+      // keystroke for ~1 RTT.
+
+      return { success: true, error: null }
+    } catch (err) {
+      console.error('Error updating stage:', err)
+      const message = handleError(err, 'failedUpdateStage')
+      return { success: false, error: message }
+    }
+  }
+
+  /** Update a stage's cover image (convenience method) */
+  function updateStageCoverImage(
+    stageId: string,
+    coverImagePath: string | null,
+  ): Promise<{ success: boolean; error: string | null }> {
+    return updateStage(stageId, { coverImagePath })
+  }
+
+  /**
+   * Delete a practice stage (cascades its questions and practice history)
+   */
+  async function deleteStage(stageId: string): Promise<{ success: boolean; error: string | null }> {
+    const cover = stageMap.value.get(stageId)?.coverImagePath ?? null
+    const topic = stageHierarchyMap.value.get(stageId)?.topic
+    try {
+      const { error: deleteError } = await supabase.from('stages').delete().eq('id', stageId)
+
+      if (deleteError) throw deleteError
+
+      if (topic) {
+        const index = topic.stages.findIndex((stage) => stage.id === stageId)
+        if (index !== -1) topic.stages.splice(index, 1)
+      }
+      stageMap.value.delete(stageId)
+      stageHierarchyMap.value.delete(stageId)
+
+      // Storage cleanup (decision 78): best-effort, never blocks the delete.
+      void removeStorageObjects('curriculum-images', [cover])
+
+      return { success: true, error: null }
+    } catch (err) {
+      console.error('Error deleting stage:', err)
+      const message = handleError(err, 'failedDeleteStage')
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * Add an assessment sub-topic to a topic
+   */
+  async function addSubTopic(
+    topicId: string,
+    name: string,
+  ): Promise<{ success: boolean; error: string | null; id?: string }> {
+    try {
+      const hierarchy = topicHierarchyMap.value.get(topicId)
+      if (!hierarchy) {
+        return { success: false, error: errorMessages().topicNotFound }
+      }
+      const { topic, subject, gradeLevel } = hierarchy
+
+      const maxOrder = Math.max(0, ...topic.subTopics.map((st) => st.displayOrder))
+
+      const { data, error: insertError } = await supabase
+        .from('sub_topics')
+        .insert({ topic_id: topicId, name, display_order: maxOrder + 1 })
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+
+      const newSubTopic: SubTopic = {
+        id: data.id,
+        name: data.name,
+        displayOrder: data.display_order ?? 0,
+        topicId: data.topic_id,
+      }
       topic.subTopics.push(newSubTopic)
 
-      // Update lookup maps (gradeLevel/subject already available from earlier lookup)
-      if (gradeLevel && subject && topic) {
-        subTopicMap.value.set(newSubTopic.id, newSubTopic)
-        subTopicHierarchyMap.value.set(newSubTopic.id, {
-          subTopic: newSubTopic,
-          topic,
-          subject,
-          gradeLevel,
-        })
-      }
+      subTopicMap.value.set(newSubTopic.id, newSubTopic)
+      subTopicHierarchyMap.value.set(newSubTopic.id, {
+        subTopic: newSubTopic,
+        topic,
+        subject,
+        gradeLevel,
+      })
 
       return { success: true, error: null, id: data.id }
     } catch (err) {
@@ -709,31 +864,21 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Update a sub_topic
+   * Rename an assessment sub-topic
    */
   async function updateSubTopic(
-    gradeLevelId: string,
-    subjectId: string,
-    topicId: string,
     subTopicId: string,
-    updates: { name?: string; coverImagePath?: string | null },
+    updates: { name: string },
   ): Promise<{ success: boolean; error: string | null }> {
     try {
-      const updateData: { name?: string; cover_image_path?: string | null } = {}
-      if (updates.name !== undefined) updateData.name = updates.name
-      if (updates.coverImagePath !== undefined) updateData.cover_image_path = updates.coverImagePath
-
       const { error: updateError } = await supabase
         .from('sub_topics')
-        .update(updateData)
+        .update({ name: updates.name })
         .eq('id', subTopicId)
 
       if (updateError) throw updateError
 
-      // Local state is owned by the caller: CurriculumPage applies the edit
-      // optimistically and rolls back on failure (useAutosave). Writing the
-      // SENT value back here would let a slow in-flight save clobber a newer
-      // keystroke for ~1 RTT.
+      // Local state is owned by the caller (optimistic edit + rollback).
 
       return { success: true, error: null }
     } catch (err) {
@@ -744,49 +889,24 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   /**
-   * Update sub_topic cover image (convenience method)
-   */
-  async function updateSubTopicCoverImage(
-    gradeLevelId: string,
-    subjectId: string,
-    topicId: string,
-    subTopicId: string,
-    coverImagePath: string | null,
-  ): Promise<{ success: boolean; error: string | null }> {
-    return updateSubTopic(gradeLevelId, subjectId, topicId, subTopicId, { coverImagePath })
-  }
-
-  /**
-   * Delete a sub_topic
+   * Delete an assessment sub-topic. Bank questions filed under it block the
+   * delete (ON DELETE RESTRICT), so the caller surfaces that error as-is.
    */
   async function deleteSubTopic(
-    gradeLevelId: string,
-    subjectId: string,
-    topicId: string,
     subTopicId: string,
   ): Promise<{ success: boolean; error: string | null }> {
-    const cover = subTopicMap.value.get(subTopicId)?.coverImagePath ?? null
+    const topic = subTopicHierarchyMap.value.get(subTopicId)?.topic
     try {
       const { error: deleteError } = await supabase.from('sub_topics').delete().eq('id', subTopicId)
 
       if (deleteError) throw deleteError
 
-      // Remove from local state and maps
-      const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-      const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-      const topic = subject?.topics.find((t) => t.id === topicId)
       if (topic) {
         const index = topic.subTopics.findIndex((st) => st.id === subTopicId)
-        if (index !== -1) {
-          topic.subTopics.splice(index, 1)
-          // Remove from maps
-          subTopicMap.value.delete(subTopicId)
-          subTopicHierarchyMap.value.delete(subTopicId)
-        }
+        if (index !== -1) topic.subTopics.splice(index, 1)
       }
-
-      // Storage cleanup (decision 78): best-effort, never blocks the delete.
-      void removeStorageObjects('curriculum-images', [cover])
+      subTopicMap.value.delete(subTopicId)
+      subTopicHierarchyMap.value.delete(subTopicId)
 
       return { success: true, error: null }
     } catch (err) {
@@ -841,6 +961,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
       | 'failedReorderGradeLevels'
       | 'failedReorderSubjects'
       | 'failedReorderTopics'
+      | 'failedReorderStages'
       | 'failedReorderSubTopics',
   ): Promise<{ error: string | null }> {
     const { error: rpcError } = await rpc()
@@ -906,16 +1027,28 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     )
   }
 
-  /** `sub_topics.display_order` IS the order students walk on the learning map. */
-  function applySubTopicOrder(
-    gradeLevelId: string,
-    subjectId: string,
+  /** `stages.display_order` IS the order students walk on the learning map. */
+  function applyStageOrder(topicId: string, orderedIds: string[]): string[] | null {
+    const topic = topicMap.value.get(topicId)
+    if (!topic) return null
+    return applyOrderLocal(topic.stages, orderedIds, (items) => {
+      topic.stages = items
+    })
+  }
+
+  function persistStageOrder(
     topicId: string,
     orderedIds: string[],
-  ): string[] | null {
-    const gradeLevel = gradeLevels.value.find((g) => g.id === gradeLevelId)
-    const subject = gradeLevel?.subjects.find((s) => s.id === subjectId)
-    const topic = subject?.topics.find((t) => t.id === topicId)
+  ): Promise<{ error: string | null }> {
+    return persistOrder(
+      () => supabase.rpc('reorder_stages', { p_topic_id: topicId, p_ids: orderedIds }),
+      'failedReorderStages',
+    )
+  }
+
+  /** `sub_topics.display_order` is the assessment bank's listing order. */
+  function applySubTopicOrder(topicId: string, orderedIds: string[]): string[] | null {
+    const topic = topicMap.value.get(topicId)
     if (!topic) return null
     return applyOrderLocal(topic.subTopics, orderedIds, (items) => {
       topic.subTopics = items
@@ -932,9 +1065,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     )
   }
 
-  function uploadCurriculumImage(file: File, type: 'subject' | 'topic' | 'subtopic') {
-    const folder = type === 'subtopic' ? 'subtopics' : `${type}s`
-    return uploadStorageFile('curriculum-images', file, { folder })
+  function uploadCurriculumImage(file: File, type: 'subject' | 'topic' | 'stage') {
+    return uploadStorageFile('curriculum-images', file, { folder: `${type}s` })
   }
 
   const { getImageUrl: getCurriculumImageUrl, getOptimizedImageUrl } =
@@ -958,6 +1090,14 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     return topicHierarchyMap.value.get(topicId) ?? null
   }
 
+  function getStageById(stageId: string): Stage | undefined {
+    return stageMap.value.get(stageId)
+  }
+
+  function getStageWithHierarchy(stageId: string): StageWithHierarchy | null {
+    return stageHierarchyMap.value.get(stageId) ?? null
+  }
+
   function getSubTopicById(subTopicId: string): SubTopic | undefined {
     return subTopicMap.value.get(subTopicId)
   }
@@ -966,45 +1106,15 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     return subTopicHierarchyMap.value.get(subTopicId) ?? null
   }
 
-  // Admin CurriculumPage navigation setters
-  function setAdminCurriculumGradeLevel(gradeLevelId: string | null) {
-    adminCurriculumNavigation.value.selectedGradeLevelId = gradeLevelId
-    // Reset dependent selections when grade level changes
-    if (gradeLevelId === null) {
-      adminCurriculumNavigation.value.selectedSubjectId = null
-      adminCurriculumNavigation.value.selectedTopicId = null
-      adminCurriculumNavigation.value.selectedSubTopicId = null
-    }
+  // Admin curriculum tree expansion
+  function isAdminCurriculumExpanded(id: string): boolean {
+    return adminCurriculumExpandedIds.value.includes(id)
   }
 
-  function setAdminCurriculumSubject(subjectId: string | null) {
-    adminCurriculumNavigation.value.selectedSubjectId = subjectId
-    // Reset dependent selection when subject changes
-    if (subjectId === null) {
-      adminCurriculumNavigation.value.selectedTopicId = null
-      adminCurriculumNavigation.value.selectedSubTopicId = null
-    }
-  }
-
-  function setAdminCurriculumTopic(topicId: string | null) {
-    adminCurriculumNavigation.value.selectedTopicId = topicId
-    // Reset dependent selection when topic changes
-    if (topicId === null) {
-      adminCurriculumNavigation.value.selectedSubTopicId = null
-    }
-  }
-
-  function setAdminCurriculumSubTopic(subTopicId: string | null) {
-    adminCurriculumNavigation.value.selectedSubTopicId = subTopicId
-  }
-
-  function resetAdminCurriculumNavigation() {
-    adminCurriculumNavigation.value = {
-      selectedGradeLevelId: null,
-      selectedSubjectId: null,
-      selectedTopicId: null,
-      selectedSubTopicId: null,
-    }
+  function toggleAdminCurriculumExpanded(id: string) {
+    adminCurriculumExpandedIds.value = isAdminCurriculumExpanded(id)
+      ? adminCurriculumExpandedIds.value.filter((expandedId) => expandedId !== id)
+      : [...adminCurriculumExpandedIds.value, id]
   }
 
   return {
@@ -1013,13 +1123,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     isLoading,
     error,
 
-    // Admin CurriculumPage navigation state
-    adminCurriculumNavigation,
-    setAdminCurriculumGradeLevel,
-    setAdminCurriculumSubject,
-    setAdminCurriculumTopic,
-    setAdminCurriculumSubTopic,
-    resetAdminCurriculumNavigation,
+    // Admin curriculum tree expansion
+    adminCurriculumExpandedIds,
+    isAdminCurriculumExpanded,
+    toggleAdminCurriculumExpanded,
 
     // Actions
     fetchCurriculum,
@@ -1034,9 +1141,12 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     updateTopic,
     updateTopicCoverImage,
     deleteTopic,
+    addStage,
+    updateStage,
+    updateStageCoverImage,
+    deleteStage,
     addSubTopic,
     updateSubTopic,
-    updateSubTopicCoverImage,
     deleteSubTopic,
     applyGradeLevelOrder,
     persistGradeLevelOrder,
@@ -1044,6 +1154,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     persistSubjectOrder,
     applyTopicOrder,
     persistTopicOrder,
+    applyStageOrder,
+    persistStageOrder,
     applySubTopicOrder,
     persistSubTopicOrder,
     uploadCurriculumImage,
@@ -1055,6 +1167,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     getSubjectById,
     getTopicById,
     getTopicWithHierarchy,
+    getStageById,
+    getStageWithHierarchy,
     getSubTopicById,
     getSubTopicWithHierarchy,
 
@@ -1066,10 +1180,12 @@ export const useCurriculumStore = defineStore('curriculum', () => {
       gradeLevelMap.value.clear()
       subjectMap.value.clear()
       topicMap.value.clear()
+      stageMap.value.clear()
+      stageHierarchyMap.value.clear()
       subTopicMap.value.clear()
       subTopicHierarchyMap.value.clear()
       topicHierarchyMap.value.clear()
-      resetAdminCurriculumNavigation()
+      adminCurriculumExpandedIds.value = []
     },
   }
 })

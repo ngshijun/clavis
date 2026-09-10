@@ -6,7 +6,7 @@ interface SessionWithStats {
   gradeLevelName: string
   subjectName: string
   topicName: string
-  subTopicName: string
+  stageName: string
 }
 
 export function useStatisticsSummary<T extends SessionWithStats>(
@@ -28,13 +28,13 @@ export function useStatisticsSummary<T extends SessionWithStats>(
     completedSessions.value.reduce((sum, s) => sum + (s.durationSeconds ?? 0), 0),
   )
 
-  const subTopicsPracticed = computed(() => {
-    const subTopicSet = new Set<string>()
+  const stagesPracticed = computed(() => {
+    const stageSet = new Set<string>()
     for (const s of completedSessions.value) {
-      subTopicSet.add(`${s.gradeLevelName}::${s.subjectName}::${s.topicName}::${s.subTopicName}`)
+      stageSet.add(`${s.gradeLevelName}::${s.subjectName}::${s.topicName}::${s.stageName}`)
     }
-    return subTopicSet.size
+    return stageSet.size
   })
 
-  return { completedSessions, averageScore, totalSessions, totalStudyTime, subTopicsPracticed }
+  return { completedSessions, averageScore, totalSessions, totalStudyTime, stagesPracticed }
 }

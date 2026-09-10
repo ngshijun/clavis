@@ -3,16 +3,16 @@ import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
-import type { SubTopicStats } from '@/lib/learningMap'
+import type { StageStats } from '@/lib/learningMap'
 
 /**
- * The signed-in student's `student_sub_topic_stats` rows, keyed by
- * sub_topic_id. Read-only on the client — rows are written exclusively by
- * the `complete_practice_session` RPC. A fetch failure is non-fatal: the
- * learning map renders with every node defaulting to not-started.
+ * The signed-in student's `student_stage_stats` rows, keyed by stage_id.
+ * Read-only on the client — rows are written exclusively by the
+ * `submit_practice_session` RPC. A fetch failure is non-fatal: the learning
+ * map renders with every node defaulting to not-started.
  */
-export const useStudentSubTopicStatsStore = defineStore('studentSubTopicStats', () => {
-  const statsBySubTopicId = ref<Map<string, SubTopicStats>>(new Map())
+export const useStudentStageStatsStore = defineStore('studentStageStats', () => {
+  const statsByStageId = ref<Map<string, StageStats>>(new Map())
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -28,25 +28,25 @@ export const useStudentSubTopicStatsStore = defineStore('studentSubTopicStats', 
 
     try {
       const { data, error: fetchError } = await supabase
-        .from('student_sub_topic_stats')
-        .select('sub_topic_id, best_score_percent, sessions_completed, last_completed_at')
+        .from('student_stage_stats')
+        .select('stage_id, best_score_percent, sessions_completed, last_completed_at')
         .eq('student_id', studentId)
 
       if (fetchError) throw fetchError
 
-      const map = new Map<string, SubTopicStats>()
+      const map = new Map<string, StageStats>()
       for (const row of data ?? []) {
-        map.set(row.sub_topic_id, {
+        map.set(row.stage_id, {
           bestScorePercent: row.best_score_percent,
           sessionsCompleted: row.sessions_completed,
           lastCompletedAt: row.last_completed_at,
         })
       }
-      statsBySubTopicId.value = map
+      statsByStageId.value = map
 
       return { error: null }
     } catch (err) {
-      const message = handleError(err, 'failedFetchSubTopicStats')
+      const message = handleError(err, 'failedFetchStageStats')
       error.value = message
       return { error: message }
     } finally {
@@ -54,18 +54,18 @@ export const useStudentSubTopicStatsStore = defineStore('studentSubTopicStats', 
     }
   }
 
-  function getStats(subTopicId: string): SubTopicStats | null {
-    return statsBySubTopicId.value.get(subTopicId) ?? null
+  function getStats(stageId: string): StageStats | null {
+    return statsByStageId.value.get(stageId) ?? null
   }
 
   function $reset() {
-    statsBySubTopicId.value = new Map()
+    statsByStageId.value = new Map()
     isLoading.value = false
     error.value = null
   }
 
   return {
-    statsBySubTopicId,
+    statsByStageId,
     isLoading,
     error,
     fetchStats,

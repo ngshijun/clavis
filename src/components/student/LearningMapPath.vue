@@ -6,9 +6,9 @@ import StarRating from './StarRating.vue'
 import { useT } from '@/composables/useT'
 
 /**
- * The learning map: sub-topics of one topic rendered as stops along a
+ * The learning map: stages of one topic rendered as stops along a
  * winding path, in `display_order`. Presentational — every node is always
- * tappable (no gating); tapping emits `select` with the sub-topic id.
+ * tappable (no gating); tapping emits `select` with the stage id.
  */
 const props = defineProps<{
   nodes: LearningMapNode[]
@@ -17,7 +17,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [subTopicId: string]
+  select: [stageId: string]
 }>()
 
 const t = useT()
@@ -130,7 +130,7 @@ const circleStateClasses: Record<LearningMapNode['state'], string> = {
         <span v-else class="text-lg font-bold">{{ index + 1 }}</span>
       </span>
 
-      <!-- Sub-topic name -->
+      <!-- Stage name -->
       <span
         class="mt-1.5 line-clamp-2 max-w-full break-words text-center text-xs font-medium leading-tight text-foreground/80"
       >

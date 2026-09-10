@@ -30,6 +30,7 @@ const props = defineProps<{
   gradeLevelId: string
   subjectId: string
   topicId: string
+  stageId: string
   subTopicId: string
 }>()
 
@@ -59,6 +60,7 @@ async function confirmDelete() {
       gradeLevelId: props.gradeLevelId,
       subjectId: props.subjectId,
       topicId: props.topicId,
+      stageId: props.stageId,
       subTopicId: props.subTopicId,
     }
 
