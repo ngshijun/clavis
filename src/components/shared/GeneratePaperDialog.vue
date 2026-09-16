@@ -7,6 +7,7 @@ import {
   type GenerationLine,
 } from '@/lib/generationSpec'
 import { useCurriculumStore } from '@/stores/curriculum'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 import { Loader2, Sparkles } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -34,11 +35,14 @@ import { useT } from '@/composables/useT'
  * The generator (decision 91): a spec in, a draft PAPER out — the platform's
  * for an admin, the caller's center's for a teacher. The grade and subject
  * here only scope the sub-topics on offer; the paper stores the spec, not the
- * pairing, and the RPC rejects a spec that spans two subjects.
+ * pairing, and the RPC rejects a spec that spans two subjects. Inside a
+ * classroom the pairing is the classroom's and there is nothing to pick: a
+ * paper for any other pairing could not be delivered or listed there.
  */
 const t = useT()
 const papersStore = usePapersStore()
 const curriculumStore = useCurriculumStore()
+const { classroom } = useActiveClassroom()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -64,8 +68,8 @@ const topics = computed(
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  gradeLevelId.value = ''
-  subjectId.value = ''
+  gradeLevelId.value = classroom.value?.gradeLevelId ?? ''
+  subjectId.value = classroom.value?.subjectId ?? ''
   lines.value = [emptyGenerationLine()]
   error.value = null
   if (curriculumStore.gradeLevels.length === 0 && !curriculumStore.isLoading) {
@@ -73,13 +77,20 @@ watch(open, (isOpen) => {
   }
 })
 
-// Changing the pairing invalidates every line's sub-topic.
-watch(gradeLevelId, () => {
-  subjectId.value = ''
-})
-watch(subjectId, () => {
+// Changing the pairing invalidates every line's sub-topic. Handled on the
+// user's pick, not a watcher, so seeding both ids on open doesn't clear them.
+function clearLineScopes() {
   lines.value = lines.value.map((line) => ({ ...line, subTopicIds: [], tagIds: [] }))
-})
+}
+function selectGradeLevel(id: string) {
+  gradeLevelId.value = id
+  subjectId.value = ''
+  clearLineScopes()
+}
+function selectSubject(id: string) {
+  subjectId.value = id
+  clearLineScopes()
+}
 
 const isValid = computed(
   () =>
@@ -147,13 +158,17 @@ async function handleGenerate() {
           />
         </Field>
 
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div v-if="!classroom" class="grid gap-4 sm:grid-cols-2">
           <Field>
             <FieldLabel
               >{{ t.staff.assessmentCreate.gradeLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
-            <Select v-model="gradeLevelId" :disabled="isGenerating || curriculumStore.isLoading">
+            <Select
+              :model-value="gradeLevelId"
+              :disabled="isGenerating || curriculumStore.isLoading"
+              @update:model-value="(id) => selectGradeLevel(String(id))"
+            >
               <SelectTrigger class="w-full">
                 <SelectValue :placeholder="t.staff.assessmentCreate.gradePlaceholder" />
               </SelectTrigger>
@@ -174,7 +189,11 @@ async function handleGenerate() {
               >{{ t.staff.assessmentCreate.subjectLabel }}
               <span class="text-destructive">*</span></FieldLabel
             >
-            <Select v-model="subjectId" :disabled="isGenerating || !gradeLevelId">
+            <Select
+              :model-value="subjectId"
+              :disabled="isGenerating || !gradeLevelId"
+              @update:model-value="(id) => selectSubject(String(id))"
+            >
               <SelectTrigger class="w-full">
                 <SelectValue :placeholder="t.staff.assessmentCreate.subjectPlaceholder" />
               </SelectTrigger>

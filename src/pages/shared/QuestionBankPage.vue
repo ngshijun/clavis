@@ -33,6 +33,7 @@ import { toast } from 'vue-sonner'
 import { useT } from '@/composables/useT'
 import { useLanguageStore } from '@/stores/language'
 import { useAuthStore } from '@/stores/auth'
+import { useActiveClassroom } from '@/composables/useActiveClassroom'
 
 /**
  * One reusable question library, shown to whoever owns it (decision 91): the
@@ -43,7 +44,9 @@ import { useAuthStore } from '@/stores/auth'
  *
  * Filed under a sub-topic, so the filters walk the curriculum: grade → subject
  * → topic → sub-topic, with "all" at the two inner levels. A new question
- * needs one sub-topic pinned.
+ * needs one sub-topic pinned. A teacher reaches the bank through a classroom,
+ * so there the grade and subject are the classroom's and not offered; two
+ * classrooms of one pairing show the same bank, which is the center's.
  *
  * A bank question IS an ad-hoc payload, so this page reuses the builder's
  * `AssessmentQuestionCard` verbatim. What the bank adds is the footer `meta`
@@ -58,6 +61,7 @@ const languageStore = useLanguageStore()
 const authStore = useAuthStore()
 const bankStore = useAssessmentBankStore()
 const curriculumStore = useCurriculumStore()
+const { classroom } = useActiveClassroom()
 
 const ALL_VALUE = '__all__'
 
@@ -112,6 +116,7 @@ const canAdd = computed(() => subTopicId.value !== ALL_VALUE)
 
 onMounted(async () => {
   await curriculumStore.fetchCurriculum()
+  if (classroom.value) return
   const firstGrade = gradeLevels.value[0]
   if (firstGrade) {
     gradeLevelId.value = firstGrade.id
@@ -119,10 +124,25 @@ onMounted(async () => {
   }
 })
 
-// Selecting a level invalidates everything beneath it.
-watch(gradeLevelId, () => {
+// Inside a classroom the pairing is the classroom's. Watched rather than read
+// once: the classroom list may still be loading, and switching classroom
+// reuses this page.
+watch(
+  () => classroom.value && [classroom.value.gradeLevelId, classroom.value.subjectId],
+  (pairing) => {
+    if (!pairing) return
+    gradeLevelId.value = pairing[0]
+    subjectId.value = pairing[1]
+  },
+  { immediate: true },
+)
+
+// Selecting a level invalidates everything beneath it. The grade resets its
+// subject on the user's pick, not in a watcher, so seeding both ids holds.
+function selectGradeLevel(id: string) {
+  gradeLevelId.value = id
   subjectId.value = subjects.value[0]?.id ?? ''
-})
+}
 watch(subjectId, () => {
   topicId.value = ALL_VALUE
 })
@@ -366,9 +386,13 @@ async function handleDuplicate(question: BankQuestion) {
 
     <!-- Grade → subject → topic → sub-topic → difficulty. The sub-topic files a new question. -->
     <div class="mb-6 flex flex-wrap items-end gap-3">
-      <Field class="w-44">
+      <Field v-if="!classroom" class="w-44">
         <FieldLabel>{{ t.shared.questionBank.gradeLabel }}</FieldLabel>
-        <Select :key="`g-${languageStore.language}`" v-model="gradeLevelId">
+        <Select
+          :key="`g-${languageStore.language}`"
+          :model-value="gradeLevelId"
+          @update:model-value="(id) => selectGradeLevel(String(id))"
+        >
           <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem v-for="grade in gradeLevels" :key="grade.id" :value="grade.id">
@@ -378,7 +402,7 @@ async function handleDuplicate(question: BankQuestion) {
         </Select>
       </Field>
 
-      <Field class="w-44">
+      <Field v-if="!classroom" class="w-44">
         <FieldLabel>{{ t.shared.questionBank.subjectLabel }}</FieldLabel>
         <Select :key="`s-${languageStore.language}`" v-model="subjectId">
           <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
