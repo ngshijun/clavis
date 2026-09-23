@@ -83,8 +83,15 @@ const addDialogSubjectId = ref('')
 
 function openAddDialog(level: CurriculumLevel, parentId: string) {
   addType.value = level
-  addDialogGradeLevelId.value = level === 'subject' ? parentId : ''
-  addDialogSubjectId.value = level === 'topic' ? parentId : ''
+  if (level === 'topic') {
+    const subject = curriculumStore.getSubjectById(parentId)
+    if (!subject) return
+    addDialogGradeLevelId.value = subject.gradeLevelId
+    addDialogSubjectId.value = parentId
+  } else {
+    addDialogGradeLevelId.value = level === 'subject' ? parentId : ''
+    addDialogSubjectId.value = ''
+  }
   showAddDialog.value = true
 }
 
