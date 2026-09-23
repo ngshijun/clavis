@@ -5,7 +5,6 @@ import type { Database } from '@/types/database.types'
 import { useAuthStore } from './auth'
 import { handleError, errorMessages } from '@/lib/errors'
 import { adhocDisplayFields, type AdhocPayload, type AdhocQuestionType } from '@/lib/adhocPayload'
-import { removeStorageFolder } from '@/lib/storage'
 import type { AttemptAnswerResponse } from '@/lib/attemptResponse'
 
 export type { AttemptAnswerResponse }
@@ -390,12 +389,6 @@ export const useAssessmentsStore = defineStore('assessments', () => {
   }
 
   async function deleteAssessment(id: string): Promise<{ error: string | null }> {
-    // Storage cleanup (decision 78): every image of this assessment lives
-    // under `assessment-images/{id}/`. The bucket's delete RLS requires the
-    // assessments ROW to still exist (app.can_write_assessment), so the
-    // objects must go BEFORE the row — best-effort, a storage failure never
-    // blocks the delete (an orphan beats a stuck assessment).
-    await removeStorageFolder('assessment-images', id)
     try {
       const { error: deleteError } = await supabase.from('assessments').delete().eq('id', id)
 

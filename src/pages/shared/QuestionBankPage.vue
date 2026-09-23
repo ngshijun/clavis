@@ -4,12 +4,7 @@ import { useAssessmentBankStore, DIFFICULTIES, type BankQuestion } from '@/store
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useAutosave } from '@/composables/useAutosave'
 import { curriculumEntityConfig, type CurriculumIds } from '@/lib/curriculumEntityConfig'
-import { removeStorageObjects } from '@/lib/storage'
-import {
-  collectAdhocPayloadImagePaths,
-  type AdhocPayload,
-  type QuestionCardItem,
-} from '@/lib/adhocPayload'
+import { type AdhocPayload, type QuestionCardItem } from '@/lib/adhocPayload'
 import { Library, Loader2, Plus, FolderTree } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -200,38 +195,11 @@ async function addQuestion() {
   expandedId.value = question.id
 }
 
-/**
- * Images dropped by an edit are deleted only AFTER the payload save that
- * drops the reference confirms (decision 78) — a failed save must never
- * leave the row pointing at a deleted object.
- */
-const pendingImageDeletes = new Map<string, Set<string>>()
-
-function handleImageOrphaned(questionId: string, path: string) {
-  const pending = pendingImageDeletes.get(questionId) ?? new Set<string>()
-  pending.add(path)
-  pendingImageDeletes.set(questionId, pending)
-}
-
-function flushOrphanedImages(questionId: string, saved: AdhocPayload) {
-  const pending = pendingImageDeletes.get(questionId)
-  if (!pending || pending.size === 0) return
-
-  const referenced = new Set(collectAdhocPayloadImagePaths(saved))
-  const removable = [...pending].filter((path) => !referenced.has(path))
-  for (const path of removable) pending.delete(path)
-  void removeStorageObjects('assessment-images', removable)
-}
-
 function handlePayloadChange(question: BankQuestion, payload: AdhocPayload) {
   const previous = question.payload
   autosave.enqueue(`payload:${question.id}`, payload, {
     previous,
-    save: async (value) => {
-      const result = await bankStore.updateQuestion(question.id, { payload: value })
-      if (!result.error) flushOrphanedImages(question.id, value)
-      return result
-    },
+    save: (value) => bankStore.updateQuestion(question.id, { payload: value }),
     rollback: (confirmed) => void bankStore.updateQuestion(question.id, { payload: confirmed }),
   })
 }
@@ -332,14 +300,12 @@ async function handleTagsChange(question: BankQuestion, tagIds: string[]) {
 }
 
 async function handleRemove(question: BankQuestion) {
-  const paths = collectAdhocPayloadImagePaths(question.payload)
   const { error } = await bankStore.deleteQuestion(question.id)
   if (error) {
     toast.error(error)
     return
   }
   if (expandedId.value === question.id) expandedId.value = null
-  void removeStorageObjects('assessment-images', paths)
 }
 
 async function handleDuplicate(question: BankQuestion) {
@@ -506,7 +472,6 @@ async function handleDuplicate(question: BankQuestion) {
         @select="expandedId = question.id"
         @payload-change="(payload) => handlePayloadChange(question, payload)"
         @points-change="(points) => handlePointsChange(question, points)"
-        @image-orphaned="(path) => handleImageOrphaned(question.id, path)"
         @duplicate="handleDuplicate(question)"
         @remove="handleRemove(question)"
       >

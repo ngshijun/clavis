@@ -103,32 +103,6 @@ export async function removeStorageObjects(
 }
 
 /**
- * Best-effort removal of every object under a folder (decision 78) — used
- * when deleting an assessment, whose images all live under
- * `assessment-images/{assessmentId}/`. Paginates the listing; failures are
- * logged and swallowed, same contract as `removeStorageObjects`.
- */
-export async function removeStorageFolder(bucket: string, folder: string): Promise<void> {
-  const pageSize = 100
-  const paths: string[] = []
-  try {
-    for (let offset = 0; ; offset += pageSize) {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .list(folder, { limit: pageSize, offset })
-      if (error) throw error
-      if (!data || data.length === 0) break
-      paths.push(...data.map((object) => `${folder}/${object.name}`))
-      if (data.length < pageSize) break
-    }
-  } catch (err) {
-    console.error(`Failed to list ${bucket}/${folder}:`, err)
-    return
-  }
-  await removeStorageObjects(bucket, paths)
-}
-
-/**
  * Factory that creates bucket-scoped image URL helpers.
  * All variants resolve to the same public URL since images are
  * pre-optimized at upload time.

@@ -8,8 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useLanguageStore } from '@/stores/language'
 import { useActiveClassroom } from '@/composables/useActiveClassroom'
-import { collectAdhocPayloadImagePaths, type AdhocPayload } from '@/lib/adhocPayload'
-import { removeStorageObjects } from '@/lib/storage'
+import type { AdhocPayload } from '@/lib/adhocPayload'
 import {
   ArrowLeft,
   ClipboardList,
@@ -255,41 +254,13 @@ function handleReorder(orderedIds: string[]) {
   })
 }
 
-/**
- * Images dropped by an edit are deleted only AFTER the payload save that
- * drops the reference confirms (decision 78).
- */
-const pendingImageDeletes = new Map<string, Set<string>>()
-
-function handleImageOrphaned(item: PaperItem, path: string) {
-  const pending = pendingImageDeletes.get(item.id) ?? new Set<string>()
-  pending.add(path)
-  pendingImageDeletes.set(item.id, pending)
-}
-
-function flushOrphanedImages(id: string, saved: AdhocPayload) {
-  const pending = pendingImageDeletes.get(id)
-  if (!pending || pending.size === 0) return
-  const referenced = new Set(collectAdhocPayloadImagePaths(saved))
-  const removable = [...pending].filter((path) => !referenced.has(path))
-  for (const path of removable) pending.delete(path)
-  void removeStorageObjects('assessment-images', removable)
-}
-
 function handlePayloadChange(item: PaperItem, payload: AdhocPayload) {
   const previous = item.payload
   papersStore.applyItemPatch(item.id, { payload })
   autosave.enqueue(`payload:${item.id}`, payload, {
     previous,
-    save: async (value) => {
-      const result = await papersStore.persistItemPatch(item.id, { payload: value })
-      if (!result.error) flushOrphanedImages(item.id, value)
-      return result
-    },
-    rollback: (confirmed) => {
-      pendingImageDeletes.delete(item.id)
-      papersStore.applyItemPatch(item.id, { payload: confirmed })
-    },
+    save: (value) => papersStore.persistItemPatch(item.id, { payload: value }),
+    rollback: (confirmed) => papersStore.applyItemPatch(item.id, { payload: confirmed }),
   })
 }
 
@@ -411,8 +382,6 @@ function handleRemove(item: PaperItem) {
 async function applyRemoval(deleteFromBank: boolean) {
   const item = removeTarget.value
   if (!item) return
-  const paths = deleteFromBank ? collectAdhocPayloadImagePaths(item.payload) : []
-
   isRemoving.value = true
   try {
     const { error } = deleteFromBank
@@ -422,9 +391,7 @@ async function applyRemoval(deleteFromBank: boolean) {
       toast.error(error)
       return
     }
-    pendingImageDeletes.delete(item.id)
     if (expandedId.value === item.id) expandedId.value = null
-    if (deleteFromBank) void removeStorageObjects('assessment-images', paths)
     toast.success(
       deleteFromBank
         ? t.value.staff.papers.toastQuestionDeleted
@@ -618,7 +585,6 @@ async function handleAdopt() {
               @reorder="handleReorder"
               @payload-change="handlePayloadChange"
               @points-change="handlePointsChange"
-              @image-orphaned="handleImageOrphaned"
               @duplicate="handleDuplicate"
               @remove="handleRemove"
               @add-question="handleAddQuestion"

@@ -39,8 +39,6 @@ const emit = defineEmits<{
   reorder: [orderedIds: string[]]
   'payload-change': [item: T, payload: AdhocPayload]
   'points-change': [item: T, points: number]
-  /** A replaced/removed image object awaiting confirmed-save deletion (decision 78). */
-  'image-orphaned': [item: T, path: string]
   duplicate: [item: T]
   remove: [item: T]
   'add-question': []
@@ -168,7 +166,6 @@ const activeItem = computed(() =>
           :reorderable="false"
           @payload-change="(payload) => emit('payload-change', activeItem!, payload)"
           @points-change="(points) => emit('points-change', activeItem!, points)"
-          @image-orphaned="(path) => emit('image-orphaned', activeItem!, path)"
           @duplicate="emit('duplicate', activeItem!)"
           @remove="emit('remove', activeItem!)"
         >

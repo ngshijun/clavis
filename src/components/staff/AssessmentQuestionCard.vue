@@ -44,10 +44,9 @@ import { useLanguageStore } from '@/stores/language'
  * Images (P10a): a question-level image for every ad-hoc type and per-option
  * images for mcq/mrq, uploaded into `assessment-images` under
  * `{assessmentId}/…` (the bucket RLS requires that first folder segment).
- * Replacing/removing never deletes the old object here — it is reported via
- * `image-orphaned` and deleted by the page once the payload save that drops
- * the reference is confirmed (decision 78), so a failed save can never leave
- * the row pointing at a deleted object.
+ * Replacing/removing never deletes the old object: a published assessment's
+ * snapshot and a duplicated item hold the same path, so nothing on the client
+ * can know it is unreferenced.
  */
 const props = defineProps<{
   item: QuestionCardItem
@@ -80,12 +79,6 @@ const emit = defineEmits<{
   'points-change': [points: number]
   /** Keyboard reorder from the grip (decision 77) — same path as a drop. */
   move: [delta: -1 | 1]
-  /**
-   * A previously-stored image object stopped being referenced by the draft
-   * (replace/remove). The page deletes it only AFTER the payload save that
-   * drops the reference is confirmed (decision 78).
-   */
-  'image-orphaned': [path: string]
   duplicate: []
   remove: []
 }>()
@@ -226,9 +219,7 @@ function setCorrect(index: number, checked: boolean) {
 
 function removeOption(index: number) {
   if (!draft.value) return
-  const removed = draft.value.options.splice(index, 1)[0]
-  // Deleted only after the payload save confirms the reference is gone.
-  if (removed?.imagePath) emit('image-orphaned', removed.imagePath)
+  draft.value.options.splice(index, 1)
 }
 
 // ── ordering rows: keyboard reorder (decision 77) ──────────
@@ -290,8 +281,7 @@ async function onQuestionImagePicked(event: Event) {
   try {
     // `folder` produces `{assessmentId}/{uuid}.webp` (builder) or
     // `bank/{id}/{uuid}.webp` (admin bank) — the shapes the bucket's write
-    // RLS accepts. The replaced object is only deleted after the payload
-    // save confirms (decision 78).
+    // RLS accepts.
     const { path, error } = await uploadStorageFile('assessment-images', file, {
       folder: props.imageFolder,
     })
@@ -299,9 +289,7 @@ async function onQuestionImagePicked(event: Event) {
       toast.error(error ?? '')
       return
     }
-    const oldPath = draft.value.imagePath
     draft.value.imagePath = path
-    if (oldPath) emit('image-orphaned', oldPath)
   } finally {
     isUploadingQuestionImage.value = false
   }
@@ -309,9 +297,7 @@ async function onQuestionImagePicked(event: Event) {
 
 function removeQuestionImage() {
   if (!draft.value?.imagePath) return
-  const oldPath = draft.value.imagePath
   draft.value.imagePath = null
-  emit('image-orphaned', oldPath)
 }
 
 async function onOptionImagePicked(event: Event) {
@@ -330,9 +316,7 @@ async function onOptionImagePicked(event: Event) {
       toast.error(error ?? '')
       return
     }
-    const oldPath = option.imagePath ?? null
     option.imagePath = path
-    if (oldPath) emit('image-orphaned', oldPath)
   } finally {
     uploadingOptionIndex.value = null
   }
@@ -341,9 +325,7 @@ async function onOptionImagePicked(event: Event) {
 function removeOptionImage(index: number) {
   const option = draft.value?.options[index]
   if (!option?.imagePath) return
-  const oldPath = option.imagePath
   option.imagePath = null
-  emit('image-orphaned', oldPath)
 }
 
 // ── footer ─────────────────────────────────────────────────
