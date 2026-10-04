@@ -13,9 +13,10 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			// Pinned so a local build works on any Node; adapter-vercel otherwise refuses versions it
-			// does not know. Vercel runs the same runtime either way.
-			adapter: adapter({ runtime: 'nodejs22.x' })
+			// The runtime is pinned so a local build works on any Node; adapter-vercel otherwise
+			// refuses versions it does not know. The region is Singapore, next to the database:
+			// every page load queries it, so the functions must not sit an ocean away.
+			adapter: adapter({ runtime: 'nodejs24.x', regions: ['sin1'] })
 		}),
 
 		paraglideVitePlugin({
