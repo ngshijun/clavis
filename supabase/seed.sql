@@ -430,150 +430,249 @@ CROSS JOIN LATERAL (
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 8. QUESTIONS (fresh new-shape sample with per-option tips)               ║
+-- ║ 8. PRACTICE QUESTIONS (item payloads — P21a)                             ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Revamp 2.1 (decision 44): STAGING ONLY. Wipe the whole question bank and
--- everything that references it, then insert a fresh representative set in
--- the new shape — per-option tips (option_N_tip) instead of a single
--- explanation, spanning MCQ, MRQ, and short-answer so the tips feature is
--- testable end to end. Prod is NOT touched by this (it lives in the
--- migration, which is schema-only; prod keeps its real questions).
+-- STAGING ONLY. Wipe the whole practice bank and everything that references
+-- it, then insert a fresh representative set. A practice question is ONE item
+-- payload (the same schema the assessment bank stores), of one of the seven
+-- practice types: mcq, mrq, short_answer, true_false, numeric, cloze,
+-- matching. Option numbers are positions in `options`, so an mcq may carry
+-- any number of them.
+--
+-- Tips: mcq/mrq carry a `tip` per WRONG option (shown when the student picked
+-- it); every other type carries one question-level `tip` (shown when the
+-- question was answered wrong). Neither ever reveals the answer.
 --
 -- grade_level_id and subject_id are auto-populated by the
--- populate_question_hierarchy trigger from the sub-topic chain.
+-- populate_question_hierarchy trigger from the stage chain.
 -- is_correct on the seeded practice answers below is recomputed by the
 -- grade_practice_answer BEFORE trigger, so the values written here are
 -- only illustrative.
 
--- Wipe order: children before parents. assessment_questions no longer
--- references the practice bank at all (decision 88) — it is cleared here only
--- for its own children (attempt_questions/attempt_answers cascade). The rest
--- (session_questions, student_question_progress) cascade on question
--- delete, and practice_answers.question_id is ON DELETE SET
--- NULL, but we clear the practice trio explicitly so no orphan rows remain
--- (acceptable on staging — this is test data).
--- The assessment side was cleared in 7b, before its sub-topics could go.
+-- Wipe order: children before parents. session_questions and
+-- student_question_progress cascade on question delete, and
+-- practice_answers.question_id is ON DELETE SET NULL, but we clear the
+-- practice trio explicitly so no orphan rows remain (acceptable on staging —
+-- this is test data). The assessment side was cleared in 7b, before its
+-- sub-topics could go.
 DELETE FROM public.practice_answers;
 DELETE FROM public.session_questions;
 DELETE FROM public.student_question_progress;
 DELETE FROM public.questions;
 
-INSERT INTO public.questions (
-  id, type, question, stage_id, answer,
-  option_1_text, option_1_is_correct, option_1_tip,
-  option_2_text, option_2_is_correct, option_2_tip,
-  option_3_text, option_3_is_correct, option_3_tip,
-  option_4_text, option_4_is_correct, option_4_tip
-) VALUES
+INSERT INTO public.questions (id, stage_id, payload) VALUES
 
   -- ── Y1 Math > Chapter 1 > Basic Calculation (Chinese) — MCQ ──────────────
   -- The three below back the completed practice session in section 9.
 
-  ('073d50c7-22e1-43c1-be30-ba53e7b04e66', 'mcq',
-   '在 15, 20, 25, 30 中，下一个数是多少？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '31', false, '这是五个五个地数，不是加 1。',
-   '35', true,  NULL,
-   '40', false, '你跳过了一个数，先数到 35。',
-   '45', false, '太大了，30 的下一步是 35。'),
+  ('073d50c7-22e1-43c1-be30-ba53e7b04e66', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "在 15, 20, 25, 30 中，下一个数是多少？",
+     "options": [
+       {"text": "31", "is_correct": false, "tip": "这是五个五个地数，不是加 1。"},
+       {"text": "35", "is_correct": true},
+       {"text": "40", "is_correct": false, "tip": "你跳过了一个数，先数到 35。"},
+       {"text": "45", "is_correct": false, "tip": "太大了，30 的下一步是 35。"}
+     ]}'::jsonb),
 
-  ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 'mcq',
-   '在数字 7 中，个位数值是多少？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '70', false, '70 是七十，那是十位，不是个位。',
-   '7', true,  NULL,
-   '0', false, '0 表示没有，再看看数字本身。',
-   '1', false, '1 是位数的个数，不是数值。'),
+  ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "在数字 7 中，个位数值是多少？",
+     "options": [
+       {"text": "70", "is_correct": false, "tip": "70 是七十，那是十位，不是个位。"},
+       {"text": "7", "is_correct": true},
+       {"text": "0", "is_correct": false, "tip": "0 表示没有，再看看数字本身。"},
+       {"text": "1", "is_correct": false, "tip": "1 是位数的个数，不是数值。"}
+     ]}'::jsonb),
 
-  ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 'mcq',
-   '哪个数字最大？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '19', false, '先比十位：1 比 9 小。',
-   '91', true,  NULL,
-   '49', false, '十位是 4，比 9 小。',
-   '90', false, '十位相同，再比个位：0 比 1 小。'),
+  ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "哪个数字最大？",
+     "options": [
+       {"text": "19", "is_correct": false, "tip": "先比十位：1 比 9 小。"},
+       {"text": "91", "is_correct": true},
+       {"text": "49", "is_correct": false, "tip": "十位是 4，比 9 小。"},
+       {"text": "90", "is_correct": false, "tip": "十位相同，再比个位：0 比 1 小。"}
+     ]}'::jsonb),
 
   -- ── Y1 Math > Chapter 1 > Basic Calculation — MRQ (multiple correct) ──────
 
-  ('a1000000-0000-4000-8000-000000000001', 'mrq',
-   '以下哪些是双数（可选多个）？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '2', true,  NULL,
-   '3', false, '3 除以 2 有余数，是单数。',
-   '4', true,  NULL,
-   '5', false, '5 是单数，末位是 5。'),
+  ('a1000000-0000-4000-8000-000000000001', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mrq",
+     "question": "以下哪些是双数（可选多个）？",
+     "options": [
+       {"text": "2", "is_correct": true},
+       {"text": "3", "is_correct": false, "tip": "3 除以 2 有余数，是单数。"},
+       {"text": "4", "is_correct": true},
+       {"text": "5", "is_correct": false, "tip": "5 是单数，末位是 5。"}
+     ]}'::jsonb),
 
-  -- ── Y1 Math > Chapter 1 > Basic Calculation — short answer (no options) ───
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — short answer ────────────────
 
-  ('a1000000-0000-4000-8000-000000000002', 'short_answer',
-   '10 + 10 = ？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '20',
-   NULL, false, NULL,
-   NULL, false, NULL,
-   NULL, false, NULL,
-   NULL, false, NULL),
+  ('a1000000-0000-4000-8000-000000000002', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "short_answer",
+     "question": "10 + 10 = ？",
+     "accepted_answers": ["20", "二十"],
+     "tip": "两个十合起来是几个十？"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — true / false ────────────────
+  -- Answered with response {"value": true|false}.
+
+  ('a1000000-0000-4000-8000-000000000004', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "true_false",
+     "question": "25 比 52 大。",
+     "answer": false,
+     "tip": "先比十位：2 个十和 5 个十，哪个多？"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000005', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "true_false",
+     "question": "10 个一等于 1 个十。",
+     "answer": true,
+     "tip": "数一数：十根小棒捆成一捆，是几个十？"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — numeric ─────────────────────
+  -- Answered with text_answer; `tolerance` and `unit` are optional.
+
+  ('a1000000-0000-4000-8000-000000000006', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "numeric",
+     "question": "18 + 7 = ？",
+     "answer": 25,
+     "tip": "先凑十：18 加几等于 20？剩下的再加上去。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000007', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "numeric",
+     "question": "一支铅笔长 9.5 厘米。两支一样的铅笔接起来有多长？",
+     "answer": 19,
+     "tolerance": 0.5,
+     "unit": "厘米",
+     "tip": "两支一样长，就是把同一个数加两次。"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — cloze ───────────────────────
+  -- Blanks are {{n}} markers in `text`; answered with
+  -- response {"blanks": [{"index": n, "value": "..."}]}.
+
+  ('a1000000-0000-4000-8000-000000000008', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "cloze",
+     "question": "五个五个地数，填上漏掉的数。",
+     "text": "5, 10, {{1}}, 20, {{2}}, 30",
+     "blanks": [
+       {"index": 1, "accepted": ["15", "十五"]},
+       {"index": 2, "accepted": ["25", "二十五"]}
+     ],
+     "tip": "每一步都比前一个数多 5。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000009', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "cloze",
+     "text": "34 里面有 {{1}} 个十和 {{2}} 个一。",
+     "blanks": [
+       {"index": 1, "accepted": ["3", "三"]},
+       {"index": 2, "accepted": ["4", "四"]}
+     ],
+     "tip": "左边的数字是十位，右边的数字是个位。"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — matching ────────────────────
+  -- One pair per left item; the right column carries a distractor. Answered
+  -- with response {"pairs": [{"left_id": "...", "right_id": "..."}]}.
+
+  ('a1000000-0000-4000-8000-00000000000a', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "matching",
+     "question": "把数字和它的读法连起来。",
+     "left": [
+       {"id": "l1", "text": "12"},
+       {"id": "l2", "text": "20"},
+       {"id": "l3", "text": "15"}
+     ],
+     "right": [
+       {"id": "r1", "text": "二十"},
+       {"id": "r2", "text": "十五"},
+       {"id": "r3", "text": "十二"},
+       {"id": "r4", "text": "二十一"}
+     ],
+     "pairs": [
+       {"left_id": "l1", "right_id": "r3"},
+       {"left_id": "l2", "right_id": "r1"},
+       {"left_id": "l3", "right_id": "r2"}
+     ],
+     "tip": "先读十位，再读个位：1 个十读作“十”。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-00000000000b', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "matching",
+     "question": "每个数是单数还是双数？",
+     "left": [
+       {"id": "l1", "text": "6"},
+       {"id": "l2", "text": "9"},
+       {"id": "l3", "text": "14"},
+       {"id": "l4", "text": "17"}
+     ],
+     "right": [
+       {"id": "r1", "text": "单数"},
+       {"id": "r2", "text": "双数"}
+     ],
+     "pairs": [
+       {"left_id": "l1", "right_id": "r2"},
+       {"left_id": "l2", "right_id": "r1"},
+       {"left_id": "l3", "right_id": "r2"},
+       {"left_id": "l4", "right_id": "r1"}
+     ],
+     "tip": "看个位：0、2、4、6、8 结尾的是双数。"}'::jsonb),
 
   -- ── Y3 Math > Chapter 1 > Basic Calculation — MCQ ────────────────────────
 
-  ('0183618e-b41f-42c4-b838-c7caa9647fa6', 'mcq',
-   '3 个千、14 个十和 5 个一组成的数是？',
-   '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   NULL,
-   '3145', true, NULL,
-   '3415', false, '14 个十是 140，要进位到百位。',
-   '31405', false, '不要把 14 个十直接写进数字里。',
-   '3195', false, '14 个十是 140，不是 190。'),
+  ('0183618e-b41f-42c4-b838-c7caa9647fa6', '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
+   '{"type": "mcq",
+     "question": "3 个千、14 个十和 5 个一组成的数是？",
+     "options": [
+       {"text": "3145", "is_correct": true},
+       {"text": "3415", "is_correct": false, "tip": "14 个十是 140，要进位到百位。"},
+       {"text": "31405", "is_correct": false, "tip": "不要把 14 个十直接写进数字里。"},
+       {"text": "3195", "is_correct": false, "tip": "14 个十是 140，不是 190。"}
+     ]}'::jsonb),
 
   -- ── Y3 Math > Chapter 1 > Basic Calculation — MRQ ────────────────────────
 
-  ('a1000000-0000-4000-8000-000000000003', 'mrq',
-   '以下哪些数大于 3000（可选多个）？',
-   '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   NULL,
-   '3145', true, NULL,
-   '2999', false, '2999 比 3000 小 1。',
-   '3001', true, NULL,
-   '2130', false, '2130 的千位是 2，小于 3。'),
+  ('a1000000-0000-4000-8000-000000000003', '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
+   '{"type": "mrq",
+     "question": "以下哪些数大于 3000（可选多个）？",
+     "options": [
+       {"text": "3145", "is_correct": true},
+       {"text": "2999", "is_correct": false, "tip": "2999 比 3000 小 1。"},
+       {"text": "3001", "is_correct": true},
+       {"text": "2130", "is_correct": false, "tip": "2130 的千位是 2，小于 3。"}
+     ]}'::jsonb),
 
   -- ── Y2 English > Grammar > Verbs — MCQ ───────────────────────────────────
 
-  ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', 'mcq',
-   'Choose the correct answer
+  ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
+   '{"type": "mcq",
+     "question": "Choose the correct answer\n\nI _______ my teeth.",
+     "options": [
+       {"text": "comb", "is_correct": false, "tip": "You comb your hair, not your teeth."},
+       {"text": "brush", "is_correct": true},
+       {"text": "ride", "is_correct": false, "tip": "You ride a bike or a horse."},
+       {"text": "read", "is_correct": false, "tip": "You read books, not teeth."}
+     ]}'::jsonb),
 
-I _______ my teeth.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   'comb', false, 'You comb your hair, not your teeth.',
-   'brush', true, NULL,
-   'ride', false, 'You ride a bike or a horse.',
-   'read', false, 'You read books, not teeth.'),
-
-  ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 'mcq',
-   'Choose the correct answer
-
-I _______ books.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   'read', true, NULL,
-   'watch', false, 'You watch movies or TV, not books.',
-   'comb', false, 'You comb hair, not books.',
-   'feed', false, 'You feed animals, not books.'),
+  ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
+   '{"type": "mcq",
+     "question": "Choose the correct answer\n\nI _______ books.",
+     "options": [
+       {"text": "read", "is_correct": true},
+       {"text": "watch", "is_correct": false, "tip": "You watch movies or TV, not books."},
+       {"text": "comb", "is_correct": false, "tip": "You comb hair, not books."},
+       {"text": "feed", "is_correct": false, "tip": "You feed animals, not books."}
+     ]}'::jsonb),
 
   -- ── Y2 English > Comprehension > Unit 5 (days of the week) — MCQ ──────────
 
-  ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', 'mcq',
-   'Which group of days is written in the correct order?',
-   '3e7aa63a-900f-42f1-af4d-774b42e6020f',
-   NULL,
-   'Wednesday, Thursday, Tuesday', false, 'Tuesday comes before Wednesday, not after Thursday.',
-   'Monday, Tuesday, Wednesday', true, NULL,
-   'Saturday, Sunday, Friday', false, 'Friday comes before Saturday in the week.',
-   'Tuesday, Thursday, Wednesday', false, 'Wednesday comes before Thursday.')
+  ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', '3e7aa63a-900f-42f1-af4d-774b42e6020f',
+   '{"type": "mcq",
+     "question": "Which group of days is written in the correct order?",
+     "options": [
+       {"text": "Wednesday, Thursday, Tuesday", "is_correct": false, "tip": "Tuesday comes before Wednesday, not after Thursday."},
+       {"text": "Monday, Tuesday, Wednesday", "is_correct": true},
+       {"text": "Saturday, Sunday, Friday", "is_correct": false, "tip": "Friday comes before Saturday in the week."},
+       {"text": "Tuesday, Thursday, Wednesday", "is_correct": false, "tip": "Wednesday comes before Thursday."}
+     ]}'::jsonb)
 
 ON CONFLICT (id) DO NOTHING;
 
