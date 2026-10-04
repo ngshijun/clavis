@@ -1,0 +1,128 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"app_tagline": "Learning Platform",
+	"logo_alt": "Clavis logo",
+	"log_out": "Log out",
+	"toggle_language": "Toggle language",
+	"toggle_theme": "Toggle theme",
+	"navigation": "Navigation",
+	"nav_classrooms": "Classrooms",
+	"nav_dashboard": "Dashboard",
+	"action_edit": "Edit",
+	"action_delete": "Delete",
+	"action_cancel": "Cancel",
+	"action_close": "Close",
+	"action_save": "Save",
+	"action_back": "Back",
+	"error_unexpected": "An unexpected error occurred",
+	"error_not_found": "This page does not exist.",
+	"login_title": "Sign In",
+	"login_description": "Sign in to your account",
+	"login_email": "Email",
+	"login_email_placeholder": "Enter your email",
+	"login_password": "Password",
+	"login_password_placeholder": "Enter your password",
+	"login_submit": "Login",
+	"login_submitting": "Signing in...",
+	"auth_invalid_credentials": "Incorrect email or password.",
+	"auth_email_not_confirmed": "Please confirm your email before signing in.",
+	"auth_rate_limited": "Too many requests. Please wait a moment and try again.",
+	"auth_no_profile": "This account has not been set up yet. Ask your administrator.",
+	"admin_home_title": "Platform administration",
+	"admin_home_description": "Organizations, the curriculum and the platform banks are still being moved to this version of Clavis.",
+	"classroom_switch": "Switch classroom",
+	"classroom_unknown_staff": "That classroom is not one of yours.",
+	"classroom_unknown_student": "That class is not one of yours.",
+	"classroom_back_staff": "Back to your classrooms",
+	"classroom_back_student": "Back to your classes",
+	"picker_empty_staff": "You have not been assigned to a classroom yet.",
+	"picker_empty_student": "You have not joined a class yet.",
+	"count_students": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} student",
+				"countPlural=other": "{count} students"
+			}
+		}
+	],
+	"count_teachers": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} teacher",
+				"countPlural=other": "{count} teachers"
+			}
+		}
+	],
+	"classrooms_add": "Add Classroom",
+	"classrooms_search_placeholder": "Search by name, grade or subject...",
+	"classrooms_empty_title": "No Classrooms Yet",
+	"classrooms_empty_description": "Create your first classroom to group teachers and students.",
+	"classrooms_no_match": "No classrooms match your search criteria.",
+	"classrooms_deleted": "Classroom deleted",
+	"classrooms_manage_members": "Manage Members",
+	"classrooms_delete_title": "Delete Classroom",
+	"classrooms_delete_description": "Delete \"{name}\"? Its teacher and student memberships and classroom assignments are removed as well. This cannot be undone.",
+	"form_create_title": "Add Classroom",
+	"form_create_description": "A classroom groups teachers and students around one grade and subject.",
+	"form_edit_title": "Edit Classroom",
+	"form_edit_description": "Change the grade, subject or name of this classroom.",
+	"form_grade_label": "Grade Level",
+	"form_grade_placeholder": "Select a grade level",
+	"form_grade_required": "Grade level is required",
+	"form_subject_label": "Subject",
+	"form_subject_placeholder": "Select a subject",
+	"form_subject_required": "Subject is required",
+	"form_name_label": "Classroom Name",
+	"form_name_placeholder": "e.g. Group A (Sat 10am)",
+	"form_name_required": "Classroom name is required",
+	"form_name_too_long": "Name must be 120 characters or less",
+	"form_cover_label": "Background",
+	"form_cover_remove": "Remove background",
+	"form_cover_invalid": "The background must be a PNG, JPEG, WebP or GIF image of 4 MB or less",
+	"form_create": "Create Classroom",
+	"form_created": "Classroom created",
+	"form_updated": "Classroom updated",
+	"members_title": "Members of {name}",
+	"members_description": "Any teacher or student in your organization can be added to this classroom, and each may belong to several classrooms.",
+	"members_students_tab": "Students ({count})",
+	"members_teachers_tab": "Teachers ({count})",
+	"members_no_students": "No students in this classroom yet.",
+	"members_no_teachers": "No teachers in this classroom yet.",
+	"members_remove_student": "Remove student from classroom",
+	"members_remove_teacher": "Remove teacher from classroom",
+	"members_add_students": "Add Students",
+	"members_add_teachers": "Add Teachers",
+	"members_student_search": "Search by name or username...",
+	"members_teacher_search": "Search by name or email...",
+	"members_no_students_found": "No students found.",
+	"members_no_teachers_found": "No teachers found.",
+	"members_already_in": "Already in classroom",
+	"members_add_selected_students": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Add {count} student",
+				"countPlural=other": "Add {count} students"
+			}
+		}
+	],
+	"members_add_selected_teachers": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Add {count} teacher",
+				"countPlural=other": "Add {count} teachers"
+			}
+		}
+	],
+	"members_students_added": "Students added to classroom",
+	"members_teachers_added": "Teachers added to classroom",
+	"members_student_removed": "Student removed from classroom",
+	"members_teacher_removed": "Teacher removed from classroom"
+}

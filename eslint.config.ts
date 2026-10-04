@@ -9,7 +9,8 @@ export default defineConfigWithVueTs(
     files: ['**/*.{ts,mts,tsx,vue}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  // `svelte/` is the SvelteKit rewrite: its own package, linted by its own config.
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'svelte/**']),
 
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
