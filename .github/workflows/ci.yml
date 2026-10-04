@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Dummy values so `pnpm build` succeeds; CI does not run the app.
-      # Real values come from Vercel at deploy time.
-      VITE_SUPABASE_URL: https://dummy.supabase.co
-      VITE_SUPABASE_KEY: dummy-key
+      # Placeholder values so the build's environment check passes; CI does not
+      # run the app. Real values come from Vercel at deploy time.
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: placeholder
 
     steps:
       - uses: actions/checkout@v6
@@ -34,28 +34,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm exec eslint .
+        run: pnpm lint
 
-      - name: Build (type-check + bundle)
+      # The build also compiles the translations that the type check reads.
+      - name: Build
         run: pnpm build
+
+      - name: Type check
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test
 
       - name: Verify generated types are checked in
         run: |
-          # The committed file comes from `gen types --linked` (per CLAUDE.md
-          # workflow), which emits a vestigial __InternalSupabase type marker.
-          # `gen types --local` (used here in CI) does not emit it. The marker
-          # is inert in @supabase/supabase-js v2.101.1 — it's Omit'd from every
-          # type reference in the client and never actually read. Strip it from
-          # the committed file before comparing so this check only catches real
-          # schema drift, not the mode-dependent marker.
-          sed '/^  \/\/ Allows to automatically/,/^  }$/d' \
-            src/types/database.types.ts > /tmp/committed.ts
-          supabase gen types typescript --local > src/types/database.types.ts
-          npx prettier --write src/types/database.types.ts
-          if ! diff -u /tmp/committed.ts src/types/database.types.ts; then
+          pnpm db:types
+          if ! git diff --exit-code src/lib/database.types.ts; then
             echo ""
-            echo "Detected schema drift in src/types/database.types.ts (diff above)."
-            echo "Regenerate locally with:"
-            echo "  pnpm supabase gen types typescript --linked > src/types/database.types.ts && pnpm format"
+            echo "src/lib/database.types.ts does not match the migrations (diff above)."
+            echo "Regenerate it against the local stack with: pnpm db:types"
             exit 1
           fi

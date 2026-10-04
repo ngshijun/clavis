@@ -13,9 +13,9 @@
 
 - [ ] Manually verified locally
 - [ ] `pnpm lint` passes
-- [ ] `pnpm type-check` passes
+- [ ] `pnpm check` passes
 - [ ] `pnpm build` passes
-- [ ] Exercised all affected roles (student / parent / admin)
+- [ ] Exercised all affected roles (admin / manager / teacher / student)
 
 ## Database changes
 

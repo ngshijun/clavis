@@ -2,24 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dev (prod data)",
+      "name": "dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
-        "run",
-        "dev"
+        "dev",
+        "--port",
+        "5173",
+        "--strictPort"
       ],
       "port": 5173
-    },
-    {
-      "name": "dev:staging",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "run",
-        "dev:staging",
-        "--port",
-        "5174"
-      ],
-      "port": 5174
     }
   ]
 }
