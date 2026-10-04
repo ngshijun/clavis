@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '#lib/database.types.js';
 import type { Role } from '#lib/roles.js';
@@ -79,6 +80,31 @@ export async function listClassrooms(supabase: Supabase, role: Role): Promise<Cl
 	}));
 }
 
+/**
+ * The classroom named in an address, resolved against the classrooms the
+ * person can reach. The database already refuses to return anyone else's, so
+ * a miss means a mistyped link or one shared from another account, and the
+ * error page says so rather than showing an empty classroom.
+ */
+export function findClassroom(classrooms: Classroom[], classroomId: string): Classroom {
+	const classroom = classrooms.find((item) => item.id === classroomId);
+	if (!classroom) error(404, 'Classroom not found');
+	return classroom;
+}
+
+/** How many different students these classrooms hold: one enrolled in two of them counts once. */
+export async function countStudents(supabase: Supabase, classroomIds: string[]): Promise<number> {
+	if (classroomIds.length === 0) return 0;
+
+	const { data, error } = await supabase
+		.from('classroom_students')
+		.select('student_id')
+		.in('classroom_id', classroomIds);
+	if (error) throw error;
+
+	return new Set(data.map((row) => row.student_id)).size;
+}
+
 /** Grade levels with their subjects, in curriculum order, for the classroom form. */
 export async function listGradeLevels(supabase: Supabase): Promise<GradeLevelOption[]> {
 	const { data, error } = await supabase
@@ -123,6 +149,23 @@ export async function listClassroomStudents(
 	if (error) throw error;
 
 	return data.map((row) => toStudent(row.student_profiles)).sort(byName);
+}
+
+/** One student of a classroom, or null when the classroom has no such student. */
+export async function getClassroomStudent(
+	supabase: Supabase,
+	classroomId: string,
+	studentId: string
+): Promise<ClassroomStudent | null> {
+	const { data, error } = await supabase
+		.from('classroom_students')
+		.select(`student_profiles (${STUDENT_COLUMNS})`)
+		.eq('classroom_id', classroomId)
+		.eq('student_id', studentId)
+		.maybeSingle();
+	if (error) throw error;
+
+	return data ? toStudent(data.student_profiles) : null;
 }
 
 export async function listClassroomTeachers(

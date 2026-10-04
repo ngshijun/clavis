@@ -10,6 +10,10 @@ declare global {
 			/** The signed-in person, or null for a visitor. */
 			user: SessionUser | null;
 		}
+		interface PageData {
+			/** What a detail page is showing, by name: the last crumb of the breadcrumb. */
+			title?: string;
+		}
 	}
 }
 

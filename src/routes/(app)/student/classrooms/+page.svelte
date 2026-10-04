@@ -6,17 +6,15 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
-	let { data, params }: PageProps = $props();
+	let { data }: PageProps = $props();
 </script>
 
 {#if data.classrooms.length === 0}
-	<ClassroomEmpty
-		description={params.role === 'student' ? m.picker_empty_student() : m.picker_empty_staff()}
-	/>
+	<ClassroomEmpty description={m.picker_empty_student()} />
 {:else}
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 		{#each data.classrooms as classroom (classroom.id)}
-			<ClassroomCard {classroom} href={resolve(classroomPath(params.role, classroom.id))} />
+			<ClassroomCard {classroom} href={resolve(classroomPath('student', classroom.id))} />
 		{/each}
 	</div>
 {/if}

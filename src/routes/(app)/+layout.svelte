@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import AppSidebar from '#lib/components/app/app-sidebar.svelte';
 	import LanguageToggle from '#lib/components/app/language-toggle.svelte';
@@ -8,7 +7,7 @@
 	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
-	import { navItems } from '#lib/navigation.js';
+	import { breadcrumbs, navItems } from '#lib/navigation.js';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -17,13 +16,15 @@
 	// else's classroom gets no classroom links rather than links that lead nowhere.
 	const classroom = $derived(data.classrooms.find((item) => item.id === page.params.classroomId));
 	const items = $derived(navItems(data.user.role, classroom?.id));
-	const title = $derived(items.find((item) => resolve(item.href) === page.url.pathname)?.label());
+	const crumbs = $derived(
+		breadcrumbs(data.user.role, classroom, page.url.pathname, page.data.title)
+	);
 </script>
 
 <Sidebar.Provider>
-	<!-- No sidebar where there is nowhere to go: a picker is the whole page. -->
+	<!-- No sidebar where there is nowhere to go: a student's picker is the whole page. -->
 	{#if items.length > 0}
-		<AppSidebar role={data.user.role} {items} {classroom} classroomCount={data.classrooms.length} />
+		<AppSidebar role={data.user.role} {items} classrooms={data.classrooms} {classroom} />
 	{/if}
 	<Sidebar.Inset>
 		<header class="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-4">
@@ -32,12 +33,22 @@
 					<Sidebar.Trigger class="-ml-1" />
 					<Separator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
 				{/if}
-				{#if title}
+				{#if crumbs.length > 0}
 					<Breadcrumb.Root class="min-w-0">
-						<Breadcrumb.List>
-							<Breadcrumb.Item>
-								<Breadcrumb.Page class="truncate">{title}</Breadcrumb.Page>
-							</Breadcrumb.Item>
+						<Breadcrumb.List class="flex-nowrap">
+							{#each crumbs as crumb, index (crumb.href + index)}
+								{#if index === crumbs.length - 1}
+									<Breadcrumb.Item class="min-w-0">
+										<Breadcrumb.Page class="truncate">{crumb.label}</Breadcrumb.Page>
+									</Breadcrumb.Item>
+								{:else}
+									<!-- On a narrow screen only the page itself is named. -->
+									<Breadcrumb.Item class="hidden md:inline-flex">
+										<Breadcrumb.Link href={crumb.href}>{crumb.label}</Breadcrumb.Link>
+									</Breadcrumb.Item>
+									<Breadcrumb.Separator class="hidden md:block" />
+								{/if}
+							{/each}
 						</Breadcrumb.List>
 					</Breadcrumb.Root>
 				{/if}
@@ -49,7 +60,7 @@
 				<UserMenu user={data.user} />
 			</div>
 		</header>
-		<main class="flex-1 overflow-auto p-6">
+		<main class="flex-1 overflow-auto p-page">
 			{@render children()}
 		</main>
 	</Sidebar.Inset>

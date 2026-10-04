@@ -5,7 +5,7 @@ describe('homePath', () => {
 	it('sends each role to the first page it can use', () => {
 		expect(homePath('admin')).toBe('admin');
 		expect(homePath('manager')).toBe('manager/classrooms');
-		expect(homePath('teacher')).toBe('teacher/classrooms');
+		expect(homePath('teacher')).toBe('teacher/dashboard');
 		expect(homePath('student')).toBe('student/classrooms');
 	});
 });
@@ -22,7 +22,7 @@ describe('redirectFor', () => {
 	});
 
 	it('sends a signed-in person away from the login page and the root', () => {
-		expect(redirectFor('/login', null, 'teacher')).toBe('teacher/classrooms');
+		expect(redirectFor('/login', null, 'teacher')).toBe('teacher/dashboard');
 		expect(redirectFor('/', null, 'admin')).toBe('admin');
 	});
 
@@ -34,7 +34,7 @@ describe('redirectFor', () => {
 
 	it('sends a person who opens another role’s page back to their own', () => {
 		expect(redirectFor('/admin', 'admin', 'manager')).toBe('manager/classrooms');
-		expect(redirectFor('/manager/classrooms', 'manager', 'teacher')).toBe('teacher/classrooms');
+		expect(redirectFor('/manager/classrooms', 'manager', 'teacher')).toBe('teacher/dashboard');
 		expect(redirectFor('/teacher/classrooms/abc/dashboard', 'teacher', 'student')).toBe(
 			'student/classrooms'
 		);
@@ -43,7 +43,7 @@ describe('redirectFor', () => {
 	it('goes by the matched route, however the address is spelled', () => {
 		expect(redirectFor('/%6Danager/classrooms', 'manager', null)).toBe('login');
 		expect(redirectFor('/%6Danager/classrooms', 'manager', 'student')).toBe('student/classrooms');
-		expect(redirectFor('/%61dmin', 'admin', 'teacher')).toBe('teacher/classrooms');
+		expect(redirectFor('/%61dmin', 'admin', 'teacher')).toBe('teacher/dashboard');
 	});
 
 	it('sends a role’s bare root to a home', () => {

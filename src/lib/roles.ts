@@ -6,12 +6,15 @@ export type Role = Database['public']['Enums']['user_role'];
 const ROLES: readonly string[] = ['admin', 'manager', 'teacher', 'student'] satisfies Role[];
 
 /**
- * Where a role lands after signing in. A teacher's and a student's work all
- * happens inside a classroom, and which one is not known yet, so they land on
- * the picker; a manager lands on the classroom list they manage.
+ * Where a role lands after signing in. A teacher lands on a dashboard of all
+ * their classrooms and a manager on the classroom list they manage. A
+ * student's work all happens inside a classroom, and which one is not known
+ * yet, so they land on the picker.
  */
 export function homePath(role: Role): Path {
-	return role === 'admin' ? 'admin' : `${role}/classrooms`;
+	if (role === 'admin') return 'admin';
+	if (role === 'teacher') return 'teacher/dashboard';
+	return `${role}/classrooms`;
 }
 
 /**

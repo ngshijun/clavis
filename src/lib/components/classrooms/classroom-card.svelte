@@ -3,16 +3,15 @@
 	import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
 	import SchoolIcon from '@lucide/svelte/icons/school';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import ClassroomCover from '#lib/components/classrooms/classroom-cover.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { Classroom } from '#lib/server/classrooms.js';
 
 	/**
-	 * One classroom as a card, shared by the manager's grid and the teacher's
-	 * and student's pickers so a cover uploaded once is seen everywhere.
-	 *
-	 * The cover is the point: two classes can differ only by a trailing "A" or
-	 * "B", and a picture is the fastest way to tell them apart.
+	 * One classroom as a card, shared by the manager's grid, the teacher's
+	 * dashboard and the student's picker so a cover uploaded once is seen
+	 * everywhere.
 	 */
 	let {
 		classroom,
@@ -25,31 +24,13 @@
 		/** Controls laid over the cover's corner. */
 		actions?: Snippet;
 	} = $props();
-
-	/**
-	 * Without a cover the card gets a tint derived from the classroom id, stable
-	 * per classroom. Spread by the golden angle: sibling classrooms often have
-	 * ids one character apart, which a plain modulo maps to neighbouring hues.
-	 */
-	const hue = $derived.by(() => {
-		let hash = 0;
-		for (const char of classroom.id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-		return Math.floor((Math.abs(hash) * 137.508) % 360);
-	});
 </script>
 
 <!-- `gap-0 py-0` so the cover sits flush with the card's top and side borders. -->
 <Card.Root
 	class="relative gap-0 overflow-hidden py-0 transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-md"
 >
-	{#if classroom.coverUrl}
-		<img src={classroom.coverUrl} alt="" class="aspect-video w-full object-cover" />
-	{:else}
-		<div
-			class="aspect-video w-full bg-linear-135 from-[hsl(var(--hue)_65%_62%)] to-[hsl(calc(var(--hue)+40)_65%_48%)]"
-			style:--hue={hue}
-		></div>
-	{/if}
+	<ClassroomCover {classroom} class="aspect-video w-full" />
 
 	<Card.Content class="flex flex-col gap-3 py-4">
 		<div class="flex items-start gap-2">

@@ -77,6 +77,9 @@
 
 @theme inline {
 	--font-logo: 'Gill Sans Display MT Pro', sans-serif;
+	/* The space between the app frame and a page's content. A page that runs edge to edge,
+	   like a classroom's banner, pulls itself out by the same amount. */
+	--spacing-page: 1.5rem;
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);

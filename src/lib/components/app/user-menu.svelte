@@ -3,19 +3,11 @@
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import * as Avatar from '#lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { initials } from '#lib/initials.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SessionUser } from '#lib/server/session.js';
 
 	let { user }: { user: SessionUser } = $props();
-
-	const initials = $derived(
-		user.name
-			.split(' ')
-			.map((part) => part[0])
-			.join('')
-			.toUpperCase()
-			.slice(0, 2) || '?'
-	);
 
 	let logoutForm: HTMLFormElement;
 </script>
@@ -31,7 +23,7 @@
 			{#if user.avatarUrl}
 				<Avatar.Image src={user.avatarUrl} alt={user.name} />
 			{/if}
-			<Avatar.Fallback>{initials}</Avatar.Fallback>
+			<Avatar.Fallback>{initials(user.name)}</Avatar.Fallback>
 		</Avatar.Root>
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content class="min-w-56" align="end">

@@ -1,15 +1,16 @@
 import { defineParams } from '@sveltejs/kit/params';
+import { z } from 'zod';
 
 export const params = defineParams({
-	/** The roles that work inside a classroom: its pages are shared between them. */
-	member: (param) => {
-		if (param === 'manager' || param === 'teacher' || param === 'student') return param;
-	},
 	/**
-	 * The roles that choose a classroom from a picker. A manager has a classroom
-	 * management page instead, at the same address.
+	 * The roles whose classroom pages are shared. A teacher's classroom has its
+	 * own pages, under `/teacher`.
 	 */
-	picker: (param) => {
-		if (param === 'teacher' || param === 'student') return param;
+	member: (param) => {
+		if (param === 'manager' || param === 'student') return param;
+	},
+	/** A row id. Anything else is not an address, so it never reaches the database. */
+	id: (param) => {
+		if (z.guid().safeParse(param).success) return param;
 	}
 });

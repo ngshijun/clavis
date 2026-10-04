@@ -4,22 +4,30 @@
 	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
-	import { classroomsPath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { homePath } from '#lib/roles.js';
 	import type { LayoutData } from './$types';
 
-	const user = $derived((page.data as LayoutData).user);
+	const layout = $derived(page.data as LayoutData);
+	const user = $derived(layout.user);
 	const student = $derived(user.role === 'student');
 
-	/** A 404 under a classroom address is a classroom the person cannot reach. */
-	const unknownClassroom = $derived(page.status === 404 && page.params.classroomId !== undefined);
+	/**
+	 * A 404 naming a classroom the person cannot reach. One naming a classroom
+	 * they can reach is a missing page inside it, and gets the plain message.
+	 */
+	const unknownClassroom = $derived(
+		page.status === 404 &&
+			page.params.classroomId !== undefined &&
+			!layout.classrooms.some((classroom) => classroom.id === page.params.classroomId)
+	);
 </script>
 
 {#if unknownClassroom}
 	<ClassroomEmpty
 		description={student ? m.classroom_unknown_student() : m.classroom_unknown_staff()}
 	>
-		<Button variant="outline" href={resolve(classroomsPath(user.role))}>
+		<Button variant="outline" href={resolve(homePath(user.role))}>
 			{student ? m.classroom_back_student() : m.classroom_back_staff()}
 		</Button>
 	</ClassroomEmpty>
