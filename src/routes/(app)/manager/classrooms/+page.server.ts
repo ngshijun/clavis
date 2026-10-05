@@ -1,6 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import * as z from 'zod';
 import { m } from '#lib/paraglide/messages.js';
+import { formValues, unexpected } from '#lib/server/forms.js';
+import { imageField, imagePath } from '#lib/server/images.js';
 import {
 	CLASSROOM_IMAGES,
 	listClassroomStudents,
@@ -40,10 +42,6 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	}
 };
 
-/** What the `classroom-images` bucket accepts; anything else is refused before a row is written. */
-const COVER_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-const MAX_COVER_BYTES = 4 * 1024 * 1024;
-
 const classroomSchema = z.object({
 	id: z.guid().optional(),
 	name: z
@@ -54,30 +52,13 @@ const classroomSchema = z.object({
 	gradeLevelId: z.guid({ error: () => m.form_grade_required() }),
 	subjectId: z.guid({ error: () => m.form_subject_required() }),
 	removeCover: z.stringbool().optional(),
-	cover: z
-		.file()
-		.optional()
-		// An empty file input still posts a zero-byte file.
-		.transform((file) => (file && file.size > 0 ? file : undefined))
-		.refine((file) => !file || (COVER_TYPES.includes(file.type) && file.size <= MAX_COVER_BYTES), {
-			error: () => m.form_cover_invalid()
-		})
+	cover: imageField(() => m.form_cover_invalid())
 });
 
 const membershipSchema = z.object({
 	classroomId: z.guid(),
 	kind: z.enum(['students', 'teachers'])
 });
-
-/** What went wrong is logged for us; the person is told only that it did not work. */
-function unexpected(cause: unknown) {
-	console.error(cause);
-	return fail(500, { message: m.error_unexpected() });
-}
-
-function values(form: FormData) {
-	return Object.fromEntries([...form].filter(([, value]) => value !== ''));
-}
 
 export const actions: Actions = {
 	/**
@@ -90,7 +71,7 @@ export const actions: Actions = {
 		const { supabase, user } = locals;
 		if (!user?.organizationId) error(403, 'Forbidden');
 
-		const parsed = classroomSchema.safeParse(values(await request.formData()));
+		const parsed = classroomSchema.safeParse(formValues(await request.formData()));
 		if (!parsed.success) {
 			return fail(400, { errors: z.flattenError(parsed.error).fieldErrors });
 		}
@@ -122,10 +103,7 @@ export const actions: Actions = {
 
 		let nextCover = removeCover ? null : previousCover;
 		if (cover) {
-			const extension = cover.name.includes('.')
-				? cover.name.slice(cover.name.lastIndexOf('.'))
-				: '';
-			const path = `${id}/${crypto.randomUUID()}${extension}`;
+			const path = imagePath(id, cover);
 			const { error: uploadError } = await supabase.storage
 				.from(CLASSROOM_IMAGES)
 				.upload(path, cover, { cacheControl: '31536000', contentType: cover.type });
@@ -192,7 +170,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const parsed = membershipSchema
 			.extend({ ids: z.array(z.guid()).min(1) })
-			.safeParse({ ...values(form), ids: form.getAll('ids') });
+			.safeParse({ ...formValues(form), ids: form.getAll('ids') });
 		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
 		const { classroomId, kind, ids } = parsed.data;
 
@@ -210,7 +188,7 @@ export const actions: Actions = {
 	removeMember: async ({ request, locals }) => {
 		const parsed = membershipSchema
 			.extend({ id: z.guid() })
-			.safeParse(values(await request.formData()));
+			.safeParse(formValues(await request.formData()));
 		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
 		const { classroomId, kind, id } = parsed.data;
 

@@ -8,12 +8,14 @@
 	"navigation": "Navigation",
 	"nav_classrooms": "Classrooms",
 	"nav_dashboard": "Dashboard",
+	"nav_curriculum": "Curriculum",
 	"action_edit": "Edit",
 	"action_delete": "Delete",
 	"action_cancel": "Cancel",
 	"action_close": "Close",
 	"action_save": "Save",
 	"action_back": "Back",
+	"action_rename": "Rename",
 	"error_unexpected": "An unexpected error occurred",
 	"error_not_found": "This page does not exist.",
 	"login_title": "Sign In",
@@ -37,7 +39,6 @@
 	"classroom_back_student": "Back to your classes",
 	"picker_empty_staff": "You have not been assigned to a classroom yet.",
 	"picker_empty_student": "You have not joined a class yet.",
-	"teacher_dashboard_description": "All your classrooms at a glance.",
 	"teacher_dashboard_classrooms": "Your classrooms",
 	"classroom_sections": "Classroom sections",
 	"section_overview": "Overview",
@@ -67,6 +68,26 @@
 			"match": {
 				"countPlural=one": "{count} teacher",
 				"countPlural=other": "{count} teachers"
+			}
+		}
+	],
+	"count_subjects": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} subject",
+				"countPlural=other": "{count} subjects"
+			}
+		}
+	],
+	"count_topics": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} topic",
+				"countPlural=other": "{count} topics"
 			}
 		}
 	],
@@ -137,5 +158,34 @@
 	"members_students_added": "Students added to classroom",
 	"members_teachers_added": "Teachers added to classroom",
 	"members_student_removed": "Student removed from classroom",
-	"members_teacher_removed": "Teacher removed from classroom"
+	"members_teacher_removed": "Teacher removed from classroom",
+	"curriculum_grades": "Grade levels",
+	"curriculum_subjects_of": "Subjects of {name}",
+	"curriculum_topics_of": "Topics of {name}",
+	"curriculum_collapse_all": "Collapse all",
+	"curriculum_expand_all": "Expand all",
+	"curriculum_collapse": "Collapse {name}",
+	"curriculum_expand": "Expand {name}",
+	"curriculum_empty_title": "No grade levels yet",
+	"curriculum_empty_description": "Add the first grade level below to start the curriculum.",
+	"curriculum_no_subjects": "No subjects yet.",
+	"curriculum_add_grade": "Add grade level",
+	"curriculum_add_subject": "Add subject",
+	"curriculum_add_subject_to": "Add a subject to {name}",
+	"curriculum_add_topic": "Add topic",
+	"curriculum_add_topic_to": "Add a topic to {name}",
+	"curriculum_name_label": "Name",
+	"curriculum_name_invalid": "A name must be 1 to 120 characters long.",
+	"curriculum_name_taken": "That name is already used here.",
+	"curriculum_reorder": "Reorder {name}",
+	"curriculum_cover_of": "Cover image of {name}",
+	"curriculum_cover_add": "Add a cover image",
+	"curriculum_cover_replace": "Replace image",
+	"curriculum_cover_remove": "Remove image",
+	"curriculum_cover_invalid": "The cover must be a PNG, JPEG, WebP or GIF image of 4 MB or less.",
+	"curriculum_delete_title": "Delete {name}?",
+	"curriculum_delete_grade": "Its subjects and topics are deleted with it, along with their stages, practice questions and practice records. This cannot be undone. A grade level that a classroom or an assessment item uses cannot be deleted.",
+	"curriculum_delete_subject": "Its topics are deleted with it, along with their stages, practice questions and practice records. This cannot be undone. A subject that a classroom or an assessment item uses cannot be deleted.",
+	"curriculum_delete_topic": "Its stages and sub-topics are deleted with it, along with their practice questions and practice records. This cannot be undone. A topic whose sub-topics hold assessment items cannot be deleted.",
+	"curriculum_in_use": "It cannot be deleted while a classroom or an assessment item uses it."
 }

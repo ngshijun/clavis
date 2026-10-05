@@ -4,10 +4,18 @@
 	import * as Avatar from '#lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { initials } from '#lib/initials.js';
+	import type { NavItem } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SessionUser } from '#lib/server/session.js';
 
-	let { user }: { user: SessionUser } = $props();
+	let {
+		user,
+		items
+	}: {
+		user: SessionUser;
+		/** Pages reached from here rather than from the sidebar. */
+		items: NavItem[];
+	} = $props();
 
 	let logoutForm: HTMLFormElement;
 </script>
@@ -32,6 +40,21 @@
 			<span class="truncate text-xs text-muted-foreground">{user.email}</span>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />
+		{#if items.length > 0}
+			<DropdownMenu.Group>
+				{#each items as item (item.href)}
+					<DropdownMenu.Item>
+						{#snippet child({ props })}
+							<a href={resolve(item.href)} {...props}>
+								<item.icon />
+								{item.label()}
+							</a>
+						{/snippet}
+					</DropdownMenu.Item>
+				{/each}
+			</DropdownMenu.Group>
+			<DropdownMenu.Separator />
+		{/if}
 		<DropdownMenu.Group>
 			<DropdownMenu.Item onSelect={() => logoutForm.requestSubmit()}>
 				<LogOutIcon />

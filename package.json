@@ -44,6 +44,7 @@
 		"supabase": "^2.119.0",
 		"svelte": "^5.57.1",
 		"svelte-check": "^4.6.0",
+		"svelte-dnd-action": "^0.9.80",
 		"svelte-sonner": "^1.2.1",
 		"tailwind-variants": "^3.3.1",
 		"tailwindcss": "^4.3.0",

@@ -11,11 +11,6 @@
 </script>
 
 <div class="flex flex-col gap-8">
-	<div class="flex flex-col gap-1">
-		<h1 class="text-2xl font-semibold">{m.nav_dashboard()}</h1>
-		<p class="text-muted-foreground">{m.teacher_dashboard_description()}</p>
-	</div>
-
 	{#if data.classrooms.length === 0}
 		<ClassroomEmpty description={m.picker_empty_staff()} />
 	{:else}

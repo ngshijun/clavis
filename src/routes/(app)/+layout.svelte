@@ -7,7 +7,7 @@
 	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
-	import { breadcrumbs, navItems } from '#lib/navigation.js';
+	import { accountItems, breadcrumbs, navItems } from '#lib/navigation.js';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -19,7 +19,13 @@
 	const crumbs = $derived(
 		breadcrumbs(data.user.role, classroom, page.url.pathname, page.data.title)
 	);
+	/** The breadcrumb names the page, so the browser tab takes its name from the same place. */
+	const title = $derived(crumbs.at(-1)?.label);
 </script>
+
+<svelte:head>
+	<title>{title ? `${title} · Clavis` : 'Clavis'}</title>
+</svelte:head>
 
 <Sidebar.Provider>
 	<!-- No sidebar where there is nowhere to go: a student's picker is the whole page. -->
@@ -39,7 +45,7 @@
 							{#each crumbs as crumb, index (crumb.href + index)}
 								{#if index === crumbs.length - 1}
 									<Breadcrumb.Item class="min-w-0">
-										<Breadcrumb.Page class="truncate">{crumb.label}</Breadcrumb.Page>
+										<Breadcrumb.Page class="truncate font-semibold">{crumb.label}</Breadcrumb.Page>
 									</Breadcrumb.Item>
 								{:else}
 									<!-- On a narrow screen only the page itself is named. -->
@@ -57,7 +63,7 @@
 				<LanguageToggle />
 				<ThemeToggle />
 				<Separator orientation="vertical" class="data-[orientation=vertical]:h-4" />
-				<UserMenu user={data.user} />
+				<UserMenu user={data.user} items={accountItems(data.user.role)} />
 			</div>
 		</header>
 		<main class="flex-1 overflow-auto p-page">

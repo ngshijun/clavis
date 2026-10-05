@@ -16,7 +16,11 @@ export default defineConfig({
 			// The runtime is pinned so a local build works on any Node; adapter-vercel otherwise
 			// refuses versions it does not know. The region is Singapore, next to the database:
 			// every page load queries it, so the functions must not sit an ocean away.
-			adapter: adapter({ runtime: 'nodejs24.x', regions: ['sin1'] })
+			adapter: adapter({ runtime: 'nodejs24.x', regions: ['sin1'] }),
+			// Links are written from the root on the server as they are in the browser. The page
+			// decides which link is the current one by comparing it with the address, and a link
+			// written relative to the page being rendered never matches.
+			paths: { relative: false }
 		}),
 
 		paraglideVitePlugin({
