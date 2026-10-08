@@ -24,7 +24,10 @@
 		name: string;
 		/** Layout: how the name sits among its neighbours. */
 		class?: string;
-		/** Type: how the name reads, the same whether shown or being typed. */
+		/**
+		 * Type: how the name reads, the same whether shown or being typed. Give a
+		 * size for `md:` too, where the field would otherwise take its own.
+		 */
 		textClass?: string;
 	} = $props();
 

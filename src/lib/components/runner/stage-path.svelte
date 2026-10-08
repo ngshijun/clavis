@@ -89,7 +89,7 @@
 		<Card.Title class="font-semibold">
 			<h2>{topic.name}</h2>
 		</Card.Title>
-		<Card.Description class="text-xs">
+		<Card.Description>
 			{m.practice_stages_done({ done, count: stops.length })}
 		</Card.Description>
 		<Card.Action class="self-center">

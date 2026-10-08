@@ -52,7 +52,12 @@
 			{/snippet}
 		</Collapsible.Trigger>
 		<h2 class="flex min-w-0">
-			<InlineName kind="grade" id={grade.id} name={grade.name} textClass="text-lg font-semibold" />
+			<InlineName
+				kind="grade"
+				id={grade.id}
+				name={grade.name}
+				textClass="text-lg font-semibold md:text-lg"
+			/>
 		</h2>
 		<span class="text-sm text-muted-foreground">{summary}</span>
 		<div class="ms-auto flex items-center gap-2">

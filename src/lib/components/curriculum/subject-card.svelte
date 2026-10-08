@@ -36,7 +36,7 @@
 				id={subject.id}
 				name={subject.name}
 				class="flex-1"
-				textClass="font-semibold"
+				textClass="text-base font-semibold md:text-base"
 			/>
 		</Card.Title>
 		<RowDelete target={{ kind: 'subject', id: subject.id, name: subject.name }} />

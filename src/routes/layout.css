@@ -20,6 +20,24 @@
 	 * `p-2` holds `rounded-lg` shapes), and `rounded-sm` is the floor. Controls
 	 * that are one line tall (buttons, fields, badges) are capsules, which sit
 	 * right in any corner. `rounded-md` (8px) is off the ladder and is not used.
+	 *
+	 * Type has six sizes, and what a piece of text is for picks its size:
+	 *
+	 *   xs 12   a hint, a count in a badge, the second line under a 14px name
+	 *   sm 14   the app's text: rows, controls, descriptions. Set on `body`,
+	 *           so text that names no size has this one wherever it stands
+	 *   base 16 the title of a card or a dialog, and what a pupil reads: a
+	 *           question, a passage, a text with blanks
+	 *   lg 18   the heading of a section of a page, of an empty state and of
+	 *           a question that must be answered before going on
+	 *   xl 20   the name of what a page is about, and a figure in a dialog
+	 *   3xl 30  a figure on a page, and a name on a cover
+	 *
+	 * The line under a title is 14px, or 12px under a 14px one. Nothing is
+	 * smaller than 12px. A character drawn as a picture (a stage's number on
+	 * its button, the letter on a cover) is sized to its shape, not from this.
+	 * A field is 16px below `md`, the kit's guard against a phone zooming in,
+	 * so a size given to one must be given for `md:` too.
 	 */
 	--radius: 0.625rem;
 	/* The space between the app frame and a page's content. */
@@ -174,7 +192,7 @@
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply bg-background text-foreground;
+		@apply bg-background text-sm text-foreground;
 	}
 	html {
 		@apply font-sans;

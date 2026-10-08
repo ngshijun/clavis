@@ -69,7 +69,7 @@
 			readonly={readonly || given}
 			class={cn(
 				cell,
-				'w-10 text-lg font-semibold',
+				'w-10 font-semibold',
 				given && 'bg-secondary',
 				verdict && !given && marked[verdict]
 			)}

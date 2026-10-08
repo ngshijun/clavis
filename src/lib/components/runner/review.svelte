@@ -147,7 +147,7 @@
 	{#snippet rail()}
 		<Card.Root class="gap-3 p-4">
 			<div class="flex flex-wrap items-baseline gap-x-2 px-2">
-				<span class="text-4xl leading-none font-extrabold tracking-tight text-primary tabular-nums">
+				<span class="text-3xl leading-none font-extrabold tracking-tight text-primary tabular-nums">
 					{markFigure(marked.marks)}
 				</span>
 				<span class="text-sm font-semibold text-secondary-foreground">

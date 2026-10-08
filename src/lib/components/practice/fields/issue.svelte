@@ -9,5 +9,5 @@
 </script>
 
 {#if message}
-	<FieldError class="text-xs">{message}</FieldError>
+	<FieldError>{message}</FieldError>
 {/if}

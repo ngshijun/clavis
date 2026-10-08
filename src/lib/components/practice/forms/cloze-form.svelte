@@ -156,7 +156,7 @@
 	<div class="grid min-h-16 rounded-2xl bg-input/50">
 		<!-- The text keeps its spaces and line breaks here, so none may come from the markup. -->
 		<!-- prettier-ignore -->
-		<div aria-hidden="true" class={cn(page, 'pointer-events-none text-transparent select-none')}>{#each pieces as piece, at (at)}{#if piece.blank}<span class="relative -mx-0.5 rounded-sm bg-primary/15 px-0.5 py-1"><span class="absolute -top-3.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] leading-none font-bold text-primary-foreground">{piece.blank}</span>{piece.text}</span>{:else}{piece.text}{/if}{/each}&#8203;</div>
+		<div aria-hidden="true" class={cn(page, 'pointer-events-none text-transparent select-none')}>{#each pieces as piece, at (at)}{#if piece.blank}<span class="relative -mx-0.5 rounded-sm bg-primary/15 px-0.5 py-1"><span class="absolute -top-3.5 -left-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-xs leading-none font-bold text-primary-foreground">{piece.blank}</span>{piece.text}</span>{:else}{piece.text}{/if}{/each}&#8203;</div>
 		<Textarea
 			id="{id}-text"
 			bind:ref={field}

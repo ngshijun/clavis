@@ -189,9 +189,7 @@
 											<Item.Content class="min-w-0">
 												<Item.Title class="truncate">{member.name}</Item.Title>
 												{#if member.detail}
-													<Item.Description class="truncate text-xs"
-														>{member.detail}</Item.Description
-													>
+													<Item.Description class="truncate">{member.detail}</Item.Description>
 												{/if}
 											</Item.Content>
 											<Item.Actions>

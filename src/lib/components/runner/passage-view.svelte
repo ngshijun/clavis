@@ -21,7 +21,7 @@
 
 {#if title.trim() || body.trim() || imageUrl}
 	<div
-		class="flex max-h-60 flex-col gap-1.5 overflow-y-auto rounded-lg border bg-card px-4 py-3.5 text-sm leading-relaxed"
+		class="flex max-h-60 flex-col gap-1.5 overflow-y-auto rounded-lg border bg-card px-4 py-3.5 text-base leading-relaxed"
 	>
 		{#if title.trim()}
 			<span class="font-semibold wrap-break-word">{title}</span>

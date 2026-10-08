@@ -42,7 +42,7 @@
 		<Card.Title class="font-semibold">
 			<h2>{topic.name}</h2>
 		</Card.Title>
-		<Card.Description class="text-xs">{summary}</Card.Description>
+		<Card.Description>{summary}</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-1 px-0">
 		{#if stages.length === 0}
