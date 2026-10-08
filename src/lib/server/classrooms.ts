@@ -17,6 +17,12 @@ export interface Classroom {
 	/** Public URL of the cover image; null when the classroom has none. */
 	coverUrl: string | null;
 	/**
+	 * When the classroom was archived; null while it is live. Only a manager
+	 * is ever handed an archived classroom: the database hides it from its
+	 * teachers and students.
+	 */
+	archivedAt: string | null;
+	/**
 	 * Roster sizes, present for staff only. A student's membership rows are
 	 * filtered down to their own, so a count read as a student would be wrong.
 	 */
@@ -46,14 +52,15 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
 
 /**
  * The classrooms the signed-in person can reach. No filter is needed: row
- * level security returns every classroom of a manager's organization, the
- * classrooms a teacher teaches, and the classrooms a student is enrolled in.
+ * level security returns every classroom of a manager's organization, archived
+ * ones included, the live classrooms a teacher teaches, and the live
+ * classrooms a student is enrolled in.
  */
 export async function listClassrooms(supabase: Supabase, role: Role): Promise<Classroom[]> {
 	const { data, error } = await supabase
 		.from('classrooms')
 		.select(
-			`id, name, grade_level_id, subject_id, cover_image_path,
+			`id, name, grade_level_id, subject_id, cover_image_path, archived_at,
 			grade_levels (name), subjects (name),
 			classroom_teachers (count), classroom_students (count)`
 		)
@@ -70,6 +77,7 @@ export async function listClassrooms(supabase: Supabase, role: Role): Promise<Cl
 		coverUrl: row.cover_image_path
 			? supabase.storage.from(CLASSROOM_IMAGES).getPublicUrl(row.cover_image_path).data.publicUrl
 			: null,
+		archivedAt: row.archived_at,
 		counts:
 			role === 'student'
 				? null

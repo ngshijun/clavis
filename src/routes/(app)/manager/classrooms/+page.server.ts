@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import * as z from 'zod';
 import { m } from '#lib/paraglide/messages.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
-import { imageField, imagePath } from '#lib/server/images.js';
+import { readPicture, uploadPicture } from '#lib/server/images.js';
 import {
 	CLASSROOM_IMAGES,
 	listClassroomStudents,
@@ -22,7 +22,10 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	const { user, classrooms } = await parent();
 	const { supabase } = locals;
 
-	const membersOf = classrooms.find((item) => item.id === url.searchParams.get('members'));
+	// An archived classroom's roster stands as it was, so there is nothing to open it for.
+	const membersOf = classrooms.find(
+		(item) => item.id === url.searchParams.get('members') && item.archivedAt === null
+	);
 
 	const [gradeLevels, members] = await Promise.all([
 		listGradeLevels(supabase),
@@ -51,8 +54,7 @@ const classroomSchema = z.object({
 		.max(120, { error: () => m.form_name_too_long() }),
 	gradeLevelId: z.guid({ error: () => m.form_grade_required() }),
 	subjectId: z.guid({ error: () => m.form_subject_required() }),
-	removeCover: z.stringbool().optional(),
-	cover: imageField(() => m.form_cover_invalid())
+	removeCover: z.stringbool().optional()
 });
 
 const membershipSchema = z.object({
@@ -71,11 +73,15 @@ export const actions: Actions = {
 		const { supabase, user } = locals;
 		if (!user?.organizationId) error(403, 'Forbidden');
 
-		const parsed = classroomSchema.safeParse(formValues(await request.formData()));
+		const form = await request.formData();
+		const parsed = classroomSchema.safeParse(formValues(form));
 		if (!parsed.success) {
 			return fail(400, { errors: z.flattenError(parsed.error).fieldErrors });
 		}
-		const { name, gradeLevelId, subjectId, cover, removeCover } = parsed.data;
+		// Refused before a row is written: a file that is not a picture the bucket takes.
+		const cover = await readPicture(form.get('cover'));
+		if (cover === null) return fail(400, { errors: { cover: [m.form_cover_invalid()] } });
+		const { name, gradeLevelId, subjectId, removeCover } = parsed.data;
 		const fields = { name, grade_level_id: gradeLevelId, subject_id: subjectId };
 
 		const existing = parsed.data.id;
@@ -103,15 +109,12 @@ export const actions: Actions = {
 
 		let nextCover = removeCover ? null : previousCover;
 		if (cover) {
-			const path = imagePath(id, cover);
-			const { error: uploadError } = await supabase.storage
-				.from(CLASSROOM_IMAGES)
-				.upload(path, cover, { cacheControl: '31536000', contentType: cover.type });
-			if (uploadError) {
+			try {
+				nextCover = await uploadPicture(supabase, CLASSROOM_IMAGES, id, cover);
+			} catch (uploadError) {
 				if (!existing) await supabase.from('classrooms').delete().eq('id', id);
 				return unexpected(uploadError);
 			}
-			nextCover = path;
 		}
 
 		// Row level security hides a row it will not let you change rather than raising, so an
@@ -134,9 +137,32 @@ export const actions: Actions = {
 	},
 
 	/**
-	 * The cover goes first: its delete policy asks whether the caller manages the
-	 * classroom the image belongs to, which can only be answered while the row
-	 * still exists.
+	 * Archives a classroom or restores it. Archived, it is reached only by the
+	 * organization's managers, and the database refuses every change to it but
+	 * this one and its deletion.
+	 */
+	archive: async ({ request, locals }) => {
+		const parsed = z
+			.object({ id: z.guid(), archived: z.stringbool() })
+			.safeParse(formValues(await request.formData()));
+		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
+		const { id, archived } = parsed.data;
+
+		// The database keeps its own time for the moment of archiving.
+		const { data: updated, error: updateError } = await locals.supabase
+			.from('classrooms')
+			.update({ archived_at: archived ? new Date().toISOString() : null })
+			.eq('id', id)
+			.select('id');
+		if (updateError) return unexpected(updateError);
+		if (updated.length === 0) return unexpected(new Error(`Classroom ${id} was not updated`));
+	},
+
+	/**
+	 * Deletes a classroom, live or archived, and with it its rosters and all
+	 * the practice recorded in it. The cover goes first: its delete policy asks
+	 * whether the caller manages the classroom the image belongs to, which can
+	 * only be answered while the row still exists.
 	 */
 	delete: async ({ request, locals }) => {
 		const { supabase } = locals;

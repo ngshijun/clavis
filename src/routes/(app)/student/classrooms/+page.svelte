@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { coverGrid } from '#lib/components/app/cover-card.svelte';
 	import ClassroomCard from '#lib/components/classrooms/classroom-card.svelte';
 	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
 	import { classroomPath } from '#lib/navigation.js';
@@ -12,7 +13,7 @@
 {#if data.classrooms.length === 0}
 	<ClassroomEmpty description={m.picker_empty_student()} />
 {:else}
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	<div class={coverGrid}>
 		{#each data.classrooms as classroom (classroom.id)}
 			<ClassroomCard {classroom} href={resolve(classroomPath('student', classroom.id))} />
 		{/each}

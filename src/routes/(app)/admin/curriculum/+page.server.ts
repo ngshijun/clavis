@@ -10,7 +10,7 @@ import {
 	setCover
 } from '#lib/server/curriculum.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
-import { imageField } from '#lib/server/images.js';
+import { readPicture } from '#lib/server/images.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -24,10 +24,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 const kind = z.enum(['grade', 'subject', 'topic']);
 const name = z
-	.string({ error: () => m.curriculum_name_invalid() })
+	.string({ error: () => m.row_name_invalid() })
 	.trim()
-	.min(1, { error: () => m.curriculum_name_invalid() })
-	.max(120, { error: () => m.curriculum_name_invalid() });
+	.min(1, { error: () => m.row_name_invalid() })
+	.max(120, { error: () => m.row_name_invalid() });
 
 /** A level, and for a subject or a topic, the row its rows sit under. */
 const placement = z.discriminatedUnion('kind', [
@@ -42,16 +42,15 @@ const reorderSchema = placement.and(z.object({ ids: z.array(z.guid()).min(1) }))
 const coverSchema = z.object({
 	kind: z.enum(['subject', 'topic']),
 	id: z.guid(),
-	remove: z.stringbool().optional(),
-	cover: imageField(() => m.curriculum_cover_invalid())
+	remove: z.stringbool().optional()
 });
 
 /** A refusal the person can act on is told to them; anything else is logged. */
 function refused(cause: unknown) {
 	const code = typeof cause === 'object' && cause !== null && 'code' in cause ? cause.code : null;
 	// A name must be unique among the rows it sits with.
-	if (code === '23505') return fail(409, { message: m.curriculum_name_taken() });
-	// A classroom or an assessment item still points at the row, or at one beneath it.
+	if (code === '23505') return fail(409, { message: m.row_name_taken() });
+	// A classroom still points at the row, or at one beneath it.
 	if (code === '23503') return fail(409, { message: m.curriculum_in_use() });
 	return unexpected(cause);
 }
@@ -105,12 +104,17 @@ export const actions: Actions = {
 
 	/** Replaces the cover with the posted image, or removes it when asked to. */
 	cover: async ({ request, locals }) => {
-		const parsed = coverSchema.safeParse(formValues(await request.formData()));
+		const form = await request.formData();
+		const parsed = coverSchema.safeParse(formValues(form));
 		if (!parsed.success) return invalid(parsed.error);
-		const { kind, id, remove, cover } = parsed.data;
-		if (!cover && !remove) return fail(400, { message: m.curriculum_cover_invalid() });
+		const { kind, id, remove } = parsed.data;
+		const cover = remove ? null : await readPicture(form.get('cover'));
+		// Neither a picture nor a removal, or a file that is not a picture the bucket takes.
+		if (cover === undefined || (cover === null && !remove)) {
+			return fail(400, { message: m.image_invalid() });
+		}
 		try {
-			await setCover(locals.supabase, kind, id, remove ? null : (cover ?? null));
+			await setCover(locals.supabase, kind, id, cover);
 		} catch (cause) {
 			return refused(cause);
 		}

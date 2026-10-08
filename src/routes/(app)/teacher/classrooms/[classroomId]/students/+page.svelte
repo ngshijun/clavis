@@ -23,9 +23,13 @@
 		</Empty.Header>
 	</Empty.Root>
 {:else}
-	<Item.Group class="gap-2">
-		{#each data.students as student (student.id)}
-			<Item.Root variant="outline">
+	<!-- The page's one list, so it stands bare: hairlines between the rows and no box around each. -->
+	<Item.Group class="gap-0">
+		{#each data.students as student, index (student.id)}
+			{#if index > 0}
+				<Item.Separator class="my-0" />
+			{/if}
+			<Item.Root class="active:bg-muted">
 				{#snippet child({ props })}
 					<a href={resolve(studentPath(params.classroomId, student.id))} {...props}>
 						<Item.Media>

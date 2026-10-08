@@ -97,7 +97,7 @@
 					await update({ reset: false });
 					submitting = false;
 					if (result.type === 'success') {
-						toast.success(initial ? m.form_updated() : m.form_created());
+						// The card itself is the report: it appears, or changes, behind the dialog.
 						open = false;
 					} else if (result.type === 'failure') {
 						errors = (result.data?.errors as typeof errors | undefined) ?? {};
@@ -176,13 +176,13 @@
 				<Field.Field data-invalid={errors.cover ? true : undefined}>
 					<Field.FieldLabel for="classroom-cover">{m.form_cover_label()}</Field.FieldLabel>
 					{#if coverPreview}
-						<div class="relative overflow-hidden rounded-md border bg-muted">
+						<div class="relative overflow-hidden rounded-2xl border bg-muted">
 							<img src={coverPreview} alt="" class="h-28 w-full object-cover" />
 							<Button
 								type="button"
 								variant="secondary"
 								size="icon-sm"
-								class="absolute top-2 right-2"
+								class="absolute end-2 top-2"
 								aria-label={m.form_cover_remove()}
 								onclick={clearCover}
 							>
@@ -216,7 +216,7 @@
 					{#if submitting}
 						<Spinner data-icon="inline-start" />
 					{/if}
-					{initial ? m.action_save() : m.form_create()}
+					{initial ? m.action_save() : m.form_create_title()}
 				</Button>
 			</Dialog.Footer>
 		</form>

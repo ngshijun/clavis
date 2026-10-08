@@ -65,7 +65,8 @@
 		/>
 	</InputGroup.Root>
 
-	<ScrollArea class="max-h-64 rounded-md border">
+	<!-- An 18px box with an 8px inset. -->
+	<ScrollArea class="max-h-64 rounded-2xl border">
 		<Field.FieldGroup class="gap-1 p-2">
 			{#each filtered as member (member.id)}
 				{@const disabled = disabledIds.includes(member.id)}

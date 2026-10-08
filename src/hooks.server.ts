@@ -48,13 +48,12 @@ const handleSession: Handle = async ({ event, resolve }) => {
 
 /**
  * Every signed-in page lives in the `(app)` group under a segment naming its
- * role, either literally (`admin`, `manager`) or as the `role` parameter. That
- * segment is read off the matched route, so the check is made against the page
- * that is about to run rather than against how its address was typed.
+ * role (`admin`, `manager`, `teacher`, `student`). That segment is read off
+ * the matched route, so the check is made against the page that is about to
+ * run rather than against how its address was typed.
  */
 const handleRole: Handle = ({ event, resolve: resolveEvent }) => {
-	const segment = event.route.id?.match(/^\/\(app\)\/([^/]+)/)?.[1];
-	const area = segment?.startsWith('[') ? (event.params.role ?? null) : (segment ?? null);
+	const area = event.route.id?.match(/^\/\(app\)\/([^/]+)/)?.[1] ?? null;
 
 	const destination = redirectFor(event.url.pathname, area, event.locals.user?.role ?? null);
 	if (destination !== null) redirect(303, resolve(destination));

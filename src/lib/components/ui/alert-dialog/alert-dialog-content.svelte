@@ -10,6 +10,7 @@
 		class: className,
 		size = 'default',
 		portalProps,
+		onOpenAutoFocus,
 		...restProps
 	}: WithoutChild<AlertDialogPrimitive.ContentProps> & {
 		size?: 'default' | 'sm';
@@ -23,8 +24,16 @@
 		bind:ref
 		data-slot="alert-dialog-content"
 		data-size={size}
+		onOpenAutoFocus={(event) => {
+			onOpenAutoFocus?.(event);
+			if (event.defaultPrevented) return;
+			// An alert asks before something that may not be undone, so it opens with the focus on
+			// the way out: Return then cancels, and confirming takes a deliberate step.
+			event.preventDefault();
+			ref?.querySelector<HTMLElement>('[data-slot="alert-dialog-cancel"]')?.focus();
+		}}
 		class={cn(
-			'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+			'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
 			className
 		)}
 		{...restProps}

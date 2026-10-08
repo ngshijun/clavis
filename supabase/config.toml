@@ -9,29 +9,13 @@ verify_jwt = false
 # Without this the bundler cannot resolve the bare "@supabase/..." specifiers.
 import_map = "./functions/deno.json"
 
-[functions.send-contact-email]
-verify_jwt = false
-# Without this the bundler cannot resolve the bare "@supabase/..." specifiers.
-import_map = "./functions/deno.json"
-
 # Storage Buckets
-
-[storage.buckets.avatars]
-public = true
-file_size_limit = "1MiB"
-allowed_mime_types = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+# The migrations create the buckets. This one is named here only so that
+# `supabase db reset` uploads the seed's pictures into it (see seed.sql);
+# its settings repeat the migration's.
 
 [storage.buckets."question-images"]
 public = true
 file_size_limit = "5MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
-
-[storage.buckets."announcement-images"]
-public = true
-file_size_limit = "5MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
-
-[storage.buckets."curriculum-images"]
-public = true
-file_size_limit = "2MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+objects_path = "./seed/question-images"

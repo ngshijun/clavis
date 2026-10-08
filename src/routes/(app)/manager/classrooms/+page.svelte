@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import ArchiveRestoreIcon from '@lucide/svelte/icons/archive-restore';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -9,49 +11,91 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { toast } from 'svelte-sonner';
 	import IconButton from '#lib/components/app/icon-button.svelte';
+	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
+	import Segmented from '#lib/components/app/segmented.svelte';
+	import { coverGrid } from '#lib/components/app/cover-card.svelte';
 	import ClassroomCard from '#lib/components/classrooms/classroom-card.svelte';
 	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
 	import ClassroomFormDialog from '#lib/components/classrooms/classroom-form-dialog.svelte';
 	import ClassroomMembersDialog from '#lib/components/classrooms/classroom-members-dialog.svelte';
-	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import type { NamedRow } from '#lib/components/rows/context.js';
+	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
+	import { settle } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import { postAction } from '#lib/form-actions.js';
 	import { classroomPath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { Classroom } from '#lib/server/classrooms.js';
 	import type { PageProps } from './$types';
 
 	/**
-	 * The manager's classroom list. Opening a classroom is the card's own click;
-	 * the administrative actions (roster, edit, delete) are named controls on it.
+	 * The manager's classroom list. Opening a classroom is the card's own click.
+	 * The roster, which is what a manager comes here for, is one button on the
+	 * card; the rare actions (edit, archive, delete) are in the More menu
+	 * beside it.
+	 *
+	 * Archived classrooms are a second list, offered once there is one. Only
+	 * managers see them, and one can only be restored or deleted.
 	 */
 	let { data }: PageProps = $props();
+
+	const shelves = [
+		{ value: 'live', label: m.classrooms_shelf_live() },
+		{ value: 'archived', label: m.classrooms_shelf_archived() }
+	] as const;
+	let chosenShelf = $state<(typeof shelves)[number]['value']>('live');
+	const anyArchived = $derived(data.classrooms.some((classroom) => classroom.archivedAt !== null));
+	// When the last archived classroom is restored or deleted, the list it was in is gone.
+	const shelf = $derived(anyArchived ? chosenShelf : 'live');
 
 	let search = $state('');
 	const visible = $derived.by(() => {
 		const query = search.toLowerCase().trim();
-		if (!query) return data.classrooms;
-		return data.classrooms.filter((classroom) =>
-			[classroom.name, classroom.gradeLevelName, classroom.subjectName].some((text) =>
-				text.toLowerCase().includes(query)
-			)
+		return data.classrooms.filter(
+			(classroom) =>
+				(classroom.archivedAt !== null) === (shelf === 'archived') &&
+				(!query ||
+					[classroom.name, classroom.gradeLevelName, classroom.subjectName].some((text) =>
+						text.toLowerCase().includes(query)
+					))
 		);
 	});
 
 	/** The classroom the form is open for: null to create one, undefined when closed. */
 	let editing = $state<Classroom | null>();
-	let deleting = $state<Classroom>();
-	let deleteOpen = $state(false);
-	let deletePending = $state(false);
+	let deleteDialog = $state<DeleteDialog<NamedRow>>();
+
+	/**
+	 * Archiving takes a classroom away from its teachers and students but
+	 * deletes nothing and is undone from the other list, so it is not asked
+	 * about first. It is said afterwards, since the card leaves the list.
+	 */
+	async function setArchived(classroom: Classroom, archived: boolean) {
+		const form = new FormData();
+		form.set('id', classroom.id);
+		form.set('archived', String(archived));
+		if (await settle(await postAction('?/archive', form))) {
+			const { name } = classroom;
+			toast.success(archived ? m.classrooms_archived({ name }) : m.classrooms_restored({ name }));
+		}
+	}
 
 	const membersClassroom = $derived(
 		data.classrooms.find((classroom) => classroom.id === data.members?.classroomId)
 	);
 </script>
 
-<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-	<InputGroup.Root class="w-100 max-w-full">
+{#snippet addClassroom()}
+	<Button onclick={() => (editing = null)}>
+		<PlusIcon data-icon="inline-start" />
+		{m.classrooms_add()}
+	</Button>
+{/snippet}
+
+<PageToolbar>
+	<InputGroup.Root class="me-auto w-80 max-w-full">
 		<InputGroup.Addon>
 			<SearchIcon />
 		</InputGroup.Addon>
@@ -62,48 +106,79 @@
 			placeholder={m.classrooms_search_placeholder()}
 		/>
 	</InputGroup.Root>
-	<Button onclick={() => (editing = null)}>
-		<PlusIcon data-icon="inline-start" />
-		{m.classrooms_add()}
-	</Button>
-</div>
+	{#if anyArchived}
+		<Segmented bind:value={chosenShelf} options={shelves} label={m.classrooms_shelf_label()} />
+	{/if}
+	{@render addClassroom()}
+</PageToolbar>
 
 {#if visible.length === 0}
-	<ClassroomEmpty
-		title={search ? undefined : m.classrooms_empty_title()}
-		description={search ? m.classrooms_no_match() : m.classrooms_empty_description()}
-	/>
+	{#if search}
+		<!-- The search field above is the way out, so a search with no match offers no button. -->
+		<ClassroomEmpty description={m.classrooms_no_match()} />
+	{:else}
+		<ClassroomEmpty
+			title={m.classrooms_empty_title()}
+			description={m.classrooms_empty_description()}
+		>
+			{@render addClassroom()}
+		</ClassroomEmpty>
+	{/if}
 {:else}
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	<div class={coverGrid}>
 		{#each visible as classroom (classroom.id)}
 			<ClassroomCard {classroom} href={resolve(classroomPath('manager', classroom.id))}>
 				{#snippet actions()}
-					<IconButton
-						variant="secondary"
-						label={m.classrooms_manage_members()}
-						href={resolve(`manager/classrooms?members=${classroom.id}`)}
-						data-sveltekit-reset={false}
-					>
-						<UsersIcon />
-					</IconButton>
-					<IconButton
-						variant="secondary"
-						label={m.action_edit()}
-						onclick={() => (editing = classroom)}
-					>
-						<PencilIcon />
-					</IconButton>
-					<IconButton
-						variant="secondary"
-						class="text-destructive hover:text-destructive"
-						label={m.action_delete()}
-						onclick={() => {
-							deleting = classroom;
-							deleteOpen = true;
-						}}
-					>
-						<Trash2Icon />
-					</IconButton>
+					{#if classroom.archivedAt === null}
+						<IconButton
+							variant="secondary"
+							label={m.classrooms_manage_members()}
+							href={resolve(`manager/classrooms?members=${classroom.id}`)}
+							data-sveltekit-reset={false}
+						>
+							<UsersIcon />
+						</IconButton>
+					{/if}
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button variant="secondary" size="icon-sm" aria-label={m.action_more()} {...props}>
+									<EllipsisIcon />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="end">
+							<DropdownMenu.Group>
+								{#if classroom.archivedAt === null}
+									<DropdownMenu.Item onSelect={() => (editing = classroom)}>
+										<PencilIcon />
+										{m.menu_edit()}
+									</DropdownMenu.Item>
+									<DropdownMenu.Item onSelect={() => setArchived(classroom, true)}>
+										<ArchiveIcon />
+										{m.menu_archive()}
+									</DropdownMenu.Item>
+								{:else}
+									<DropdownMenu.Item onSelect={() => setArchived(classroom, false)}>
+										<ArchiveRestoreIcon />
+										{m.menu_restore()}
+									</DropdownMenu.Item>
+								{/if}
+								<DropdownMenu.Item
+									variant="destructive"
+									onSelect={() =>
+										deleteDialog?.request({
+											kind: 'classroom',
+											id: classroom.id,
+											name: classroom.name
+										})}
+								>
+									<Trash2Icon />
+									{m.menu_delete()}
+								</DropdownMenu.Item>
+							</DropdownMenu.Group>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 				{/snippet}
 			</ClassroomCard>
 		{/each}
@@ -126,43 +201,8 @@
 	/>
 {/if}
 
-<AlertDialog.Root bind:open={deleteOpen}>
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>{m.classrooms_delete_title()}</AlertDialog.Title>
-			<AlertDialog.Description>
-				{m.classrooms_delete_description({ name: deleting?.name ?? '' })}
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<form
-			method="POST"
-			action="?/delete"
-			use:enhance={() => {
-				deletePending = true;
-				return async ({ result, update }) => {
-					await update();
-					deletePending = false;
-					if (result.type === 'success') {
-						toast.success(m.classrooms_deleted());
-						deleteOpen = false;
-					} else if (result.type === 'failure' && typeof result.data?.message === 'string') {
-						toast.error(result.data.message);
-					}
-				};
-			}}
-		>
-			<input type="hidden" name="id" value={deleting?.id} />
-			<AlertDialog.Footer>
-				<AlertDialog.Cancel type="button" disabled={deletePending}>
-					{m.action_cancel()}
-				</AlertDialog.Cancel>
-				<Button type="submit" variant="destructive" disabled={deletePending}>
-					{#if deletePending}
-						<Spinner data-icon="inline-start" />
-					{/if}
-					{m.action_delete()}
-				</Button>
-			</AlertDialog.Footer>
-		</form>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+<DeleteDialog
+	bind:this={deleteDialog}
+	title={(target: NamedRow) => m.classrooms_delete_title({ name: target.name })}
+	description={() => m.classrooms_delete_description()}
+/>

@@ -57,9 +57,7 @@
 			empty: m.members_no_students(),
 			add: m.members_add_students(),
 			addSelected: m.members_add_selected_students({ count: selectedIds.length }),
-			added: m.members_students_added(),
 			remove: m.members_remove_student(),
-			removed: m.members_student_removed(),
 			search: m.members_student_search(),
 			noneFound: m.members_no_students_found()
 		},
@@ -71,9 +69,7 @@
 			empty: m.members_no_teachers(),
 			add: m.members_add_teachers(),
 			addSelected: m.members_add_selected_teachers({ count: selectedIds.length }),
-			added: m.members_teachers_added(),
 			remove: m.members_remove_teacher(),
-			removed: m.members_teacher_removed(),
 			search: m.members_teacher_search(),
 			noneFound: m.members_no_teachers_found()
 		}
@@ -85,25 +81,22 @@
 	}
 
 	/**
-	 * Submits a membership change, then reports it once the roster has reloaded.
-	 * The forms post back to this dialog's own address (`members` included), so
-	 * the submission reloads the roster instead of leaving it.
+	 * Submits a membership change. The forms post back to this dialog's own
+	 * address (`members` included), so the submission reloads the roster instead
+	 * of leaving it, and the reloaded roster is the report: only a failure is said.
 	 */
-	function submit(done: string): SubmitFunction {
-		return () => {
-			saving = true;
-			return async ({ result, update }) => {
-				await update();
-				saving = false;
-				if (result.type === 'success') {
-					toast.success(done);
-					showMembers();
-				} else if (result.type === 'failure' && typeof result.data?.message === 'string') {
-					toast.error(result.data.message);
-				}
-			};
+	const submit: SubmitFunction = () => {
+		saving = true;
+		return async ({ result, update }) => {
+			await update();
+			saving = false;
+			if (result.type === 'success') {
+				showMembers();
+			} else if (result.type === 'failure' && typeof result.data?.message === 'string') {
+				toast.error(result.data.message);
+			}
 		};
-	}
+	};
 </script>
 
 <Dialog.Root open onOpenChange={(open) => !open && onclose()}>
@@ -139,7 +132,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="-ml-2 self-start"
+							class="-ms-2 self-start"
 							disabled={saving}
 							onclick={showMembers}
 						>
@@ -156,11 +149,7 @@
 							emptyText={panel.noneFound}
 						/>
 
-						<form
-							method="POST"
-							action="?/addMembers&members={classroom.id}"
-							use:enhance={submit(panel.added)}
-						>
+						<form method="POST" action="?/addMembers&members={classroom.id}" use:enhance={submit}>
 							<input type="hidden" name="classroomId" value={classroom.id} />
 							<input type="hidden" name="kind" value={key} />
 							{#each selectedIds as id (id)}
@@ -190,9 +179,13 @@
 							</Empty.Root>
 						{:else}
 							<ScrollArea class="max-h-72">
-								<Item.Group class="gap-1">
-									{#each panel.members as member (member.id)}
-										<Item.Root variant="outline" size="sm">
+								<!-- A bare list: hairlines between the rows, no box around each. -->
+								<Item.Group class="gap-0">
+									{#each panel.members as member, index (member.id)}
+										{#if index > 0}
+											<Item.Separator class="my-0" />
+										{/if}
+										<Item.Root size="sm">
 											<Item.Content class="min-w-0">
 												<Item.Title class="truncate">{member.name}</Item.Title>
 												{#if member.detail}
@@ -205,15 +198,14 @@
 												<form
 													method="POST"
 													action="?/removeMember&members={classroom.id}"
-													use:enhance={submit(panel.removed)}
+													use:enhance={submit}
 												>
 													<input type="hidden" name="classroomId" value={classroom.id} />
 													<input type="hidden" name="kind" value={key} />
 													<input type="hidden" name="id" value={member.id} />
 													<IconButton
 														type="submit"
-														variant="ghost"
-														class="text-destructive hover:text-destructive"
+														variant="destructive"
 														disabled={saving}
 														label={panel.remove}
 													>
@@ -230,13 +222,5 @@
 				</Tabs.Content>
 			{/each}
 		</Tabs.Root>
-
-		<Dialog.Footer>
-			<Dialog.Close>
-				{#snippet child({ props })}
-					<Button variant="outline" disabled={saving} {...props}>{m.action_close()}</Button>
-				{/snippet}
-			</Dialog.Close>
-		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

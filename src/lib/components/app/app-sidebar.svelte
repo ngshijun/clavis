@@ -2,28 +2,34 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import SchoolIcon from '@lucide/svelte/icons/school';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import logo from '#lib/assets/logo.svg';
-	import ClassroomCover from '#lib/components/classrooms/classroom-cover.svelte';
+	import AccountMenu from '#lib/components/app/account-menu.svelte';
+	import Cover from '#lib/components/app/cover.svelte';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
-	import { classroomPath, type NavItem } from '#lib/navigation.js';
+	import { initials } from '#lib/initials.js';
+	import { classroomPath, isCurrent, type NavItem } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { homePath, type Role } from '#lib/roles.js';
+	import { homePath } from '#lib/roles.js';
 	import type { Classroom } from '#lib/server/classrooms.js';
+	import type { SessionUser } from '#lib/server/session.js';
 
 	let {
-		role,
+		user,
 		items,
 		classrooms,
 		classroom
 	}: {
-		role: Role;
+		user: SessionUser;
 		items: NavItem[];
 		/** Every classroom the person can reach. */
 		classrooms: Classroom[];
 		/** The classroom the person is inside, if any. */
 		classroom: Classroom | undefined;
 	} = $props();
+
+	const role = $derived(user.role);
 
 	/**
 	 * A teacher moves between classrooms all day, so theirs are listed here and
@@ -37,28 +43,39 @@
 	 * a link to it would bounce. A manager's is a real page.
 	 */
 	const canSwitch = $derived(role === 'manager' || classrooms.length > 1);
+
+	/**
+	 * What a tall row leads with: a 40px tile, 8px inside the row's 14px corners
+	 * on every side, so its own corners are 6px and the two stay concentric. On
+	 * the icon rail the row is the tile, and the row's own corners clip it.
+	 */
+	const tile =
+		'size-10 shrink-0 rounded-sm group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-none';
 </script>
 
-{#snippet classroomName(classroom: Classroom)}
-	<div class="grid flex-1 text-left leading-tight">
-		<span class="truncate text-sm font-medium">{classroom.name}</span>
-		<span class="truncate text-xs text-muted-foreground">
-			{classroom.gradeLevelName} · {classroom.subjectName}
-		</span>
-	</div>
+{#snippet twoLines(first: string, second: string)}
+	<span class="grid flex-1 text-start leading-tight">
+		<span class="truncate text-sm font-medium">{first}</span>
+		<span class="truncate text-xs text-sidebar-foreground/85">{second}</span>
+	</span>
+{/snippet}
+
+{#snippet classroomRow(item: Classroom)}
+	<Cover id={item.id} coverUrl={item.coverUrl} class={tile} />
+	{@render twoLines(item.name, `${item.gradeLevelName} · ${item.subjectName}`)}
 {/snippet}
 
 {#snippet links()}
 	<Sidebar.Group>
-		<Sidebar.GroupLabel>{m.navigation()}</Sidebar.GroupLabel>
 		<Sidebar.GroupContent>
 			<Sidebar.Menu>
 				{#each items as item (item.href)}
 					{@const href = resolve(item.href)}
+					{@const active = isCurrent(item, role, page.url.pathname)}
 					<Sidebar.MenuItem>
-						<Sidebar.MenuButton isActive={page.url.pathname === href}>
+						<Sidebar.MenuButton isActive={active} tooltipContent={item.label()}>
 							{#snippet child({ props })}
-								<a {href} {...props}>
+								<a {href} aria-current={active ? 'page' : undefined} {...props}>
 									<item.icon />
 									<span>{item.label()}</span>
 								</a>
@@ -71,32 +88,52 @@
 	</Sidebar.Group>
 {/snippet}
 
-<Sidebar.Root variant="inset">
+<Sidebar.Root variant="inset" collapsible="icon">
 	<Sidebar.Header>
-		<div class="flex items-center gap-2 px-2 py-1.5">
-			<img src={logo} alt={m.logo_alt()} class="size-10" />
-			<div class="grid flex-1 text-left text-sm leading-tight">
-				<span class="translate-y-1 truncate font-logo text-lg font-medium text-primary">Clavis</span
-				>
-				<span class="truncate text-xs text-muted-foreground">{m.app_tagline()}</span>
-			</div>
-		</div>
-		<Sidebar.Separator />
+		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton size="lg" class="px-2">
+					{#snippet child({ props })}
+						<a href={resolve(homePath(role))} {...props}>
+							<span class={[tile, 'flex items-center justify-center bg-sidebar-primary']}>
+								<img src={logo} alt={m.logo_alt()} class="size-4/5" />
+							</span>
+							<span class="grid flex-1 text-start leading-tight">
+								<span class="translate-y-0.5 truncate font-logo text-lg">Clavis</span>
+								<span class="truncate text-xs text-sidebar-foreground/85">{m.app_tagline()}</span>
+							</span>
+						</a>
+					{/snippet}
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
+		</Sidebar.Menu>
 	</Sidebar.Header>
+
 	<Sidebar.Content>
 		{#if listed.length > 0}
 			{@render links()}
 			<Sidebar.Group>
-				<Sidebar.GroupLabel>{m.nav_classrooms()}</Sidebar.GroupLabel>
+				<Sidebar.GroupLabel class="text-sidebar-foreground/85">
+					{m.nav_classrooms()}
+				</Sidebar.GroupLabel>
 				<Sidebar.GroupContent>
 					<Sidebar.Menu>
 						{#each listed as item (item.id)}
+							{@const active = item.id === classroom?.id}
 							<Sidebar.MenuItem>
-								<Sidebar.MenuButton size="lg" isActive={item.id === classroom?.id}>
+								<Sidebar.MenuButton
+									size="lg"
+									class="px-2"
+									isActive={active}
+									tooltipContent={item.name}
+								>
 									{#snippet child({ props })}
-										<a href={resolve(classroomPath(role, item.id))} {...props}>
-											<ClassroomCover classroom={item} class="size-8 shrink-0 rounded-md" />
-											{@render classroomName(item)}
+										<a
+											href={resolve(classroomPath('teacher', item.id))}
+											aria-current={active ? 'true' : undefined}
+											{...props}
+										>
+											{@render classroomRow(item)}
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>
@@ -111,22 +148,20 @@
 					<Sidebar.Menu>
 						<Sidebar.MenuItem>
 							{#if canSwitch}
-								<Sidebar.MenuButton size="lg">
+								<Sidebar.MenuButton size="lg" class="px-2" tooltipContent={m.classroom_switch()}>
 									{#snippet child({ props })}
-										<a href={resolve(homePath(role))} title={m.classroom_switch()} {...props}>
-											<SchoolIcon class="text-muted-foreground" />
-											{@render classroomName(classroom)}
-											<ChevronRightIcon class="ml-auto" />
+										<a href={resolve(homePath(role))} {...props}>
+											{@render classroomRow(classroom)}
+											<ChevronRightIcon class="ms-auto" />
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>
 							{:else}
 								<!-- Named, but not a control: there is no other classroom to switch to. -->
-								<Sidebar.MenuButton size="lg" class="pointer-events-none">
+								<Sidebar.MenuButton size="lg" class="pointer-events-none px-2">
 									{#snippet child({ props })}
 										<div {...props}>
-											<SchoolIcon class="text-muted-foreground" />
-											{@render classroomName(classroom)}
+											{@render classroomRow(classroom)}
 										</div>
 									{/snippet}
 								</Sidebar.MenuButton>
@@ -138,4 +173,35 @@
 			{@render links()}
 		{/if}
 	</Sidebar.Content>
+
+	<!-- The signed-in account sits at the foot of the sidebar, where the Mac App Store keeps it. -->
+	<Sidebar.Footer>
+		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<AccountMenu {user}>
+					{#snippet trigger(props)}
+						<Sidebar.MenuButton size="lg" class="px-2" {...props}>
+							<Avatar.Root
+								size="lg"
+								class="group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:text-xs after:hidden"
+							>
+								{#if user.avatarUrl}
+									<Avatar.Image src={user.avatarUrl} alt="" />
+								{/if}
+								<Avatar.Fallback
+									class="bg-sidebar-primary font-bold text-sidebar-primary-foreground"
+								>
+									{initials(user.name)}
+								</Avatar.Fallback>
+							</Avatar.Root>
+							{@render twoLines(user.name, user.email)}
+							<ChevronsUpDownIcon class="ms-auto" />
+						</Sidebar.MenuButton>
+					{/snippet}
+				</AccountMenu>
+			</Sidebar.MenuItem>
+		</Sidebar.Menu>
+	</Sidebar.Footer>
+
+	<Sidebar.Rail />
 </Sidebar.Root>

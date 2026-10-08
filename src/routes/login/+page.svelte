@@ -14,6 +14,10 @@
 	let submitting = $state(false);
 </script>
 
+<svelte:head>
+	<title>{m.login_title()} · Clavis</title>
+</svelte:head>
+
 <div class="flex min-h-dvh items-center justify-center p-4">
 	<Card.Root class="w-full max-w-md">
 		<Card.Header class="text-center">
@@ -57,7 +61,6 @@
 							type="password"
 							autocomplete="current-password"
 							required
-							placeholder={m.login_password_placeholder()}
 							aria-invalid={form?.message ? true : undefined}
 						/>
 						{#if form?.message}
@@ -67,10 +70,8 @@
 					<Button type="submit" class="w-full" disabled={submitting}>
 						{#if submitting}
 							<Spinner data-icon="inline-start" />
-							{m.login_submitting()}
-						{:else}
-							{m.login_submit()}
 						{/if}
+						{m.login_submit()}
 					</Button>
 				</Field.FieldGroup>
 			</form>

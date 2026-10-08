@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '#lib/database.types.js';
-import { imagePath } from '#lib/server/images.js';
+import { uploadPicture, type Picture } from '#lib/server/images.js';
+import { removeStagePictures } from '#lib/server/stage-pictures.js';
 
 type Supabase = SupabaseClient<Database>;
 
@@ -111,13 +112,14 @@ export async function renameNode(
 }
 
 /**
- * Deletes a row and, through the database's cascades, everything beneath it.
- * The cover images of what was deleted go last: the delete is refused while a
- * classroom or an assessment item still uses the row, and a refused delete
- * must leave the images where they are.
+ * Deletes a row and, through the database's cascades, everything beneath it:
+ * for a topic its stages, with their questions and passages. What those rows
+ * kept in storage goes last, their cover images and the stages' pictures: the
+ * delete is refused while a classroom still uses the row, and a refused delete
+ * must leave them where they are.
  */
 export async function deleteNode(supabase: Supabase, kind: Kind, id: string): Promise<void> {
-	const covers = await coverPaths(supabase, kind, id);
+	const { covers, stageIds } = await storedBeneath(supabase, kind, id);
 
 	const { data, error } = await supabase.from(TABLE[kind]).delete().eq('id', id).select('id');
 	if (error) throw error;
@@ -127,25 +129,44 @@ export async function deleteNode(supabase: Supabase, kind: Kind, id: string): Pr
 		const { error: removeError } = await supabase.storage.from(CURRICULUM_IMAGES).remove(covers);
 		if (removeError) console.error(removeError);
 	}
+	await removeStagePictures(supabase, stageIds);
 }
 
-/** The cover images of a row and of everything beneath it. */
-async function coverPaths(supabase: Supabase, kind: Kind, id: string): Promise<string[]> {
-	const present = (rows: { cover_image_path: string | null }[]) =>
-		rows.map((row) => row.cover_image_path).filter((path) => path !== null);
+/**
+ * What a row and everything beneath it keep in storage: their cover images,
+ * and the stages, each of which has a folder of pictures.
+ */
+async function storedBeneath(
+	supabase: Supabase,
+	kind: Kind,
+	id: string
+): Promise<{ covers: string[]; stageIds: string[] }> {
+	type Topic = { cover_image_path: string | null; stages: { id: string }[] };
+	const gathered = (covered: { cover_image_path: string | null }[], topics: Topic[]) => ({
+		covers: [...covered, ...topics]
+			.map((row) => row.cover_image_path)
+			.filter((path) => path !== null),
+		stageIds: topics.flatMap((topic) => topic.stages.map((stage) => stage.id))
+	});
 
 	if (kind === 'topic') {
-		const { data, error } = await supabase.from('topics').select('cover_image_path').eq('id', id);
+		const { data, error } = await supabase
+			.from('topics')
+			.select('cover_image_path, stages (id)')
+			.eq('id', id);
 		if (error) throw error;
-		return present(data);
+		return gathered([], data);
 	}
 
 	const { data, error } = await supabase
 		.from('subjects')
-		.select('cover_image_path, topics (cover_image_path)')
+		.select('cover_image_path, topics (cover_image_path, stages (id))')
 		.eq(kind === 'grade' ? 'grade_level_id' : 'id', id);
 	if (error) throw error;
-	return present([...data, ...data.flatMap((subject) => subject.topics)]);
+	return gathered(
+		data,
+		data.flatMap((subject) => subject.topics)
+	);
 }
 
 /** Saves the order of every row at one place; `ids` must name each of them exactly once. */
@@ -164,8 +185,8 @@ export async function reorderNodes(
 }
 
 /**
- * Replaces a subject's or a topic's cover image, or removes it when `file` is
- * null. The new image is uploaded before the row points at it and the old one
+ * Replaces a subject's or a topic's cover image, or removes it when `picture`
+ * is null. The new image is uploaded before the row points at it and the old one
  * is deleted only after the row has stopped pointing at it, so the row never
  * names an image that is not there.
  */
@@ -173,7 +194,7 @@ export async function setCover(
 	supabase: Supabase,
 	kind: CoveredKind,
 	id: string,
-	file: File | null
+	picture: Picture | null
 ): Promise<void> {
 	const table = TABLE[kind];
 	const images = supabase.storage.from(CURRICULUM_IMAGES);
@@ -185,15 +206,9 @@ export async function setCover(
 		.single();
 	if (readError) throw readError;
 
-	let next: string | null = null;
-	if (file) {
-		next = imagePath(`${table}/${id}`, file);
-		const { error: uploadError } = await images.upload(next, file, {
-			cacheControl: '31536000',
-			contentType: file.type
-		});
-		if (uploadError) throw uploadError;
-	}
+	const next = picture
+		? await uploadPicture(supabase, CURRICULUM_IMAGES, `${table}/${id}`, picture)
+		: null;
 
 	const { data: updated, error: updateError } = await supabase
 		.from(table)

@@ -1,3 +1,34 @@
+/** The pictures the app takes, by content type, and the extension each is stored under. */
+export const IMAGE_EXTENSIONS = {
+	'image/png': 'png',
+	'image/jpeg': 'jpg',
+	'image/webp': 'webp',
+	'image/gif': 'gif'
+} as const;
+export type ImageType = keyof typeof IMAGE_EXTENSIONS;
+
+/** What a file input that picks a picture accepts. */
+export const IMAGE_ACCEPT = Object.keys(IMAGE_EXTENSIONS).join(',');
+
+/** The largest picture that is stored. */
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+/**
+ * A picked file made ready to upload: optimised, and null for one that cannot
+ * be taken, because the browser cannot read it as a picture (a HEIC photo, a
+ * damaged file), or it is not of a kind the app takes, or it is still too
+ * large. The server checks an upload again by its own bytes.
+ */
+export async function preparePicture(file: File): Promise<File | null> {
+	let ready: File;
+	try {
+		ready = await optimizeImage(file);
+	} catch {
+		return null;
+	}
+	return ready.type in IMAGE_EXTENSIONS && ready.size <= MAX_IMAGE_BYTES ? ready : null;
+}
+
 /**
  * Resize a picked image and convert it to WebP in the browser, so what is
  * uploaded is a few hundred kilobytes rather than a phone camera's original.

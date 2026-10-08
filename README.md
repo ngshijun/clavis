@@ -1,7 +1,7 @@
 # Clavis
 
-The operating platform for tuition centers: classrooms, a guided practice path, auto-graded
-assessments and mastery dashboards. `CONTEXT.md` states how the product is modelled.
+The operating platform for tuition centers: classrooms and a guided practice
+path. `CONTEXT.md` states how the product is modelled.
 
 Built with SvelteKit, shadcn-svelte, Tailwind CSS and Supabase. Postgres row level security
 decides what each account may read or change; the app keeps people on the pages built for
@@ -18,8 +18,10 @@ cp .env.example .env.local   # then fill in the publishable key that `pnpm supab
 pnpm dev
 ```
 
-`pnpm supabase db reset` rebuilds the database from the migrations and loads `supabase/seed.sql`,
-which creates one test account per role.
+`pnpm supabase db reset` rebuilds the database from the migrations and loads `supabase/seed.sql`:
+six test accounts, seven classrooms and a question of every type. The top of
+that file lists what each account and classroom is there to test, and the developer tools (the
+wrench, on the dev server) sign in as any of them.
 
 ## Commands
 

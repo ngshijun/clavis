@@ -23,438 +23,6 @@ export type Database = {
 	};
 	public: {
 		Tables: {
-			assessment_assignments: {
-				Row: {
-					assessment_id: string;
-					assigned_by: string;
-					classroom_id: string | null;
-					created_at: string;
-					due_at: string | null;
-					id: string;
-					student_id: string | null;
-				};
-				Insert: {
-					assessment_id: string;
-					assigned_by: string;
-					classroom_id?: string | null;
-					created_at?: string;
-					due_at?: string | null;
-					id?: string;
-					student_id?: string | null;
-				};
-				Update: {
-					assessment_id?: string;
-					assigned_by?: string;
-					classroom_id?: string | null;
-					created_at?: string;
-					due_at?: string | null;
-					id?: string;
-					student_id?: string | null;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'assessment_assignments_assessment_id_fkey';
-						columns: ['assessment_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessments';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessment_assignments_assigned_by_fkey';
-						columns: ['assigned_by'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessment_assignments_classroom_id_fkey';
-						columns: ['classroom_id'];
-						isOneToOne: false;
-						referencedRelation: 'classrooms';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessment_assignments_student_id_fkey';
-						columns: ['student_id'];
-						isOneToOne: false;
-						referencedRelation: 'student_profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			assessment_attempts: {
-				Row: {
-					assessment_id: string;
-					completed_at: string | null;
-					correct_count: number;
-					current_question_index: number;
-					id: string;
-					pending_manual_count: number;
-					score_percent: number;
-					started_at: string;
-					student_id: string;
-					total_questions: number;
-				};
-				Insert: {
-					assessment_id: string;
-					completed_at?: string | null;
-					correct_count?: number;
-					current_question_index?: number;
-					id?: string;
-					pending_manual_count?: number;
-					score_percent?: number;
-					started_at?: string;
-					student_id: string;
-					total_questions?: number;
-				};
-				Update: {
-					assessment_id?: string;
-					completed_at?: string | null;
-					correct_count?: number;
-					current_question_index?: number;
-					id?: string;
-					pending_manual_count?: number;
-					score_percent?: number;
-					started_at?: string;
-					student_id?: string;
-					total_questions?: number;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'assessment_attempts_assessment_id_fkey';
-						columns: ['assessment_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessments';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessment_attempts_student_id_fkey';
-						columns: ['student_id'];
-						isOneToOne: false;
-						referencedRelation: 'student_profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			assessment_bank_question_tags: {
-				Row: {
-					assessment_bank_question_id: string;
-					created_at: string;
-					tag_id: string;
-				};
-				Insert: {
-					assessment_bank_question_id: string;
-					created_at?: string;
-					tag_id: string;
-				};
-				Update: {
-					assessment_bank_question_id?: string;
-					created_at?: string;
-					tag_id?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'bank_question_tags_bank_question_id_fkey';
-						columns: ['assessment_bank_question_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_bank_questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'bank_question_tags_tag_id_fkey';
-						columns: ['tag_id'];
-						isOneToOne: false;
-						referencedRelation: 'tags';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			assessment_bank_questions: {
-				Row: {
-					created_at: string;
-					created_by: string;
-					difficulty: Database['public']['Enums']['question_difficulty'];
-					id: string;
-					organization_id: string | null;
-					payload: NonNullable<Json>;
-					points: number;
-					sub_topic_id: string;
-					updated_at: string;
-				};
-				Insert: {
-					created_at?: string;
-					created_by: string;
-					difficulty: Database['public']['Enums']['question_difficulty'];
-					id?: string;
-					organization_id?: string | null;
-					payload: NonNullable<Json>;
-					points?: number;
-					sub_topic_id: string;
-					updated_at?: string;
-				};
-				Update: {
-					created_at?: string;
-					created_by?: string;
-					difficulty?: Database['public']['Enums']['question_difficulty'];
-					id?: string;
-					organization_id?: string | null;
-					payload?: NonNullable<Json>;
-					points?: number;
-					sub_topic_id?: string;
-					updated_at?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'assessment_bank_questions_organization_id_fkey';
-						columns: ['organization_id'];
-						isOneToOne: false;
-						referencedRelation: 'organizations';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessment_bank_questions_sub_topic_id_fkey';
-						columns: ['sub_topic_id'];
-						isOneToOne: false;
-						referencedRelation: 'sub_topics';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'bank_questions_created_by_fkey';
-						columns: ['created_by'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			assessment_questions: {
-				Row: {
-					assessment_id: string;
-					created_at: string;
-					id: string;
-					payload: NonNullable<Json>;
-					points: number;
-					position: number;
-				};
-				Insert: {
-					assessment_id: string;
-					created_at?: string;
-					id?: string;
-					payload: NonNullable<Json>;
-					points?: number;
-					position: number;
-				};
-				Update: {
-					assessment_id?: string;
-					created_at?: string;
-					id?: string;
-					payload?: NonNullable<Json>;
-					points?: number;
-					position?: number;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'assessment_questions_assessment_id_fkey';
-						columns: ['assessment_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessments';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			assessments: {
-				Row: {
-					answers_released_at: string | null;
-					answers_released_by: string | null;
-					classroom_id: string;
-					created_at: string;
-					created_by: string;
-					description: string | null;
-					id: string;
-					organization_id: string;
-					paper_id: string;
-					show_auto_score_while_pending: boolean;
-					shuffle_questions: boolean;
-					status: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds: number | null;
-					title: string;
-					updated_at: string;
-				};
-				Insert: {
-					answers_released_at?: string | null;
-					answers_released_by?: string | null;
-					classroom_id: string;
-					created_at?: string;
-					created_by: string;
-					description?: string | null;
-					id?: string;
-					organization_id: string;
-					paper_id: string;
-					show_auto_score_while_pending?: boolean;
-					shuffle_questions?: boolean;
-					status?: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds?: number | null;
-					title: string;
-					updated_at?: string;
-				};
-				Update: {
-					answers_released_at?: string | null;
-					answers_released_by?: string | null;
-					classroom_id?: string;
-					created_at?: string;
-					created_by?: string;
-					description?: string | null;
-					id?: string;
-					organization_id?: string;
-					paper_id?: string;
-					show_auto_score_while_pending?: boolean;
-					shuffle_questions?: boolean;
-					status?: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds?: number | null;
-					title?: string;
-					updated_at?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'assessments_answers_released_by_fkey';
-						columns: ['answers_released_by'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessments_classroom_id_fkey';
-						columns: ['classroom_id'];
-						isOneToOne: false;
-						referencedRelation: 'classrooms';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessments_created_by_fkey';
-						columns: ['created_by'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessments_organization_id_fkey';
-						columns: ['organization_id'];
-						isOneToOne: false;
-						referencedRelation: 'organizations';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'assessments_paper_id_fkey';
-						columns: ['paper_id'];
-						isOneToOne: false;
-						referencedRelation: 'papers';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			attempt_answers: {
-				Row: {
-					answered_at: string;
-					assessment_question_id: string;
-					attempt_id: string;
-					awarded_points: number | null;
-					id: string;
-					is_correct: boolean | null;
-					marked_at: string | null;
-					marked_by: string | null;
-					marker_comment: string | null;
-					response: Json | null;
-					selected_options: number[] | null;
-					text_answer: string | null;
-					time_spent_seconds: number | null;
-				};
-				Insert: {
-					answered_at?: string;
-					assessment_question_id: string;
-					attempt_id: string;
-					awarded_points?: number | null;
-					id?: string;
-					is_correct?: boolean | null;
-					marked_at?: string | null;
-					marked_by?: string | null;
-					marker_comment?: string | null;
-					response?: Json | null;
-					selected_options?: number[] | null;
-					text_answer?: string | null;
-					time_spent_seconds?: number | null;
-				};
-				Update: {
-					answered_at?: string;
-					assessment_question_id?: string;
-					attempt_id?: string;
-					awarded_points?: number | null;
-					id?: string;
-					is_correct?: boolean | null;
-					marked_at?: string | null;
-					marked_by?: string | null;
-					marker_comment?: string | null;
-					response?: Json | null;
-					selected_options?: number[] | null;
-					text_answer?: string | null;
-					time_spent_seconds?: number | null;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'attempt_answers_assessment_question_id_fkey';
-						columns: ['assessment_question_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'attempt_answers_attempt_id_fkey';
-						columns: ['attempt_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_attempts';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'attempt_answers_marked_by_fkey';
-						columns: ['marked_by'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			attempt_questions: {
-				Row: {
-					assessment_question_id: string;
-					attempt_id: string;
-					question_order: number;
-				};
-				Insert: {
-					assessment_question_id: string;
-					attempt_id: string;
-					question_order: number;
-				};
-				Update: {
-					assessment_question_id?: string;
-					attempt_id?: string;
-					question_order?: number;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'attempt_questions_assessment_question_id_fkey';
-						columns: ['assessment_question_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'attempt_questions_attempt_id_fkey';
-						columns: ['attempt_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_attempts';
-						referencedColumns: ['id'];
-					}
-				];
-			};
 			classroom_students: {
 				Row: {
 					classroom_id: string;
@@ -523,6 +91,7 @@ export type Database = {
 			};
 			classrooms: {
 				Row: {
+					archived_at: string | null;
 					cover_image_path: string | null;
 					created_at: string;
 					created_by: string;
@@ -534,6 +103,7 @@ export type Database = {
 					updated_at: string;
 				};
 				Insert: {
+					archived_at?: string | null;
 					cover_image_path?: string | null;
 					created_at?: string;
 					created_by: string;
@@ -545,6 +115,7 @@ export type Database = {
 					updated_at?: string;
 				};
 				Update: {
+					archived_at?: string | null;
 					cover_image_path?: string | null;
 					created_at?: string;
 					created_by?: string;
@@ -631,183 +202,80 @@ export type Database = {
 				};
 				Relationships: [];
 			};
-			paper_items: {
+			passages: {
 				Row: {
-					generation_difficulty: Database['public']['Enums']['question_difficulty'] | null;
-					generation_line: number | null;
-					item_id: string;
-					paper_id: string;
-					position: number;
-				};
-				Insert: {
-					generation_difficulty?: Database['public']['Enums']['question_difficulty'] | null;
-					generation_line?: number | null;
-					item_id: string;
-					paper_id: string;
-					position: number;
-				};
-				Update: {
-					generation_difficulty?: Database['public']['Enums']['question_difficulty'] | null;
-					generation_line?: number | null;
-					item_id?: string;
-					paper_id?: string;
-					position?: number;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'paper_items_item_id_fkey';
-						columns: ['item_id'];
-						isOneToOne: false;
-						referencedRelation: 'assessment_bank_questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'paper_items_paper_id_fkey';
-						columns: ['paper_id'];
-						isOneToOne: false;
-						referencedRelation: 'papers';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			papers: {
-				Row: {
+					body: string;
 					created_at: string;
-					created_by: string;
-					description: string | null;
+					display_order: number;
 					id: string;
-					organization_id: string | null;
-					shuffle_questions: boolean;
-					spec: Json | null;
-					status: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds: number | null;
+					image_path: string | null;
+					stage_id: string;
 					title: string;
 					updated_at: string;
 				};
 				Insert: {
+					body?: string;
 					created_at?: string;
-					created_by: string;
-					description?: string | null;
+					display_order?: number;
 					id?: string;
-					organization_id?: string | null;
-					shuffle_questions?: boolean;
-					spec?: Json | null;
-					status?: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds?: number | null;
+					image_path?: string | null;
+					stage_id: string;
 					title: string;
 					updated_at?: string;
 				};
 				Update: {
+					body?: string;
 					created_at?: string;
-					created_by?: string;
-					description?: string | null;
+					display_order?: number;
 					id?: string;
-					organization_id?: string | null;
-					shuffle_questions?: boolean;
-					spec?: Json | null;
-					status?: Database['public']['Enums']['assessment_status'];
-					time_limit_seconds?: number | null;
+					image_path?: string | null;
+					stage_id?: string;
 					title?: string;
 					updated_at?: string;
 				};
 				Relationships: [
 					{
-						foreignKeyName: 'papers_created_by_fkey';
-						columns: ['created_by'];
+						foreignKeyName: 'passages_stage_id_fkey';
+						columns: ['stage_id'];
 						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'papers_organization_id_fkey';
-						columns: ['organization_id'];
-						isOneToOne: false;
-						referencedRelation: 'organizations';
+						referencedRelation: 'stages';
 						referencedColumns: ['id'];
 					}
 				];
-			};
-			payment_history: {
-				Row: {
-					amount_cents: number;
-					created_at: string | null;
-					currency: string;
-					description: string | null;
-					id: string;
-					metadata: Json | null;
-					parent_id: string;
-					status: string;
-					stripe_invoice_id: string | null;
-					stripe_payment_intent_id: string | null;
-					stripe_subscription_id: string | null;
-					student_id: string | null;
-					tier: string | null;
-				};
-				Insert: {
-					amount_cents: number;
-					created_at?: string | null;
-					currency?: string;
-					description?: string | null;
-					id?: string;
-					metadata?: Json | null;
-					parent_id: string;
-					status: string;
-					stripe_invoice_id?: string | null;
-					stripe_payment_intent_id?: string | null;
-					stripe_subscription_id?: string | null;
-					student_id?: string | null;
-					tier?: string | null;
-				};
-				Update: {
-					amount_cents?: number;
-					created_at?: string | null;
-					currency?: string;
-					description?: string | null;
-					id?: string;
-					metadata?: Json | null;
-					parent_id?: string;
-					status?: string;
-					stripe_invoice_id?: string | null;
-					stripe_payment_intent_id?: string | null;
-					stripe_subscription_id?: string | null;
-					student_id?: string | null;
-					tier?: string | null;
-				};
-				Relationships: [];
 			};
 			practice_answers: {
 				Row: {
 					answered_at: string | null;
 					id: string;
 					is_correct: boolean;
+					marks: number;
 					question_id: string | null;
 					response: Json | null;
 					selected_options: number[] | null;
 					session_id: string;
 					text_answer: string | null;
-					time_spent_seconds: number | null;
 				};
 				Insert: {
 					answered_at?: string | null;
 					id?: string;
 					is_correct: boolean;
+					marks?: number;
 					question_id?: string | null;
 					response?: Json | null;
 					selected_options?: number[] | null;
 					session_id: string;
 					text_answer?: string | null;
-					time_spent_seconds?: number | null;
 				};
 				Update: {
 					answered_at?: string | null;
 					id?: string;
 					is_correct?: boolean;
+					marks?: number;
 					question_id?: string | null;
 					response?: Json | null;
 					selected_options?: number[] | null;
 					session_id?: string;
 					text_answer?: string | null;
-					time_spent_seconds?: number | null;
 				};
 				Relationships: [
 					{
@@ -828,42 +296,49 @@ export type Database = {
 			};
 			practice_sessions: {
 				Row: {
+					classroom_id: string;
 					completed_at: string | null;
-					correct_count: number | null;
 					created_at: string | null;
 					grade_level_id: string | null;
 					id: string;
+					marks: number;
 					stage_id: string;
 					student_id: string;
 					subject_id: string | null;
 					total_questions: number;
-					total_time_seconds: number | null;
 				};
 				Insert: {
+					classroom_id: string;
 					completed_at?: string | null;
-					correct_count?: number | null;
 					created_at?: string | null;
 					grade_level_id?: string | null;
 					id?: string;
+					marks: number;
 					stage_id: string;
 					student_id: string;
 					subject_id?: string | null;
 					total_questions: number;
-					total_time_seconds?: number | null;
 				};
 				Update: {
+					classroom_id?: string;
 					completed_at?: string | null;
-					correct_count?: number | null;
 					created_at?: string | null;
 					grade_level_id?: string | null;
 					id?: string;
+					marks?: number;
 					stage_id?: string;
 					student_id?: string;
 					subject_id?: string | null;
 					total_questions?: number;
-					total_time_seconds?: number | null;
 				};
 				Relationships: [
+					{
+						foreignKeyName: 'practice_sessions_classroom_id_fkey';
+						columns: ['classroom_id'];
+						isOneToOne: false;
+						referencedRelation: 'classrooms';
+						referencedColumns: ['id'];
+					},
 					{
 						foreignKeyName: 'practice_sessions_grade_level_id_fkey';
 						columns: ['grade_level_id'];
@@ -898,7 +373,6 @@ export type Database = {
 				Row: {
 					avatar_path: string | null;
 					created_at: string | null;
-					date_of_birth: string | null;
 					email: string;
 					id: string;
 					name: string;
@@ -909,7 +383,6 @@ export type Database = {
 				Insert: {
 					avatar_path?: string | null;
 					created_at?: string | null;
-					date_of_birth?: string | null;
 					email: string;
 					id: string;
 					name: string;
@@ -920,7 +393,6 @@ export type Database = {
 				Update: {
 					avatar_path?: string | null;
 					created_at?: string | null;
-					date_of_birth?: string | null;
 					email?: string;
 					id?: string;
 					name?: string;
@@ -974,9 +446,11 @@ export type Database = {
 			questions: {
 				Row: {
 					created_at: string | null;
+					difficulty: Database['public']['Enums']['question_difficulty'];
+					display_order: number;
 					grade_level_id: string | null;
 					id: string;
-					image_hash: string | null;
+					passage_id: string | null;
 					payload: NonNullable<Json>;
 					stage_id: string;
 					subject_id: string | null;
@@ -984,9 +458,11 @@ export type Database = {
 				};
 				Insert: {
 					created_at?: string | null;
+					difficulty?: Database['public']['Enums']['question_difficulty'];
+					display_order?: number;
 					grade_level_id?: string | null;
 					id?: string;
-					image_hash?: string | null;
+					passage_id?: string | null;
 					payload: NonNullable<Json>;
 					stage_id: string;
 					subject_id?: string | null;
@@ -994,9 +470,11 @@ export type Database = {
 				};
 				Update: {
 					created_at?: string | null;
+					difficulty?: Database['public']['Enums']['question_difficulty'];
+					display_order?: number;
 					grade_level_id?: string | null;
 					id?: string;
-					image_hash?: string | null;
+					passage_id?: string | null;
 					payload?: NonNullable<Json>;
 					stage_id?: string;
 					subject_id?: string | null;
@@ -1009,6 +487,13 @@ export type Database = {
 						isOneToOne: false;
 						referencedRelation: 'grade_levels';
 						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'questions_passage_id_stage_id_fkey';
+						columns: ['passage_id', 'stage_id'];
+						isOneToOne: false;
+						referencedRelation: 'passages';
+						referencedColumns: ['id', 'stage_id'];
 					},
 					{
 						foreignKeyName: 'questions_stage_id_fkey';
@@ -1026,85 +511,31 @@ export type Database = {
 					}
 				];
 			};
-			schools: {
-				Row: {
-					created_at: string;
-					id: string;
-					name: string;
-				};
-				Insert: {
-					created_at?: string;
-					id?: string;
-					name: string;
-				};
-				Update: {
-					created_at?: string;
-					id?: string;
-					name?: string;
-				};
-				Relationships: [];
-			};
-			session_questions: {
-				Row: {
-					id: string;
-					question_id: string;
-					question_order: number;
-					session_id: string;
-				};
-				Insert: {
-					id?: string;
-					question_id: string;
-					question_order: number;
-					session_id: string;
-				};
-				Update: {
-					id?: string;
-					question_id?: string;
-					question_order?: number;
-					session_id?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'session_questions_question_id_fkey';
-						columns: ['question_id'];
-						isOneToOne: false;
-						referencedRelation: 'questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'session_questions_session_id_fkey';
-						columns: ['session_id'];
-						isOneToOne: false;
-						referencedRelation: 'practice_sessions';
-						referencedColumns: ['id'];
-					}
-				];
-			};
 			stages: {
 				Row: {
-					cover_image_path: string | null;
 					created_at: string;
 					display_order: number;
 					id: string;
 					name: string;
+					question_order: string;
 					topic_id: string;
 					updated_at: string;
 				};
 				Insert: {
-					cover_image_path?: string | null;
 					created_at?: string;
 					display_order?: number;
 					id?: string;
 					name: string;
+					question_order?: string;
 					topic_id: string;
 					updated_at?: string;
 				};
 				Update: {
-					cover_image_path?: string | null;
 					created_at?: string;
 					display_order?: number;
 					id?: string;
 					name?: string;
+					question_order?: string;
 					topic_id?: string;
 					updated_at?: string;
 				};
@@ -1124,8 +555,6 @@ export type Database = {
 					created_by: string | null;
 					grade_level_id: string | null;
 					id: string;
-					preferred_language: string;
-					school_id: string | null;
 					updated_at: string | null;
 					username: string | null;
 				};
@@ -1134,8 +563,6 @@ export type Database = {
 					created_by?: string | null;
 					grade_level_id?: string | null;
 					id: string;
-					preferred_language?: string;
-					school_id?: string | null;
 					updated_at?: string | null;
 					username?: string | null;
 				};
@@ -1144,8 +571,6 @@ export type Database = {
 					created_by?: string | null;
 					grade_level_id?: string | null;
 					id?: string;
-					preferred_language?: string;
-					school_id?: string | null;
 					updated_at?: string | null;
 					username?: string | null;
 				};
@@ -1169,136 +594,6 @@ export type Database = {
 						columns: ['id'];
 						isOneToOne: true;
 						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'student_profiles_school_id_fkey';
-						columns: ['school_id'];
-						isOneToOne: false;
-						referencedRelation: 'schools';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			student_question_progress: {
-				Row: {
-					created_at: string;
-					cycle_number: number;
-					id: string;
-					question_id: string;
-					stage_id: string;
-					student_id: string;
-				};
-				Insert: {
-					created_at?: string;
-					cycle_number?: number;
-					id?: string;
-					question_id: string;
-					stage_id: string;
-					student_id: string;
-				};
-				Update: {
-					created_at?: string;
-					cycle_number?: number;
-					id?: string;
-					question_id?: string;
-					stage_id?: string;
-					student_id?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'student_question_progress_question_id_fkey';
-						columns: ['question_id'];
-						isOneToOne: false;
-						referencedRelation: 'questions';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'student_question_progress_stage_id_fkey';
-						columns: ['stage_id'];
-						isOneToOne: false;
-						referencedRelation: 'stages';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'student_question_progress_student_id_fkey';
-						columns: ['student_id'];
-						isOneToOne: false;
-						referencedRelation: 'profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			student_stage_stats: {
-				Row: {
-					best_score_percent: number;
-					last_completed_at: string | null;
-					sessions_completed: number;
-					stage_id: string;
-					student_id: string;
-				};
-				Insert: {
-					best_score_percent?: number;
-					last_completed_at?: string | null;
-					sessions_completed?: number;
-					stage_id: string;
-					student_id: string;
-				};
-				Update: {
-					best_score_percent?: number;
-					last_completed_at?: string | null;
-					sessions_completed?: number;
-					stage_id?: string;
-					student_id?: string;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'student_stage_stats_stage_id_fkey';
-						columns: ['stage_id'];
-						isOneToOne: false;
-						referencedRelation: 'stages';
-						referencedColumns: ['id'];
-					},
-					{
-						foreignKeyName: 'student_stage_stats_student_id_fkey';
-						columns: ['student_id'];
-						isOneToOne: false;
-						referencedRelation: 'student_profiles';
-						referencedColumns: ['id'];
-					}
-				];
-			};
-			sub_topics: {
-				Row: {
-					created_at: string | null;
-					display_order: number | null;
-					id: string;
-					name: string;
-					topic_id: string;
-					updated_at: string | null;
-				};
-				Insert: {
-					created_at?: string | null;
-					display_order?: number | null;
-					id?: string;
-					name: string;
-					topic_id: string;
-					updated_at?: string | null;
-				};
-				Update: {
-					created_at?: string | null;
-					display_order?: number | null;
-					id?: string;
-					name?: string;
-					topic_id?: string;
-					updated_at?: string | null;
-				};
-				Relationships: [
-					{
-						foreignKeyName: 'sub_topics_topic_id_fkey';
-						columns: ['topic_id'];
-						isOneToOne: false;
-						referencedRelation: 'topics';
 						referencedColumns: ['id'];
 					}
 				];
@@ -1435,23 +730,15 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Functions: {
-			adopt_paper: { Args: { p_paper_id: string }; Returns: string };
-			complete_assessment_attempt: { Args: { p_attempt_id: string }; Returns: Json };
-			deliver_paper: {
-				Args: { p_classroom_id: string; p_paper_id: string; p_title?: string };
-				Returns: string;
-			};
-			generate_paper: { Args: { p_spec: Json; p_title: string }; Returns: Json };
-			get_assessment_completion: { Args: { p_assessment_id: string }; Returns: Json };
-			get_attempt_questions: { Args: { p_attempt_id: string }; Returns: Json };
-			get_attempt_result: { Args: { p_attempt_id: string }; Returns: Json };
 			get_bank_questions: {
 				Args: { p_stage_id?: string };
 				Returns: {
 					created_at: string | null;
+					difficulty: Database['public']['Enums']['question_difficulty'];
+					display_order: number;
 					grade_level_id: string | null;
 					id: string;
-					image_hash: string | null;
+					passage_id: string | null;
 					payload: NonNullable<Json>;
 					stage_id: string;
 					subject_id: string | null;
@@ -1464,111 +751,29 @@ export type Database = {
 					isSetofReturn: true;
 				};
 			};
-			get_class_rollups: {
-				Args: { p_organization_id?: string };
-				Returns: {
-					assigned_attempts: number;
-					avg_assessment_score: number;
-					avg_map_mastery: number;
-					classroom_id: string;
-					classroom_name: string;
-					completed_attempts: number;
-					grade_level_id: string;
-					grade_level_name: string;
-					student_count: number;
-					subject_id: string;
-					subject_name: string;
-					teacher_count: number;
-				}[];
-			};
-			get_org_overview: {
-				Args: Record<PropertyKey, never>;
-				Returns: {
-					assessment_count: number;
-					classroom_count: number;
-					last_activity_at: string;
-					manager_count: number;
-					organization_id: string;
-					organization_name: string;
-					student_count: number;
-					teacher_count: number;
-				}[];
-			};
-			get_paper_items: {
-				Args: { p_paper_id: string };
-				Returns: {
-					difficulty: Database['public']['Enums']['question_difficulty'];
-					generation_difficulty: Database['public']['Enums']['question_difficulty'];
-					generation_line: number;
-					id: string;
-					organization_id: string;
-					payload: Json;
-					points: number;
-					position: number;
-					sub_topic_id: string;
-					tag_ids: string[];
-				}[];
-			};
-			get_paper_pairings: {
-				Args: Record<PropertyKey, never>;
-				Returns: {
-					grade_level_id: string;
-					paper_id: string;
-					subject_id: string;
-				}[];
-			};
-			get_platform_totals: { Args: Record<PropertyKey, never>; Returns: Json };
-			get_practice_questions: { Args: { p_question_ids: string[] }; Returns: Json };
-			get_practice_session_questions: { Args: { p_session_id: string }; Returns: Json };
-			get_session_result: { Args: { p_session_id: string }; Returns: Json };
-			get_stage_answered_counts: {
-				Args: Record<PropertyKey, never>;
-				Returns: {
-					answered_count: number;
-					stage_id: string;
-				}[];
-			};
-			get_student_rollups: {
-				Args: { p_classroom_id?: string; p_organization_id?: string };
-				Returns: {
-					assigned_count: number;
-					at_risk: boolean;
-					avg_assessment_score: number;
-					completed_count: number;
-					last_practice_at: string;
-					map_mastery: number;
-					stages_attempted: number;
-					stages_completed: number;
-					student_id: string;
-					student_name: string;
-					username: string;
-				}[];
+			import_stage_rows: {
+				Args: { p_passages: Json; p_questions: Json; p_stage_id: string };
+				Returns: number;
 			};
 			item_payload_is_valid: { Args: { p: Json }; Returns: boolean };
-			mark_attempt_answer: {
-				Args: { p_answer_id: string; p_comment?: string; p_points: number };
-				Returns: Json;
-			};
-			publish_assessment: { Args: { p_assessment_id: string }; Returns: undefined };
-			regenerate_paper_item: { Args: { p_item_id: string; p_paper_id: string }; Returns: Json };
-			release_assessment_answers: {
-				Args: { p_assessment_id: string; p_released?: boolean };
-				Returns: Json;
-			};
+			mark_stage_preview: { Args: { p_answers: Json; p_stage_id: string }; Returns: Json };
+			preview_stage: { Args: { p_stage_id: string }; Returns: Json };
 			reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined };
-			reorder_paper_items: { Args: { p_ids: string[]; p_paper_id: string }; Returns: undefined };
+			reorder_passage_questions: {
+				Args: { p_ids: string[]; p_passage_id: string };
+				Returns: undefined;
+			};
+			reorder_stage_entries: { Args: { p_ids: string[]; p_stage_id: string }; Returns: undefined };
 			reorder_stages: { Args: { p_ids: string[]; p_topic_id: string }; Returns: undefined };
-			reorder_sub_topics: { Args: { p_ids: string[]; p_topic_id: string }; Returns: undefined };
 			reorder_subjects: { Args: { p_grade_level_id: string; p_ids: string[] }; Returns: undefined };
 			reorder_topics: { Args: { p_ids: string[]; p_subject_id: string }; Returns: undefined };
-			start_assessment_attempt: { Args: { p_assessment_id: string }; Returns: Json };
+			serve_practice_stage: { Args: { p_classroom_id: string; p_stage_id: string }; Returns: Json };
 			submit_practice_session: {
-				Args: { p_answers: Json; p_cycle_number: number; p_stage_id: string };
+				Args: { p_answers: Json; p_classroom_id: string; p_stage_id: string };
 				Returns: Json;
 			};
 		};
 		Enums: {
-			assessment_status: 'draft' | 'published';
 			question_difficulty: 'low' | 'medium' | 'high';
 			user_role: 'admin' | 'manager' | 'teacher' | 'student';
 		};
@@ -1685,7 +890,6 @@ export const Constants = {
 	},
 	public: {
 		Enums: {
-			assessment_status: ['draft', 'published'],
 			question_difficulty: ['low', 'medium', 'high'],
 			user_role: ['admin', 'manager', 'teacher', 'student']
 		}
