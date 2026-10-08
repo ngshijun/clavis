@@ -66,11 +66,6 @@ export function stageTrail(stage: {
 	];
 }
 
-/** A stage played as a pupil gets it. */
-export function practicePreviewPath(subjectId: string, stageId: string): Path {
-	return `admin/practice/${subjectId}/${stageId}/preview`;
-}
-
 /** A stage for a student to practise in one of their classrooms. */
 export function classroomStagePath(classroomId: string, stageId: string): Path {
 	return `student/classrooms/${classroomId}/${stageId}`;

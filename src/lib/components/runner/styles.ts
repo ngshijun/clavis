@@ -4,8 +4,18 @@
  * components; where a `ui/` component exists for the part, that is used.
  */
 
+/**
+ * What a pupil reads is larger than the app's own text: a question is 20px,
+ * and its answers, a passage and a tip 18px, with 14px for a line that tells
+ * the pupil what to do. The rail beside the questions is the app's and keeps
+ * the app's sizes.
+ */
+
 /** A line that tells the pupil what to do. Words stand further in than boxes, clear of a corner's curve. */
-export const hint = 'px-2 text-xs text-muted-foreground';
+export const hint = 'px-2 text-sm text-muted-foreground';
+
+/** A small line in the rail. */
+export const note = 'px-2 text-xs text-muted-foreground';
 
 /** The parts of one answer area, stacked. */
 export const column = 'flex flex-col gap-2';
@@ -15,11 +25,11 @@ export const column = 'flex flex-col gap-2';
  * over a toggle or a button, whose own height, shape and nowrap it replaces.
  */
 export const option =
-	'h-auto min-h-11 w-full justify-start gap-2.5 rounded-lg border bg-card px-3 py-2 text-start text-sm font-normal whitespace-normal hover:bg-card disabled:opacity-100 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground';
+	'h-auto min-h-13 w-full justify-start gap-3 rounded-lg border bg-card px-3 py-2 text-start text-lg font-normal whitespace-normal hover:bg-card disabled:opacity-100 aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground';
 
 /** The letter or number that leads an option. Add `rounded-full` or `rounded-sm`. */
 export const badge =
-	'flex size-6 shrink-0 items-center justify-center bg-secondary text-xs font-semibold text-secondary-foreground';
+	'flex size-7 shrink-0 items-center justify-center bg-secondary text-sm font-semibold text-secondary-foreground';
 
 /** A round number that names a part: a blank, a label, a pair. */
 export const number =
@@ -29,21 +39,24 @@ export const number =
 export const chips = 'flex flex-wrap items-center gap-1.5';
 
 /** A word to pick up, laid over a button. */
-export const chip = 'h-8 max-w-full rounded-4xl px-3 text-sm font-medium';
+export const chip = 'h-10 max-w-full rounded-4xl px-4 text-lg font-medium';
 
 /** A place a word is put: empty it is dashed, filled it holds the word. Laid over a button. */
 export const slot =
-	'h-8 min-w-16 rounded-4xl border border-dashed border-border-strong bg-card px-3 text-sm font-medium disabled:opacity-100 data-[filled]:border-solid data-[filled]:border-transparent data-[filled]:bg-accent data-[filled]:text-accent-foreground data-[active]:border-solid data-[active]:border-primary';
+	'h-10 min-w-20 rounded-4xl border border-dashed border-border-strong bg-card px-4 text-lg font-medium disabled:opacity-100 data-[filled]:border-solid data-[filled]:border-transparent data-[filled]:bg-accent data-[filled]:text-accent-foreground data-[active]:border-solid data-[active]:border-primary';
 
 /** An area things are put into: a sentence being built, a group. */
 export const zone =
-	'flex min-h-12 flex-wrap content-start items-start gap-1.5 rounded-lg border border-dashed border-border-strong bg-card p-2';
+	'flex min-h-14 flex-wrap content-start items-start gap-1.5 rounded-lg border border-dashed border-border-strong bg-card p-2';
 
 /** Running text with blanks in it: tall lines, so the blanks do not touch. */
-export const text = 'px-2 text-base leading-10 wrap-break-word whitespace-pre-line';
+export const text = 'px-2 text-lg leading-12 wrap-break-word whitespace-pre-line';
 
-/** A box for one number or one letter. */
-export const cell = 'w-15 shrink-0 px-0 text-center';
+/** A field an answer is typed into: taller than the app's, and the size of the other answers at every width. */
+export const field = 'h-11 text-lg md:text-lg';
+
+/** A box for one number or one letter. Lay it over a `field`. */
+export const cell = 'w-16 shrink-0 px-0 text-center';
 
 /**
  * A part of an answer as it was marked: green and right, or red and wrong.

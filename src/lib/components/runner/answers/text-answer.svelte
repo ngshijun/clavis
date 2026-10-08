@@ -3,7 +3,7 @@
 	import type { ItemResponse, ServedShortAnswer } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
-	import { marked } from '../styles.js';
+	import { field, marked } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { wholeVerdict, type AnswerMark } from '../marks.js';
 
@@ -32,7 +32,7 @@
 		autocapitalize="off"
 		spellcheck={false}
 		{readonly}
-		class={cn(verdict && marked[verdict])}
+		class={cn(field, verdict && marked[verdict])}
 		bind:value={
 			() => answer.text_answer ?? '', (text) => (answer = text ? { text_answer: text } : {})
 		}

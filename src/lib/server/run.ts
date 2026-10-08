@@ -26,35 +26,6 @@ export async function postedAnswers(request: Request): Promise<Json[] | null> {
 	}
 }
 
-/**
- * A stage dealt out as a pupil gets it, for an admin to try. Each call deals
- * afresh: a stage in random order comes in a new order, and the lists inside
- * the questions are mixed again.
- */
-export async function previewStage(supabase: Supabase, stageId: string): Promise<Run> {
-	const { data, error } = await supabase.rpc('preview_stage', { p_stage_id: stageId });
-	if (error) throw error;
-	return data as unknown as Run;
-}
-
-/**
- * Marks a preview's answers. Nothing is recorded. Every question of the stage
- * comes back, the ones not answered with no marks, each with its mark and the
- * tips its answer earned. No right answer leaves the database.
- */
-export async function markStagePreview(
-	supabase: Supabase,
-	stageId: string,
-	answers: Json
-): Promise<Marked> {
-	const { data, error } = await supabase.rpc('mark_stage_preview', {
-		p_stage_id: stageId,
-		p_answers: answers
-	});
-	if (error) throw error;
-	return data as unknown as Marked;
-}
-
 // ---- A pupil's practice, in a classroom ------------------------------------
 
 export interface StagePlace {

@@ -4,7 +4,7 @@
 	import type { ItemResponse, ServedNumeric } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
-	import { cell, marked } from '../styles.js';
+	import { cell, field, marked } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { wholeVerdict, type AnswerMark } from '../marks.js';
 
@@ -50,7 +50,7 @@
 		settle(parts.with(at, digits === '' ? null : Number(digits)), period);
 	}
 
-	const row = 'flex flex-wrap items-center gap-2 text-sm font-semibold';
+	const row = 'flex flex-wrap items-center gap-2 text-lg font-semibold';
 	const verdict = $derived(wholeVerdict(mark));
 </script>
 
@@ -60,7 +60,7 @@
 		inputmode="numeric"
 		autocomplete="off"
 		{readonly}
-		class={cn(cell, width, verdict && marked[verdict])}
+		class={cn(field, cell, width, verdict && marked[verdict])}
 		value={parts[at] ?? ''}
 		oninput={(event) => {
 			write(at, event.currentTarget.value);
@@ -88,7 +88,7 @@
 			inputmode="decimal"
 			autocomplete="off"
 			{readonly}
-			class={cn('w-28 shrink-0', verdict && marked[verdict])}
+			class={cn(field, 'w-32 shrink-0', verdict && marked[verdict])}
 			bind:value={
 				() => answer.text_answer ?? '', (text) => (answer = text ? { text_answer: text } : {})
 			}
@@ -129,7 +129,7 @@
 				{#each [['am', m.item_time_am()], ['pm', m.item_time_pm()]] as [value, label] (value)}
 					<ToggleGroup.Item
 						{value}
-						class="h-7 rounded-4xl px-3 text-muted-foreground hover:bg-transparent disabled:opacity-100 data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+						class="h-10 rounded-4xl px-4 text-lg text-muted-foreground hover:bg-transparent disabled:opacity-100 data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
 					>
 						{label}
 					</ToggleGroup.Item>
@@ -139,7 +139,7 @@
 	{:else if item.form === 'measure' && item.units}
 		{@render box(0, item.units[0])}
 		<span>{item.units[0]}</span>
-		{@render box(1, item.units[1], 'w-18')}
+		{@render box(1, item.units[1], 'w-20')}
 		<span>{item.units[1]}</span>
 	{/if}
 	{#if verdict}

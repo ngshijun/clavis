@@ -7,7 +7,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
 	import { bankWords, nextPlace } from '../bank.js';
-	import { chip, chips, marked, slot, text } from '../styles.js';
+	import { chip, chips, field, marked, slot, text } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { partVerdict, type AnswerMark } from '../marks.js';
 
@@ -94,14 +94,14 @@
 				bind:value={() => valueOf(part.index), (value) => fill(part.index, value)}
 			><Select.Trigger
 					aria-label={m.practice_cloze_blank({ n: part.index })}
-					class={cn('mx-0.5 inline-flex h-8 w-auto align-middle disabled:opacity-100', markedOf(part.index))}
-				>{valueOf(part.index) || m.item_cloze_choose()}</Select.Trigger><Select.Content><Select.Group>{#each choicesOf(part.index) as choice (choice)}<Select.Item value={choice} label={choice} />{/each}</Select.Group></Select.Content></Select.Root>{:else}<Input
+					class={cn('mx-0.5 inline-flex w-auto align-middle text-lg disabled:opacity-100 data-[size=default]:h-10', markedOf(part.index))}
+				>{valueOf(part.index) || m.item_cloze_choose()}</Select.Trigger><Select.Content><Select.Group>{#each choicesOf(part.index) as choice (choice)}<Select.Item value={choice} label={choice} class="text-lg" />{/each}</Select.Group></Select.Content></Select.Root>{:else}<Input
 				aria-label={m.practice_cloze_blank({ n: part.index })}
 				autocomplete="off"
 				autocapitalize="off"
 				spellcheck={false}
 				{readonly}
-				class={cn('mx-0.5 inline-flex h-8 w-28 align-middle', markedOf(part.index))}
+				class={cn(field, 'mx-0.5 inline-flex h-10 w-32 align-middle', markedOf(part.index))}
 				bind:value={() => valueOf(part.index), (value) => fill(part.index, value)}
 			/>{/if}{#if part.kind === 'blank'}{@render tick(part.index)}{/if}{/each}</p>
 

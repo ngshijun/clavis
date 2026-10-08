@@ -35,7 +35,7 @@
 <div class="flex flex-col gap-4">
 	{#if item.question}
 		<!-- Words stand a little further in than boxes do, clear of the corner's curve. -->
-		<p class="px-2 text-base leading-snug font-semibold wrap-break-word whitespace-pre-line">
+		<p class="px-2 text-xl leading-snug font-semibold wrap-break-word whitespace-pre-line">
 			{item.question}
 		</p>
 	{/if}
@@ -50,7 +50,7 @@
 			</span>
 			{#if !answered}
 				<p
-					class="rounded-lg border border-dashed border-border-strong px-3 py-2.5 text-sm text-muted-foreground italic"
+					class="rounded-lg border border-dashed border-border-strong px-3 py-2.5 text-lg text-muted-foreground italic"
 				>
 					{m.run_no_answer()}
 				</p>

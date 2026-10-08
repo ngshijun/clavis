@@ -3,7 +3,6 @@
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import EyeIcon from '@lucide/svelte/icons/eye';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import UploadIcon from '@lucide/svelte/icons/upload';
@@ -27,7 +26,7 @@
 	import { ITEM_KINDS } from '#lib/items/kinds.js';
 	import { ITEM_TYPES, type ItemType } from '#lib/items/payload.js';
 	import { validateItem } from '#lib/items/schema.js';
-	import { practicePreviewPath, practiceStagePath } from '#lib/navigation.js';
+	import { practiceStagePath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { blankPassage, validatePassage } from '#lib/passage.js';
 	import type { QuestionOrder, StageQuestion } from '#lib/server/practice.js';
@@ -382,10 +381,6 @@
 		/>
 	</InputGroup.Root>
 	<Segmented bind:value={() => order, setOrder} options={orders} label={m.practice_order_label()} />
-	<Button variant="outline" href={resolve(practicePreviewPath(params.subjectId, params.stageId))}>
-		<EyeIcon data-icon="inline-start" />
-		{m.practice_preview()}
-	</Button>
 	<Button variant="outline" onclick={() => (importing = true)}>
 		<UploadIcon data-icon="inline-start" />
 		{m.practice_import()}

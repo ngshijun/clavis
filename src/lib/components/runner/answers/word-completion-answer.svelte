@@ -3,7 +3,7 @@
 	import type { ItemResponse, ServedWordCompletion } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
-	import { cell, marked } from '../styles.js';
+	import { cell, field, marked } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { wholeVerdict, type AnswerMark } from '../marks.js';
 
@@ -68,8 +68,9 @@
 			spellcheck={false}
 			readonly={readonly || given}
 			class={cn(
+				field,
 				cell,
-				'w-10 font-semibold',
+				'w-11 font-semibold',
 				given && 'bg-secondary',
 				verdict && !given && marked[verdict]
 			)}

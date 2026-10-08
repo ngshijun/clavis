@@ -1,13 +1,11 @@
 <script lang="ts">
 	import CopyIcon from '@lucide/svelte/icons/copy';
-	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import IconButton from '#lib/components/app/icon-button.svelte';
 	import { setRunner } from '#lib/components/runner/context.js';
 	import PassageView from '#lib/components/runner/passage-view.svelte';
 	import QuestionView from '#lib/components/runner/question-view.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
@@ -106,7 +104,7 @@
 		</Select.Root>
 		<!--
 			In a card too narrow for the three in a row, the difficulty takes a row of its own
-			under the other two, so that More keeps its corner whatever the type is called.
+			under the other two, so that the buttons keep their corner whatever the type is called.
 		-->
 		<div class="order-last basis-full @lg:order-none @lg:basis-auto">
 			<Segmented
@@ -115,28 +113,20 @@
 				label={m.practice_difficulty_label()}
 			/>
 		</div>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<IconButton variant="ghost" label={m.action_more()} class="ms-auto" {...props}>
-						<EllipsisIcon />
-					</IconButton>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end">
-				<DropdownMenu.Group>
-					<!-- The copy is of what is stored, so there is none to make of unsaved work. -->
-					<DropdownMenu.Item disabled={draft.id === null || draft.dirty} onSelect={onduplicate}>
-						<CopyIcon />
-						{m.practice_duplicate()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item variant="destructive" onSelect={ondelete}>
-						<Trash2Icon />
-						{m.menu_delete()}
-					</DropdownMenu.Item>
-				</DropdownMenu.Group>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+		<div class="ms-auto flex gap-1">
+			<!-- The copy is of what is stored, so there is none to make of unsaved work. -->
+			<IconButton
+				variant="ghost"
+				label={m.practice_duplicate()}
+				disabled={draft.id === null || draft.dirty}
+				onclick={onduplicate}
+			>
+				<CopyIcon />
+			</IconButton>
+			<IconButton variant="destructive" label={m.action_delete()} onclick={ondelete}>
+				<Trash2Icon />
+			</IconButton>
+		</div>
 	{/snippet}
 
 	{#snippet form()}

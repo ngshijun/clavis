@@ -663,11 +663,6 @@
 	"practice_import_passage_unknown": "No passage on the Passages sheet has the code “{code}”.",
 	"practice_import_passage_broken": "The passage “{code}” has to be fixed first. See the Passages sheet.",
 	"practice_import_code_repeated": "An earlier passage already has the code “{code}”.",
-	"practice_preview": "Preview",
-	"practice_preview_note": "This is what a pupil gets. Nothing you answer here is recorded.",
-	"practice_preview_back": "Back to Editing",
-	"practice_preview_empty_title": "Nothing to preview yet",
-	"practice_preview_empty_description": "Add a question to this stage first.",
 	"run_question_of": "Question {n} of {total}",
 	"run_previous": "Previous",
 	"run_next": "Next",
@@ -716,5 +711,5 @@
 	"item_ratio_term": "Term {n}",
 	"item_part": "Part {n}",
 	"item_classify_put": "Put in {group}",
-	"item_classify_hint": "Tap an item, then the name of the group it belongs to. Tap an item in a group to take it back."
+	"item_classify_hint": "Drag each item into its group, or tap an item and then the name of its group. Tap an item in a group, or drag it back out, to take it back."
 }

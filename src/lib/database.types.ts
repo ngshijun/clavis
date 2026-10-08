@@ -756,8 +756,6 @@ export type Database = {
 				Returns: number;
 			};
 			item_payload_is_valid: { Args: { p: Json }; Returns: boolean };
-			mark_stage_preview: { Args: { p_answers: Json; p_stage_id: string }; Returns: Json };
-			preview_stage: { Args: { p_stage_id: string }; Returns: Json };
 			reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined };
 			reorder_passage_questions: {
 				Args: { p_ids: string[]; p_passage_id: string };

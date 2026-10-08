@@ -24,7 +24,7 @@
 	import { markOf, type Mark } from './marks.js';
 	import QuestionView from './question-view.svelte';
 	import RunShell from './run-shell.svelte';
-	import { hint, number, tile, tiles } from './styles.js';
+	import { note, number, tile, tiles } from './styles.js';
 
 	/**
 	 * A finished stage, marked. A rail holds the score, how the questions
@@ -131,8 +131,8 @@
 			</div>
 			<QuestionView item={asked.item} answer={given} readonly mark={result} />
 			{#each result.tips as tip (tip)}
-				<p class="flex gap-2.5 rounded-lg bg-background px-3 py-2.5 text-sm wrap-break-word">
-					<LightbulbIcon class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+				<p class="flex gap-2.5 rounded-lg bg-background px-3 py-2.5 text-lg wrap-break-word">
+					<LightbulbIcon class="mt-1 size-5 shrink-0 text-warning" aria-hidden="true" />
 					<span>
 						<span class="font-semibold">{m.run_tip()}</span>
 						{tip}
@@ -199,7 +199,7 @@
 					</Button>
 				{/each}
 			</div>
-			<span class={hint}>{m.run_map_hint()}</span>
+			<span class={note}>{m.run_map_hint()}</span>
 			<!-- With nothing to review, or everything, there is nothing to choose between. -->
 			{#if toReview > 0 && toReview < results.length}
 				<Segmented

@@ -54,7 +54,7 @@
 			</span>
 			<ThingFace thing={choice} />
 			{#if verdict}
-				<span class="ms-auto flex shrink-0 items-center gap-1.5 ps-2 text-xs font-semibold">
+				<span class="ms-auto flex shrink-0 items-center gap-1.5 ps-2 text-sm font-semibold">
 					<span class="max-sm:sr-only">{m.run_your_answer()}</span>
 					<MarkIcon {verdict} />
 				</span>

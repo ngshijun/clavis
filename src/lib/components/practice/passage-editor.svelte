@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
-	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { dragHandleZone } from 'svelte-dnd-action';
 	import IconButton from '#lib/components/app/icon-button.svelte';
 	import DragHandle from '#lib/components/rows/drag-handle.svelte';
 	import { FLIP_MS, saveOrder } from '#lib/components/rows/reorder.js';
 	import PassageView from '#lib/components/runner/passage-view.svelte';
-	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import type { ItemType } from '#lib/items/payload.js';
@@ -79,23 +77,9 @@
 <EditorCard bind:this={card} {draft} {saving} {onsave} {onrevert} class={className}>
 	{#snippet head()}
 		<h2 class="text-lg font-semibold">{m.practice_passage()}</h2>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<IconButton variant="ghost" label={m.action_more()} class="ms-auto" {...props}>
-						<EllipsisIcon />
-					</IconButton>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end">
-				<DropdownMenu.Group>
-					<DropdownMenu.Item variant="destructive" onSelect={ondelete}>
-						<Trash2Icon />
-						{m.menu_delete()}
-					</DropdownMenu.Item>
-				</DropdownMenu.Group>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+		<IconButton variant="destructive" label={m.action_delete()} class="ms-auto" onclick={ondelete}>
+			<Trash2Icon />
+		</IconButton>
 	{/snippet}
 
 	{#snippet form()}

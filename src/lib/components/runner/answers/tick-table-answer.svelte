@@ -62,7 +62,7 @@
 					(group) => tick(row.id, group)
 				}
 			>
-				<span class="flex min-w-0 items-center gap-2 px-3 py-2 text-sm">
+				<span class="flex min-w-0 items-center gap-2 px-3 py-2.5 text-lg">
 					<span class="min-w-0 flex-1 wrap-break-word">{row.text}</span>
 					{#if verdict}
 						<MarkIcon {verdict} />

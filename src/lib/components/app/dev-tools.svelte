@@ -30,11 +30,12 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
+			<!-- Above where a page keeps a bar along its bottom, so it covers no button there. -->
 			<Button
 				{...props}
 				variant="outline"
 				size="icon-sm"
-				class="fixed end-4 bottom-4 z-50 rounded-full shadow-md"
+				class="fixed end-4 bottom-20 z-50 rounded-full shadow-md"
 				aria-label="Developer Tools"
 			>
 				<WrenchIcon />

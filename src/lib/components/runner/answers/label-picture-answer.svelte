@@ -6,7 +6,7 @@
 	import { cn } from '#lib/utils.js';
 	import { bankWords, nextPlace } from '../bank.js';
 	import { getRunner } from '../context.js';
-	import { chip, chips, marked, number, slot } from '../styles.js';
+	import { chip, chips, field, marked, number, slot } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { partVerdict, type AnswerMark } from '../marks.js';
 
@@ -103,7 +103,7 @@
 						autocapitalize="off"
 						spellcheck={false}
 						{readonly}
-						class={cn('min-w-0 flex-1', verdict && marked[verdict])}
+						class={cn(field, 'min-w-0 flex-1', verdict && marked[verdict])}
 						bind:value={() => valueOf(marker.id), (value) => write(marker.id, value)}
 					/>
 				{/if}

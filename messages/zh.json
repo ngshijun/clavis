@@ -501,11 +501,6 @@
 	"practice_import_passage_unknown": "Passages 工作表中没有代码为“{code}”的短文。",
 	"practice_import_passage_broken": "短文“{code}”需要先修正。请查看 Passages 工作表。",
 	"practice_import_code_repeated": "前面已有短文使用代码“{code}”。",
-	"practice_preview": "预览",
-	"practice_preview_note": "这是学生看到的练习。你在这里的作答不会被记录。",
-	"practice_preview_back": "返回编辑",
-	"practice_preview_empty_title": "还没有可预览的内容",
-	"practice_preview_empty_description": "请先为这个关卡添加题目。",
 	"run_question_of": "第 {n} 题，共 {total} 题",
 	"run_previous": "上一题",
 	"run_next": "下一题",
@@ -545,5 +540,5 @@
 	"item_ratio_term": "第 {n} 项",
 	"item_part": "第 {n} 部分",
 	"item_classify_put": "放入“{group}”",
-	"item_classify_hint": "先点一个项目，再点它所属的组名。点一下组里的项目，可以把它拿回来。"
+	"item_classify_hint": "把每个项目拖进它所属的组，或者先点一个项目，再点它所属的组名。点一下组里的项目，或者把它拖出来，可以把它拿回来。"
 }

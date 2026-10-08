@@ -10,8 +10,9 @@
 
 	/**
 	 * A Classify question: a box for each group, and every item beneath them
-	 * to be put into the boxes. An item is put in a group by tapping it and
-	 * then the group's name; an item in a box tapped comes back out.
+	 * to be put into the boxes. An item is put in a group by dragging it into
+	 * the box, or by tapping it and then the group's name; an item in a box
+	 * comes back out when it is tapped or dragged back to the row it came from.
 	 */
 	let {
 		item,
@@ -35,8 +36,50 @@
 	let tapped = $state<string>();
 	const active = $derived(waiting.find((thing) => thing.id === tapped)?.id ?? waiting.at(0)?.id);
 
-	function settle(next: { id: string; group_id: string }[]) {
+	/** The row the items wait in, as a place to put one: in no group. */
+	const out = '';
+
+	function put(id: string, group: string) {
+		const rest = sorted.filter((each) => each.id !== id);
+		const next = group === out ? rest : [...rest, { id, group_id: group }];
 		answer = next.length > 0 ? { response: { items: next } } : {};
+	}
+
+	let board = $state<HTMLElement>();
+	/** The item being dragged: how far it has come from where it lay, and the place it is over. */
+	let dragging = $state<{ id: string; x: number; y: number; over?: string }>();
+	/** The press a drag may come of. It is not one until the pointer has left where it went down. */
+	let pressed: { id: string; x: number; y: number } | undefined;
+	const slack = 8;
+
+	function press(event: PointerEvent, id: string) {
+		if (readonly || !event.isPrimary || event.button !== 0) return;
+		pressed = { id, x: event.clientX, y: event.clientY };
+	}
+
+	function move(event: PointerEvent) {
+		if (!pressed || !board || !event.isPrimary) return;
+		const x = event.clientX - pressed.x;
+		const y = event.clientY - pressed.y;
+		if (!dragging && Math.hypot(x, y) < slack) return;
+		// The item lets the pointer through while it is dragged, so this finds what lies under it.
+		const under = document
+			.elementFromPoint(event.clientX, event.clientY)
+			?.closest<HTMLElement>('[data-place]');
+		const over = under && board.contains(under) ? under.dataset.place : undefined;
+		dragging = { id: pressed.id, x, y, over };
+	}
+
+	function release(event: PointerEvent) {
+		if (!event.isPrimary) return;
+		// Let go over no place, the item goes back to where it lay.
+		if (dragging?.over !== undefined) put(dragging.id, dragging.over);
+		drop();
+	}
+
+	function drop() {
+		pressed = undefined;
+		dragging = undefined;
 	}
 </script>
 
@@ -47,15 +90,21 @@
 	verdict?: Verdict
 )}
 	{@const picture = runner.imageUrl(thing.image_path)}
+	{@const held = dragging?.id === thing.id ? dragging : undefined}
 	<Button
 		variant="secondary"
 		aria-pressed={pressed}
 		disabled={readonly}
 		class={cn(
-			picture ? 'h-auto max-w-full flex-col gap-1 rounded-lg p-1 text-sm font-medium' : chip,
+			picture ? 'h-auto max-w-full flex-col gap-1 rounded-lg p-1 text-lg font-medium' : chip,
 			'disabled:opacity-100 aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:ring-2 aria-pressed:ring-primary',
+			// A press is not to scroll the page or pick up a picture, or the item could not be dragged.
+			!readonly && 'touch-none select-none [&_img]:pointer-events-none',
+			held && 'pointer-events-none relative z-10 shadow-lg transition-none',
 			verdict && [marked[verdict], 'border']
 		)}
+		style={held ? `translate: ${held.x}px ${held.y}px` : undefined}
+		onpointerdown={(event) => press(event, thing.id)}
 		{onclick}
 	>
 		{#if picture}
@@ -71,35 +120,47 @@
 	</Button>
 {/snippet}
 
-<div class="flex flex-col gap-4">
+<svelte:window onpointermove={move} onpointerup={release} onpointercancel={drop} />
+
+<div bind:this={board} class="flex flex-col gap-4">
 	<div class="grid grid-cols-2 gap-2">
 		{#each item.groups as group (group.id)}
-			<div class={cn(zone, 'min-h-28 flex-col flex-nowrap')}>
+			<div
+				class={cn(
+					zone,
+					'min-h-32 flex-col flex-nowrap',
+					dragging?.over === group.id && 'border-solid border-primary bg-accent'
+				)}
+				data-place={group.id}
+			>
 				<Button
 					variant="ghost"
 					size="sm"
 					aria-label={m.item_classify_put({ group: group.text })}
 					disabled={readonly || active === undefined}
-					class="h-auto min-h-8 w-full justify-start py-1 text-start font-semibold whitespace-normal disabled:opacity-100"
-					onclick={() => active && settle([...sorted, { id: active, group_id: group.id }])}
+					class="h-auto min-h-9 w-full justify-start py-1 text-start text-lg font-semibold whitespace-normal disabled:opacity-100"
+					onclick={() => active && put(active, group.id)}
 				>
 					<span class="min-w-0 wrap-break-word">{group.text}</span>
 				</Button>
 				<div class={chips}>
 					{#each item.items.filter((thing) => groupOf(thing.id) === group.id) as thing (thing.id)}
-						{@render face(
-							thing,
-							undefined,
-							() => settle(sorted.filter((each) => each.id !== thing.id)),
-							partVerdict(mark, thing.id)
-						)}
+						{@render face(thing, undefined, () => put(thing.id, out), partVerdict(mark, thing.id))}
 					{/each}
 				</div>
 			</div>
 		{/each}
 	</div>
 	{#if !readonly}
-		<div class={chips}>
+		<!-- The row keeps its height when it is empty, so an item can be dragged back to it. -->
+		<div
+			class={cn(
+				chips,
+				'min-h-10 rounded-lg',
+				dragging?.over === out && 'bg-accent outline-2 outline-offset-4 outline-primary'
+			)}
+			data-place={out}
+		>
 			{#each waiting as thing (thing.id)}
 				{@render face(thing, active === thing.id, () => (tapped = thing.id))}
 			{/each}

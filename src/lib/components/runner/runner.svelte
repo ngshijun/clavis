@@ -13,7 +13,7 @@
 	import { getRunner } from './context.js';
 	import QuestionView from './question-view.svelte';
 	import RunShell from './run-shell.svelte';
-	import { hint, tile, tiles } from './styles.js';
+	import { hint, note, tile, tiles } from './styles.js';
 
 	/**
 	 * A stage being answered: one question at a time, forwards and back or
@@ -59,10 +59,10 @@
 	}
 </script>
 
-<RunShell label={m.run_rail_progress()}>
+<RunShell label={m.run_rail_progress()} wide={step.passage !== null}>
 	{#snippet rail()}
 		<Card.Root class="gap-3 p-4">
-			<div class="flex items-baseline justify-between gap-4 {hint}">
+			<div class="flex items-baseline justify-between gap-4 {note}">
 				<span class="font-semibold text-foreground tabular-nums" aria-live="polite">
 					{m.run_question_of({ n: step.question.number, total: run.total })}
 				</span>
@@ -103,11 +103,16 @@
 					</Button>
 				{/each}
 			</div>
-			<span class="{hint} @max-3xl:hidden">{m.run_map_hint()}</span>
+			<span class="{note} @max-3xl:hidden">{m.run_map_hint()}</span>
 		</Card.Root>
 	{/snippet}
 
-	<Card.Root class="gap-4 p-4">
+	<!--
+		On a page wide enough a passage stands beside its question, as tall as the
+		window allows, so the pupil reads and answers without scrolling between
+		the two. Otherwise it stands above the question, in a box that scrolls.
+	-->
+	<Card.Root class={cn('grid items-start gap-4 p-4', step.passage && '@7xl/run:grid-cols-2')}>
 		<!-- Made again for each question, so an answer area starts from that question's answer. -->
 		{#key step.question.id}
 			{#if step.passage}
@@ -115,6 +120,7 @@
 					title={step.passage.title}
 					body={step.passage.body}
 					imageUrl={runner.imageUrl(step.passage.image_path)}
+					class="@7xl/run:max-h-[calc(100svh-13rem-var(--pinned-toolbar,0px))]"
 				/>
 			{/if}
 			<QuestionView
@@ -127,22 +133,24 @@
 		{/key}
 	</Card.Root>
 
-	<div class="flex flex-wrap items-center justify-end gap-2">
-		<span class="{hint} me-auto">{m.run_answers_after()}</span>
+	{#snippet footer()}
+		<span class="{hint} me-auto max-sm:hidden">{m.run_answers_after()}</span>
 		{#if at > 0}
-			<Button variant="outline" onclick={() => (at -= 1)}>{m.run_previous()}</Button>
+			<Button variant="outline" size="lg" class="text-base" onclick={() => (at -= 1)}>
+				{m.run_previous()}
+			</Button>
 		{/if}
 		{#if last}
-			<Button disabled={finishing} onclick={finish}>
+			<Button size="lg" class="text-base" disabled={finishing} onclick={finish}>
 				{#if finishing}
 					<Spinner data-icon="inline-start" />
 				{/if}
 				{m.run_finish()}
 			</Button>
 		{:else}
-			<Button onclick={() => (at += 1)}>{m.run_next()}</Button>
+			<Button size="lg" class="text-base" onclick={() => (at += 1)}>{m.run_next()}</Button>
 		{/if}
-	</div>
+	{/snippet}
 </RunShell>
 
 <AlertDialog.Root bind:open={confirming}>

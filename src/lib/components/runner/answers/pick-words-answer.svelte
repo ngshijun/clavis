@@ -41,7 +41,7 @@
 		<ToggleGroup.Item
 			value={String(word.number)}
 			class={cn(
-				'h-auto min-w-0 rounded-sm px-1 py-0.5 text-base font-normal wrap-break-word whitespace-normal disabled:opacity-100 data-[state=on]:bg-accent data-[state=on]:font-semibold data-[state=on]:text-accent-foreground data-[state=on]:underline',
+				'h-auto min-w-0 rounded-sm px-1 py-0.5 text-lg font-normal wrap-break-word whitespace-normal disabled:opacity-100 data-[state=on]:bg-accent data-[state=on]:font-semibold data-[state=on]:text-accent-foreground data-[state=on]:underline',
 				verdict && marked[verdict]
 			)}
 		>
