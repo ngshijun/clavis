@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -29,6 +28,7 @@
 	import { practiceStagePath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { blankPassage, validatePassage } from '#lib/passage.js';
+	import { resolvePath } from '#lib/paths.js';
 	import type { QuestionOrder, StageQuestion } from '#lib/server/practice.js';
 	import type { PageProps } from './$types';
 
@@ -45,7 +45,7 @@
 	let { data, params }: PageProps = $props();
 
 	const stage = $derived(data.stage);
-	const here = $derived(resolve(practiceStagePath(params.subjectId, params.stageId)));
+	const here = $derived(resolvePath(practiceStagePath(params.subjectId, params.stageId)));
 
 	/** Every stored question, a passage's among the rest, each with the passage it is on. */
 	const questions = $derived(

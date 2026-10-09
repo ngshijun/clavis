@@ -1435,4 +1435,64 @@ SET archived_at = now()
 WHERE id = 'c1000000-0000-4000-8000-000000000007';
 
 
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 11. ASSIGNMENTS                                                          ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Three stages Ms Lee has assigned in Year 1 Math (Group A), each moved back
+-- in time so that the practice above falls before or after it. An assignment
+-- is done by the student's first session of its stage after it was assigned,
+-- which is worked out here as submit_practice_session would have recorded it.
+--
+-- What to look for afterwards:
+--   Number Patterns     both students, due yesterday: Alice did it in time
+--                       and Ben late
+--   Basic Calculation   both, due in three days: Alice has done it; Ben's go
+--                       was before it was assigned, and does not count
+--   Chapter 2 > Basic Calculation   Ben alone, due two days ago and not done:
+--                       overdue
+--   Ms Lee's bell       three notifications, the first of them already seen
+
+INSERT INTO public.assignments (id, classroom_id, stage_id, assigned_by, created_at, due_at) VALUES
+  ('d1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001',
+   'b1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000006',
+   now() - interval '3 days', now() - interval '1 day'),
+  ('d1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001',
+   '4e61c11b-d12e-449f-bdd6-44cf5639a692', '00000000-0000-0000-0000-000000000006',
+   now() - interval '36 hours', now() + interval '3 days'),
+  ('d1000000-0000-4000-8000-000000000003', 'c1000000-0000-4000-8000-000000000001',
+   'ae3333dc-fc77-44e6-bd19-d8032ee310b5', '00000000-0000-0000-0000-000000000006',
+   now() - interval '5 days', now() - interval '2 days');
+
+INSERT INTO public.assignment_students (assignment_id, classroom_id, student_id, session_id)
+SELECT
+  a.id,
+  a.classroom_id,
+  g.student_id,
+  (
+    SELECT ps.id
+    FROM public.practice_sessions ps
+    WHERE ps.student_id = g.student_id
+      AND ps.classroom_id = a.classroom_id
+      AND ps.stage_id = a.stage_id
+      AND ps.completed_at >= a.created_at
+    ORDER BY ps.completed_at
+    LIMIT 1
+  )
+FROM (VALUES
+  ('d1000000-0000-4000-8000-000000000001'::uuid, '00000000-0000-0000-0000-000000000002'::uuid),
+  ('d1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000002'),
+  ('d1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000003')
+) AS g(assignment_id, student_id)
+JOIN public.assignments a ON a.id = g.assignment_id;
+
+-- Ms Lee has seen that Alice did Number Patterns.
+UPDATE public.assignment_students
+SET seen_at = now() - interval '1 day'
+WHERE assignment_id = 'd1000000-0000-4000-8000-000000000001'
+  AND student_id = '00000000-0000-0000-0000-000000000002'
+  AND session_id IS NOT NULL;
+
+
 COMMIT;

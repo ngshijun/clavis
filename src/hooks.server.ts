@@ -2,10 +2,10 @@ import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { createServerClient } from '@supabase/ssr';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '$app/env/private';
-import { resolve } from '$app/paths';
 import type { Database } from '#lib/database.types.js';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
+import { resolvePath } from '#lib/paths.js';
 import { redirectFor } from '#lib/roles.js';
 import { loadSessionUser } from '#lib/server/session.js';
 
@@ -56,7 +56,7 @@ const handleRole: Handle = ({ event, resolve: resolveEvent }) => {
 	const area = event.route.id?.match(/^\/\(app\)\/([^/]+)/)?.[1] ?? null;
 
 	const destination = redirectFor(event.url.pathname, area, event.locals.user?.role ?? null);
-	if (destination !== null) redirect(303, resolve(destination));
+	if (destination !== null) redirect(303, resolvePath(destination));
 	return resolveEvent(event);
 };
 

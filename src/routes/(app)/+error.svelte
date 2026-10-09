@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { resolvePath } from '#lib/paths.js';
 	import { homePath } from '#lib/roles.js';
 	import type { LayoutData } from './$types';
 
@@ -27,7 +27,7 @@
 	<ClassroomEmpty
 		description={student ? m.classroom_unknown_student() : m.classroom_unknown_staff()}
 	>
-		<Button variant="outline" href={resolve(homePath(user.role))}>
+		<Button variant="outline" href={resolvePath(homePath(user.role))}>
 			{student ? m.classroom_back_student() : m.classroom_back_staff()}
 		</Button>
 	</ClassroomEmpty>

@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { resolve } from '$app/paths';
-import { classroomPath } from '#lib/navigation.js';
+import { classroomPracticePath } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
+import { resolvePath } from '#lib/paths.js';
 import { unexpected } from '#lib/server/forms.js';
 import {
 	findStage,
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	const run = await servePracticeStage(locals.supabase, classroom.id, stage.id);
 	if (run.total === 0) error(404, 'Stage not found');
 
-	const practice = resolve(classroomPath('student', classroom.id));
+	const practice = resolvePath(classroomPracticePath('student', classroom.id));
 	return {
 		run,
 		imageBase: questionImageBase(locals.supabase),

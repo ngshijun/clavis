@@ -1,8 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { resolve } from '$app/paths';
 import { m } from '#lib/paraglide/messages.js';
+import { resolvePath } from '#lib/paths.js';
 import { homePath } from '#lib/roles.js';
 import { loadSessionUser } from '#lib/server/session.js';
+import { studentEmail } from '../../../supabase/functions/create-user/provisioning.ts';
 import type { Actions } from './$types';
 
 /** Auth error codes worth their own wording; anything else gets the generic message. */
@@ -15,21 +16,25 @@ const AUTH_MESSAGES: Record<string, () => string> = {
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		const form = await request.formData();
-		const email = String(form.get('email') ?? '').trim();
+		const username = String(form.get('username') ?? '')
+			.trim()
+			.toLowerCase();
 		const password = String(form.get('password') ?? '');
+		// A student is known by a username and everyone else by an email, which an @ tells apart.
+		const email = username.includes('@') ? username : studentEmail(username);
 
 		const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
 		if (error) {
 			const message = AUTH_MESSAGES[error.code ?? '']?.() ?? m.error_unexpected();
-			return fail(400, { email, message });
+			return fail(400, { username, message });
 		}
 
 		const user = await loadSessionUser(locals.supabase);
 		if (!user) {
 			await locals.supabase.auth.signOut();
-			return fail(400, { email, message: m.auth_no_profile() });
+			return fail(400, { username, message: m.auth_no_profile() });
 		}
 
-		redirect(303, resolve(homePath(user.role)));
+		redirect(303, resolvePath(homePath(user.role)));
 	}
 };

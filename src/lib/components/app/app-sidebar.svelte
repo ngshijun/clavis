@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import logo from '#lib/assets/logo.svg';
 	import AccountMenu from '#lib/components/app/account-menu.svelte';
@@ -11,6 +9,7 @@
 	import { initials } from '#lib/initials.js';
 	import { classroomPath, isCurrent, type NavItem } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { resolvePath } from '#lib/paths.js';
 	import { homePath } from '#lib/roles.js';
 	import type { Classroom } from '#lib/server/classrooms.js';
 	import type { SessionUser } from '#lib/server/session.js';
@@ -19,7 +18,8 @@
 		user,
 		items,
 		classrooms,
-		classroom
+		classroom,
+		toDo
 	}: {
 		user: SessionUser;
 		items: NavItem[];
@@ -27,22 +27,18 @@
 		classrooms: Classroom[];
 		/** The classroom the person is inside, if any. */
 		classroom: Classroom | undefined;
+		/** How many assignments a student has yet to do, by the classroom's id. */
+		toDo: Record<string, number>;
 	} = $props();
 
 	const role = $derived(user.role);
 
 	/**
-	 * A teacher moves between classrooms all day, so theirs are listed here and
-	 * one click apart. A manager and a student see only the classroom they are
-	 * inside, as a way back to the page they chose it from.
+	 * A teacher and a student move between a handful of classrooms, so theirs
+	 * are listed here and one click apart. A manager's are every classroom of
+	 * the organization, too many to list, and have a page instead.
 	 */
-	const listed = $derived(role === 'teacher' ? classrooms : []);
-
-	/**
-	 * A student's picker sends them straight back into their only classroom, so
-	 * a link to it would bounce. A manager's is a real page.
-	 */
-	const canSwitch = $derived(role === 'manager' || classrooms.length > 1);
+	const listedFor = $derived(role === 'teacher' || role === 'student' ? role : null);
 
 	/**
 	 * What a tall row leads with: a 40px tile, 8px inside the row's 14px corners
@@ -60,17 +56,12 @@
 	</span>
 {/snippet}
 
-{#snippet classroomRow(item: Classroom)}
-	<Cover id={item.id} coverUrl={item.coverUrl} class={tile} />
-	{@render twoLines(item.name, `${item.gradeLevelName} · ${item.subjectName}`)}
-{/snippet}
-
 {#snippet links()}
 	<Sidebar.Group>
 		<Sidebar.GroupContent>
 			<Sidebar.Menu>
 				{#each items as item (item.href)}
-					{@const href = resolve(item.href)}
+					{@const href = resolvePath(item.href)}
 					{@const active = isCurrent(item, role, page.url.pathname)}
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton isActive={active} tooltipContent={item.label()}>
@@ -94,7 +85,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg" class="px-2">
 					{#snippet child({ props })}
-						<a href={resolve(homePath(role))} {...props}>
+						<a href={resolvePath(homePath(role))} {...props}>
 							<span class={[tile, 'flex items-center justify-center bg-sidebar-primary']}>
 								<img src={logo} alt={m.logo_alt()} class="size-4/5" />
 							</span>
@@ -110,67 +101,51 @@
 	</Sidebar.Header>
 
 	<Sidebar.Content>
-		{#if listed.length > 0}
+		{#if items.length > 0}
 			{@render links()}
+		{/if}
+		{#if listedFor && classrooms.length > 0}
 			<Sidebar.Group>
 				<Sidebar.GroupLabel class="text-sidebar-foreground/85">
 					{m.nav_classrooms()}
 				</Sidebar.GroupLabel>
 				<Sidebar.GroupContent>
 					<Sidebar.Menu>
-						{#each listed as item (item.id)}
+						{#each classrooms as item (item.id)}
 							{@const active = item.id === classroom?.id}
+							{@const waiting = toDo[item.id] ?? 0}
 							<Sidebar.MenuItem>
+								<!-- With work waiting, the row keeps room for its count at the end. -->
 								<Sidebar.MenuButton
 									size="lg"
-									class="px-2"
+									class={['px-2', waiting > 0 && 'pe-9']}
 									isActive={active}
 									tooltipContent={item.name}
 								>
 									{#snippet child({ props })}
 										<a
-											href={resolve(classroomPath('teacher', item.id))}
+											href={resolvePath(classroomPath(listedFor, item.id))}
 											aria-current={active ? 'true' : undefined}
 											{...props}
 										>
-											{@render classroomRow(item)}
+											<Cover id={item.id} coverUrl={item.coverUrl} class={tile} />
+											{@render twoLines(item.name, `${item.gradeLevelName} · ${item.subjectName}`)}
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>
+								{#if waiting > 0}
+									<Sidebar.MenuBadge
+										class="top-1/2! right-2 -translate-y-1/2 bg-sidebar-foreground px-1.5 font-bold text-sidebar!"
+									>
+										<span aria-hidden="true">{waiting}</span>
+										<span class="sr-only">{m.todo_count({ count: waiting })}</span>
+									</Sidebar.MenuBadge>
+								{/if}
 							</Sidebar.MenuItem>
 						{/each}
 					</Sidebar.Menu>
 				</Sidebar.GroupContent>
 			</Sidebar.Group>
-		{:else}
-			{#if classroom}
-				<Sidebar.Group class="pb-0">
-					<Sidebar.Menu>
-						<Sidebar.MenuItem>
-							{#if canSwitch}
-								<Sidebar.MenuButton size="lg" class="px-2" tooltipContent={m.classroom_switch()}>
-									{#snippet child({ props })}
-										<a href={resolve(homePath(role))} {...props}>
-											{@render classroomRow(classroom)}
-											<ChevronRightIcon class="ms-auto" />
-										</a>
-									{/snippet}
-								</Sidebar.MenuButton>
-							{:else}
-								<!-- Named, but not a control: there is no other classroom to switch to. -->
-								<Sidebar.MenuButton size="lg" class="pointer-events-none px-2">
-									{#snippet child({ props })}
-										<div {...props}>
-											{@render classroomRow(classroom)}
-										</div>
-									{/snippet}
-								</Sidebar.MenuButton>
-							{/if}
-						</Sidebar.MenuItem>
-					</Sidebar.Menu>
-				</Sidebar.Group>
-			{/if}
-			{@render links()}
 		{/if}
 	</Sidebar.Content>
 
@@ -194,7 +169,7 @@
 									{initials(user.name)}
 								</Avatar.Fallback>
 							</Avatar.Root>
-							{@render twoLines(user.name, user.email)}
+							{@render twoLines(user.name, user.login)}
 							<ChevronsUpDownIcon class="ms-auto" />
 						</Sidebar.MenuButton>
 					{/snippet}

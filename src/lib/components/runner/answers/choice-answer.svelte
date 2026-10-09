@@ -3,6 +3,7 @@
 	import type { ItemResponse, ServedChoice } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
+	import { getRunner } from '../context.js';
 	import { badge, column, marked, option } from '../styles.js';
 	import ThingFace from './thing-face.svelte';
 	import MarkIcon from '../mark-icon.svelte';
@@ -24,6 +25,8 @@
 		/** Set on an answer that was marked, to show the marks on it. */
 		mark?: AnswerMark;
 	} = $props();
+
+	const runner = getRunner();
 
 	const many = $derived(item.type === 'mrq');
 	const picked = $derived((answer.selected_options ?? []).map(String));
@@ -55,7 +58,9 @@
 			<ThingFace thing={choice} />
 			{#if verdict}
 				<span class="ms-auto flex shrink-0 items-center gap-1.5 ps-2 text-sm font-semibold">
-					<span class="max-sm:sr-only">{m.run_your_answer()}</span>
+					<span class="max-sm:sr-only">
+						{runner.theirs ? m.run_their_answer() : m.run_your_answer()}
+					</span>
 					<MarkIcon {verdict} />
 				</span>
 			{/if}

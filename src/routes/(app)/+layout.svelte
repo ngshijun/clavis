@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppSidebar from '#lib/components/app/app-sidebar.svelte';
+	import Notifications from '#lib/components/app/notifications.svelte';
 	import { scrollRegion } from '#lib/components/app/scroll-region.svelte.js';
 	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
@@ -11,10 +12,12 @@
 	let { data, children }: LayoutProps = $props();
 
 	// Resolved against the person's own classrooms, so an address naming someone
-	// else's classroom gets no classroom links rather than links that lead nowhere.
+	// else's classroom names no classroom rather than one that leads nowhere.
 	const classroom = $derived(data.classrooms.find((item) => item.id === page.params.classroomId));
-	const items = $derived(navItems(data.user.role, classroom?.id));
-	const crumbs = $derived(breadcrumbs(data.user.role, classroom, page.url.pathname, page.data));
+	const items = $derived(navItems(data.user.role));
+	const crumbs = $derived(
+		breadcrumbs(data.user.role, data.classrooms, classroom, page.url.pathname, page.data)
+	);
 	/** The breadcrumb names the page, so the browser tab takes its name from the same place. */
 	const title = $derived(crumbs.at(-1)?.label);
 
@@ -42,7 +45,13 @@
 </svelte:head>
 
 <Sidebar.Provider class="h-svh overflow-hidden">
-	<AppSidebar user={data.user} {items} classrooms={data.classrooms} {classroom} />
+	<AppSidebar
+		user={data.user}
+		{items}
+		classrooms={data.classrooms}
+		{classroom}
+		toDo={data.toDo ?? {}}
+	/>
 	<Sidebar.Inset class="min-h-0 overflow-hidden">
 		<header
 			data-scrolled={edge ? '' : undefined}
@@ -66,6 +75,11 @@
 					{/each}
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
+			{#if data.notifications}
+				<div class="ms-auto">
+					<Notifications notifications={data.notifications} classrooms={data.classrooms} />
+				</div>
+			{/if}
 		</header>
 
 		<div

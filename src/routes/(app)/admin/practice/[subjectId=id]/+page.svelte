@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import ListTreeIcon from '@lucide/svelte/icons/list-tree';
 	import TopicCard from '#lib/components/practice/topic-card.svelte';
 	import { setRequestDelete, type NamedRow } from '#lib/components/rows/context.js';
@@ -7,6 +6,7 @@
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { practiceStagePath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { resolvePath } from '#lib/paths.js';
 	import type { PageProps } from './$types';
 
 	/**
@@ -39,7 +39,7 @@
 		{#each data.subject.topics as topic (topic.id)}
 			<TopicCard
 				{topic}
-				href={(stageId) => resolve(practiceStagePath(params.subjectId, stageId))}
+				href={(stageId) => resolvePath(practiceStagePath(params.subjectId, stageId))}
 			/>
 		{/each}
 	</div>

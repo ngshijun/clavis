@@ -23,6 +23,101 @@ export type Database = {
 	};
 	public: {
 		Tables: {
+			assignment_students: {
+				Row: {
+					assignment_id: string;
+					classroom_id: string;
+					seen_at: string | null;
+					session_id: string | null;
+					student_id: string;
+				};
+				Insert: {
+					assignment_id: string;
+					classroom_id: string;
+					seen_at?: string | null;
+					session_id?: string | null;
+					student_id: string;
+				};
+				Update: {
+					assignment_id?: string;
+					classroom_id?: string;
+					seen_at?: string | null;
+					session_id?: string | null;
+					student_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'assignment_students_assignment_fkey';
+						columns: ['assignment_id', 'classroom_id'];
+						isOneToOne: false;
+						referencedRelation: 'assignments';
+						referencedColumns: ['id', 'classroom_id'];
+					},
+					{
+						foreignKeyName: 'assignment_students_session_id_fkey';
+						columns: ['session_id'];
+						isOneToOne: false;
+						referencedRelation: 'practice_sessions';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'assignment_students_student_fkey';
+						columns: ['classroom_id', 'student_id'];
+						isOneToOne: false;
+						referencedRelation: 'classroom_students';
+						referencedColumns: ['classroom_id', 'student_id'];
+					}
+				];
+			};
+			assignments: {
+				Row: {
+					assigned_by: string | null;
+					classroom_id: string;
+					created_at: string;
+					due_at: string | null;
+					id: string;
+					stage_id: string;
+				};
+				Insert: {
+					assigned_by?: string | null;
+					classroom_id: string;
+					created_at?: string;
+					due_at?: string | null;
+					id?: string;
+					stage_id: string;
+				};
+				Update: {
+					assigned_by?: string | null;
+					classroom_id?: string;
+					created_at?: string;
+					due_at?: string | null;
+					id?: string;
+					stage_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'assignments_assigned_by_fkey';
+						columns: ['assigned_by'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'assignments_classroom_id_fkey';
+						columns: ['classroom_id'];
+						isOneToOne: false;
+						referencedRelation: 'classrooms';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'assignments_stage_id_fkey';
+						columns: ['stage_id'];
+						isOneToOne: false;
+						referencedRelation: 'stages';
+						referencedColumns: ['id'];
+					}
+				];
+			};
 			classroom_students: {
 				Row: {
 					classroom_id: string;
@@ -730,6 +825,26 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Functions: {
+			assign_stage: {
+				Args: {
+					p_classroom_id: string;
+					p_due_at: string;
+					p_stage_id: string;
+					p_student_ids: string[];
+				};
+				Returns: string;
+			};
+			classroom_teacher_names: {
+				Args: Record<PropertyKey, never>;
+				Returns: {
+					classroom_id: string;
+					name: string;
+				}[];
+			};
+			delete_organization: {
+				Args: { p_name: string; p_organization_id: string };
+				Returns: string[];
+			};
 			get_bank_questions: {
 				Args: { p_stage_id?: string };
 				Returns: {
@@ -756,6 +871,22 @@ export type Database = {
 				Returns: number;
 			};
 			item_payload_is_valid: { Args: { p: Json }; Returns: boolean };
+			list_notifications: {
+				Args: Record<PropertyKey, never>;
+				Returns: {
+					assignment_id: string;
+					classroom_id: string;
+					done_at: string;
+					marks: number;
+					seen: boolean;
+					stage_name: string;
+					student_id: string;
+					student_name: string;
+					total: number;
+					unread: number;
+				}[];
+			};
+			mark_notifications_seen: { Args: { p_assignment_id: string }; Returns: undefined };
 			reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined };
 			reorder_passage_questions: {
 				Args: { p_ids: string[]; p_passage_id: string };
@@ -765,6 +896,7 @@ export type Database = {
 			reorder_stages: { Args: { p_ids: string[]; p_topic_id: string }; Returns: undefined };
 			reorder_subjects: { Args: { p_grade_level_id: string; p_ids: string[] }; Returns: undefined };
 			reorder_topics: { Args: { p_ids: string[]; p_subject_id: string }; Returns: undefined };
+			review_practice_session: { Args: { p_session_id: string }; Returns: Json };
 			serve_practice_stage: { Args: { p_classroom_id: string; p_stage_id: string }; Returns: Json };
 			submit_practice_session: {
 				Args: { p_answers: Json; p_classroom_id: string; p_stage_id: string };

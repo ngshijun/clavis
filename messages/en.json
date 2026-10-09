@@ -12,43 +12,42 @@
 	"nav_dashboard": "Dashboard",
 	"nav_curriculum": "Curriculum",
 	"nav_practice": "Practice",
+	"nav_organizations": "Organizations",
 	"action_more": "More",
 	"menu_edit": "Edit…",
 	"menu_delete": "Delete…",
+	"menu_rename": "Rename…",
 	"menu_archive": "Archive",
 	"menu_restore": "Restore",
 	"action_delete": "Delete",
 	"action_cancel": "Cancel",
 	"action_save": "Save",
-	"action_back": "Back",
+	"action_undo": "Undo",
 	"action_rename": "Rename",
 	"error_unexpected": "Something went wrong. Try again.",
 	"error_unreachable": "The server could not be reached, so nothing was saved. Check your connection and try again.",
 	"error_not_found": "This page does not exist.",
 	"login_title": "Sign In",
 	"login_description": "Use the account your school gave you.",
-	"login_email": "Email",
-	"login_email_placeholder": "name@example.com",
+	"login_username": "Email or username",
 	"login_password": "Password",
 	"login_submit": "Sign In",
-	"auth_invalid_credentials": "Incorrect email or password.",
+	"auth_invalid_credentials": "Incorrect email, username or password.",
 	"auth_email_not_confirmed": "Please confirm your email before signing in.",
 	"auth_rate_limited": "Too many requests. Please wait a moment and try again.",
 	"auth_no_profile": "This account has not been set up yet. Ask your administrator.",
 	"admin_home_title": "Platform administration",
-	"admin_home_description": "Organizations and the curriculum are still being moved to this version of Clavis.",
-	"classroom_switch": "Switch Classroom",
+	"admin_home_description": "Set up tuition centers under Organizations, and what their students practise under Practice.",
 	"classroom_unknown_staff": "That classroom is not one of yours.",
 	"classroom_unknown_student": "That class is not one of yours.",
 	"classroom_back_staff": "Back to Classrooms",
 	"classroom_back_student": "Back to Classes",
 	"picker_empty_staff": "You have not been assigned to a classroom yet.",
 	"picker_empty_student": "You have not joined a class yet.",
+	"classroom_no_teacher": "No teacher yet",
 	"classroom_sections": "Classroom sections",
-	"section_overview": "Overview",
 	"section_students": "Students",
-	"stat_teachers": "Teachers",
-	"student_pending": "This student's practice results are still being moved to this version of Clavis.",
+	"section_teachers": "Teachers",
 	"count_students": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -66,6 +65,16 @@
 			"match": {
 				"countPlural=one": "{count} teacher",
 				"countPlural=other": "{count} teachers"
+			}
+		}
+	],
+	"count_managers": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} manager",
+				"countPlural=other": "{count} managers"
 			}
 		}
 	],
@@ -114,7 +123,6 @@
 	"classrooms_empty_title": "No classrooms yet",
 	"classrooms_empty_description": "Add the first classroom to group teachers and students.",
 	"classrooms_no_match": "No classrooms match. Try a different search.",
-	"classrooms_manage_members": "Manage Members",
 	"classrooms_delete_title": "Delete {name}?",
 	"classrooms_delete_description": "Its teacher and student lists and all the practice recorded in it are deleted with it. This cannot be undone.",
 	"classrooms_shelf_label": "Classrooms shown",
@@ -140,21 +148,98 @@
 	"form_cover_label": "Cover image",
 	"form_cover_remove": "Remove cover image",
 	"form_cover_invalid": "The cover must be a PNG, JPEG, WebP or GIF image of 4 MB or less.",
-	"members_title": "Members of {name}",
 	"members_description": "Any teacher or student in your organization can be added to this classroom, and each may belong to several classrooms.",
-	"members_students_tab": "Students ({count})",
-	"members_teachers_tab": "Teachers ({count})",
 	"members_no_students": "No students in this classroom yet.",
 	"members_no_teachers": "No teachers in this classroom yet.",
 	"members_remove_student": "Remove from classroom",
 	"members_remove_teacher": "Remove from classroom",
 	"members_add_students": "Add Students",
 	"members_add_teachers": "Add Teachers",
+	"roster_add_students": "Add Students…",
+	"roster_add_teachers": "Add Teachers…",
 	"members_student_search": "Search students",
 	"members_teacher_search": "Search teachers",
+	"members_manager_search": "Search managers",
 	"members_no_students_found": "No students match. Try a different search.",
 	"members_no_teachers_found": "No teachers match. Try a different search.",
+	"members_no_managers_found": "No managers match. Try a different search.",
 	"members_already_in": "Already in classroom",
+	"people_add_student": "Add Student…",
+	"people_add_teacher": "Add Teacher…",
+	"people_add_manager": "Add Manager…",
+	"people_no_students_title": "No students yet",
+	"people_no_students_description": "Add the first student, then put them in a classroom.",
+	"people_no_teachers_title": "No teachers yet",
+	"people_no_teachers_description": "Add the first teacher, then put them in a classroom.",
+	"people_no_managers_title": "No managers yet",
+	"people_no_managers_description": "Add the first manager. They set up the organization's teachers, students and classrooms.",
+	"count_seats": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} seat",
+				"countPlural=other": "{count} seats"
+			}
+		}
+	],
+	"count_classrooms": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} classroom",
+				"countPlural=other": "{count} classrooms"
+			}
+		}
+	],
+	"person_no_classroom": "No classroom yet",
+	"person_student_title": "Add Student",
+	"person_student_description": "A student signs in with the username and password you set here.",
+	"person_teacher_title": "Add Teacher",
+	"person_teacher_description": "A teacher signs in with this email and the password you set here.",
+	"person_manager_title": "Add Manager",
+	"person_manager_description": "A manager signs in with this email and the password you set here.",
+	"person_name_label": "Full name",
+	"person_name_required": "Enter their full name.",
+	"person_name_too_long": "A name can be up to 100 characters long.",
+	"person_username_label": "Username",
+	"person_username_invalid": "Use 3 to 30 characters: lowercase letters, numbers, dots, underscores or hyphens, starting with a letter or number.",
+	"person_username_taken": "That username is already in use.",
+	"person_email_label": "Email",
+	"person_email_invalid": "Enter a valid email address.",
+	"person_email_taken": "An account with that email already exists.",
+	"person_password_label": "Password",
+	"person_password_hint": "Pass it on to them yourself. It is not shown again.",
+	"person_password_invalid": "A password must be 8 to 72 characters long.",
+	"person_reset_password": "Reset Password…",
+	"password_reset_title": "Reset Password",
+	"password_reset_description": "{name} signs in with the new password from now on. The old one stops working.",
+	"password_reset_label": "New password",
+	"password_reset_toast": "Password changed for {name}.",
+	"organizations_add": "New Organization…",
+	"organizations_search": "Search organizations",
+	"organizations_none_found": "No organizations match. Try a different search.",
+	"organizations_none_title": "No organizations yet",
+	"organizations_none_description": "Create the first organization, then add its manager.",
+	"organization_new_title": "New Organization",
+	"organization_new_description": "An organization is one tuition center. Its managers are added once it is created.",
+	"organization_create": "Create Organization",
+	"organization_name_label": "Name",
+	"organization_name_required": "Enter a name for the organization.",
+	"organization_name_too_long": "A name can be up to 120 characters long.",
+	"organization_name_taken": "An organization with that name already exists.",
+	"organization_rename_title": "Rename Organization",
+	"organization_rename_description": "Everything in the organization stays as it is. Only its name changes.",
+	"organization_delete_title": "Delete {name}?",
+	"organization_delete_description": "The organization and everything in it is deleted for good. This cannot be undone.",
+	"organization_delete_goes": "Deleted with it:",
+	"organization_delete_accounts": "{managers}, {teachers} and {students}, with their accounts. None of them can sign in again.",
+	"organization_delete_classrooms": "{classrooms}, with every assignment and all the practice recorded there.",
+	"organization_delete_confirm": "Type the organization's name to confirm",
+	"organization_delete_submit": "Delete Organization",
+	"organization_delete_mismatch": "That is not the organization's name. Nothing was deleted.",
+	"organization_deleted": "{name} was deleted.",
 	"members_add_selected_students": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -704,12 +789,178 @@
 	"run_rail_marks": "Your marks",
 	"run_back_to_practice": "Back to Practice",
 	"practice_stages_done": "{done} of {count} done",
-	"practice_last_score": "Last score: {marks} of {total} marks",
+	"practice_stage_number": "Stage {n}",
+	"practice_start": "Start",
+	"practice_again": "Practise Again",
+	"stars_count": "{count} of 3 stars",
+	"stars_your_best": "Your best",
+	"stars_not_practised": "Not practised yet",
+	"stars_score": "{marks} of {total} marks",
+	"stars_marks_when": "marks · {when}",
+	"stars_how": "How to earn stars",
+	"stars_target": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} mark or more",
+				"countPlural=other": "{count} marks or more"
+			}
+		}
+	],
+	"stars_target_all": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "The {count} mark",
+				"countPlural=other": "All {count} marks"
+			}
+		}
+	],
+	"stars_earned": "Earned",
+	"stars_not_earned": "Not earned yet",
+	"stars_past": "Past attempts",
+	"stars_none_title": "No attempts yet",
+	"stars_none_description": "Each time you finish this stage, your score shows here.",
+	"stars_best": "Best",
+	"stars_next": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} more mark for the next star.",
+				"countPlural=other": "{count} more marks for the next star."
+			}
+		}
+	],
 	"practice_none_title": "Nothing to practise yet",
 	"practice_none_description": "This classroom’s subject has no stages with questions yet.",
 	"item_letter": "Letter {n}",
 	"item_ratio_term": "Term {n}",
 	"item_part": "Part {n}",
 	"item_classify_put": "Put in {group}",
-	"item_classify_hint": "Drag each item into its group, or tap an item and then the name of its group. Tap an item in a group, or drag it back out, to take it back."
+	"item_classify_hint": "Drag each item into its group, or tap an item and then the name of its group. Tap an item in a group, or drag it back out, to take it back.",
+	"action_close": "Close",
+	"count_of": "of {count}",
+	"count_attempts": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} attempt",
+				"countPlural=other": "{count} attempts"
+			}
+		}
+	],
+	"stars_best_result": "Best result",
+	"progress_key": "Each bar is the class, by each student’s best:",
+	"progress_key_stars": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} star",
+				"countPlural=other": "{count} stars"
+			}
+		}
+	],
+	"progress_no_star": "No star",
+	"progress_unpractised": "Not practised",
+	"progress_tally": "{three} with three stars, {two} with two, {one} with one, {none} with none, {unpractised} not practised",
+	"progress_practised": "{done} of {count} practised",
+	"progress_class": "The class",
+	"progress_done_of": "{done} of {count}",
+	"progress_have_practised": "students have practised",
+	"progress_best_results": "Best results",
+	"progress_under": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Under {count} mark",
+				"countPlural=other": "Under {count} marks"
+			}
+		}
+	],
+	"progress_stages_of": "{done} of {count} stages",
+	"progress_stars_of": "{done} of {count} stars",
+	"progress_last": "Last practised",
+	"progress_stat_stages": "Stages practised",
+	"progress_stat_stars": "Stars",
+	"progress_stat_sessions": "Sessions",
+	"section_overview": "Overview",
+	"assignment_assign": "Assign…",
+	"assignment_kicker": "Assign practice",
+	"assignment_to": "Assign to",
+	"assignment_whole_class": "Whole class",
+	"assignment_chosen": "Chosen students",
+	"assignment_best": "Best {marks}/{total}",
+	"assignment_due_label": "Due date",
+	"assignment_optional": "Optional",
+	"assignment_due_hint": "A student can still finish it after this date. It is then marked late.",
+	"assignment_due_past": "Choose today or a later date.",
+	"assignment_submit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Assign to {count} Student",
+				"countPlural=other": "Assign to {count} Students"
+			}
+		}
+	],
+	"assignment_assigned_toast": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Assigned to {count} student.",
+				"countPlural=other": "Assigned to {count} students."
+			}
+		}
+	],
+	"assignment_in_progress": "In progress",
+	"assignment_finished": "Finished",
+	"assignment_to_do": "To do",
+	"assignment_done": "Done",
+	"assignment_done_of": "{done} of {count} done",
+	"assignment_everyone_done": "Everyone done",
+	"assignment_due": "Due {date}",
+	"assignment_overdue": "Overdue · was due {date}",
+	"assignment_late": "Late",
+	"assignment_assigned": "Assigned {day}",
+	"assignment_assigned_by": "Assigned {day} by {name}",
+	"assignment_finished_on": "Finished {day}",
+	"assignment_not_done": "Not done yet",
+	"assignment_stat_due": "Due",
+	"assignment_none_title": "Nothing assigned yet",
+	"assignment_none_teacher": "Open a stage on the Practice tab to assign it to the whole class or to chosen students.",
+	"assignment_none_student": "Your teacher has not assigned anything here yet. You can practise any stage on the Practice tab.",
+	"assignment_go_practice": "Go to Practice",
+	"assignment_delete": "Delete Assignment…",
+	"assignment_delete_title": "Delete this assignment?",
+	"assignment_delete_description": "“{stage}” comes off the students’ lists, and its notifications go with it. The practice they have done stays.",
+	"notifications_title": "Notifications",
+	"notifications_open": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Notifications, {count} unread",
+				"countPlural=other": "Notifications, {count} unread"
+			}
+		}
+	],
+	"notifications_mark_all": "Mark All as Read",
+	"notifications_none": "No notifications yet",
+	"notifications_none_description": "When a student finishes something you assigned, it shows here.",
+	"notification_finished": "finished",
+	"notification_unread": "Unread",
+	"todo_count": "{count} to do",
+	"review_back": "Back to {name}",
+	"run_their_answer": "Student’s answer",
+	"run_their_no_answer": "Left out.",
+	"run_their_marks": "Marks",
+	"run_correct_answer": "Correct answer"
 }

@@ -9,6 +9,10 @@ verify_jwt = false
 # Without this the bundler cannot resolve the bare "@supabase/..." specifiers.
 import_map = "./functions/deno.json"
 
+[functions.set-password]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
 # Storage Buckets
 # The migrations create the buckets. This one is named here only so that
 # `supabase db reset` uploads the seed's pictures into it (see seed.sql);

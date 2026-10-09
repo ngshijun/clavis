@@ -8,20 +8,23 @@
 	import type { Classroom } from '#lib/server/classrooms.js';
 
 	/**
-	 * One classroom as a card, shared by the manager's grid, the teacher's
-	 * dashboard and the student's picker so a cover uploaded once is seen
+	 * One classroom as a card, shared by the manager's list, the teacher's
+	 * dashboard and the student's classrooms so a cover uploaded once is seen
 	 * everywhere.
 	 */
 	let {
 		classroom,
 		href,
-		actions
+		actions,
+		children
 	}: {
 		classroom: Classroom;
 		/** Where the card leads; the whole card is the link. */
 		href: string;
 		/** Controls laid over the cover's corner. */
 		actions?: Snippet;
+		/** What the page adds under the classroom's own lines. */
+		children?: Snippet;
 	} = $props();
 </script>
 
@@ -33,18 +36,22 @@
 	<p class="-mt-1.5 text-muted-foreground">
 		{classroom.gradeLevelName} · {classroom.subjectName}
 	</p>
-	{#if classroom.counts}
-		<div
-			class="flex flex-wrap items-center gap-x-4 gap-y-1 whitespace-nowrap text-muted-foreground"
-		>
-			<span class="flex items-center gap-1">
-				<UsersIcon class="size-4" />
-				{m.count_students({ count: classroom.counts.students })}
+	<!-- Who teaches it tells two classrooms of one grade and subject apart. -->
+	{#if classroom.teachers.length > 0 || classroom.counts}
+		<div class="flex flex-col gap-1 text-muted-foreground">
+			<span class="flex items-start gap-1">
+				<GraduationCapIcon class="mt-0.5 size-4 shrink-0" />
+				<span class="min-w-0 wrap-break-word">
+					{classroom.teachers.join(', ') || m.classroom_no_teacher()}
+				</span>
 			</span>
-			<span class="flex items-center gap-1">
-				<GraduationCapIcon class="size-4" />
-				{m.count_teachers({ count: classroom.counts.teachers })}
-			</span>
+			{#if classroom.counts}
+				<span class="flex items-center gap-1">
+					<UsersIcon class="size-4 shrink-0" />
+					{m.count_students({ count: classroom.counts.students })}
+				</span>
+			{/if}
 		</div>
 	{/if}
+	{@render children?.()}
 </CoverCard>

@@ -3,46 +3,16 @@ import * as z from 'zod';
 import { m } from '#lib/paraglide/messages.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
 import { readPicture, uploadPicture } from '#lib/server/images.js';
-import {
-	CLASSROOM_IMAGES,
-	listClassroomStudents,
-	listClassroomTeachers,
-	listGradeLevels,
-	listOrganizationStudents,
-	listOrganizationTeachers
-} from '#lib/server/classrooms.js';
+import { CLASSROOM_IMAGES, listGradeLevels } from '#lib/server/classrooms.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * Where a manager creates classrooms and assigns teachers and students into
- * them. `?members=<classroom id>` opens that classroom's roster, so the roster
- * has an address and loads only when asked for.
+ * Where a manager creates classrooms and puts them away. The classrooms
+ * themselves come from the layout; the grade levels are for the form and for
+ * the order the list is grouped in.
  */
-export const load: PageServerLoad = async ({ locals, url, parent }) => {
-	const { user, classrooms } = await parent();
-	const { supabase } = locals;
-
-	// An archived classroom's roster stands as it was, so there is nothing to open it for.
-	const membersOf = classrooms.find(
-		(item) => item.id === url.searchParams.get('members') && item.archivedAt === null
-	);
-
-	const [gradeLevels, members] = await Promise.all([
-		listGradeLevels(supabase),
-		membersOf && user.organizationId ? loadMembers(membersOf.id, user.organizationId) : null
-	]);
-
-	return { gradeLevels, members };
-
-	async function loadMembers(classroomId: string, organizationId: string) {
-		const [students, teachers, organizationStudents, organizationTeachers] = await Promise.all([
-			listClassroomStudents(supabase, classroomId),
-			listClassroomTeachers(supabase, classroomId),
-			listOrganizationStudents(supabase),
-			listOrganizationTeachers(supabase, organizationId)
-		]);
-		return { classroomId, students, teachers, organizationStudents, organizationTeachers };
-	}
+export const load: PageServerLoad = async ({ locals }) => {
+	return { gradeLevels: await listGradeLevels(locals.supabase) };
 };
 
 const classroomSchema = z.object({
@@ -55,11 +25,6 @@ const classroomSchema = z.object({
 	gradeLevelId: z.guid({ error: () => m.form_grade_required() }),
 	subjectId: z.guid({ error: () => m.form_subject_required() }),
 	removeCover: z.stringbool().optional()
-});
-
-const membershipSchema = z.object({
-	classroomId: z.guid(),
-	kind: z.enum(['students', 'teachers'])
 });
 
 export const actions: Actions = {
@@ -159,10 +124,11 @@ export const actions: Actions = {
 	},
 
 	/**
-	 * Deletes a classroom, live or archived, and with it its rosters and all
-	 * the practice recorded in it. The cover goes first: its delete policy asks
-	 * whether the caller manages the classroom the image belongs to, which can
-	 * only be answered while the row still exists.
+	 * Deletes an archived classroom, and with it its rosters and all the
+	 * practice recorded in it. A live classroom is not deleted: the database
+	 * refuses, so it has to be put away first. The cover goes first: its delete
+	 * policy asks whether the caller manages the classroom the image belongs to,
+	 * which can only be answered while the row still exists.
 	 */
 	delete: async ({ request, locals }) => {
 		const { supabase } = locals;
@@ -171,10 +137,12 @@ export const actions: Actions = {
 
 		const { data: classroom, error: readError } = await supabase
 			.from('classrooms')
-			.select('cover_image_path')
+			.select('cover_image_path, archived_at')
 			.eq('id', id.data)
 			.single();
 		if (readError) return unexpected(readError);
+		// Checked before the cover is removed, so a refused delete leaves the classroom whole.
+		if (classroom.archived_at === null) return fail(400, { message: m.error_unexpected() });
 
 		if (classroom.cover_image_path) {
 			const { error: removeError } = await supabase.storage
@@ -190,46 +158,5 @@ export const actions: Actions = {
 			.select('id');
 		if (deleteError) return unexpected(deleteError);
 		if (deleted.length === 0) return unexpected(new Error(`Classroom ${id.data} was not deleted`));
-	},
-
-	addMembers: async ({ request, locals }) => {
-		const form = await request.formData();
-		const parsed = membershipSchema
-			.extend({ ids: z.array(z.guid()).min(1) })
-			.safeParse({ ...formValues(form), ids: form.getAll('ids') });
-		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
-		const { classroomId, kind, ids } = parsed.data;
-
-		const { error: insertError } =
-			kind === 'students'
-				? await locals.supabase
-						.from('classroom_students')
-						.insert(ids.map((id) => ({ classroom_id: classroomId, student_id: id })))
-				: await locals.supabase
-						.from('classroom_teachers')
-						.insert(ids.map((id) => ({ classroom_id: classroomId, teacher_id: id })));
-		if (insertError) return unexpected(insertError);
-	},
-
-	removeMember: async ({ request, locals }) => {
-		const parsed = membershipSchema
-			.extend({ id: z.guid() })
-			.safeParse(formValues(await request.formData()));
-		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
-		const { classroomId, kind, id } = parsed.data;
-
-		const { error: deleteError } =
-			kind === 'students'
-				? await locals.supabase
-						.from('classroom_students')
-						.delete()
-						.eq('classroom_id', classroomId)
-						.eq('student_id', id)
-				: await locals.supabase
-						.from('classroom_teachers')
-						.delete()
-						.eq('classroom_id', classroomId)
-						.eq('teacher_id', id);
-		if (deleteError) return unexpected(deleteError);
 	}
 };

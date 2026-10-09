@@ -1,7 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import { dev } from '$app/env';
-import { resolve } from '$app/paths';
 import { DEV_ACCOUNTS } from '#lib/dev-accounts.js';
+import { resolvePath } from '#lib/paths.js';
 import { homePath } from '#lib/roles.js';
 import { loadSessionUser } from '#lib/server/session.js';
 import type { RequestHandler } from './$types';
@@ -37,5 +37,5 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const user = await loadSessionUser(locals.supabase);
 	if (!user) error(500, `${account.email} has no profile`);
 
-	redirect(303, resolve(homePath(user.role)));
+	redirect(303, resolvePath(homePath(user.role)));
 };

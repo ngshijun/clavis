@@ -17,31 +17,41 @@
 		type Run,
 		type RunQuestion
 	} from '#lib/items/run.js';
+	import type { AnswerKey } from '#lib/items/key.js';
 	import { isAnswered } from '#lib/items/served.js';
+	import { starsOf, starTargets } from '#lib/items/stars.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
 	import { getRunner } from './context.js';
 	import { markOf, type Mark } from './marks.js';
 	import QuestionView from './question-view.svelte';
 	import RunShell from './run-shell.svelte';
+	import StarsRow from './stars.svelte';
 	import { note, number, tile, tiles } from './styles.js';
 
 	/**
-	 * A finished stage, marked. A rail holds the score, how the questions
-	 * fell, and every question's number to go to it by; beside it is every
+	 * A finished stage, marked. A rail holds the stars the run earned, the
+	 * score, how the questions fell, and every question's number to go to it by; beside it is every
 	 * question with the answer that was given, how it and each part of it was
 	 * marked and, where it fell short, the tip. The right answer to a question
-	 * got wrong is never shown.
+	 * got wrong is never shown to the pupil. A teacher reading the run is
+	 * shown it, under each answer that fell short of the whole mark.
 	 */
 	let {
 		run,
 		answers,
 		marked,
+		rightAnswers,
+		lead,
 		actions
 	}: {
 		run: Run;
 		answers: Answers;
 		marked: Marked;
+		/** The right answer to each question, by its id, when the reader may see them. */
+		rightAnswers?: Record<string, AnswerKey>;
+		/** What heads the rail, when the page has to say whose run this is. */
+		lead?: Snippet;
 		/** What can be done next, drawn under the score. */
 		actions: Snippet;
 	} = $props();
@@ -99,6 +109,14 @@
 		return result !== undefined && (show === 'all' || result.mark !== 'right');
 	};
 
+	const earned = $derived(starsOf(marked.marks, marked.total));
+	/** How many marks short of the next star the run fell; nothing to say with all three. */
+	const toNext = $derived(
+		earned === 3
+			? undefined
+			: Math.round((starTargets(marked.total)[earned] - marked.marks) * 100) / 100
+	);
+
 	const anchor = (id: string) => `question-${id}`;
 	const goTo = (id: string) =>
 		document.getElementById(anchor(id))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -129,7 +147,14 @@
 					{m.run_question_marks({ marks: markFigure(result.marks) })}
 				</span>
 			</div>
-			<QuestionView item={asked.item} answer={given} readonly mark={result} />
+			<!-- An answer that earned the whole mark is itself the right one. -->
+			<QuestionView
+				item={asked.item}
+				answer={given}
+				readonly
+				mark={result}
+				right={mark === 'right' ? undefined : rightAnswers?.[asked.id]}
+			/>
 			{#each result.tips as tip (tip)}
 				<p class="flex gap-2.5 rounded-lg bg-background px-3 py-2.5 text-lg wrap-break-word">
 					<LightbulbIcon class="mt-1 size-5 shrink-0 text-warning" aria-hidden="true" />
@@ -143,9 +168,11 @@
 	{/if}
 {/snippet}
 
-<RunShell label={m.run_rail_marks()}>
+<RunShell label={runner.theirs ? m.run_their_marks() : m.run_rail_marks()}>
 	{#snippet rail()}
+		{@render lead?.()}
 		<Card.Root class="gap-3 p-4">
+			<StarsRow count={earned} class="gap-1 px-1.5 [&_svg]:size-9 [&_svg]:stroke-[1.5]" />
 			<div class="flex flex-wrap items-baseline gap-x-2 px-2">
 				<span class="text-3xl leading-none font-extrabold tracking-tight text-primary tabular-nums">
 					{markFigure(marked.marks)}
@@ -154,6 +181,9 @@
 					{m.run_score_of({ total: marked.total })}
 				</span>
 			</div>
+			{#if toNext !== undefined}
+				<p class="px-2 text-muted-foreground">{m.stars_next({ count: toNext })}</p>
+			{/if}
 			<div class="flex h-2.5 gap-0.5" aria-hidden="true">
 				{#each kinds as mark (mark)}
 					{#if count(mark) > 0}

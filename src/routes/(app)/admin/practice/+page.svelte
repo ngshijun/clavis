@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
@@ -10,6 +9,7 @@
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { practiceGradeHref, practiceSubjectPath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { resolvePath } from '#lib/paths.js';
 	import type { PageProps } from './$types';
 
 	/**
@@ -77,7 +77,7 @@
 					<SubjectCard
 						{subject}
 						gradeName={grade.name}
-						href={resolve(practiceSubjectPath(subject.id))}
+						href={resolvePath(practiceSubjectPath(subject.id))}
 					/>
 				</li>
 			{/each}

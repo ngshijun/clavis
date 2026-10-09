@@ -1,39 +1,74 @@
+<script lang="ts" module>
+	import type { Stage, TopicStages } from '#lib/server/practice.js';
+
+	/** One stage on the path: the stage, its topic, and its place among the topic's stages, from 1. */
+	export interface Stop {
+		topic: TopicStages;
+		stage: Stage;
+		number: number;
+	}
+
+	/** Every stage of some topics as a stop, by the stage's id. */
+	export function stopsOf(topics: TopicStages[]): Record<string, Stop> {
+		return Object.fromEntries(
+			topics.flatMap((topic) =>
+				topic.stages.map((stage, index) => [stage.id, { topic, stage, number: index + 1 }])
+			)
+		);
+	}
+</script>
+
 <script lang="ts">
-	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Progress } from '#lib/components/ui/progress/index.js';
-	import { markFigure } from '#lib/items/run.js';
+	import { starsOf } from '#lib/items/stars.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import type { TopicStages } from '#lib/server/practice.js';
 	import type { Score } from '#lib/server/run.js';
 	import { cn } from '#lib/utils.js';
+	import Star from './star.svelte';
 
 	/**
 	 * One topic's stages for a pupil, as stops along a trail that runs left to
-	 * right and wraps where the card ends. A stop they have practised shows
-	 * what they scored on it last. Every stop is open: the order recommends
-	 * and never locks.
+	 * right and wraps where the card ends. Each stop wears, over its top, the
+	 * stars of the best they have scored on it. Every stop is open: the order recommends
+	 * and never locks. Pressing a stop picks its stage; the page says what
+	 * comes of that.
 	 *
 	 * A 22px card with an 8px inset, so a stop has 14px corners.
 	 */
 	let {
 		topic,
-		scores,
-		next,
-		href
+		best,
+		onpick
 	}: {
 		topic: TopicStages;
-		/** The pupil's last score on each stage they have practised, by the stage's id. */
-		scores: Record<string, Score>;
-		/** The stage to suggest: the first on the page not yet practised. */
-		next: string | undefined;
-		href: (stageId: string) => string;
+		/** The pupil's best score on each stage they have practised, by the stage's id. */
+		best: Record<string, Score>;
+		onpick: (stop: Stop) => void;
 	} = $props();
 
-	/** The height of the strip the trail runs in, in px, and how far off its middle the stops sit in turn. */
-	const lane = 104;
+	/**
+	 * The height of the strip the trail runs in, in px, the line its stops are
+	 * set about, and how far off that line they sit in turn. The line is below
+	 * the strip's middle, to leave room for the stars over a stop.
+	 */
+	const lane = 116;
+	const middle = 66;
 	const wave = [0, -10, 0, 10];
-	const heightOf = (index: number) => lane / 2 + wave[index % wave.length];
+	const heightOf = (index: number) => middle + wave[index % wave.length];
+
+	/**
+	 * Where a stop's three stars stand, as on the map of a game: on an arc
+	 * over its top, the outer two leaning away and the middle one larger,
+	 * higher and in front. They are drawn outer two first so that the middle
+	 * one overlaps them, and are earned from the left: `from` is how many
+	 * stars it takes for each to be gold.
+	 */
+	const crown = [
+		{ from: 1, turn: -40, out: 3, lean: -16, size: 'size-6.5' },
+		{ from: 3, turn: 40, out: 3, lean: 16, size: 'size-6.5' },
+		{ from: 2, turn: 0, out: 6, lean: 0, size: 'size-8.5' }
+	];
 
 	/**
 	 * The trail between two stops is one S-curve, level at both. Each stop
@@ -45,10 +80,9 @@
 	const leave = (from: number, to: number) =>
 		`M50 ${from} C75 ${from} 87.5 ${(3 * from + to) / 4} 100 ${(from + to) / 2}`;
 
-	const played = (index: number) => scores[topic.stages[index].id] !== undefined;
-	/** The trail is walked from a practised stop to the one after it, if that is practised or suggested. */
-	const walked = (from: number) =>
-		played(from) && (played(from + 1) || topic.stages[from + 1].id === next);
+	const played = (index: number) => best[topic.stages[index].id] !== undefined;
+	/** The trail is walked between two stops that have both been practised. */
+	const walked = (from: number) => played(from) && played(from + 1);
 
 	const stops = $derived(
 		topic.stages.map((stage, index) => {
@@ -68,14 +102,15 @@
 			return {
 				stage,
 				number: index + 1,
-				score: scores[stage.id],
+				played: played(index),
+				stars: played(index) ? starsOf(best[stage.id].marks, best[stage.id].total) : 0,
 				y,
 				ahead: drawn(false),
 				behind: drawn(true)
 			};
 		})
 	);
-	const done = $derived(stops.filter((stop) => stop.score).length);
+	const done = $derived(stops.filter((stop) => stop.played).length);
 
 	/** A stop's round button: raised on a darker edge, lifted under the pointer and pressed down onto the edge. */
 	const node =
@@ -102,11 +137,11 @@
 			aria-label={m.practice_stages_of({ name: topic.name })}
 		>
 			{#each stops as stop (stop.stage.id)}
-				{@const suggested = stop.stage.id === next}
 				<li class="flex min-w-0">
-					<a
-						href={href(stop.stage.id)}
+					<button
+						type="button"
 						class="group flex min-w-0 flex-1 flex-col rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+						onclick={() => onpick({ topic, stage: stop.stage, number: stop.number })}
 					>
 						<span class="relative block" style:height="{lane}px">
 							<!--
@@ -137,21 +172,29 @@
 							<span
 								class={cn(
 									node,
-									stop.score && [edge, 'bg-primary text-primary-foreground'],
-									!stop.score &&
-										suggested && [edge, 'size-18 border-4 border-primary bg-card text-primary'],
-									!stop.score &&
-										!suggested &&
-										'border-2 border-border-strong bg-card shadow-[0_4px_0_var(--border-strong)]'
+									stop.played
+										? [edge, 'bg-primary text-primary-foreground']
+										: 'border-2 border-border-strong bg-card shadow-[0_4px_0_var(--border-strong)]'
 								)}
 								style:top="{stop.y}px"
 							>
-								{#if suggested}
-									<span
-										class="absolute -inset-2.5 rounded-full border-2 border-primary/50 motion-safe:animate-pulse"
-									></span>
-								{/if}
 								{stop.number}
+								<!-- A star is set at the stop's middle, turned to its place on the arc, moved out to the rim, and then stood up to its lean. -->
+								<span
+									role="img"
+									aria-label={m.stars_count({ count: stop.stars })}
+									class="absolute inset-0"
+								>
+									{#each crown as place (place.from)}
+										<Star
+											earned={stop.stars >= place.from}
+											ring
+											class={cn('absolute top-1/2 left-1/2', place.size)}
+											style="transform: translate(-50%, -50%) rotate({place.turn}deg) translateY({-32 -
+												place.out}px) rotate({place.lean - place.turn}deg)"
+										/>
+									{/each}
+								</span>
 							</span>
 						</span>
 						<span class="flex flex-col items-center gap-1 px-1.5 pt-1 pb-3 text-center">
@@ -159,24 +202,8 @@
 							<span class="text-xs text-muted-foreground">
 								{m.count_questions({ count: stop.stage.questionCount })}
 							</span>
-							{#if stop.score}
-								<Badge
-									variant={stop.score.marks === stop.score.total ? 'default' : 'secondary'}
-									class="tabular-nums"
-								>
-									<span class="sr-only">
-										{m.practice_last_score({
-											marks: markFigure(stop.score.marks),
-											total: stop.score.total
-										})}
-									</span>
-									<span aria-hidden="true">
-										{markFigure(stop.score.marks)}/{stop.score.total}
-									</span>
-								</Badge>
-							{/if}
 						</span>
-					</a>
+					</button>
 				</li>
 			{/each}
 		</ol>

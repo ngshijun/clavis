@@ -65,6 +65,9 @@
 	--success-foreground: #ffffff;
 	--warning: #8a5200;
 	--warning-foreground: #ffffff;
+	/* A star that was earned, and the darker edge it is raised on, which has 3:1 against a card. */
+	--star: #ffc531;
+	--star-edge: #c97d0a;
 	--border: #e5e2ec;
 	/* For the edge of a control, which needs 3:1 against what it sits on. */
 	--border-strong: #8a8498;
@@ -112,6 +115,8 @@
 	--success-foreground: #10291c;
 	--warning: #dabe4a;
 	--warning-foreground: #2b2204;
+	--star: #ffc531;
+	--star-edge: #b9740a;
 	--border: rgba(255, 255, 255, 0.1);
 	--border-strong: rgba(255, 255, 255, 0.35);
 	--input: rgba(255, 255, 255, 0.15);
@@ -156,6 +161,8 @@
 	--color-success-foreground: var(--success-foreground);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
+	--color-star: var(--star);
+	--color-star-edge: var(--star-edge);
 	--color-border: var(--border);
 	--color-border-strong: var(--border-strong);
 	--color-input: var(--input);

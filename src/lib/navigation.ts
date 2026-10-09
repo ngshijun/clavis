@@ -1,12 +1,16 @@
 import type { Component } from 'svelte';
 import { resolve } from '$app/paths';
 import type { Path } from '$app/types';
+import Building2Icon from '@lucide/svelte/icons/building-2';
+import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
+import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import ListTreeIcon from '@lucide/svelte/icons/list-tree';
 import SchoolIcon from '@lucide/svelte/icons/school';
 import TargetIcon from '@lucide/svelte/icons/target';
 import UsersIcon from '@lucide/svelte/icons/users';
 import { m } from '#lib/paraglide/messages.js';
+import { resolvePath } from '#lib/paths.js';
 import { homePath, type Role } from '#lib/roles.js';
 import type { Classroom } from '#lib/server/classrooms.js';
 
@@ -22,15 +26,45 @@ export interface Crumb {
 }
 
 /** The roles that have classrooms. An admin works above every classroom and has none. */
-type ClassroomRole = Exclude<Role, 'admin'>;
+export type ClassroomRole = Exclude<Role, 'admin'>;
+
+/**
+ * The classroom a person is sent straight into instead of being shown their
+ * classrooms: a student's only one. A grid of a single card is a dead
+ * screen, and for such a student it would be the only screen they ever saw
+ * there. Nobody else is sent past their list.
+ */
+export function soleClassroom(role: Role, classrooms: Classroom[]): Classroom | undefined {
+	return role === 'student' && classrooms.length === 1 ? classrooms[0] : undefined;
+}
 
 /** A classroom's first page. */
 export function classroomPath(role: ClassroomRole, classroomId: string): Path {
 	return `${role}/classrooms/${classroomId}`;
 }
 
+/** A classroom's practice, as its teacher follows it or as a student does it. */
+export function classroomPracticePath(role: 'teacher' | 'student', classroomId: string): Path {
+	return `${role}/classrooms/${classroomId}/practice`;
+}
+
 export function studentPath(classroomId: string, studentId: string): Path {
 	return `teacher/classrooms/${classroomId}/students/${studentId}`;
+}
+
+/** One assignment of a classroom, as its teacher follows it. */
+export function assignmentPath(classroomId: string, assignmentId: string): Path {
+	return `teacher/classrooms/${classroomId}/assignments/${assignmentId}`;
+}
+
+/** One finished practice session of a student, as their teacher reads it. */
+export function sessionPath(classroomId: string, studentId: string, sessionId: string): Path {
+	return `teacher/classrooms/${classroomId}/students/${studentId}/sessions/${sessionId}`;
+}
+
+/** One organization, as an admin sets it up: its managers. */
+export function organizationPath(organizationId: string): Path {
+	return `admin/organizations/${organizationId}`;
 }
 
 /**
@@ -57,7 +91,7 @@ export function stageTrail(stage: {
 	subject: { id: string; name: string };
 	topic: { id: string; name: string };
 }): Crumb[] {
-	const subject = resolve(practiceSubjectPath(stage.subject.id));
+	const subject = resolvePath(practiceSubjectPath(stage.subject.id));
 	return [
 		{ label: stage.grade.name, href: practiceGradeHref(stage.grade.id) },
 		{ label: stage.subject.name, href: subject },
@@ -72,41 +106,43 @@ export function classroomStagePath(classroomId: string, stageId: string): Path {
 }
 
 /**
- * The pages inside a classroom, in the order they are offered. A teacher gets
- * them as tabs under the classroom's banner. A manager's and a student's
- * classroom has one page so far, which they get as a sidebar link: a manager's
- * says what the classroom is, a student's is its practice.
+ * The pages inside a classroom, in the order they are offered: the tabs under
+ * its banner. The first is the classroom's own address. A student's and a
+ * teacher's classroom open on what has been assigned there, then its
+ * practice, and for a teacher its students. A manager's is its two rosters.
  */
 export function classroomSections(role: ClassroomRole, classroomId: string): NavItem[] {
-	if (role === 'student') {
-		return [{ label: m.nav_practice, href: classroomPath(role, classroomId), icon: TargetIcon }];
-	}
-	if (role !== 'teacher') {
+	if (role === 'manager') {
+		const classroom = `manager/classrooms/${classroomId}` as const;
 		return [
-			{
-				label: m.nav_dashboard,
-				href: classroomPath(role, classroomId),
-				icon: LayoutDashboardIcon
-			}
+			{ label: m.section_students, href: classroom, icon: UsersIcon },
+			{ label: m.section_teachers, href: `${classroom}/teachers`, icon: GraduationCapIcon }
 		];
 	}
 
-	const classroom = `teacher/classrooms/${classroomId}` as const;
-	return [
-		{ label: m.section_overview, href: classroom, icon: LayoutDashboardIcon },
-		{ label: m.section_students, href: `${classroom}/students`, icon: UsersIcon }
+	const sections: NavItem[] = [
+		{ label: m.section_overview, href: classroomPath(role, classroomId), icon: ClipboardListIcon },
+		{ label: m.nav_practice, href: classroomPracticePath(role, classroomId), icon: TargetIcon }
 	];
+	if (role === 'teacher') {
+		sections.push({
+			label: m.section_students,
+			href: `teacher/classrooms/${classroomId}/students`,
+			icon: UsersIcon
+		});
+	}
+	return sections;
 }
 
 /**
  * The section an address is in: the section's own page, or any page beneath
- * it. The overview is the classroom's own address, which every other section
- * sits beneath, so the longest match is the one meant.
+ * it. The first section is the classroom's own address, which every other
+ * section sits beneath, so the longest match is the one meant.
  */
 export function sectionAt(sections: NavItem[], pathname: string): NavItem | undefined {
 	return sections
 		.filter((section) => {
-			const href = resolve(section.href);
+			const href = resolvePath(section.href);
 			return pathname === href || pathname.startsWith(`${href}/`);
 		})
 		.sort((a, b) => b.href.length - a.href.length)[0];
@@ -114,32 +150,40 @@ export function sectionAt(sections: NavItem[], pathname: string): NavItem | unde
 
 /**
  * Whether a sidebar link is the one for the page at `pathname`: its own page,
- * or a page beneath it. The link home is current only on its own page, since
- * every page of the role sits beneath it.
+ * or a page beneath it. A link to the role's root is current only on its own
+ * page, since every page of the role sits beneath it.
  */
 export function isCurrent(item: NavItem, role: Role, pathname: string): boolean {
-	const href = resolve(item.href);
-	return pathname === href || (item.href !== homePath(role) && pathname.startsWith(`${href}/`));
+	const href = resolvePath(item.href);
+	return pathname === href || (item.href !== role && pathname.startsWith(`${href}/`));
 }
 
 /**
- * The sidebar links for where the person is standing. An admin's and a
- * teacher's are the same everywhere: the dashboard, with a teacher's classrooms
- * listed beneath it by the sidebar. A manager and a student get the classroom's
- * pages while inside one and the list of their classrooms outside.
+ * The sidebar links of a role: its top level, the same wherever the person is
+ * standing. A teacher's and a student's classrooms are listed beneath them by
+ * the sidebar, so a student, whose every page is inside a classroom, has no
+ * link of their own. A manager's classrooms are too many to list and are a
+ * page, beside the people of the organization.
  */
-export function navItems(role: Role, classroomId: string | undefined): NavItem[] {
+export function navItems(role: Role): NavItem[] {
 	if (role === 'admin') {
 		return [
 			{ label: m.nav_dashboard, href: homePath(role), icon: LayoutDashboardIcon },
+			{ label: m.nav_organizations, href: 'admin/organizations', icon: Building2Icon },
 			{ label: m.nav_practice, href: 'admin/practice', icon: TargetIcon }
 		];
 	}
 	if (role === 'teacher') {
 		return [{ label: m.nav_dashboard, href: homePath(role), icon: LayoutDashboardIcon }];
 	}
-	if (classroomId) return classroomSections(role, classroomId);
-	return [{ label: m.nav_classrooms, href: homePath(role), icon: SchoolIcon }];
+	if (role === 'manager') {
+		return [
+			{ label: m.nav_classrooms, href: homePath(role), icon: SchoolIcon },
+			{ label: m.section_students, href: 'manager/students', icon: UsersIcon },
+			{ label: m.section_teachers, href: 'manager/teachers', icon: GraduationCapIcon }
+		];
+	}
+	return [];
 }
 
 /**
@@ -158,14 +202,15 @@ export function accountItems(role: Role): NavItem[] {
  * The trail to the page at `pathname`, outermost first. It is where a page is
  * named, so no page repeats its name as a heading, and it is the way back up.
  *
- * It starts with what the address alone tells: for a teacher the dashboard,
- * the classroom and the classroom's section, for everyone else the sidebar or
- * account link the page sits under. A page nested deeper says the rest itself,
- * in what its load returns: `trail` for the pages between, `title` for its own
- * name.
+ * It starts with what the address alone tells: outside a classroom the
+ * sidebar or account link the page sits under, inside one the page the
+ * classroom was opened from, the classroom and its section. A page nested
+ * deeper says the rest itself, in what its load returns: `trail` for the
+ * pages between, `title` for its own name.
  */
 export function breadcrumbs(
 	role: Role,
+	classrooms: Classroom[],
 	classroom: Classroom | undefined,
 	pathname: string,
 	detail: Pick<App.PageData, 'trail' | 'title'>
@@ -175,20 +220,28 @@ export function breadcrumbs(
 		...(detail.title ? [{ label: detail.title, href: pathname }] : [])
 	];
 
-	if (role !== 'teacher') {
-		const item = sectionAt([...navItems(role, classroom?.id), ...accountItems(role)], pathname);
-		return item ? [{ label: item.label(), href: resolve(item.href) }, ...below] : [];
+	if (role === 'admin' || !classroom) {
+		const item = sectionAt([...navItems(role), ...accountItems(role)], pathname);
+		if (item) return [{ label: item.label(), href: resolvePath(item.href) }, ...below];
+		// A student's classrooms are a page with no sidebar link: the sidebar lists the classrooms.
+		return role === 'student'
+			? [{ label: m.nav_classrooms(), href: resolvePath(homePath(role)) }]
+			: [];
 	}
 
-	const trail: Crumb[] = [{ label: m.nav_dashboard(), href: resolve(homePath(role)) }];
-	if (!classroom) return trail;
+	const trail: Crumb[] = [];
+	// A student sent straight into their only classroom has no page above it to go back to.
+	if (!soleClassroom(role, classrooms)) {
+		const home = role === 'teacher' ? m.nav_dashboard() : m.nav_classrooms();
+		trail.push({ label: home, href: resolvePath(homePath(role)) });
+	}
 
-	const overview = classroomPath(role, classroom.id);
-	trail.push({ label: classroom.name, href: resolve(overview) });
-	// The overview is the classroom's own page, which the classroom's name already stands for.
+	const first = classroomPath(role, classroom.id);
+	trail.push({ label: classroom.name, href: resolvePath(first) });
+	// The first section is the classroom's own page, which the classroom's name already stands for.
 	const section = sectionAt(classroomSections(role, classroom.id), pathname);
-	if (section && section.href !== overview) {
-		trail.push({ label: section.label(), href: resolve(section.href) });
+	if (section && section.href !== first) {
+		trail.push({ label: section.label(), href: resolvePath(section.href) });
 	}
 	return [...trail, ...below];
 }

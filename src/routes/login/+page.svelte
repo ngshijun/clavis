@@ -41,15 +41,15 @@
 			>
 				<Field.FieldGroup>
 					<Field.Field data-invalid={form?.message ? true : undefined}>
-						<Field.FieldLabel for="email">{m.login_email()}</Field.FieldLabel>
+						<Field.FieldLabel for="username">{m.login_username()}</Field.FieldLabel>
 						<Input
-							id="email"
-							name="email"
-							type="email"
+							id="username"
+							name="username"
 							autocomplete="username"
+							autocapitalize="none"
+							spellcheck={false}
 							required
-							value={form?.email ?? ''}
-							placeholder={m.login_email_placeholder()}
+							value={form?.username ?? ''}
 							aria-invalid={form?.message ? true : undefined}
 						/>
 					</Field.Field>

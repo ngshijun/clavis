@@ -12,6 +12,7 @@
 		label,
 		children,
 		size = 'icon-sm',
+		type,
 		...rest
 	}: ComponentProps<typeof Button> & { label: string } = $props();
 </script>
@@ -19,7 +20,8 @@
 <Tooltip.Root>
 	<Tooltip.Trigger>
 		{#snippet child({ props })}
-			<Button {size} aria-label={label} {...mergeProps(rest, props)}>
+			<!-- The tooltip's trigger says `type="button"`, which would stop a button meant to submit its form. -->
+			<Button {size} aria-label={label} {...mergeProps(rest, props, { type: type ?? 'button' })}>
 				{@render children?.()}
 			</Button>
 		{/snippet}

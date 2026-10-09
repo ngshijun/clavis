@@ -6,6 +6,12 @@ import type { Role } from '#lib/roles.js';
 export interface SessionUser {
 	id: string;
 	email: string;
+	/**
+	 * What they sign in with, which is how the app names their account: a
+	 * student's username, anyone else's email. A student's email is an address
+	 * made up for the auth server and is never shown.
+	 */
+	login: string;
 	name: string;
 	role: Role;
 	avatarUrl: string | null;
@@ -29,7 +35,10 @@ export async function loadSessionUser(
 
 	const { data: profile, error: profileError } = await supabase
 		.from('profiles')
-		.select('id, email, name, user_type, avatar_path, organization_id, organizations (name)')
+		.select(
+			`id, email, name, user_type, avatar_path, organization_id, organizations (name),
+			student_profiles!student_profiles_id_fkey (username)`
+		)
 		.eq('id', userId)
 		.maybeSingle();
 
@@ -42,6 +51,7 @@ export async function loadSessionUser(
 	return {
 		id: profile.id,
 		email: profile.email,
+		login: profile.student_profiles?.username ?? profile.email,
 		name: profile.name,
 		role: profile.user_type,
 		avatarUrl: profile.avatar_path

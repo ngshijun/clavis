@@ -22,6 +22,8 @@ export interface Classroom {
 	 * teachers and students.
 	 */
 	archivedAt: string | null;
+	/** The names of its teachers, in name order. */
+	teachers: string[];
 	/**
 	 * Roster sizes, present for staff only. A student's membership rows are
 	 * filtered down to their own, so a count read as a student would be wrong.
@@ -42,6 +44,14 @@ export interface ClassroomTeacher {
 	email: string;
 }
 
+/** Someone of the organization, with how many classrooms they are in. */
+export type OrganizationStudent = ClassroomStudent & { classroomCount: number };
+export type OrganizationTeacher = ClassroomTeacher & { classroomCount: number };
+
+/** The two lists a classroom keeps. */
+export const MEMBER_KINDS = ['students', 'teachers'] as const;
+export type MemberKind = (typeof MEMBER_KINDS)[number];
+
 export interface GradeLevelOption {
 	id: string;
 	name: string;
@@ -55,17 +65,27 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
  * level security returns every classroom of a manager's organization, archived
  * ones included, the live classrooms a teacher teaches, and the live
  * classrooms a student is enrolled in.
+ *
+ * The teachers' names come from the database's own reading of them, because
+ * a student can read neither a classroom's teacher list nor another
+ * person's profile.
  */
 export async function listClassrooms(supabase: Supabase, role: Role): Promise<Classroom[]> {
-	const { data, error } = await supabase
-		.from('classrooms')
-		.select(
-			`id, name, grade_level_id, subject_id, cover_image_path, archived_at,
-			grade_levels (name), subjects (name),
-			classroom_teachers (count), classroom_students (count)`
-		)
-		.order('name');
+	const [{ data, error }, names] = await Promise.all([
+		supabase
+			.from('classrooms')
+			.select(
+				`id, name, grade_level_id, subject_id, cover_image_path, archived_at,
+				grade_levels (name), subjects (name),
+				classroom_teachers (count), classroom_students (count)`
+			)
+			.order('name'),
+		supabase.rpc('classroom_teacher_names')
+	]);
 	if (error) throw error;
+	if (names.error) throw names.error;
+
+	const teachers = Map.groupBy(names.data, (row) => row.classroom_id);
 
 	return data.map((row) => ({
 		id: row.id,
@@ -78,6 +98,7 @@ export async function listClassrooms(supabase: Supabase, role: Role): Promise<Cl
 			? supabase.storage.from(CLASSROOM_IMAGES).getPublicUrl(row.cover_image_path).data.publicUrl
 			: null,
 		archivedAt: row.archived_at,
+		teachers: (teachers.get(row.id) ?? []).map((teacher) => teacher.name),
 		counts:
 			role === 'student'
 				? null
@@ -190,24 +211,71 @@ export async function listClassroomTeachers(
 }
 
 /** Every student of the caller's organization: any of them can join a classroom. */
-export async function listOrganizationStudents(supabase: Supabase): Promise<ClassroomStudent[]> {
-	const { data, error } = await supabase.from('student_profiles').select(STUDENT_COLUMNS);
+export async function listOrganizationStudents(supabase: Supabase): Promise<OrganizationStudent[]> {
+	const { data, error } = await supabase
+		.from('student_profiles')
+		.select(`${STUDENT_COLUMNS}, classroom_students (count)`);
 	if (error) throw error;
 
-	return data.map(toStudent).sort(byName);
+	return data
+		.map((row) => ({ ...toStudent(row), classroomCount: row.classroom_students[0]?.count ?? 0 }))
+		.sort(byName);
 }
 
 export async function listOrganizationTeachers(
 	supabase: Supabase,
 	organizationId: string
-): Promise<ClassroomTeacher[]> {
+): Promise<OrganizationTeacher[]> {
 	const { data, error } = await supabase
 		.from('profiles')
-		.select('id, name, email')
+		.select('id, name, email, classroom_teachers (count)')
 		.eq('user_type', 'teacher')
 		.eq('organization_id', organizationId)
 		.order('name');
 	if (error) throw error;
 
-	return data;
+	return data.map(({ classroom_teachers, ...teacher }) => ({
+		...teacher,
+		classroomCount: classroom_teachers[0]?.count ?? 0
+	}));
+}
+
+/** Puts people of the organization on one of a classroom's lists. */
+export async function addClassroomMembers(
+	supabase: Supabase,
+	kind: MemberKind,
+	classroomId: string,
+	ids: string[]
+): Promise<void> {
+	const { error } =
+		kind === 'students'
+			? await supabase
+					.from('classroom_students')
+					.insert(ids.map((id) => ({ classroom_id: classroomId, student_id: id })))
+			: await supabase
+					.from('classroom_teachers')
+					.insert(ids.map((id) => ({ classroom_id: classroomId, teacher_id: id })));
+	if (error) throw error;
+}
+
+/** Takes one person off one of a classroom's lists. */
+export async function removeClassroomMember(
+	supabase: Supabase,
+	kind: MemberKind,
+	classroomId: string,
+	id: string
+): Promise<void> {
+	const { error } =
+		kind === 'students'
+			? await supabase
+					.from('classroom_students')
+					.delete()
+					.eq('classroom_id', classroomId)
+					.eq('student_id', id)
+			: await supabase
+					.from('classroom_teachers')
+					.delete()
+					.eq('classroom_id', classroomId)
+					.eq('teacher_id', id);
+	if (error) throw error;
 }

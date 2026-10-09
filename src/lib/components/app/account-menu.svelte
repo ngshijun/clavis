@@ -10,6 +10,7 @@
 	import { accountItems } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale, type Locale } from '#lib/paraglide/runtime.js';
+	import { resolvePath } from '#lib/paths.js';
 	import type { SessionUser } from '#lib/server/session.js';
 
 	/**
@@ -57,7 +58,7 @@
 		<DropdownMenu.Group>
 			<DropdownMenu.Label class="grid gap-0.5 font-normal">
 				<span class="truncate text-sm font-medium text-foreground">{user.name}</span>
-				<span class="truncate">{user.email}</span>
+				<span class="truncate">{user.login}</span>
 			</DropdownMenu.Label>
 		</DropdownMenu.Group>
 		<DropdownMenu.Separator />
@@ -66,7 +67,7 @@
 				{#each items as item (item.href)}
 					<DropdownMenu.Item>
 						{#snippet child({ props })}
-							<a href={resolve(item.href)} {...props}>
+							<a href={resolvePath(item.href)} {...props}>
 								<item.icon />
 								{item.label()}
 							</a>
