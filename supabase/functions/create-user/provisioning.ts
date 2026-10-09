@@ -8,16 +8,21 @@
 export type UserRole = 'admin' | 'manager' | 'teacher' | 'student'
 
 /** Domain used to synthesize logins for username-based student accounts. */
-export const STUDENT_EMAIL_DOMAIN = 'student.clavis.app'
+const STUDENT_EMAIL_DOMAIN = 'student.clavis.app'
 
 /** 3-30 chars, starts alphanumeric, then alphanumeric / dot / underscore / hyphen. */
-const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/
+export const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const MAX_NAME_LENGTH = 100
-const MIN_PASSWORD_LENGTH = 8
+export const MAX_NAME_LENGTH = 100
+export const MIN_PASSWORD_LENGTH = 8
 // bcrypt truncates beyond 72 bytes; reject rather than silently truncate.
-const MAX_PASSWORD_LENGTH = 72
+export const MAX_PASSWORD_LENGTH = 72
+
+/** The address a student's account signs in with: students are known by a username, not an email. */
+export function studentEmail(username: string): string {
+  return `${username}@${STUDENT_EMAIL_DOMAIN}`
+}
 
 /** The authenticated caller, as read from `profiles` with the service-role key. */
 export interface CallerProfile {
@@ -147,7 +152,7 @@ export function planProvisioning(
     return {
       role,
       name,
-      email: `${username}@${STUDENT_EMAIL_DOMAIN}`,
+      email: studentEmail(username),
       password,
       organizationId,
       username,
