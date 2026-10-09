@@ -13,6 +13,12 @@ export function stageFolder(stageId: string): string {
 	return `stages/${stageId}`;
 }
 
+/** Whether a path is of a picture in a stage's folder. */
+export function inStageFolder(stageId: string, path: string): boolean {
+	const folder = `${stageFolder(stageId)}/`;
+	return path.startsWith(folder) && !path.slice(folder.length).includes('/');
+}
+
 /**
  * Removes every picture of the stages that were just deleted. This is the one
  * way a stage's pictures go with it, whether the stage itself was deleted or

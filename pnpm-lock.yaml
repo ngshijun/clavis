@@ -14,9 +14,15 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.117.2
         version: 2.117.2
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       read-excel-file:
         specifier: ^9.3.10
         version: 9.3.10
+      saxen:
+        specifier: ^11.2.0
+        version: 11.2.0
       write-excel-file:
         specifier: ^4.1.1
         version: 4.1.1

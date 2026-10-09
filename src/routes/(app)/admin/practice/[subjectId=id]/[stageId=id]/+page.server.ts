@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import * as z from 'zod';
+import { imagePaths } from '#lib/item-images.js';
 import { checkCandidates, planImport, type ImportReview, type Stored } from '#lib/items/import.js';
 import { MAX_ENTRIES } from '#lib/items/limits.js';
 import { DIFFICULTIES } from '#lib/items/payload.js';
@@ -8,10 +9,11 @@ import { stageTrail } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
 import { validatePassage } from '#lib/passage.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
-import { postedPictures } from '#lib/server/images.js';
+import { postedPictures, readPicture } from '#lib/server/images.js';
 import {
 	deletePassage,
 	deleteQuestion,
+	discardImportPictures,
 	duplicateQuestion,
 	getStage,
 	importRows,
@@ -21,8 +23,10 @@ import {
 	savePassage,
 	saveQuestion,
 	setLearningPoints,
-	setQuestionOrder
+	setQuestionOrder,
+	storeImportPicture
 } from '#lib/server/practice.js';
+import { inStageFolder } from '#lib/server/stage-pictures.js';
 import { readWorkbook } from '#lib/server/workbook.js';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
@@ -65,6 +69,8 @@ const savePassageSchema = z.object({
 	/** The passage's title, text and picture, as JSON. */
 	passage: z.string()
 });
+/** The fingerprint of each picture of a workbook that can be used, by the picture's name in the file. */
+const marksSchema = z.record(z.string().max(200), z.string().regex(/^[0-9a-f]{32}$/));
 /**
  * What a Save posted, checked again as if the editor had not: the JSON under
  * `written`, which `validate` finds complete and tidies, and the file of each
@@ -105,8 +111,23 @@ async function storedIn({ locals, params }: RequestEvent): Promise<Stored> {
 		questions: stage.entries.flatMap((entry) =>
 			entry.kind === 'passage' ? entry.questions.map((each) => each.payload) : [entry.payload]
 		),
-		passages: passages.map(({ id, title, body }) => ({ id, title, body }))
+		passages: passages.map(({ id, title, body, imagePath }) => ({
+			id,
+			title,
+			body,
+			image_path: imagePath
+		}))
 	};
+}
+
+/**
+ * Whether a picture may become a new row's: it is in the stage's folder and
+ * no row of the stage names it. A picture stored for an import is such a one
+ * until the import is made.
+ */
+function freePictures(stageId: string, stored: Stored): (path: string) => boolean {
+	const taken = new Set(imagePaths(stored));
+	return (path) => inStageFolder(stageId, path) && !taken.has(path);
 }
 
 export const actions: Actions = {
@@ -247,11 +268,23 @@ export const actions: Actions = {
 	 * The first step of an import: reads the workbook and answers with what
 	 * importing it would add, and which rows need fixing first. Nothing is
 	 * written.
+	 *
+	 * The page has taken the pictures out of the workbook, which would
+	 * otherwise be too large to send, and says under `pictures` which of them
+	 * can be used. A row that is ready names each of its pictures
+	 * `upload:<fingerprint>`.
 	 */
 	review: async (event) => {
-		const file = (await event.request.formData()).get('file');
+		const form = await event.request.formData();
+		const file = form.get('file');
+		let marks: z.infer<typeof marksSchema>;
+		try {
+			marks = marksSchema.parse(JSON.parse(String(form.get('pictures'))));
+		} catch {
+			return fail(400, { message: m.error_unexpected() });
+		}
 		if (!(file instanceof File)) return fail(400, { message: m.error_unexpected() });
-		const read = await readWorkbook(file);
+		const read = await readWorkbook(file, new Map(Object.entries(marks)));
 		if (!read.ok) return fail(400, { message: read.message });
 
 		const plan = planImport(read.candidates, await storedIn(event));
@@ -265,11 +298,27 @@ export const actions: Actions = {
 	},
 
 	/**
+	 * Between the two steps: stores one picture of the workbook for the stage
+	 * and answers with where. A picture goes up in a request of its own because
+	 * all of them together would be too large for one.
+	 */
+	picture: async ({ request, locals, params }) => {
+		const picture = await readPicture((await request.formData()).get('file'));
+		if (!picture) return fail(400, { message: m.image_invalid() });
+		try {
+			return { path: await storeImportPicture(locals.supabase, params.stageId, picture) };
+		} catch (cause) {
+			return unexpected(cause);
+		}
+	},
+
+	/**
 	 * The second step: adds the rows the review found ready, which the page
-	 * posts back. They are checked again as if never seen, and what they add is
-	 * worked out again from the stage as it is now, so neither an edited page
-	 * nor a second press of the button adds a question twice. Answers with how
-	 * many questions were added.
+	 * posts back with each picture named by where it was stored. They are
+	 * checked again as if never seen, and what they add is worked out again
+	 * from the stage as it is now, so neither an edited page nor a second press
+	 * of the button adds a question twice. Answers with how many questions were
+	 * added.
 	 */
 	import: async (event) => {
 		let posted: unknown;
@@ -278,16 +327,31 @@ export const actions: Actions = {
 		} catch {
 			return fail(400, { message: m.practice_import_stale() });
 		}
-		const candidates = checkCandidates(posted);
+		const { stageId } = event.params;
+		const stored = await storedIn(event);
+		const candidates = checkCandidates(posted, freePictures(stageId, stored));
 		if (!candidates) return fail(400, { message: m.practice_import_stale() });
 
-		const plan = planImport(candidates, await storedIn(event));
+		const plan = planImport(candidates, stored);
 		try {
-			return { added: await importRows(event.locals.supabase, event.params.stageId, plan) };
+			const added = await importRows(event.locals.supabase, stageId, plan, imagePaths(candidates));
+			return { added };
 		} catch (cause) {
 			console.error(cause);
 			return fail(500, { message: m.practice_import_failed() });
 		}
+	},
+
+	/**
+	 * Removes the pictures stored for an import that was then not made. The
+	 * page names them, and only those that no row of the stage names are
+	 * removed, so asking after an import that did go through removes nothing a
+	 * question shows.
+	 */
+	discard: async (event) => {
+		const paths = (await event.request.formData()).getAll('paths').map(String);
+		const free = freePictures(event.params.stageId, await storedIn(event));
+		await discardImportPictures(event.locals.supabase, paths.filter(free));
 	},
 
 	/**

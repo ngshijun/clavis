@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '#lib/database.types.js';
-import { IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, type ImageType } from '#lib/image.js';
+import { fingerprint, MAX_IMAGE_BYTES, storedName, type ImageType } from '#lib/image.js';
 import { imagePaths, uploadKey } from '#lib/item-images.js';
 
 /** An uploaded picture, and what its own bytes say it is. */
@@ -64,9 +64,9 @@ export async function postedPictures(
 
 /**
  * Stores a picture under `folder` and returns its object path. The name is of
- * our own making and the extension is that of what the picture is, so nothing
- * of the name it arrived with reaches the bucket and a folder holds its
- * pictures side by side, none beneath another.
+ * our own making, from what the picture's bytes are, and the extension is that
+ * of what the picture is, so nothing of the name it arrived with reaches the
+ * bucket and a folder holds its pictures side by side, none beneath another.
  */
 export async function uploadPicture(
 	supabase: SupabaseClient<Database>,
@@ -74,7 +74,7 @@ export async function uploadPicture(
 	folder: string,
 	picture: Picture
 ): Promise<string> {
-	const path = `${folder}/${crypto.randomUUID()}.${IMAGE_EXTENSIONS[picture.type]}`;
+	const path = `${folder}/${storedName(await fingerprint(picture.file), picture.type)}`;
 	// A file is stored under the type it carries itself, so it is given the one its bytes have.
 	const body = new Blob([picture.file], { type: picture.type });
 	const { error } = await supabase.storage.from(bucket).upload(path, body, {

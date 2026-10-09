@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { imagePaths } from '#lib/item-images.js';
 import { m } from '#lib/paraglide/messages.js';
 import { passageKey, validatePassage } from '#lib/passage.js';
-import { MAX_ENTRY_CHARS } from './limits.js';
+import { MAX_ENTRY_CHARS, MAX_IMAGE_PATH_CHARS } from './limits.js';
 import { DIFFICULTIES, type Difficulty, type ItemPayload } from './payload.js';
 import { contentKey } from './same.js';
 import { validateItem } from './schema.js';
@@ -15,27 +15,44 @@ import { validateItem } from './schema.js';
  * trust: not an id, not a count.
  */
 
-/** The largest workbook that is read. */
+/** The largest file that is picked, with the pictures in it. */
+export const MAX_PICKED_BYTES = 100 * 1024 * 1024;
+/** The largest workbook that is read, once its pictures are taken out of it. */
 export const MAX_WORKBOOK_BYTES = 2 * 1024 * 1024;
 /** The most question rows one workbook may hold. */
 export const MAX_IMPORT_QUESTIONS = 500;
 
+type Sized = { name: string; size: number };
+
+/** Why a file that was picked is not opened at all, or null for one that may be. */
+export function pickedRefusal(file: Sized): string | null {
+	if (!file.name.toLowerCase().endsWith('.xlsx')) return m.practice_import_not_xlsx();
+	if (file.size > MAX_PICKED_BYTES) return m.practice_import_file_too_large();
+	return null;
+}
+
 /**
- * Why a file is not read at all, or null for one that may be. The page asks
- * before it uploads, so a large file is refused in these words rather than by
- * the host's own limit; the server asks again.
+ * Why a workbook is not read at all, or null for one that may be. It is asked
+ * of the workbook without its pictures, which is what is sent to be read. The
+ * page asks before it uploads, so a large one is refused in these words
+ * rather than by the host's own limit; the server asks again.
  */
-export function fileRefusal(file: { name: string; size: number }): string | null {
+export function fileRefusal(file: Sized): string | null {
 	if (!file.name.toLowerCase().endsWith('.xlsx')) return m.practice_import_not_xlsx();
 	if (file.size > MAX_WORKBOOK_BYTES) return m.practice_import_too_large();
 	return null;
 }
 
-/** A passage of a workbook, known to its questions by the code its row gives it. */
+/**
+ * A passage of a workbook, known to its questions by the code its row gives it.
+ * Its picture, like a question's, is named `upload:<fingerprint>` in a review
+ * and by where it is stored in what the page posts back to import.
+ */
 export interface CandidatePassage {
 	code: string;
 	title: string;
 	body: string;
+	image_path: string | null;
 }
 
 /** A question of a workbook, complete and tidied. */
@@ -81,7 +98,7 @@ export function passageCode(written: string): string {
 /** What a stage holds already, as far as an import looks at it. */
 export interface Stored {
 	questions: ItemPayload[];
-	passages: { id: string; title: string; body: string }[];
+	passages: { id: string; title: string; body: string; image_path: string | null }[];
 }
 
 /** Where a planned question goes: under a passage the import makes, under a stored one, or on its own. */
@@ -89,7 +106,7 @@ export type PlannedPlace = { created: number } | { stored: string } | null;
 
 export interface ImportPlan {
 	/** The passages to make, in the order they join the stage. */
-	passages: { title: string; body: string }[];
+	passages: { title: string; body: string; image_path: string | null }[];
 	/** The questions to add. `created` is a place in `passages`, `stored` a passage's id. */
 	questions: { payload: ItemPayload; difficulty: Difficulty; place: PlannedPlace }[];
 	/** How many candidates are left out because the stage, or an earlier row, asks the same. */
@@ -103,7 +120,8 @@ export interface ImportPlan {
  * holds is left out, and so is the repeat of an earlier row. A passage is made
  * only if a question that is added joins it, and a passage that reads the same
  * as a stored one is not made again: its questions go under the stored one,
- * which is what lets a file be fixed and imported a second time.
+ * which is what lets a file be fixed and imported a second time. A picture
+ * that only a row left out names is named by nothing in the plan.
  */
 export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 	const seen = new Set(stored.questions.map(contentKey));
@@ -126,7 +144,7 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 			places.set(passage.code, { stored: match.id });
 		} else {
 			places.set(passage.code, { created: passages.length });
-			passages.push({ title: passage.title, body: passage.body });
+			passages.push({ title: passage.title, body: passage.body, image_path: passage.image_path });
 		}
 	}
 
@@ -144,7 +162,14 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 
 const postedSchema = z.object({
 	passages: z
-		.array(z.object({ code: z.string().max(MAX_ENTRY_CHARS), title: z.string(), body: z.string() }))
+		.array(
+			z.object({
+				code: z.string().max(MAX_ENTRY_CHARS),
+				title: z.string(),
+				body: z.string(),
+				image_path: z.string().max(MAX_IMAGE_PATH_CHARS).nullable()
+			})
+		)
 		.max(MAX_IMPORT_QUESTIONS),
 	questions: z
 		.array(
@@ -159,30 +184,42 @@ const postedSchema = z.object({
 
 /**
  * The candidates a page posted back, checked as if they had never been seen:
- * every question and passage is complete and names no picture, no two
- * passages share a code and every question's passage is among them. Null for anything else, which a
- * review of ours cannot have produced.
+ * every question and passage is complete, every picture one names is `free`
+ * to be a new row's and is named by that row alone, no two passages share a
+ * code and every question's passage is among them. Null for anything else, which a review of ours
+ * cannot have produced.
  */
-export function checkCandidates(posted: unknown): Candidates | null {
+export function checkCandidates(
+	posted: unknown,
+	free: (path: string) => boolean
+): Candidates | null {
 	const parsed = postedSchema.safeParse(posted);
 	if (!parsed.success) return null;
 
+	// A stored picture belongs to one row, so a row may name only pictures no row before it has.
+	const claimed = new Set<string>();
+	const own = (row: unknown) => {
+		const paths = imagePaths(row);
+		if (!paths.every((path) => free(path) && !claimed.has(path))) return false;
+		for (const path of paths) claimed.add(path);
+		return true;
+	};
+
 	const passages: CandidatePassage[] = [];
 	for (const passage of parsed.data.passages) {
-		const checked = validatePassage({ title: passage.title, body: passage.body });
-		const code = passageCode(passage.code);
-		// A sheet carries no picture, so a passage of an import is its text.
-		if (!checked.ok || checked.content.body === '' || code === '') return null;
+		const { code: written, ...content } = passage;
+		const checked = validatePassage(content);
+		const code = passageCode(written);
+		if (!checked.ok || code === '' || !own(checked.content)) return null;
 		if (passages.some((each) => each.code === code)) return null;
-		passages.push({ code, title: checked.content.title, body: checked.content.body });
+		passages.push({ code, ...checked.content });
 	}
 
 	const questions: CandidateQuestion[] = [];
 	for (const question of parsed.data.questions) {
 		const checked = validateItem(question.payload);
 		const passage = question.passage === null ? null : passageCode(question.passage);
-		// A workbook carries no pictures, so a question that names one names another row's.
-		if (!checked.ok || imagePaths(checked.payload).length > 0) return null;
+		if (!checked.ok || !own(checked.payload)) return null;
 		if (passage !== null && !passages.some((each) => each.code === passage)) return null;
 		questions.push({ payload: checked.payload, difficulty: question.difficulty, passage });
 	}

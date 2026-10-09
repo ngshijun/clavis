@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import type { ActionResult } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileIcon from '@lucide/svelte/icons/file';
@@ -9,10 +10,17 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { postAction } from '#lib/form-actions.js';
-	import { fileRefusal, type ImportReview } from '#lib/items/import.js';
+	import { postAction, unanswered } from '#lib/form-actions.js';
+	import { imagePaths, mapImagePaths, uploadKey } from '#lib/item-images.js';
+	import {
+		fileRefusal,
+		pickedRefusal,
+		type Candidates,
+		type ImportReview
+	} from '#lib/items/import.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
+	import { readyPictures, splitWorkbook } from '#lib/workbook.js';
 	import Chip from './fields/chip.svelte';
 	import { hint } from './styles.js';
 
@@ -20,7 +28,12 @@
 	 * Importing an Excel workbook into the stage, in two steps. The first sends
 	 * the file to be read and shows what it would add; the second adds it. The
 	 * workbook is read on the server only: this page shows what comes back and
-	 * hands the ready rows back as they came.
+	 * hands the ready rows back.
+	 *
+	 * The pictures are the page's part. A workbook with pictures is too large
+	 * to send whole, so the page takes them out before it sends the workbook,
+	 * keeps them, and when the import is made uploads each one and writes where
+	 * it was stored into the row that names it.
 	 *
 	 * Mounted while it is needed and unmounted once it has closed, so every
 	 * opening starts at the first step.
@@ -50,6 +63,10 @@
 	let refusal = $state<string | null>(null);
 	/** Whether a file is being dragged over the drop zone. */
 	let over = $state(false);
+	/** The pictures of the file that can be used, ready to upload, by their fingerprint. */
+	let files = new Map<string, File>();
+	/** How far the upload of the pictures has come, while there is one. */
+	let progress = $state<{ done: number; total: number } | null>(null);
 
 	let input = $state<HTMLInputElement | null>(null);
 	let chooseButton = $state<HTMLElement | null>(null);
@@ -64,6 +81,15 @@
 	const waiting = 'aria-disabled:pointer-events-none aria-disabled:opacity-50';
 
 	const ready = $derived(review?.rows.questions.length ?? 0);
+	/** How many pictures come with the ready rows. Each row has its own, so each is counted by row. */
+	const pictures = $derived(
+		review
+			? [...review.rows.passages, ...review.rows.questions].reduce(
+					(count, row) => count + imagePaths(row).length,
+					0
+				)
+			: 0
+	);
 	const figures = $derived(
 		review && [
 			{ key: 'ready', count: ready, label: m.practice_import_ready({ count: ready }) },
@@ -82,20 +108,51 @@
 		]
 	);
 
+	/**
+	 * Sends a picked file to be read, without its pictures, and answers with
+	 * what came back, or with why the file was not sent.
+	 */
+	async function read(file: File): Promise<ActionResult | string> {
+		let parts: ReturnType<typeof splitWorkbook>;
+		try {
+			parts = splitWorkbook(new Uint8Array(await file.arrayBuffer()));
+		} catch {
+			return m.practice_import_unreadable();
+		}
+		const workbook = new File([parts.workbook], file.name);
+		// Asked here too, so a workbook far too large is refused in our words and not by the host's limit.
+		const refused = fileRefusal(workbook);
+		if (refused) return refused;
+
+		const usable = await readyPictures(parts.media);
+		files = new Map(Array.from(usable.values(), (picture) => [picture.mark, picture.file]));
+		const form = new FormData();
+		form.set('file', workbook);
+		form.set(
+			'pictures',
+			JSON.stringify(Object.fromEntries(Array.from(usable, ([name, { mark }]) => [name, mark])))
+		);
+		return postAction('?/review', form);
+	}
+
 	async function choose(file: File | undefined) {
 		if (!file || busy) return;
-		// Asked here too, so a file far too large is refused in our words and not by the host's limit.
-		refusal = fileRefusal(file);
+		refusal = pickedRefusal(file);
 		if (refusal) return;
 
 		fileName = file.name;
 		busy = 'reading';
-		const form = new FormData();
-		form.set('file', file);
-		const result = await postAction('?/review', form);
+		let result: ActionResult | string;
+		try {
+			result = await read(file);
+		} catch {
+			result = m.error_unexpected();
+		}
 		busy = null;
 
-		if (result.type === 'success' && result.data?.review) {
+		if (typeof result === 'string') {
+			refusal = result;
+		} else if (result.type === 'success' && result.data?.review) {
 			review = result.data.review as ImportReview;
 			// The button that had the focus has gone with the first step.
 			await tick();
@@ -113,14 +170,80 @@
 		chooseButton?.focus();
 	}
 
+	/** Stores one picture a row names for the stage, and answers with where; null if it could not be. */
+	async function upload(named: string): Promise<string | null> {
+		const file = files.get(uploadKey(named) ?? '');
+		if (!file) return null;
+		const form = new FormData();
+		form.set('file', file);
+		const result = await postAction('?/picture', form);
+		return result.type === 'success' && typeof result.data?.path === 'string'
+			? result.data.path
+			: null;
+	}
+
+	/**
+	 * The ready rows with every picture stored and named by where it is, or
+	 * null if one could not be stored. A stored picture belongs to one row, so
+	 * each row gets its own. Four rows are seen to at a time. Where each
+	 * picture went is noted in `uploaded` as it goes.
+	 */
+	async function withPictures(rows: Candidates, uploaded: string[]): Promise<Candidates | null> {
+		const all = [...rows.passages, ...rows.questions];
+		const stored = [...all];
+		let next = 0;
+		let failed = false;
+		const worker = async () => {
+			while (!failed && next < all.length) {
+				const index = next++;
+				const placed: Record<string, string> = {};
+				for (const named of imagePaths(all[index])) {
+					const path = await upload(named);
+					if (path === null) {
+						failed = true;
+						return;
+					}
+					uploaded.push(path);
+					placed[named] = path;
+					if (progress) progress.done += 1;
+				}
+				stored[index] = mapImagePaths(all[index], (named) => placed[named] ?? named);
+			}
+		};
+		await Promise.all(Array.from({ length: 4 }, worker));
+		if (failed) return null;
+
+		const passages = rows.passages.length;
+		return {
+			passages: stored.slice(0, passages) as Candidates['passages'],
+			questions: stored.slice(passages) as Candidates['questions']
+		};
+	}
+
+	/** Has the pictures stored for an import that was not made removed again. */
+	async function discard(paths: string[]) {
+		if (paths.length === 0) return;
+		const form = new FormData();
+		for (const path of paths) form.append('paths', path);
+		await postAction('?/discard', form);
+	}
+
 	async function add() {
 		if (!review || busy) return;
 		busy = 'importing';
 		refusal = null;
-		const form = new FormData();
-		form.set('rows', JSON.stringify(review.rows));
+		if (pictures > 0) progress = { done: 0, total: pictures };
+		const uploaded: string[] = [];
 		// Whatever becomes of the import, the dialog answers again afterwards.
 		try {
+			const rows = await withPictures(review.rows, uploaded);
+			if (!rows) {
+				refusal = m.practice_import_picture_failed();
+				await discard(uploaded);
+				return;
+			}
+			const form = new FormData();
+			form.set('rows', JSON.stringify(rows));
 			const result = await postAction('?/import', form);
 			if (result.type === 'success' && typeof result.data?.added === 'number') {
 				const added = result.data.added;
@@ -131,9 +254,12 @@
 				else toast.info(m.practice_import_done_none());
 			} else {
 				refusal = refusalOf(result) ?? m.error_unexpected();
+				// With no answer the import may yet go through, and its pictures are then its questions'.
+				if (!unanswered(result)) await discard(uploaded);
 			}
 		} finally {
 			busy = null;
+			progress = null;
 		}
 	}
 </script>
@@ -259,6 +385,14 @@
 						</div>
 					{/each}
 				</dl>
+
+				{#if pictures > 0}
+					<p class={cn(hint, 'px-4')} aria-live="polite">
+						{progress
+							? m.practice_import_uploading(progress)
+							: m.practice_import_pictures({ count: pictures })}
+					</p>
+				{/if}
 
 				{#if review.problems.length > 0}
 					<ul aria-label={m.practice_import_problems_label()} class="max-h-52 overflow-y-auto px-4">

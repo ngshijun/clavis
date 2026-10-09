@@ -10,6 +10,7 @@ import {
 	readRows,
 	SHEETS,
 	type Cells,
+	type Pictures,
 	type SheetRow
 } from './sheets.js';
 
@@ -86,7 +87,8 @@ describe('the sheets', () => {
 			passage: {
 				code: 'p1',
 				title: 'The Water Cycle',
-				body: PASSAGE_SHEET.sample.text
+				body: PASSAGE_SHEET.sample.text,
+				image_path: null
 			}
 		});
 	});
@@ -663,8 +665,151 @@ describe('readPassageRow', () => {
 		});
 		expect(readPassageRow({ code, title, text: '' })).toEqual({
 			ok: false,
-			problem: { column: 'Text', message: m.practice_import_cell_empty() }
+			problem: { column: 'Text', message: m.practice_passage_content_required() }
 		});
+	});
+
+	it('takes a picture with the text, or in place of it', () => {
+		const { code, title, text } = PASSAGE_SHEET.sample;
+		expect(readPassageRow({ code, title, text }, { picture: 'upload:a' })).toMatchObject({
+			passage: { body: text, image_path: 'upload:a' }
+		});
+		expect(readPassageRow({ code, title, text: '' }, { picture: 'upload:a' })).toMatchObject({
+			passage: { body: '', image_path: 'upload:a' }
+		});
+	});
+
+	it('refuses words where the picture goes', () => {
+		const { code, title, text } = PASSAGE_SHEET.sample;
+		expect(readPassageRow({ code, title, text, picture: 'cycle.png' })).toEqual({
+			ok: false,
+			problem: { column: 'Picture', message: m.practice_import_picture_words() }
+		});
+	});
+});
+
+describe('pictures', () => {
+	const pictured = <Type extends SheetType>(type: Type, cells: Cells, pictures: Pictures) => {
+		const read = readQuestionRow(sheetOf(type), row(type, cells), pictures);
+		if (!read.ok) throw new Error(`${read.problem.column}: ${read.problem.message}`);
+		return read.question.payload as Extract<ItemPayload, { type: Type }>;
+	};
+
+	it.each(QUESTION_SHEETS)('$name has a Picture column, which is the question’s', (sheet) => {
+		expect(sheet.columns.find((column) => column.key === 'picture')).toMatchObject({
+			header: 'Picture',
+			picture: true
+		});
+		const read = readQuestionRow(sheet, sheet.sample, { picture: 'upload:a' });
+		expect(read).toMatchObject({ ok: true, question: { payload: { image_path: 'upload:a' } } });
+	});
+
+	it('take a picture only in the cells of what a pupil is shown', () => {
+		const taking = (type: SheetType) =>
+			sheetOf(type)
+				.columns.filter((column) => column.picture)
+				.map((column) => column.header);
+		expect(taking('short_answer')).toEqual(['Picture']);
+		expect(taking('mcq')).toEqual(
+			['Picture', ...'ABCDEF'].map((each, index) => (index === 0 ? each : `Option ${each}`))
+		);
+		expect(taking('ordering')).toHaveLength(9);
+		expect(taking('matching')).toHaveLength(17);
+		expect(taking('classify')).toEqual(['Picture']);
+	});
+
+	it('refuse words where the picture goes', () => {
+		expect(problemOf('short_answer', { picture: 'plant.png' })).toEqual({
+			column: 'Picture',
+			message: m.practice_import_picture_words()
+		});
+	});
+
+	it('make an option of a picture, with words or without', () => {
+		const payload = pictured(
+			'mcq',
+			{ option_B: '', option_E: '', answer: 'E', tip: '' },
+			{ option_A: 'upload:a', option_B: 'upload:b', option_E: 'upload:e' }
+		);
+		expect(payload.options).toEqual([
+			{ text: 'Roots', image_path: 'upload:a', is_correct: false },
+			{ text: '', image_path: 'upload:b', is_correct: false },
+			{ text: 'Leaf', is_correct: false },
+			{ text: 'Flower', is_correct: false },
+			{ text: '', image_path: 'upload:e', is_correct: true }
+		]);
+	});
+
+	it('refuse two options that show the same words and the same picture', () => {
+		const read = readQuestionRow(sheetOf('mcq'), row('mcq', { option_A: '', option_B: '' }), {
+			option_A: 'upload:a',
+			option_B: 'upload:a'
+		});
+		expect(read).toMatchObject({ ok: false });
+	});
+
+	it('make the items and the answers of a matching of pictures', () => {
+		const payload = pictured(
+			'matching',
+			{ left_1: '', right_1: '', right_2: '', right_3: '' },
+			{
+				left_1: 'upload:cat',
+				right_1: 'upload:kitten',
+				right_2: 'upload:young',
+				right_3: 'upload:young'
+			}
+		);
+		expect(payload.left.map(({ text, image_path }) => [text, image_path])).toEqual([
+			['', 'upload:cat'],
+			['Dog', undefined],
+			['Cow', undefined]
+		]);
+		// The same picture twice is one answer, which then serves two items.
+		expect(payload.right.map(({ text, image_path }) => [text, image_path])).toEqual([
+			['', 'upload:kitten'],
+			['', 'upload:young'],
+			['Chick', undefined]
+		]);
+		expect(payload.pairs.map((pair) => pair.right_id)).toEqual([
+			payload.right[0].id,
+			payload.right[1].id,
+			payload.right[1].id
+		]);
+	});
+
+	it('make the items of an ordering of pictures', () => {
+		const payload = pictured(
+			'ordering',
+			{ item_2: '' },
+			{ item_2: 'upload:b', item_5: 'upload:e' }
+		);
+		expect(payload.items.map(({ text, image_path }) => [text, image_path])).toEqual([
+			['Egg', undefined],
+			['', 'upload:b'],
+			['Pupa', undefined],
+			['Butterfly', undefined],
+			['', 'upload:e']
+		]);
+		expect(payload.correct_order).toEqual(payload.items.map((item) => item.id));
+	});
+
+	it('read a row that is a picture and nothing else, and the example once it has one', () => {
+		const sheet = sheetOf('short_answer');
+		const read = readRows([
+			{
+				sheet,
+				rows: [
+					{ row: 2, cells: sheet.sample, pictures: { picture: 'upload:a' } },
+					{ row: 3, cells: {}, pictures: { picture: 'upload:b' } },
+					{ row: 4, cells: {}, pictures: {} }
+				]
+			}
+		]);
+		expect(read.questionRows).toBe(2);
+		expect(read.candidates.questions.map((each) => each.payload.image_path)).toEqual(['upload:a']);
+		expect(read.problems).toEqual([
+			{ sheet: sheet.name, row: 3, reason: expect.stringContaining('Question') }
+		]);
 	});
 });
 
@@ -731,7 +876,9 @@ describe('readRows', () => {
 			{ sheet: short, rows: rows(answer('On it?', { passage: 'p1' }), answer('Alone?')) },
 			{ sheet: PASSAGE_SHEET, rows: rows({ code: 'P1', title: 'Rain', text: 'It rains.' }) }
 		]);
-		expect(read.candidates.passages).toEqual([{ code: 'p1', title: 'Rain', body: 'It rains.' }]);
+		expect(read.candidates.passages).toEqual([
+			{ code: 'p1', title: 'Rain', body: 'It rains.', image_path: null }
+		]);
 		expect(read.candidates.questions.map((each) => each.passage)).toEqual(['p1', null]);
 		expect(read.problems).toEqual([]);
 	});

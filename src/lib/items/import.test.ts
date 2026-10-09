@@ -4,7 +4,9 @@ import {
 	checkCandidates,
 	fileRefusal,
 	MAX_IMPORT_QUESTIONS,
+	MAX_PICKED_BYTES,
 	MAX_WORKBOOK_BYTES,
+	pickedRefusal,
 	planImport,
 	type CandidateQuestion,
 	type Stored
@@ -24,7 +26,7 @@ const candidate = (question: string, passage: string | null = null): CandidateQu
 });
 
 const empty: Stored = { questions: [], passages: [] };
-const rain = { code: 'p1', title: 'Rain', body: 'It rains.' };
+const rain = { code: 'p1', title: 'Rain', body: 'It rains.', image_path: null };
 
 describe('fileRefusal', () => {
 	it('takes a workbook of up to two megabytes', () => {
@@ -36,6 +38,19 @@ describe('fileRefusal', () => {
 		expect(fileRefusal({ name: 'plants.csv', size: 10 })).toBe(m.practice_import_not_xlsx());
 		expect(fileRefusal({ name: 'plants.xlsx', size: MAX_WORKBOOK_BYTES + 1 })).toBe(
 			m.practice_import_too_large()
+		);
+	});
+});
+
+describe('pickedRefusal', () => {
+	it('takes a file far larger than a workbook may be without its pictures', () => {
+		expect(pickedRefusal({ name: 'Plants.xlsx', size: MAX_PICKED_BYTES })).toBeNull();
+	});
+
+	it('refuses any other kind of file, and one that is too large, each in its own words', () => {
+		expect(pickedRefusal({ name: 'plants.xls', size: 10 })).toBe(m.practice_import_not_xlsx());
+		expect(pickedRefusal({ name: 'plants.xlsx', size: MAX_PICKED_BYTES + 1 })).toBe(
+			m.practice_import_file_too_large()
 		);
 	});
 });
@@ -73,7 +88,7 @@ describe('planImport', () => {
 	});
 
 	it('makes the passages its questions join, and puts each question under its own', () => {
-		const snow = { code: 'p2', title: 'Snow', body: 'It snows.' };
+		const snow = { code: 'p2', title: 'Snow', body: 'It snows.', image_path: null };
 		const plan = planImport(
 			{
 				passages: [rain, snow],
@@ -82,8 +97,8 @@ describe('planImport', () => {
 			empty
 		);
 		expect(plan.passages).toEqual([
-			{ title: 'Rain', body: 'It rains.' },
-			{ title: 'Snow', body: 'It snows.' }
+			{ title: 'Rain', body: 'It rains.', image_path: null },
+			{ title: 'Snow', body: 'It snows.', image_path: null }
 		]);
 		expect(plan.questions.map((each) => each.place)).toEqual([
 			{ created: 1 },
@@ -107,7 +122,7 @@ describe('planImport', () => {
 			{ passages: [rain], questions: [candidate('Old?', 'p1'), candidate('New?', 'p1')] },
 			{
 				questions: [short('Old?')],
-				passages: [{ id: 'stored-rain', title: ' rain', body: 'IT RAINS.' }]
+				passages: [{ id: 'stored-rain', title: ' rain', body: 'IT RAINS.', image_path: null }]
 			}
 		);
 		expect(plan.passages).toEqual([]);
@@ -117,6 +132,49 @@ describe('planImport', () => {
 		]);
 		// The passage goes back with its question, so the import can find the stored one again.
 		expect(plan.kept).toEqual({ passages: [rain], questions: [candidate('New?', 'p1')] });
+	});
+
+	it('tells two questions apart by their pictures, and knows a picture that is stored already', () => {
+		const mark = (letter: string) => letter.repeat(32);
+		const pictured = (picture: string): CandidateQuestion => ({
+			...candidate('Which shape is this?'),
+			payload: { ...short('Which shape is this?'), image_path: picture }
+		});
+		const rows = {
+			passages: [{ ...rain, image_path: `upload:${mark('c')}` }],
+			questions: [
+				pictured(`upload:${mark('a')}`),
+				pictured(`upload:${mark('b')}`),
+				pictured(`upload:${mark('a')}`),
+				candidate('On it?', 'p1')
+			]
+		};
+		const first = planImport(rows, empty);
+		expect(first.duplicates).toBe(1);
+		expect(first.questions.map((each) => each.payload.image_path)).toEqual([
+			`upload:${mark('a')}`,
+			`upload:${mark('b')}`,
+			undefined
+		]);
+		expect(first.passages).toEqual([
+			{ title: 'Rain', body: 'It rains.', image_path: `upload:${mark('c')}` }
+		]);
+
+		// The same file again, once its pictures are stored under names that carry their fingerprints.
+		const stored: Stored = {
+			questions: [
+				{ ...short('Which shape is this?'), image_path: `stages/s/${mark('a')}-1.webp` },
+				short('On it?')
+			],
+			passages: [
+				{ id: 'made', title: 'Rain', body: 'It rains.', image_path: `stages/s/${mark('c')}-2.webp` }
+			]
+		};
+		const second = planImport(rows, stored);
+		expect(second.questions.map((each) => each.payload.image_path)).toEqual([
+			`upload:${mark('b')}`
+		]);
+		expect(second.passages).toEqual([]);
 	});
 
 	it('adds nothing the second time the same rows are planned', () => {
@@ -144,51 +202,78 @@ describe('checkCandidates', () => {
 		passages,
 		questions: [question]
 	});
+	/** Checked for a stage where the pictures in `free` are stored and no row names them. */
+	const check = (rows: unknown, free: string[] = []) =>
+		checkCandidates(rows, (path) => free.includes(path));
 
 	it('takes back what a review handed out, tidied again', () => {
 		const candidates = {
-			passages: [{ code: ' P1 ', title: ' Rain ', body: 'It rains.' }],
+			passages: [{ code: ' P1 ', title: ' Rain ', body: 'It rains.', image_path: null }],
 			questions: [
 				{ payload: { ...short(' One? '), stray: true }, difficulty: 'high', passage: 'P1' }
 			]
 		};
-		expect(checkCandidates(candidates)).toEqual({
+		expect(check(candidates)).toEqual({
 			passages: [rain],
 			questions: [{ payload: short('One?'), difficulty: 'high', passage: 'p1' }]
 		});
-		expect(checkCandidates(JSON.parse(JSON.stringify(candidates)))).not.toBeNull();
+		expect(check(JSON.parse(JSON.stringify(candidates)))).not.toBeNull();
 	});
 
 	it('refuses a question that is not complete', () => {
-		expect(checkCandidates(posted(candidate('')))).toBeNull();
-		expect(
-			checkCandidates(posted({ ...candidate('One?'), payload: { type: 'short_answer' } }))
-		).toBeNull();
-		expect(checkCandidates(posted({ ...candidate('One?'), difficulty: 'hard' }))).toBeNull();
+		expect(check(posted(candidate('')))).toBeNull();
+		expect(check(posted({ ...candidate('One?'), payload: { type: 'short_answer' } }))).toBeNull();
+		expect(check(posted({ ...candidate('One?'), difficulty: 'hard' }))).toBeNull();
 	});
 
-	it('refuses a question that names a picture, which no workbook can', () => {
-		const pictured = { ...short('One?'), image_path: 'stages/other/picture.png' };
-		expect(checkCandidates(posted({ ...candidate('One?'), payload: pictured }))).toBeNull();
+	it('takes a question and a passage whose pictures are free to be theirs', () => {
+		const pictured = { ...short('One?'), image_path: 'stages/s/one.png' };
+		const rows = posted({ ...candidate('One?', 'p1'), payload: pictured }, [
+			{ ...rain, body: '', image_path: 'stages/s/rain.png' }
+		]);
+		expect(check(rows, ['stages/s/one.png', 'stages/s/rain.png'])).toEqual({
+			passages: [{ ...rain, body: '', image_path: 'stages/s/rain.png' }],
+			questions: [{ payload: pictured, difficulty: 'medium', passage: 'p1' }]
+		});
+	});
+
+	it('refuses a picture that is not free: another stage’s, a stored row’s, one not uploaded', () => {
+		const pictured = (path: string) => ({
+			...candidate('One?'),
+			payload: { ...short('One?'), image_path: path }
+		});
+		expect(check(posted(pictured('stages/other/picture.png')), ['stages/s/one.png'])).toBeNull();
+		expect(check(posted(pictured('upload:0123')), ['stages/s/one.png'])).toBeNull();
+		expect(
+			check(posted(candidate('One?', 'p1'), [{ ...rain, image_path: 'stages/s/taken.png' }]))
+		).toBeNull();
+	});
+
+	it('refuses a picture that two rows name, since a stored picture is one row’s', () => {
+		const pictured = (question: string) => ({
+			...candidate(question),
+			payload: { ...short(question), image_path: 'stages/s/one.png' }
+		});
+		const rows = { passages: [], questions: [pictured('One?'), pictured('Two?')] };
+		expect(check(rows, ['stages/s/one.png'])).toBeNull();
+		expect(check({ ...rows, questions: [pictured('One?')] }, ['stages/s/one.png'])).not.toBeNull();
 	});
 
 	it('refuses a passage code that names no passage, or two passages', () => {
-		expect(checkCandidates(posted(candidate('One?', 'p1')))).toBeNull();
-		expect(
-			checkCandidates(posted(candidate('One?', 'p1'), [rain, { ...rain, code: 'P1' }]))
-		).toBeNull();
-		expect(checkCandidates(posted(candidate('One?', 'p1'), [rain]))).not.toBeNull();
+		expect(check(posted(candidate('One?', 'p1')))).toBeNull();
+		expect(check(posted(candidate('One?', 'p1'), [rain, { ...rain, code: 'P1' }]))).toBeNull();
+		expect(check(posted(candidate('One?', 'p1'), [rain]))).not.toBeNull();
 	});
 
-	it('refuses a passage with no title or no text', () => {
-		expect(checkCandidates(posted(candidate('One?'), [{ ...rain, title: ' ' }]))).toBeNull();
-		expect(checkCandidates(posted(candidate('One?'), [{ ...rain, body: '' }]))).toBeNull();
+	it('refuses a passage with no title, or with neither text nor picture', () => {
+		expect(check(posted(candidate('One?'), [{ ...rain, title: ' ' }]))).toBeNull();
+		expect(check(posted(candidate('One?'), [{ ...rain, body: '' }]))).toBeNull();
 	});
 
 	it('refuses more questions than a workbook may hold, and anything of another shape', () => {
 		const many = Array.from({ length: MAX_IMPORT_QUESTIONS + 1 }, (_, n) => candidate(`Q${n}?`));
-		expect(checkCandidates({ passages: [], questions: many })).toBeNull();
-		expect(checkCandidates(null)).toBeNull();
-		expect(checkCandidates({ questions: [] })).toBeNull();
+		expect(check({ passages: [], questions: many })).toBeNull();
+		expect(check(null)).toBeNull();
+		expect(check({ questions: [] })).toBeNull();
 	});
 });

@@ -659,7 +659,7 @@
 	"practice_import_template": "Download Template",
 	"practice_import_note_sheets": "The template has one sheet for each question type, with a sample row, and a sheet for passages.",
 	"practice_import_note_passages": "A question joins a passage by the passage’s code.",
-	"practice_import_note_pictures": "Pictures are added here after the import. Label a Picture has no sheet, because it starts from a picture.",
+	"practice_import_note_pictures": "A picture goes in the Picture cell of its question, or in the cell of the option or item it shows. Label a Picture has no sheet: it is made here.",
 	"practice_import_choose_another": "Choose Another…",
 	"practice_import_ready": [
 		{
@@ -695,6 +695,17 @@
 	"practice_import_problems_label": "Rows to fix",
 	"practice_import_row": "{sheet}, row {row}",
 	"practice_import_left_out": "Rows to fix are left out, and so is a question that the stage already has or that the file asks twice. Fix the rows in the file and import it again, or add those questions here.",
+	"practice_import_pictures": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} picture comes with them.",
+				"countPlural=other": "{count} pictures come with them."
+			}
+		}
+	],
+	"practice_import_uploading": "Uploading pictures: {done} of {total}",
 	"practice_import_submit": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -717,16 +728,24 @@
 	],
 	"practice_import_done_none": "Nothing was added: these questions are already in the stage.",
 	"practice_import_not_xlsx": "Choose an Excel workbook: a file that ends in .xlsx.",
-	"practice_import_too_large": "This file is larger than 2 MB. Split it into smaller files.",
+	"practice_import_too_large": "Without its pictures, this file is larger than 2 MB. Split it into smaller files.",
+	"practice_import_file_too_large": "This file is larger than 100 MB. Split it into smaller files.",
 	"practice_import_unreadable": "This file could not be read as an Excel workbook. Save it as .xlsx in Excel and choose it again.",
 	"practice_import_no_sheets": "This file has none of the template’s sheets. Use Download Template and fill that file in.",
 	"practice_import_empty": "This file has no questions yet. Use Download Template, add your questions under the example rows, and choose the file again.",
 	"practice_import_too_many": "This file has {count} questions. One file holds up to {max}, so split it.",
 	"practice_import_stale": "This review can no longer be imported. Choose the file again.",
 	"practice_import_failed": "The import did not go through and nothing was added. Try again.",
+	"practice_import_picture_failed": "A picture could not be uploaded, so nothing was added. Try again.",
 	"practice_import_at_column": "{column}: {message}",
 	"practice_import_missing_column": "This sheet has no “{column}” column. Copy the header row from the template.",
 	"practice_import_date_cell": "Excel has turned this cell into a date. Format the cell as Text and type it again.",
+	"practice_import_picture_words": "This cell takes a picture and no words. Place the picture in it.",
+	"practice_import_picture_misplaced": "A picture is in this cell, which takes none. Move it to the cell it belongs to, such as Picture.",
+	"practice_import_picture_outside": "A picture in this row is outside the sheet’s columns. Move it to the cell it belongs to.",
+	"practice_import_picture_header": "A picture is over the header row. Move it down into the row of its question.",
+	"practice_import_picture_two": "This cell has more than one picture. Keep one.",
+	"practice_import_picture_unusable": "The picture in this cell cannot be used. Replace it with a PNG, JPEG, WebP or GIF of 4 MB or less.",
 	"practice_import_cell_empty": "This cell is empty.",
 	"practice_import_difficulty": "Write Low, Medium or High, or leave it empty for Medium.",
 	"practice_import_yes_no": "Write Yes or No.",

@@ -6,7 +6,12 @@ import type { Difficulty, ItemPayload } from '#lib/items/payload.js';
 import type { PassageContent } from '#lib/passage.js';
 import { CURRICULUM_IMAGES } from '#lib/server/curriculum.js';
 import { uploadPicture, type Picture } from '#lib/server/images.js';
-import { QUESTION_IMAGES, removeStagePictures, stageFolder } from '#lib/server/stage-pictures.js';
+import {
+	inStageFolder,
+	QUESTION_IMAGES,
+	removeStagePictures,
+	stageFolder
+} from '#lib/server/stage-pictures.js';
 
 export { QUESTION_IMAGES };
 
@@ -383,7 +388,7 @@ async function readQuestion(supabase: Supabase, stageId: string, id: string) {
 
 /** The stage's own pictures among `paths`: only these may be removed with a row of it. */
 function ownPictures(stageId: string, paths: string[]): string[] {
-	return paths.filter((path) => path.startsWith(`${stageFolder(stageId)}/`));
+	return paths.filter((path) => inStageFolder(stageId, path));
 }
 
 async function removePictures(supabase: Supabase, paths: string[]): Promise<void> {
@@ -734,16 +739,43 @@ export async function deletePassage(
 // ---- One stage: an import -------------------------------------------------
 
 /**
+ * Stores a picture of a workbook that is being imported into a stage and
+ * returns its object path. No row names it yet: the import that follows does,
+ * or it is discarded.
+ */
+export async function storeImportPicture(
+	supabase: Supabase,
+	stageId: string,
+	picture: Picture
+): Promise<string> {
+	return uploadPicture(supabase, QUESTION_IMAGES, stageFolder(stageId), picture);
+}
+
+/**
+ * Removes pictures that were stored for an import and that no row came to
+ * name. Whoever calls has made sure of both: that each is in the stage's
+ * folder and that no row of the stage names it.
+ */
+export async function discardImportPictures(supabase: Supabase, paths: string[]): Promise<void> {
+	await removePictures(supabase, paths);
+}
+
+/**
  * Adds what an import plans to the end of a stage and returns how many
  * questions that was: first its passages, in their order, then its questions
  * in theirs. A question on a passage goes to the end of that passage instead.
  * The database does it as one piece: an import leaves everything behind or
- * nothing.
+ * nothing, and it refuses a row that names a picture not stored for the stage.
+ *
+ * `uploaded` are the pictures that were stored for the import. Those the plan
+ * came to leave out, with the rows that named them, are removed once the
+ * import is made.
  */
 export async function importRows(
 	supabase: Supabase,
 	stageId: string,
-	plan: Pick<ImportPlan, 'passages' | 'questions'>
+	plan: Pick<ImportPlan, 'passages' | 'questions'>,
+	uploaded: string[]
 ): Promise<number> {
 	const { data, error } = await supabase.rpc('import_stage_rows', {
 		p_stage_id: stageId,
@@ -752,5 +784,11 @@ export async function importRows(
 		p_questions: plan.questions as never
 	});
 	if (error) throw error;
+
+	const named = imagePaths([plan.passages, plan.questions]);
+	await removePictures(
+		supabase,
+		uploaded.filter((path) => !named.includes(path))
+	);
 	return data;
 }

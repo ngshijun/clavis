@@ -8,7 +8,7 @@ code disagree, the page wins and the code gets a ticket.
 Drafted 2026-09-22 from the code on `staging`; revised 2026-10-07 for the SvelteKit
 rewrite (`feat/svelte-rewrite`), when the assessment product was removed, and
 2026-10-08 for practice bound to a classroom and the classroom archive, and
-2026-10-09 for assignments (migrations through P32a) and for organizations, managers and passwords (P32a). Source pointers are migration prefixes (`P20b`) or PLAN.md decision
+2026-10-09 for assignments (migrations through P32a), for organizations, managers and passwords (P32a) and for pictures in an import (P33a). Source pointers are migration prefixes (`P20b`) or PLAN.md decision
 numbers (`d80`).
 
 Rule numbers are stable and never reused. Sections 5 to 7 (papers, assessments,
@@ -73,6 +73,8 @@ Use these words. Avoid the ones in parentheses.
 - **R4.7 KEEP** Answer keys, tips and correctness are never column-readable by students; student-facing content comes only from sanitizing RPCs. *(P3a d32–33, P5a d41, P11a d76)*
 - **R4.10 KEEP** A question sits either directly in its stage or under one passage of that stage; a stage's top level is one sequence of passages and loose questions, and a passage's questions are a second sequence inside it. *(P23a)*
 - **R4.11 KEEP** A stage has a question order, fixed (the builder's order) or random. *(P23a)*
+- **R4.12 KEEP** An admin imports questions into a stage from an Excel workbook: one sheet a question type (Label a Picture has none) and one of passages. The file is reviewed before anything is written, a row that needs fixing is left out, and what is ready is added in one transaction. A question the stage already has, or that the file asks twice, is left out, so a file can be fixed and imported again. *(P25b)*
+- **R4.13 KEEP** A workbook carries pictures: a question's and a passage's in the Picture cell of its row, an option's or an item's in its own cell. A picture belongs to the cell it is in, whether Excel placed it in the cell or it floats with its top left corner there; one in a cell that takes none makes its row a row to fix. Pictures are stored before the rows that name them are added, and a row never names a picture that is not stored. Two questions that read the same but show different pictures are different questions, and a stored picture is known again by its fingerprint. *(P33a)*
 
 ## 8. Practice
 

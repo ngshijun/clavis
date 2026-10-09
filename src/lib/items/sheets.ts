@@ -34,6 +34,12 @@ import { clozeFromBrackets, sentenceToChips } from './text.js';
 /** A row's cells as text, by column key. A cell left empty, or whose column is gone, is ''. */
 export type Cells = Record<string, string>;
 
+/**
+ * The pictures placed in a row's cells, by column key: each as a question
+ * names a picture that is not stored yet. A cell with none has no key.
+ */
+export type Pictures = Record<string, string>;
+
 export interface Column {
 	key: string;
 	/** The words in the header row, which is how the column is found when the file comes back. */
@@ -42,6 +48,8 @@ export interface Column {
 	width: number;
 	/** A column the sheet cannot be read without. */
 	required?: boolean;
+	/** A column whose cell may hold a picture. One placed in any other column is a mistake. */
+	picture?: boolean;
 }
 
 export interface Sheet {
@@ -64,9 +72,9 @@ interface Built {
 }
 
 export interface QuestionSheet extends Sheet {
-	/** Label a Picture has no sheet: it starts from a picture, and a sheet carries none. */
+	/** Label a Picture has no sheet: its labels are put on the picture, which a sheet cannot do. */
 	type: Exclude<ItemType, 'label_picture'>;
-	build: (cells: Cells) => Built;
+	build: (cells: Cells, pictures: Pictures) => Built;
 }
 
 /** What is wrong with a row, and the header of the column it is wrong in, if it is one column's. */
@@ -111,6 +119,12 @@ const upTo = (count: number) => Array.from({ length: count }, (_, index) => inde
 
 const QUESTION: Column = { key: 'question', header: 'Question', width: 48, required: true };
 
+/** The cell a question's own picture is placed in, and a passage's. It holds no words. */
+const PICTURE: Column = { key: 'picture', header: 'Picture', width: 16, picture: true };
+
+/** What a sheet asks with: the question, under the header given, and its picture. */
+const asked = (question: Partial<Column> = {}): Column[] => [{ ...QUESTION, ...question }, PICTURE];
+
 const FILING: Column[] = [
 	{ key: 'difficulty', header: 'Difficulty', width: 12 },
 	{ key: 'tip', header: 'Tip', width: 32 },
@@ -128,17 +142,24 @@ const DIFFICULTY_WORDS = new Map<string, Difficulty>([
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 const choiceColumns = (answer: string): Column[] => [
-	QUESTION,
-	...LETTERS.map((letter) => ({ key: `option_${letter}`, header: `Option ${letter}`, width: 18 })),
+	...asked(),
+	...LETTERS.map((letter) => ({
+		key: `option_${letter}`,
+		header: `Option ${letter}`,
+		width: 18,
+		picture: true
+	})),
 	{ key: 'answer', header: answer, width: 10, required: true },
 	...FILING
 ];
 
 const choice =
 	(type: 'mcq' | 'mrq') =>
-	(cells: Cells): Built => {
+	(cells: Cells, pictures: Pictures): Built => {
 		// An option keeps the letter of its column, so an empty column in between changes no answer.
-		const filled = LETTERS.filter((letter) => cells[`option_${letter}`]);
+		const filled = LETTERS.filter(
+			(letter) => cells[`option_${letter}`] || pictures[`option_${letter}`]
+		);
 		const picked = cells.answer
 			.toUpperCase()
 			.split(/[\s,;|/&]+/)
@@ -156,6 +177,7 @@ const choice =
 					const is_correct = picked.includes(letter);
 					return {
 						text: cells[`option_${letter}`],
+						image_path: pictures[`option_${letter}`],
 						is_correct,
 						tip: is_correct ? undefined : cells.tip
 					};
@@ -419,25 +441,33 @@ function numeric(cells: Cells): Built {
 
 // ---- Matching --------------------------------------------------------------
 
+/** What an item or an answer shows a pupil: its words, its picture, or both. */
+type Shown = { text: string; image_path?: string };
+
+const holds = (entry: Shown) => entry.text !== '' || entry.image_path !== undefined;
+
 const PAIRS = upTo(8);
 
-function matching(cells: Cells): Built {
-	const used = PAIRS.filter((n) => cells[`left_${n}`] || cells[`right_${n}`]);
-	const left = used.map((n) => ({ id: newId(), text: cells[`left_${n}`] }));
+function matching(cells: Cells, pictures: Pictures): Built {
+	const shown = (key: string): Shown => ({ text: cells[key], image_path: pictures[key] });
+	const used = PAIRS.filter((n) => holds(shown(`left_${n}`)) || holds(shown(`right_${n}`)));
+	const left = used.map((n) => ({ id: newId(), ...shown(`left_${n}`) }));
 
-	// One answer serves two items by being paired twice, so the same words are one answer.
-	const right: { id: string; text: string }[] = [];
-	const answer = (text: string) => {
-		const known = right.find((each) => each.text === text);
+	// One answer serves two items by being paired twice, so what shows the same is one answer.
+	const right: ({ id: string } & Shown)[] = [];
+	const answer = (entry: Shown) => {
+		const known = right.find(
+			(each) => each.text === entry.text && each.image_path === entry.image_path
+		);
 		if (known) return known;
-		right.push({ id: newId(), text });
+		right.push({ id: newId(), ...entry });
 		return right[right.length - 1];
 	};
 	const pairs = used.flatMap((n, index) => {
-		const text = cells[`right_${n}`];
-		return text ? [{ left_id: left[index].id, right_id: answer(text).id }] : [];
+		const entry = shown(`right_${n}`);
+		return holds(entry) ? [{ left_id: left[index].id, right_id: answer(entry).id }] : [];
 	});
-	list(cells.extras).forEach(answer);
+	list(cells.extras).forEach((text) => answer({ text }));
 
 	return {
 		own: { left, right, pairs },
@@ -453,9 +483,13 @@ function matching(cells: Cells): Built {
 
 const ORDER_ITEMS = upTo(8);
 
-function ordering(cells: Cells): Built {
-	const used = ORDER_ITEMS.filter((n) => cells[`item_${n}`]);
-	const items = used.map((n) => ({ id: newId(), text: cells[`item_${n}`] }));
+function ordering(cells: Cells, pictures: Pictures): Built {
+	const used = ORDER_ITEMS.filter((n) => cells[`item_${n}`] || pictures[`item_${n}`]);
+	const items = used.map((n) => ({
+		id: newId(),
+		text: cells[`item_${n}`],
+		image_path: pictures[`item_${n}`]
+	}));
 	return {
 		own: { items, correct_order: items.map((item) => item.id) },
 		column: ([key, index]) =>
@@ -494,6 +528,8 @@ function classify(cells: Cells): Built {
 // ---- The sheets ------------------------------------------------------------
 
 const PIPE = 'Put | between them.';
+const OPTION_PICTURES =
+	'An option may be a picture, words, or both: place the picture in the option’s cell.';
 
 /** The question sheets, in the order the builder lists the types. */
 export const QUESTION_SHEETS: QuestionSheet[] = [
@@ -513,6 +549,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		},
 		notes: [
 			'Fill in two to six options. Answer is the letter of the one right option, such as B.',
+			OPTION_PICTURES,
 			'Tip is shown to a pupil who picks a wrong option.'
 		],
 		build: choice('mcq')
@@ -532,6 +569,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		},
 		notes: [
 			'Answers holds the letter of every right option, at least two of them, such as A, C.',
+			OPTION_PICTURES,
 			'Tip is shown to a pupil who picks a wrong option.'
 		],
 		build: choice('mrq')
@@ -540,7 +578,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'true_false',
 		name: 'True or False',
 		columns: [
-			{ ...QUESTION, header: 'Statement' },
+			...asked({ header: 'Statement' }),
 			{ key: 'answer', header: 'Answer', width: 12, required: true },
 			...FILING
 		],
@@ -555,7 +593,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'tick_table',
 		name: 'Tick Table',
 		columns: [
-			QUESTION,
+			...asked(),
 			{ key: 'columns', header: 'Columns', width: 24, required: true },
 			...TICK_ROWS.flatMap((n) => [
 				{ key: `row_${n}`, header: `Row ${n}`, width: 20 },
@@ -583,7 +621,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'pick_words',
 		name: 'Pick Words',
 		columns: [
-			QUESTION,
+			...asked(),
 			{ key: 'sentence', header: 'Sentence', width: 48, required: true },
 			...FILING
 		],
@@ -601,7 +639,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'cloze',
 		name: 'Fill in the Blanks',
 		columns: [
-			{ ...QUESTION, required: false },
+			...asked({ required: false }),
 			{ key: 'text', header: 'Text', width: 56, required: true },
 			{ key: 'mode', header: 'Answer Mode', width: 14 },
 			{ key: 'extra', header: 'Extra Words', width: 20 },
@@ -626,7 +664,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'short_answer',
 		name: 'Short Answer',
 		columns: [
-			QUESTION,
+			...asked(),
 			{ key: 'answers', header: 'Accepted Answers', width: 32, required: true },
 			...FILING
 		],
@@ -641,7 +679,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'word_completion',
 		name: 'Word Completion',
 		columns: [
-			{ ...QUESTION, header: 'Clue' },
+			...asked({ header: 'Clue' }),
 			{ key: 'word', header: 'Word', width: 20, required: true },
 			{ key: 'reveal', header: 'Show First Letter', width: 18 },
 			...FILING
@@ -661,7 +699,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'numeric',
 		name: 'Number',
 		columns: [
-			QUESTION,
+			...asked(),
 			{ key: 'form', header: 'Answer Form', width: 16 },
 			{ key: 'answer', header: 'Answer', width: 16, required: true },
 			{ key: 'unit', header: 'Unit', width: 10 },
@@ -688,10 +726,10 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'matching',
 		name: 'Matching',
 		columns: [
-			QUESTION,
+			...asked(),
 			...PAIRS.flatMap((n) => [
-				{ key: `left_${n}`, header: `Item ${n}`, width: 18 },
-				{ key: `right_${n}`, header: `Answer ${n}`, width: 18 }
+				{ key: `left_${n}`, header: `Item ${n}`, width: 18, picture: true },
+				{ key: `right_${n}`, header: `Answer ${n}`, width: 18, picture: true }
 			]),
 			{ key: 'extras', header: 'Extra Answers', width: 20 },
 			...FILING
@@ -709,6 +747,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		notes: [
 			'Each Item and the Answer beside it are one right pair.',
 			'To let one answer serve two items, write it the same both times.',
+			'An item or an answer may be a picture, words, or both: place the picture in its cell.',
 			`Extra Answers are shown with no partner. ${PIPE}`
 		],
 		build: matching
@@ -717,8 +756,13 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'ordering',
 		name: 'Ordering',
 		columns: [
-			QUESTION,
-			...ORDER_ITEMS.map((n) => ({ key: `item_${n}`, header: `Item ${n}`, width: 18 })),
+			...asked(),
+			...ORDER_ITEMS.map((n) => ({
+				key: `item_${n}`,
+				header: `Item ${n}`,
+				width: 18,
+				picture: true
+			})),
 			...FILING
 		],
 		sample: {
@@ -728,14 +772,17 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			item_3: 'Pupa',
 			item_4: 'Butterfly'
 		},
-		notes: ['Write the items in their right order. Pupils get them shuffled.'],
+		notes: [
+			'Write the items in their right order. Pupils get them shuffled.',
+			'An item may be a picture, words, or both: place the picture in its cell.'
+		],
 		build: ordering
 	},
 	{
 		type: 'rearrange',
 		name: 'Sentence Rearrangement',
 		columns: [
-			QUESTION,
+			...asked(),
 			{ key: 'sentence', header: 'Sentence', width: 48, required: true },
 			...FILING
 		],
@@ -753,7 +800,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'classify',
 		name: 'Classify',
 		columns: [
-			QUESTION,
+			...asked(),
 			...GROUPS.flatMap((n) => [
 				{ key: `group_${n}`, header: `Group ${n}`, width: 18 },
 				{ key: `items_${n}`, header: `Group ${n} Items`, width: 28 }
@@ -777,6 +824,7 @@ export const PASSAGE_SHEET: Sheet = {
 	columns: [
 		{ key: 'code', header: 'Code', width: 10, required: true },
 		{ key: 'title', header: 'Title', width: 28, required: true },
+		PICTURE,
 		{ key: 'text', header: 'Text', width: 80, required: true }
 	],
 	sample: {
@@ -786,7 +834,8 @@ export const PASSAGE_SHEET: Sheet = {
 	},
 	notes: [
 		'Code is a short name of your own, such as P1.',
-		'Write the same code in the Passage column of each question that goes with the passage.'
+		'Write the same code in the Passage column of each question that goes with the passage.',
+		'A passage is its text, a picture placed in the Picture cell, or both.'
 	]
 };
 
@@ -804,8 +853,11 @@ export const README_RULES = [
 	'Tip is optional. It is shown in the result to a pupil who gets the question wrong.',
 	'Passage is optional: the code of a passage on the Passages sheet. The question then goes under that passage.',
 	'The cells are formatted as text, so that 3/4 and 7:30 stay as you type them. In a file of your own, format the cells as Text before you type.',
-	'Pictures are added in Clavis after the import. Label a Picture has no sheet, because it starts from a picture.',
-	'A question that is already in the stage is left out, so importing the same file again adds nothing twice.',
+	'To give a question a picture, place the picture in the Picture cell of its row. That cell holds the picture only, with no words.',
+	'A picture belongs to the cell it is in. In Excel, choose Insert, Pictures, Place in Cell. A picture that floats over the sheet belongs to the cell its top left corner is in.',
+	'Pictures are PNG, JPEG, WebP or GIF. A picture in a cell that takes none is listed as a row to fix.',
+	'Label a Picture has no sheet: it is made in Clavis, where its labels are put on the picture.',
+	'A question that is already in the stage, with the same pictures, is left out, so importing the same file again adds nothing twice.',
 	`One file holds up to ${MAX_IMPORT_QUESTIONS} questions.`
 ];
 
@@ -827,23 +879,27 @@ function whole(sheet: Sheet, cells: Cells): Cells {
  */
 export function readQuestionRow(
 	sheet: QuestionSheet,
-	written: Cells
+	written: Cells,
+	pictures: Pictures = {}
 ): { ok: true; question: CandidateQuestion } | { ok: false; problem: RowProblem } {
 	const cells = whole(sheet, written);
 	try {
+		if (cells.picture) refuse('picture', m.practice_import_picture_words());
 		const difficulty = DIFFICULTY_WORDS.get(cells.difficulty.toLowerCase());
 		if (!difficulty) return refuse('difficulty', m.practice_import_difficulty());
 
-		const built = sheet.build(cells);
+		const built = sheet.build(cells, pictures);
 		const checked = validateItem({
 			type: sheet.type,
 			question: cells.question,
+			image_path: pictures.picture,
 			tip: cells.tip,
 			...built.own
 		});
 		if (!checked.ok) {
 			const { path, message } = checked.issues[0];
-			const key = path[0] === 'question' || path[0] === 'tip' ? path[0] : built.column(path);
+			const own = { question: 'question', tip: 'tip', image_path: 'picture' }[String(path[0])];
+			const key = own ?? built.column(path);
 			return { ok: false, problem: { column: headerOf(sheet, key), message } };
 		}
 		return {
@@ -865,19 +921,20 @@ export function readQuestionRow(
 
 /** One row of the Passages sheet as a passage, or what is wrong with it. */
 export function readPassageRow(
-	written: Cells
+	written: Cells,
+	pictures: Pictures = {}
 ): { ok: true; passage: CandidatePassage } | { ok: false; problem: RowProblem } {
 	const cells = whole(PASSAGE_SHEET, written);
-	// A sheet carries no picture, so a passage here is its text and may not be without it.
-	for (const key of ['code', 'text']) {
-		if (!cells[key]) {
-			return {
-				ok: false,
-				problem: { column: headerOf(PASSAGE_SHEET, key), message: m.practice_import_cell_empty() }
-			};
-		}
-	}
-	const checked = validatePassage({ title: cells.title, body: cells.text });
+	const refused = (key: string, message: string) =>
+		({ ok: false, problem: { column: headerOf(PASSAGE_SHEET, key), message } }) as const;
+	if (!cells.code) return refused('code', m.practice_import_cell_empty());
+	if (cells.picture) return refused('picture', m.practice_import_picture_words());
+
+	const checked = validatePassage({
+		title: cells.title,
+		body: cells.text,
+		image_path: pictures.picture
+	});
 	if (!checked.ok) {
 		const { path, message } = checked.issues[0];
 		const key = path[0] === 'body' ? 'text' : 'title';
@@ -888,25 +945,30 @@ export function readPassageRow(
 		passage: {
 			code: passageCode(cells.code),
 			title: checked.content.title,
-			body: checked.content.body
+			body: checked.content.body,
+			image_path: checked.content.image_path
 		}
 	};
 }
 
 /**
  * A row as it comes off a workbook, with the number the spreadsheet shows
- * beside it. `fault` stands for a row whose cells could not be had as text.
+ * beside it. `fault` stands for a row whose cells could not be had as text,
+ * or that has a picture where none can be taken.
  */
-export type SheetRow = { row: number } & ({ cells: Cells } | { fault: RowProblem });
+export type SheetRow = { row: number } & (
+	{ cells: Cells; pictures?: Pictures } | { fault: RowProblem }
+);
 
 /**
  * The rows of a sheet that hold something to import. An empty row is no row,
  * wherever it is, and the template's example is left out when it is still
  * there untouched: a teacher fills one sheet and leaves twelve examples behind.
+ * A row with a picture is neither.
  */
 function filled(sheet: Sheet, rows: SheetRow[]): SheetRow[] {
 	return rows.filter((row) => {
-		if ('fault' in row) return true;
+		if ('fault' in row || Object.keys(row.pictures ?? {}).length > 0) return true;
 		const cells = whole(sheet, row.cells);
 		const keys = sheet.columns.map((column) => column.key);
 		const blank = keys.every((key) => cells[key] === '');
@@ -949,7 +1011,7 @@ export function readRows(sheets: { sheet: Sheet; rows: SheetRow[] }[]): {
 			refused(row.fault);
 			continue;
 		}
-		const read = readPassageRow(row.cells);
+		const read = readPassageRow(row.cells, row.pictures);
 		if (!read.ok) {
 			if (row.cells.code) broken.add(passageCode(row.cells.code));
 			refused(read.problem);
@@ -973,7 +1035,7 @@ export function readRows(sheets: { sheet: Sheet; rows: SheetRow[] }[]): {
 				refused(row.fault);
 				continue;
 			}
-			const read = readQuestionRow(sheet, row.cells);
+			const read = readQuestionRow(sheet, row.cells, row.pictures);
 			if (!read.ok) {
 				refused(read.problem);
 				continue;

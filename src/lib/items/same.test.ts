@@ -78,17 +78,55 @@ describe('contentKey', () => {
 		expect(contentKey(typed)).toBe(contentKey(mcq));
 	});
 
-	it('minds neither pictures nor tips, on the question or inside it', () => {
-		const dressed: McqPayload = {
+	it('does not mind tips, on the question or inside it', () => {
+		const tipped: McqPayload = {
 			...mcq,
-			image_path: 'stages/s/plant.png',
 			tip: 'Look under the ground.',
 			options: [
-				{ text: 'Roots', is_correct: true, image_path: 'stages/s/roots.png' },
-				{ text: 'Stem', is_correct: false }
+				{ text: 'Roots', is_correct: true },
+				{ text: 'Stem', is_correct: false, tip: 'That holds the plant up.' }
 			]
 		};
-		expect(contentKey(dressed)).toBe(contentKey(mcq));
+		expect(contentKey(tipped)).toBe(contentKey(mcq));
+	});
+
+	it('tells questions apart by their pictures, on the question or inside it', () => {
+		const plant = 'a'.repeat(32);
+		const roots = 'b'.repeat(32);
+		const pictured = (question: string, option: string): McqPayload => ({
+			...mcq,
+			image_path: question,
+			options: [
+				{ text: '', is_correct: true, image_path: option },
+				{ text: 'Stem', is_correct: false }
+			]
+		});
+		const stored = pictured(`stages/s/${plant}-1.webp`, `stages/s/${roots}-2.webp`);
+		expect(contentKey(stored)).not.toBe(contentKey(mcq));
+		expect(contentKey(pictured(`stages/s/${roots}-1.webp`, `stages/s/${roots}-2.webp`))).not.toBe(
+			contentKey(stored)
+		);
+		expect(contentKey(pictured(`stages/s/${plant}-1.webp`, `stages/s/${plant}-2.webp`))).not.toBe(
+			contentKey(stored)
+		);
+	});
+
+	it('knows a picture by its fingerprint, wherever it is stored and before it is', () => {
+		const plant = 'a'.repeat(32);
+		const pictured = (path: string): McqPayload => ({ ...mcq, image_path: path });
+		const stored = contentKey(pictured(`stages/s/${plant}-1.webp`));
+		expect(contentKey(pictured(`stages/s/${plant}-2.webp`))).toBe(stored);
+		expect(contentKey(pictured(`upload:${plant}`))).toBe(stored);
+
+		// The pictures of what a pupil moves count the same way.
+		const paired = (path: string): MatchingPayload => ({
+			...matching,
+			left: matching.left.map((item, index) => (index === 0 ? { ...item, image_path: path } : item))
+		});
+		expect(contentKey(paired(`upload:${plant}`))).toBe(
+			contentKey(paired(`stages/s/${plant}-9.webp`))
+		);
+		expect(contentKey(paired(`upload:${plant}`))).not.toBe(contentKey(matching));
 	});
 
 	it('tells questions apart by their words, their answers and their type', () => {

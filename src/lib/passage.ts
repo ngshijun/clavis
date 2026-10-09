@@ -4,6 +4,7 @@ import {
 	MAX_PASSAGE_BODY_CHARS,
 	MAX_PASSAGE_TITLE_CHARS
 } from '#lib/items/limits.js';
+import { pictureMark } from '#lib/item-images.js';
 import { text, type ItemIssue } from '#lib/items/schema.js';
 import { m } from '#lib/paraglide/messages.js';
 
@@ -71,9 +72,15 @@ export function validatePassage(
 /**
  * What a passage says, as one string: two passages with the same key read the
  * same to a pupil. The import uses it to put a question under a passage that
- * is already in the stage rather than make the passage a second time. A
- * picture, capital letters and the spaces around the words are left out.
+ * is already in the stage rather than make the passage a second time.
+ * Capital letters and the spaces around the words are left out, and a picture
+ * counts by its fingerprint and not by where it is stored.
  */
-export function passageKey(passage: Pick<PassageContent, 'title' | 'body'>): string {
-	return JSON.stringify([passage.title, passage.body].map((text) => text.trim().toLowerCase()));
+export function passageKey(
+	passage: Pick<PassageContent, 'title' | 'body'> & Partial<Pick<PassageContent, 'image_path'>>
+): string {
+	return JSON.stringify([
+		...[passage.title, passage.body].map((text) => text.trim().toLowerCase()),
+		passage.image_path ? pictureMark(passage.image_path) : ''
+	]);
 }

@@ -6,8 +6,12 @@
  *
  * A picture picked in the editor and not saved yet is written `upload:<key>`
  * instead, and its file travels with the Save under the form field `<key>`.
- * The Save action uploads it and puts the object path in its place.
+ * The Save action uploads it and puts the object path in its place. An import
+ * writes a picture of the workbook the same way, with its fingerprint as the
+ * key.
  */
+
+import { storedFingerprint } from '#lib/image.js';
 
 const UPLOAD = 'upload:';
 
@@ -19,6 +23,15 @@ export function uploadRef(key: string): string {
 /** The form field a pending picture's file travels under; null for a stored picture. */
 export function uploadKey(path: string): string | null {
 	return path.startsWith(UPLOAD) ? path.slice(UPLOAD.length) : null;
+}
+
+/**
+ * What a picture is told from another by: its fingerprint, which a stored
+ * picture has in its name and a picture of an import is named by. Two
+ * questions that differ only in a picture are told apart by it.
+ */
+export function pictureMark(path: string): string {
+	return uploadKey(path) ?? storedFingerprint(path) ?? path;
 }
 
 /** Every picture named anywhere in `value`, stored and pending alike, each once. */

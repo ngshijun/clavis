@@ -1,3 +1,4 @@
+import { pictureMark } from '#lib/item-images.js';
 import { comparable } from './absent.js';
 import type { ItemPayload } from './payload.js';
 
@@ -7,18 +8,28 @@ import type { ItemPayload } from './payload.js';
  * out a row that is already in the stage.
  *
  * The key leaves out what does not make a question another one: the ids the
- * editor made up, the pictures, the tips, capital letters and the spaces
- * around the words. The ids are what an answer key points with, so each
- * pointer is replaced by the words it points at before the ids are dropped.
+ * editor made up, the tips, capital letters and the spaces around the words.
+ * The ids are what an answer key points with, so each pointer is replaced by
+ * what it points at before the ids are dropped. A picture counts by its
+ * fingerprint and not by where it is stored: a question that asks the same
+ * words about another picture is another question, and the same picture
+ * stored twice is one.
  */
 export function contentKey(payload: ItemPayload): string {
 	return JSON.stringify(comparable(plain(content(payload))));
 }
 
-/** The words of the entry an id names. */
-function textOf(list: { id: string; text: string }[], id: string | undefined): string {
-	return list.find((each) => each.id === id)?.text ?? '';
-}
+type Entry = { id: string; text: string; image_path?: string | null };
+
+/** What an entry shows a pupil: its words and its picture. */
+const shown = (entry: Entry | undefined) => ({
+	text: entry?.text ?? '',
+	image_path: entry?.image_path
+});
+
+/** What the entry an id names shows. */
+const shownBy = (list: Entry[], id: string | undefined) =>
+	shown(list.find((each) => each.id === id));
 
 /** The payload with every pointer at an id replaced by the words it points at. */
 function content(payload: ItemPayload): unknown {
@@ -29,8 +40,8 @@ function content(payload: ItemPayload): unknown {
 				...payload,
 				groups: payload.groups.map((group) => group.text),
 				items: payload.items.map((item) => ({
-					text: item.text,
-					group: textOf(payload.groups, item.group_id)
+					...shown(item),
+					group: shownBy(payload.groups, item.group_id).text
 				}))
 			};
 		case 'matching': {
@@ -39,8 +50,8 @@ function content(payload: ItemPayload): unknown {
 				...payload,
 				pairs: undefined,
 				left: payload.left.map((item) => ({
-					text: item.text,
-					answer: textOf(
+					...shown(item),
+					answer: shownBy(
 						payload.right,
 						payload.pairs.find((pair) => pair.left_id === item.id)?.right_id
 					)
@@ -48,7 +59,7 @@ function content(payload: ItemPayload): unknown {
 				// The answers no item uses. They are shown shuffled, so their order is not content.
 				right: payload.right
 					.filter((item) => !paired.has(item.id))
-					.map((item) => item.text.trim().toLowerCase())
+					.map((item) => JSON.stringify(comparable(plain(shown(item)))))
 					.sort()
 			};
 		}
@@ -58,7 +69,7 @@ function content(payload: ItemPayload): unknown {
 			return {
 				...payload,
 				correct_order: undefined,
-				items: payload.correct_order.map((id) => textOf(payload.items, id))
+				items: payload.correct_order.map((id) => shownBy(payload.items, id))
 			};
 		default:
 			return payload;
@@ -66,11 +77,12 @@ function content(payload: ItemPayload): unknown {
 }
 
 /** The keys that never make a question another one. */
-const LEFT_OUT = new Set(['id', 'image_path', 'tip']);
+const LEFT_OUT = new Set(['id', 'tip']);
 
 /**
  * A value without what never makes a question another one: the keys above
- * are gone, and words are trimmed and in small letters.
+ * are gone, words are trimmed and in small letters, and a picture is its
+ * fingerprint.
  */
 function plain(value: unknown): unknown {
 	if (typeof value === 'string') return value.trim().toLowerCase();
@@ -79,6 +91,9 @@ function plain(value: unknown): unknown {
 	return Object.fromEntries(
 		Object.entries(value)
 			.filter(([key]) => !LEFT_OUT.has(key))
-			.map(([key, inner]) => [key, plain(inner)])
+			.map(([key, inner]) => [
+				key,
+				key === 'image_path' && typeof inner === 'string' ? pictureMark(inner) : plain(inner)
+			])
 	);
 }

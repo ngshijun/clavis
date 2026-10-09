@@ -92,15 +92,21 @@ describe('how much a passage may hold', () => {
 });
 
 describe('passageKey', () => {
-	it('is the same for a passage that reads the same, whatever its capitals and picture', () => {
-		const stored = {
-			title: 'The Water Cycle',
-			body: 'The sun heats the sea.',
-			image_path: 'a.png'
-		};
+	it('is the same for a passage that reads the same, whatever its capitals', () => {
+		const stored = { title: 'The Water Cycle', body: 'The sun heats the sea.', image_path: null };
 		expect(passageKey({ title: ' the water cycle ', body: 'THE SUN HEATS THE SEA.\n' })).toBe(
 			passageKey(stored)
 		);
+	});
+
+	it('knows a picture by its fingerprint, wherever it is stored and before it is', () => {
+		const mark = 'a'.repeat(32);
+		const poster = (path: string | null) => ({ title: 'A Poster', body: '', image_path: path });
+		const stored = passageKey(poster(`stages/s/${mark}-1.webp`));
+		expect(passageKey(poster(`stages/s/${mark}-2.webp`))).toBe(stored);
+		expect(passageKey(poster(`upload:${mark}`))).toBe(stored);
+		expect(passageKey(poster(`upload:${'b'.repeat(32)}`))).not.toBe(stored);
+		expect(passageKey(poster(null))).not.toBe(stored);
 	});
 
 	it('tells passages apart by their title and by their text', () => {

@@ -10,6 +10,7 @@ import {
 	type Sheet
 } from '#lib/items/sheets.js';
 import { m } from '#lib/paraglide/messages.js';
+import { splitWorkbook } from '#lib/workbook.js';
 import { readWorkbook, writeTemplate } from './workbook.js';
 
 const file = (content: Buffer | string, name = 'questions.xlsx') =>
@@ -232,7 +233,7 @@ describe('readWorkbook', () => {
 
 	it('joins questions to the passages of the Passages sheet', async () => {
 		const reading = await read({
-			Passages: [headers(PASSAGE_SHEET), ['R1', '雨', '下雨了。\n天空很暗。']],
+			Passages: [headers(PASSAGE_SHEET), ['R1', '雨', null, '下雨了。\n天空很暗。']],
 			'Short Answer': [headers(short), rowOf(short, { Question: '天气怎样？', Passage: 'r1' })]
 		});
 		expect(reading.problems).toEqual([]);
@@ -244,7 +245,7 @@ describe('readWorkbook', () => {
 
 	it('lists the rows to fix sheet by sheet as the template has them', async () => {
 		const reading = await read({
-			Passages: [headers(PASSAGE_SHEET), ['R1', '', 'No title.']],
+			Passages: [headers(PASSAGE_SHEET), ['R1', '', null, 'No title.']],
 			'Short Answer': [headers(short), rowOf(short, { Question: '' })],
 			Number: [headers(number), rowOf(number, { Answer: 'three quarters' })]
 		});
@@ -285,7 +286,7 @@ describe('readWorkbook', () => {
 		const empty = await readWorkbook(await workbook({ 'Short Answer': [headers(short)] }));
 		expect(empty).toEqual({ ok: false, message: m.practice_import_empty() });
 		const passages = await readWorkbook(
-			await workbook({ Passages: [headers(PASSAGE_SHEET), ['R1', 'Rain', 'It rains.']] })
+			await workbook({ Passages: [headers(PASSAGE_SHEET), ['R1', 'Rain', null, 'It rains.']] })
 		);
 		expect(passages).toEqual({ ok: false, message: m.practice_import_empty() });
 	});
@@ -309,5 +310,161 @@ describe('readWorkbook', () => {
 				max: MAX_IMPORT_QUESTIONS
 			})
 		});
+	});
+});
+
+describe('readWorkbook, with pictures', () => {
+	const choice = sheetNamed('Multiple Choice');
+
+	/** A picture of a sheet, known by `name`, its top left corner in the cell of a column and a row. */
+	const picture = (sheet: Sheet, header: string | number, row: number, name: string) => ({
+		content: Buffer.from(name),
+		contentType: 'image/png',
+		width: 10,
+		height: 10,
+		dpi: 96,
+		anchor: {
+			row,
+			column: typeof header === 'number' ? header : headers(sheet).indexOf(header) + 1
+		}
+	});
+	/** What stands for the fingerprint of the picture known by `name`. */
+	const mark = (name: string) => Buffer.from(name).toString('hex').padEnd(32, '0').slice(0, 32);
+	const named = (name: string) => `upload:${mark(name)}`;
+
+	/**
+	 * Reads a workbook as the page sends it: without its pictures, and with
+	 * the fingerprint of each one that can be used.
+	 */
+	async function readPictured(
+		sheets: { sheet: string; data: SheetData; images?: ReturnType<typeof picture>[] }[],
+		unusable: string[] = []
+	) {
+		const written = await writeExcelFile(sheets as never).toBuffer();
+		const { workbook: stripped, media } = splitWorkbook(new Uint8Array(written));
+		const marks = new Map<string, string>();
+		for (const [path, bytes] of media) {
+			const name = Buffer.from(bytes).toString();
+			if (!unusable.includes(name)) marks.set(path, mark(name));
+		}
+		const reading = await readWorkbook(file(Buffer.from(stripped)), marks);
+		if (!reading.ok) throw new Error(reading.message);
+		return reading;
+	}
+
+	it('gives a question the picture in its Picture cell, and an option the one in its own', async () => {
+		const reading = await readPictured([
+			{
+				sheet: choice.name,
+				data: [
+					headers(choice),
+					rowOf(choice),
+					rowOf(choice, { Question: 'Which is the root?', 'Option B': null, Tip: null })
+				],
+				images: [
+					picture(choice, 'Picture', 3, 'plant'),
+					picture(choice, 'Option A', 3, 'roots'),
+					picture(choice, 'Option B', 3, 'stem')
+				]
+			}
+		]);
+		expect(reading.problems).toEqual([]);
+		expect(reading.candidates.questions.map((each) => each.payload)).toEqual([
+			{
+				type: 'mcq',
+				question: 'Which is the root?',
+				image_path: named('plant'),
+				options: [
+					{ text: 'Roots', image_path: named('roots'), is_correct: true },
+					{ text: '', image_path: named('stem'), is_correct: false },
+					{ text: 'Leaf', is_correct: false },
+					{ text: 'Flower', is_correct: false }
+				]
+			}
+		]);
+	});
+
+	it('reads the example once it has a picture, and a passage that is only a picture', async () => {
+		const reading = await readPictured([
+			{
+				sheet: short.name,
+				data: [headers(short), rowOf(short, { Passage: 'P1' })],
+				images: [picture(short, 'Picture', 2, 'leaf')]
+			},
+			{
+				sheet: PASSAGE_SHEET.name,
+				data: [headers(PASSAGE_SHEET), ['P1', 'A Poster', null, null]],
+				images: [picture(PASSAGE_SHEET, 'Picture', 2, 'poster')]
+			}
+		]);
+		expect(reading.problems).toEqual([]);
+		expect(reading.candidates).toMatchObject({
+			passages: [{ code: 'p1', title: 'A Poster', body: '', image_path: named('poster') }],
+			questions: [{ passage: 'p1', payload: { image_path: named('leaf') } }]
+		});
+	});
+
+	it('holds back a row whose picture is where none is taken, and says where', async () => {
+		const row = (question: string) => rowOf(short, { Question: question });
+		const reading = await readPictured(
+			[
+				{
+					sheet: short.name,
+					data: [
+						headers(short),
+						row('One?'),
+						row('Two?'),
+						row('Three?'),
+						row('Four?'),
+						row('Five?')
+					],
+					images: [
+						picture(short, 'Picture', 1, 'slid up'),
+						picture(short, 'Accepted Answers', 2, 'misplaced'),
+						picture(short, headers(short).length + 3, 3, 'outside'),
+						picture(short, 'Picture', 4, 'first'),
+						picture(short, 'Picture', 4, 'second'),
+						picture(short, 'Picture', 5, 'drawing'),
+						picture(short, 'Picture', 6, 'good'),
+						picture(short, 'Picture', 9, 'alone')
+					]
+				}
+			],
+			['drawing']
+		);
+		const at = (column: string, message: string) =>
+			m.practice_import_at_column({ column, message });
+		expect(reading.problems).toEqual([
+			{ sheet: short.name, row: 1, reason: m.practice_import_picture_header() },
+			{
+				sheet: short.name,
+				row: 2,
+				reason: at('Accepted Answers', m.practice_import_picture_misplaced())
+			},
+			{ sheet: short.name, row: 3, reason: m.practice_import_picture_outside() },
+			{ sheet: short.name, row: 4, reason: at('Picture', m.practice_import_picture_two()) },
+			{ sheet: short.name, row: 5, reason: at('Picture', m.practice_import_picture_unusable()) },
+			// A picture under the last question is a row of its own, which asks nothing.
+			{ sheet: short.name, row: 9, reason: at('Question', m.item_question_required()) }
+		]);
+		expect(reading.candidates.questions.map((each) => each.payload)).toMatchObject([
+			{ question: 'Five?', image_path: named('good') }
+		]);
+	});
+
+	it('refuses words typed where the picture goes', async () => {
+		const reading = await readPictured([
+			{ sheet: short.name, data: [headers(short), rowOf(short, { Picture: 'leaf.png' })] }
+		]);
+		expect(reading.problems).toEqual([
+			{
+				sheet: short.name,
+				row: 2,
+				reason: m.practice_import_at_column({
+					column: 'Picture',
+					message: m.practice_import_picture_words()
+				})
+			}
+		]);
 	});
 });

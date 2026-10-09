@@ -14,6 +14,32 @@ export const IMAGE_ACCEPT = Object.keys(IMAGE_EXTENSIONS).join(',');
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /**
+ * What tells one picture from another: the start of the SHA-256 of its bytes,
+ * in hex. The same bytes have the same fingerprint in the browser and on the
+ * server, which is how a picture about to be uploaded is known to be one that
+ * is stored already.
+ */
+export async function fingerprint(picture: Blob): Promise<string> {
+	const digest = await crypto.subtle.digest('SHA-256', await picture.arrayBuffer());
+	return Array.from(new Uint8Array(digest, 0, 16), (byte) =>
+		byte.toString(16).padStart(2, '0')
+	).join('');
+}
+
+/**
+ * The name a picture is stored under: its fingerprint, then an id of its own,
+ * so two rows that show the same picture each keep a file of theirs.
+ */
+export function storedName(mark: string, type: ImageType): string {
+	return `${mark}-${crypto.randomUUID()}.${IMAGE_EXTENSIONS[type]}`;
+}
+
+/** The fingerprint in the name of a stored picture; undefined for a path that has none. */
+export function storedFingerprint(path: string): string | undefined {
+	return /(?:^|\/)([0-9a-f]{32})-[^/]*$/.exec(path)?.[1];
+}
+
+/**
  * A picked file made ready to upload: optimised, and null for one that cannot
  * be taken, because the browser cannot read it as a picture (a HEIC photo, a
  * damaged file), or it is not of a kind the app takes, or it is still too

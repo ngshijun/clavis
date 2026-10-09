@@ -1,5 +1,6 @@
 import readExcelFile, { parseSheetData, type Schema } from 'read-excel-file/node';
 import writeExcelFile, { getSheetData, type Column } from 'write-excel-file/node';
+import { uploadRef } from '#lib/item-images.js';
 import {
 	fileRefusal,
 	MAX_IMPORT_QUESTIONS,
@@ -14,10 +15,13 @@ import {
 	readRows,
 	SHEETS,
 	type Cells,
+	type Pictures,
+	type RowProblem,
 	type Sheet,
 	type SheetRow
 } from '#lib/items/sheets.js';
 import { m } from '#lib/paraglide/messages.js';
+import { readPictures, type PlacedPicture } from './workbook-pictures.js';
 
 /**
  * The import workbook as a file: the template written out, and a filled
@@ -55,23 +59,72 @@ function schemaOf(sheet: Sheet): Schema<Cells> {
 	);
 }
 
-/** The rows under a sheet's header, each as its cells or as why they could not be read. */
-function rowsOf(sheet: Sheet, header: unknown[], rows: unknown[][]): SheetRow[] {
+/**
+ * The fingerprints of the pictures of a workbook that can be used, by each
+ * picture's name in the file. The page says which those are, because the
+ * workbook is sent without them.
+ */
+export type PictureMarks = Map<string, string>;
+
+/**
+ * The pictures of one row by the key of the column each is in, as a question
+ * names a picture not stored yet, or what is wrong with where one is.
+ */
+function picturesOf(
+	sheet: Sheet,
+	header: unknown[],
+	placed: PlacedPicture[],
+	marks: PictureMarks
+): { pictures: Pictures } | { fault: RowProblem } {
+	const pictures: Pictures = {};
+	for (const { column, media } of placed) {
+		const found = sheet.columns.find((each) => each.header === header[column]);
+		if (!found) return { fault: { column: null, message: m.practice_import_picture_outside() } };
+		const refused = (message: string) => ({ fault: { column: found.header, message } });
+		if (!found.picture) return refused(m.practice_import_picture_misplaced());
+		if (found.key in pictures) return refused(m.practice_import_picture_two());
+		const mark = marks.get(media);
+		if (!mark) return refused(m.practice_import_picture_unusable());
+		pictures[found.key] = uploadRef(mark);
+	}
+	return { pictures };
+}
+
+/**
+ * The rows under a sheet's header, each as its cells and pictures or as why
+ * they could not be read. A picture below the last row that has words makes
+ * a row of its own.
+ */
+function rowsOf(
+	sheet: Sheet,
+	header: unknown[],
+	rows: unknown[][],
+	placed: PlacedPicture[],
+	marks: PictureMarks
+): SheetRow[] {
 	const schema = schemaOf(sheet);
-	return rows.map((cells, index): SheetRow => {
-		// The header is row 1, so the first row under it is row 2.
-		const row = index + 2;
-		// One row at a time: a cell that cannot be read fails its row and not the sheet.
-		const { objects, errors } = parseSheetData<Cells>([header, cells] as never, schema, {
-			propertyValueWhenCellIsEmpty: '',
-			propertyValueWhenColumnIsMissing: ''
+	// The header is row 1, so the first row under it is row 2.
+	const numbers = new Set([
+		...rows.map((_, index) => index + 2),
+		...placed.map((picture) => picture.row).filter((row) => row > 1)
+	]);
+	return [...numbers]
+		.sort((a, b) => a - b)
+		.map((row): SheetRow => {
+			// One row at a time: a cell that cannot be read fails its row and not the sheet.
+			const { objects, errors } = parseSheetData<Cells>(
+				[header, rows[row - 2] ?? []] as never,
+				schema,
+				{ propertyValueWhenCellIsEmpty: '', propertyValueWhenColumnIsMissing: '' }
+			);
+			if (errors) {
+				return { row, fault: { column: errors[0].column, message: m.practice_import_date_cell() } };
+			}
+			const here = placed.filter((picture) => picture.row === row);
+			const read = picturesOf(sheet, header, here, marks);
+			// A row with nothing in the sheet's columns comes back as no object at all.
+			return 'fault' in read ? { row, ...read } : { row, cells: objects[0] ?? {}, ...read };
 		});
-		if (errors) {
-			return { row, fault: { column: errors[0].column, message: m.practice_import_date_cell() } };
-		}
-		// A row with nothing in the sheet's columns comes back as no object at all.
-		return { row, cells: objects[0] ?? {} };
-	});
 }
 
 export type WorkbookReading =
@@ -82,14 +135,24 @@ export type WorkbookReading =
 /**
  * Reads a filled workbook. A sheet is known by its name, so the sheets a
  * teacher did not need may be deleted and the Read me sheet is passed over.
+ *
+ * The workbook arrives without its pictures. Where each one sits is still in
+ * it, and `marks` says which of them can be used; a row names its pictures
+ * `upload:<fingerprint>`.
  */
-export async function readWorkbook(file: File): Promise<WorkbookReading> {
+export async function readWorkbook(
+	file: File,
+	marks: PictureMarks = new Map()
+): Promise<WorkbookReading> {
 	const refusal = fileRefusal(file);
 	if (refusal) return { ok: false, message: refusal };
 
 	let workbook: Awaited<ReturnType<typeof readExcelFile>>;
+	let pictures: ReturnType<typeof readPictures>;
 	try {
-		workbook = await readExcelFile(Buffer.from(await file.arrayBuffer()));
+		const bytes = Buffer.from(await file.arrayBuffer());
+		workbook = await readExcelFile(bytes);
+		pictures = readPictures(bytes);
 	} catch {
 		// Not a workbook under its name: an old .xls renamed, a damaged file, an empty one.
 		return { ok: false, message: m.practice_import_unreadable() };
@@ -105,7 +168,8 @@ export async function readWorkbook(file: File): Promise<WorkbookReading> {
 		const header = written.map(
 			(cell) => sheet.columns.find((column) => plain(column.header) === plain(cell))?.header ?? cell
 		);
-		if (rows.length === 0) {
+		const placed = pictures.get(found.sheet) ?? [];
+		if (rows.length === 0 && placed.length === 0) {
 			read.push({ sheet, rows: [] });
 			continue;
 		}
@@ -121,7 +185,11 @@ export async function readWorkbook(file: File): Promise<WorkbookReading> {
 			});
 			continue;
 		}
-		read.push({ sheet, rows: rowsOf(sheet, header, rows) });
+		// A picture has slid up over the header: it is said, and the rows are read all the same.
+		if (placed.some((picture) => picture.row === 1)) {
+			problems.push({ sheet: sheet.name, row: 1, reason: m.practice_import_picture_header() });
+		}
+		read.push({ sheet, rows: rowsOf(sheet, header, rows, placed, marks) });
 	}
 	if (read.length === 0 && problems.length === 0) {
 		return { ok: false, message: m.practice_import_no_sheets() };
