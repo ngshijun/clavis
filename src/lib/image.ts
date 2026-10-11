@@ -1,14 +1,12 @@
-/** The pictures the app takes, by content type, and the extension each is stored under. */
-export const IMAGE_EXTENSIONS = {
-	'image/png': 'png',
-	'image/jpeg': 'jpg',
-	'image/webp': 'webp',
-	'image/gif': 'gif'
-} as const;
-export type ImageType = keyof typeof IMAGE_EXTENSIONS;
+/**
+ * The one kind of picture that is stored. Whatever a person picks is made into
+ * a WebP before it is uploaded, and the server refuses anything else, so a
+ * page never waits for a photograph in the size its camera took it.
+ */
+export const STORED_IMAGE_TYPE = 'image/webp';
 
 /** What a file input that picks a picture accepts. */
-export const IMAGE_ACCEPT = Object.keys(IMAGE_EXTENSIONS).join(',');
+export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 
 /** The largest picture that is stored. */
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -30,8 +28,8 @@ export async function fingerprint(picture: Blob): Promise<string> {
  * The name a picture is stored under: its fingerprint, then an id of its own,
  * so two rows that show the same picture each keep a file of theirs.
  */
-export function storedName(mark: string, type: ImageType): string {
-	return `${mark}-${crypto.randomUUID()}.${IMAGE_EXTENSIONS[type]}`;
+export function storedName(mark: string): string {
+	return `${mark}-${crypto.randomUUID()}.webp`;
 }
 
 /** The fingerprint in the name of a stored picture; undefined for a path that has none. */
@@ -40,40 +38,35 @@ export function storedFingerprint(path: string): string | undefined {
 }
 
 /**
- * A picked file made ready to upload: optimised, and null for one that cannot
- * be taken, because the browser cannot read it as a picture (a HEIC photo, a
- * damaged file), or it is not of a kind the app takes, or it is still too
- * large. The server checks an upload again by its own bytes.
+ * A picked file made ready to upload: a WebP no larger than a page shows it.
+ * Null for one that cannot be taken, because the browser cannot read it as a
+ * picture (a HEIC photo, a damaged file) or it is still too large. The server
+ * checks an upload again by its own bytes.
  */
 export async function preparePicture(file: File): Promise<File | null> {
 	let ready: File;
 	try {
-		ready = await optimizeImage(file);
+		ready = await toWebp(file);
 	} catch {
 		return null;
 	}
-	return ready.type in IMAGE_EXTENSIONS && ready.size <= MAX_IMAGE_BYTES ? ready : null;
+	return ready.size <= MAX_IMAGE_BYTES ? ready : null;
 }
 
-/**
- * Resize a picked image and convert it to WebP in the browser, so what is
- * uploaded is a few hundred kilobytes rather than a phone camera's original.
- * SVGs (vector) and GIFs (possibly animated) are passed through untouched.
- */
-export async function optimizeImage(file: File, maxDimension = 1200): Promise<File> {
-	if (
-		!file.type.startsWith('image/') ||
-		file.type === 'image/svg+xml' ||
-		file.type === 'image/gif'
-	) {
-		return file;
-	}
+/** The longest side a stored picture has, in pixels. */
+const MAX_DIMENSION = 1200;
 
+/**
+ * A picture as a WebP of at most `MAX_DIMENSION` a side. One that is such a
+ * WebP already is handed back as it is. Of a moving GIF the first frame is
+ * kept. Throws for a file the browser cannot read as a picture.
+ */
+async function toWebp(file: File): Promise<File> {
 	// Decoding through a bitmap applies the EXIF orientation.
 	const bitmap = await createImageBitmap(file);
-	const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+	const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
 
-	if (file.type === 'image/webp' && scale === 1) {
+	if (file.type === STORED_IMAGE_TYPE && scale === 1) {
 		bitmap.close();
 		return file;
 	}
@@ -90,6 +83,22 @@ export async function optimizeImage(file: File, maxDimension = 1200): Promise<Fi
 	context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 	bitmap.close();
 
-	const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.8 });
-	return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
+	const quality = 0.8;
+	const drawn = await canvas.convertToBlob({ type: STORED_IMAGE_TYPE, quality });
+	// Safari cannot write a WebP and answers with a PNG instead, several times the size. The
+	// encoder it lacks is loaded there, and only there.
+	const webp = drawn.type === STORED_IMAGE_TYPE ? drawn : await encoded(context, quality);
+	return new File([webp], file.name.replace(/\.[^.]+$/, '') + '.webp', {
+		type: STORED_IMAGE_TYPE
+	});
+}
+
+/** What is drawn on a canvas as the bytes of a WebP, made by an encoder of our own. */
+async function encoded(
+	context: OffscreenCanvasRenderingContext2D,
+	quality: number
+): Promise<ArrayBuffer> {
+	const { default: encode } = await import('@jsquash/webp/encode.js');
+	const { width, height } = context.canvas;
+	return encode(context.getImageData(0, 0, width, height), { quality: quality * 100 });
 }

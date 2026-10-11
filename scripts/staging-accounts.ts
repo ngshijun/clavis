@@ -1,8 +1,10 @@
 /**
  * Creates the test accounts on the staging project, where the seed is never
  * loaded: an admin, and in the organization "Clavis Demo Center" a manager,
- * two teachers and two students. Accounts that are already there are left as
- * they are, so it can be run again.
+ * two teachers and two students. It can be run again: an account that is
+ * already there is kept, and is given the password so that all six share it.
+ * If it has another role or is in another organization, that is said and not
+ * changed, because its classrooms would be left behind.
  *
  * The accounts get no classroom: the manager makes those in the app, as a
  * real manager would. The students sign in with their usernames, like every
@@ -92,11 +94,28 @@ for (const account of ACCOUNTS) {
 	const signIn = account.role === 'student' ? account.username : email;
 
 	const existing = await found(
-		supabase.from('profiles').select('id').eq('email', email).maybeSingle()
+		supabase
+			.from('profiles')
+			.select('id, user_type, organizations (name)')
+			.eq('email', email)
+			.maybeSingle()
 	);
 	if (existing) {
 		if (account.role === 'manager') managerId = existing.id;
-		console.log(`${signIn}: already there`);
+		const { error } = await supabase.auth.admin.updateUserById(existing.id, {
+			password: TEST_PASSWORD
+		});
+		if (error) stop(`${signIn}: ${error.message}`);
+
+		const expected = account.role === 'admin' ? null : ORGANIZATION;
+		const actual = existing.organizations?.name ?? null;
+		const odd = [
+			existing.user_type === account.role ? null : `is a ${existing.user_type}`,
+			actual === expected ? null : `is in ${actual ?? 'no organization'}`
+		].filter(Boolean);
+		console.log(
+			`${signIn}: already there, password set${odd.length > 0 ? `, but ${odd.join(' and ')}` : ''}`
+		);
 		continue;
 	}
 

@@ -56,6 +56,8 @@
 		"vitest": "^4.1.8"
 	},
 	"dependencies": {
+		"@jsquash/webp": "^1.5.0",
+		"@onparallel/write-excel-file-data-validation": "^1.0.2",
 		"@supabase/ssr": "^0.12.7",
 		"@supabase/supabase-js": "^2.117.2",
 		"fflate": "^0.8.3",

@@ -1,5 +1,22 @@
 import readExcelFile, { parseSheetData, type Schema } from 'read-excel-file/node';
-import writeExcelFile, { getSheetData, type Column } from 'write-excel-file/node';
+import dataValidation, {
+	type DataValidationRule,
+	type DataValidationSheetOptions
+} from '@onparallel/write-excel-file-data-validation';
+import writeExcelFile, {
+	getSheetData,
+	type Column,
+	type Feature,
+	type Image,
+	type Sheet as WrittenSheet
+} from 'write-excel-file/node';
+import {
+	findElement,
+	getCellAddress,
+	getChildElements,
+	getSelfClosingTagMarkup,
+	setMarkupInsideElement
+} from 'write-excel-file/utility';
 import { uploadRef } from '#lib/item-images.js';
 import {
 	fileRefusal,
@@ -8,10 +25,11 @@ import {
 	type ImportProblem
 } from '#lib/items/import.js';
 import {
+	EXAMPLE_MARK,
+	exampleRow,
 	PASSAGE_SHEET,
-	QUESTION_SHEETS,
+	README,
 	README_NAME,
-	README_RULES,
 	readRows,
 	SHEETS,
 	type Cells,
@@ -216,54 +234,148 @@ export async function readWorkbook(
 	};
 }
 
-/** How many rows under the example are made ready to type into: all a workbook may hold. */
-const TEMPLATE_ROWS = MAX_IMPORT_QUESTIONS;
+/** The last row of a sheet that is made ready to type into: the header, the example, and all a workbook may hold. */
+const LAST_ROW = MAX_IMPORT_QUESTIONS + 2;
 
 const HEADER = { fontWeight: 'bold', backgroundColor: '#EDE7FB' } as const;
+const EXAMPLE = { backgroundColor: '#FFF2CC' } as const;
+
+/** What the features below read off a sheet, beside what the writer takes. */
+type TemplateOptions = DataValidationSheetOptions & { textColumns?: boolean };
+type FileContent = Image['content'];
+type TemplateSheet = WrittenSheet<FileContent> & TemplateOptions;
 
 /**
- * A sheet of the template: its header, its example, and empty rows below.
- *
- * Every cell is of the Text format, the empty ones too, because that is what
- * stops Excel from turning 3/4 into a date and 7:30 into a time of day as a
- * teacher types them.
+ * Gives every column of a sheet that asks for it the format of the sheet's
+ * example row, which is Text. A cell typed into a column takes the column's
+ * format, and Text is what stops Excel from turning 3/4 into a date and 7:30
+ * into a time of day. The rows below the example need not be written for it.
  */
-function templateSheet(sheet: Sheet) {
+const textColumns: Feature<FileContent> = {
+	files: {
+		transform: {
+			'xl/worksheets/sheet{id}.xml': {
+				transform(xml, sheet) {
+					const columns = findElement(xml, 'cols');
+					const rows = findElement(xml, 'sheetData');
+					if (!(sheet as TemplateOptions).textColumns || !columns || !rows) return xml;
+					const example = getChildElements(xml, rows)[1];
+					const style = example && getChildElements(xml, example)[0]?.openingTagAttributes.s;
+					if (style === undefined) throw new Error('The example row has no format to give');
+					// The columns come before the rows, so writing them anew moves nothing that was read.
+					return setMarkupInsideElement(
+						xml,
+						columns,
+						getChildElements(xml, columns)
+							.map((column) =>
+								getSelfClosingTagMarkup('col', { ...column.openingTagAttributes, style })
+							)
+							.join('')
+					);
+				}
+			}
+		}
+	}
+};
+
+/** Every row of one column that may be typed into. Columns are counted from 1 here. */
+const below = (column: number) => ({
+	from: { row: 2, column },
+	to: { row: LAST_ROW, column }
+});
+
+/** The titles on the Passages sheet, as a list a cell of another sheet picks from. */
+function passageTitles(): string {
+	const column = PASSAGE_SHEET.columns.findIndex((each) => each.key === 'title');
+	const letter = getCellAddress(0, column).replace(/\d+$/, '');
+	return `'${PASSAGE_SHEET.name}'!$${letter}$2:$${letter}$${LAST_ROW}`;
+}
+
+/** The list each cell of a column is picked from, for the columns that have one. */
+function listsOf(sheet: Sheet): DataValidationRule[] {
+	return sheet.columns.flatMap((column, index): DataValidationRule[] => {
+		if (column.choices) {
+			const values = [...column.choices];
+			return [
+				{
+					cellRange: below(index + 1),
+					validation: {
+						type: 'list',
+						values,
+						errorTitle: column.header,
+						error: `Pick one from the list: ${values.join(', ')}.`
+					}
+				}
+			];
+		}
+		if (column.passages) {
+			return [
+				{
+					cellRange: below(index + 1),
+					validation: {
+						type: 'list',
+						valuesRange: passageTitles(),
+						errorTitle: column.header,
+						error: `Pick a title from the list. Write the passage on the ${PASSAGE_SHEET.name} sheet first.`
+					}
+				}
+			];
+		}
+		return [];
+	});
+}
+
+/**
+ * A sheet of the template: its header and its example. The example is shown
+ * in yellow for as long as it begins with the mark that keeps it from being
+ * imported, so a row a teacher typed over it is no longer yellow.
+ */
+function templateSheet(sheet: Sheet): TemplateSheet {
 	const columns = sheet.columns.map((column): Column<Cells> => ({
 		header: { value: column.header, ...HEADER },
 		cell: (row) => ({ value: row[column.key] ?? '', type: String, format: '@' }),
 		width: column.width
 	}));
-	const rows: Cells[] = [sheet.sample, ...Array.from({ length: TEMPLATE_ROWS }, () => ({}))];
-	return { sheet: sheet.name, data: getSheetData(rows, columns), columns, stickyRowsCount: 1 };
+	return {
+		sheet: sheet.name,
+		data: getSheetData([exampleRow(sheet)], columns),
+		columns,
+		textColumns: true,
+		// The header stays in sight going down, and what is asked stays in sight going across.
+		stickyRowsCount: 1,
+		stickyColumnsCount: 1,
+		conditionalFormatting: [
+			{
+				cellRange: { from: { row: 2, column: 1 }, to: { row: LAST_ROW, column: columns.length } },
+				condition: { formula: `LEFT($A2,${EXAMPLE_MARK.length})="${EXAMPLE_MARK}"` },
+				style: EXAMPLE
+			}
+		],
+		dataValidation: listsOf(sheet)
+	};
 }
 
-/** The first sheet: the few rules, then what each sheet's columns hold. */
-function readMeSheet() {
-	const heading = (value: string) => [{ value, fontWeight: 'bold' as const }];
+/** The first sheet: how the file is used, in short parts, then a part for each sheet. */
+function readMeSheet(): TemplateSheet {
 	const line = (value: string) => [{ value, wrap: true, alignVertical: 'top' as const }];
 	return {
 		sheet: README_NAME,
-		columns: [{ width: 120 }],
+		columns: [{ width: 110 }],
+		showGridLines: false,
 		data: [
-			[
-				{
-					value: 'Importing practice questions into Clavis',
-					fontWeight: 'bold' as const,
-					fontSize: 14
-				}
-			],
-			...README_RULES.map(line),
-			...SHEETS.flatMap((sheet) => [[], heading(sheet.name), ...sheet.notes.map(line)])
+			[{ value: README.title, fontWeight: 'bold', fontSize: 16 }],
+			...README.parts.flatMap(({ heading, lines }) => [
+				[],
+				[{ value: heading, ...HEADER }],
+				...lines.map(line)
+			])
 		]
 	};
 }
 
 /** The empty workbook a teacher downloads: the Read me, a sheet a type, and the passages. */
 export async function writeTemplate(): Promise<Buffer> {
-	return writeExcelFile([
-		readMeSheet(),
-		...QUESTION_SHEETS.map(templateSheet),
-		templateSheet(PASSAGE_SHEET)
-	]).toBuffer();
+	return writeExcelFile([readMeSheet(), ...SHEETS.map(templateSheet)], {
+		features: [dataValidation, textColumns]
+	}).toBuffer();
 }

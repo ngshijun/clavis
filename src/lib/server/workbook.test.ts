@@ -1,8 +1,10 @@
+import { strFromU8, unzipSync } from 'fflate';
 import readExcelFile from 'read-excel-file/node';
 import writeExcelFile, { type SheetData } from 'write-excel-file/node';
 import { describe, expect, it } from 'vitest';
 import { MAX_IMPORT_QUESTIONS, MAX_WORKBOOK_BYTES } from '#lib/items/import.js';
 import {
+	exampleRow,
 	PASSAGE_SHEET,
 	QUESTION_SHEETS,
 	README_NAME,
@@ -36,6 +38,10 @@ const rowOf = (sheet: Sheet, cells: Record<string, unknown> = {}) =>
 		column.header in cells ? cells[column.header] : (sheet.sample[column.key] ?? null)
 	) as never[];
 
+/** The example of a sheet as the template writes it, which is never imported. */
+const exampleOf = (sheet: Sheet) =>
+	sheet.columns.map((column) => exampleRow(sheet)[column.key] ?? null) as never[];
+
 const short = sheetNamed('Short Answer');
 const number = sheetNamed('Number');
 
@@ -59,11 +65,39 @@ describe('writeTemplate', () => {
 		const sheets = await readExcelFile(await writeTemplate());
 		for (const sheet of SHEETS) {
 			const written = sheets.find((each) => each.sheet === sheet.name)?.data;
-			expect(written).toEqual([
-				headers(sheet),
-				sheet.columns.map((column) => sheet.sample[column.key] ?? null)
-			]);
+			expect(written).toEqual([headers(sheet), exampleOf(sheet)]);
 		}
+	});
+
+	it('makes every column Text, shows the example in yellow, and offers the lists', async () => {
+		const parts = unzipSync(new Uint8Array(await writeTemplate()));
+		const styles = strFromU8(parts['xl/styles.xml']);
+		const formats = [...styles.matchAll(/<numFmt numFmtId="(\d+)" formatCode="@"\/>/g)];
+		const text = [
+			...(/<cellXfs[^>]*>(.*)<\/cellXfs>/s.exec(styles)?.[1] ?? '').matchAll(/<xf[^>]*>/g)
+		]
+			.map(([xf]) => xf)
+			.findIndex((xf) => formats.some(([, id]) => xf.includes(`numFmtId="${id}"`)));
+		expect(text).toBeGreaterThan(0);
+
+		// The Read me is the first sheet of the file.
+		SHEETS.forEach((sheet, index) => {
+			const xml = strFromU8(parts[`xl/worksheets/sheet${index + 2}.xml`]);
+			const columns = [...xml.matchAll(/<col [^>]*>/g)].map(([column]) => column);
+			expect(columns).toHaveLength(sheet.columns.length);
+			for (const column of columns) expect(column).toContain(`style="${text}"`);
+			// Only the header and the example are written, so the file stays small.
+			expect(xml.match(/<row /g)).toHaveLength(2);
+
+			expect(xml).toContain('<formula>LEFT($A2,8)="Example:"</formula>');
+			const lists = sheet.columns.filter((column) => column.choices || column.passages);
+			expect(xml.match(/<dataValidation /g) ?? []).toHaveLength(lists.length);
+		});
+
+		const choice = strFromU8(parts['xl/worksheets/sheet2.xml']);
+		expect(choice).toContain('<formula1>"Low,Medium,High"</formula1>');
+		expect(choice).toContain("<formula1>'Passages'!$A$2:$A$502</formula1>");
+		expect(choice).toContain('state="frozen"');
 	});
 
 	it('explains every sheet on the Read me', async () => {
@@ -87,7 +121,7 @@ describe('readWorkbook', () => {
 			[README_NAME]: [['Importing practice questions into Clavis']],
 			'Short Answer': [
 				headers(short),
-				rowOf(short),
+				exampleOf(short),
 				rowOf(short, { Question: 'Which gas do animals breathe in?', 'Accepted Answers': 'oxygen' })
 			]
 		});
@@ -233,19 +267,19 @@ describe('readWorkbook', () => {
 
 	it('joins questions to the passages of the Passages sheet', async () => {
 		const reading = await read({
-			Passages: [headers(PASSAGE_SHEET), ['R1', '雨', null, '下雨了。\n天空很暗。']],
-			'Short Answer': [headers(short), rowOf(short, { Question: '天气怎样？', Passage: 'r1' })]
+			Passages: [headers(PASSAGE_SHEET), ['雨', null, '下雨了。\n天空很暗。']],
+			'Short Answer': [headers(short), rowOf(short, { Question: '天气怎样？', Passage: '雨' })]
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates).toMatchObject({
-			passages: [{ code: 'r1', title: '雨', body: '下雨了。\n天空很暗。' }],
-			questions: [{ passage: 'r1', payload: { question: '天气怎样？' } }]
+			passages: [{ title: '雨', body: '下雨了。\n天空很暗。' }],
+			questions: [{ passage: '雨', payload: { question: '天气怎样？' } }]
 		});
 	});
 
 	it('lists the rows to fix sheet by sheet as the template has them', async () => {
 		const reading = await read({
-			Passages: [headers(PASSAGE_SHEET), ['R1', '', null, 'No title.']],
+			Passages: [headers(PASSAGE_SHEET), ['', null, 'No title.']],
 			'Short Answer': [headers(short), rowOf(short, { Question: '' })],
 			Number: [headers(number), rowOf(number, { Answer: 'three quarters' })]
 		});
@@ -286,7 +320,7 @@ describe('readWorkbook', () => {
 		const empty = await readWorkbook(await workbook({ 'Short Answer': [headers(short)] }));
 		expect(empty).toEqual({ ok: false, message: m.practice_import_empty() });
 		const passages = await readWorkbook(
-			await workbook({ Passages: [headers(PASSAGE_SHEET), ['R1', 'Rain', null, 'It rains.']] })
+			await workbook({ Passages: [headers(PASSAGE_SHEET), ['Rain', null, 'It rains.']] })
 		);
 		expect(passages).toEqual({ ok: false, message: m.practice_import_empty() });
 	});
@@ -358,13 +392,17 @@ describe('readWorkbook, with pictures', () => {
 				sheet: choice.name,
 				data: [
 					headers(choice),
-					rowOf(choice),
-					rowOf(choice, { Question: 'Which is the root?', 'Option B': null, Tip: null })
+					exampleOf(choice),
+					rowOf(choice, {
+						Question: 'Which is the root?',
+						'Option B': null,
+						'Option B Tip': null
+					})
 				],
 				images: [
 					picture(choice, 'Picture', 3, 'plant'),
-					picture(choice, 'Option A', 3, 'roots'),
-					picture(choice, 'Option B', 3, 'stem')
+					picture(choice, 'Option A Picture', 3, 'roots'),
+					picture(choice, 'Option B Picture', 3, 'stem')
 				]
 			}
 		]);
@@ -377,30 +415,30 @@ describe('readWorkbook, with pictures', () => {
 				options: [
 					{ text: 'Roots', image_path: named('roots'), is_correct: true },
 					{ text: '', image_path: named('stem'), is_correct: false },
-					{ text: 'Leaf', is_correct: false },
+					{ text: 'Leaf', is_correct: false, tip: 'A leaf makes food from sunlight.' },
 					{ text: 'Flower', is_correct: false }
 				]
 			}
 		]);
 	});
 
-	it('reads the example once it has a picture, and a passage that is only a picture', async () => {
+	it('reads a question with a picture, and a passage that is only a picture', async () => {
 		const reading = await readPictured([
 			{
 				sheet: short.name,
-				data: [headers(short), rowOf(short, { Passage: 'P1' })],
+				data: [headers(short), rowOf(short, { Passage: 'A poster' })],
 				images: [picture(short, 'Picture', 2, 'leaf')]
 			},
 			{
 				sheet: PASSAGE_SHEET.name,
-				data: [headers(PASSAGE_SHEET), ['P1', 'A Poster', null, null]],
+				data: [headers(PASSAGE_SHEET), ['A Poster', null, null]],
 				images: [picture(PASSAGE_SHEET, 'Picture', 2, 'poster')]
 			}
 		]);
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates).toMatchObject({
-			passages: [{ code: 'p1', title: 'A Poster', body: '', image_path: named('poster') }],
-			questions: [{ passage: 'p1', payload: { image_path: named('leaf') } }]
+			passages: [{ title: 'A Poster', body: '', image_path: named('poster') }],
+			questions: [{ passage: 'a poster', payload: { image_path: named('leaf') } }]
 		});
 	});
 

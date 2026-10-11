@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { imagePaths } from '#lib/item-images.js';
 import { m } from '#lib/paraglide/messages.js';
 import { passageKey, validatePassage } from '#lib/passage.js';
-import { MAX_ENTRY_CHARS, MAX_IMAGE_PATH_CHARS } from './limits.js';
+import { MAX_IMAGE_PATH_CHARS, MAX_PASSAGE_TITLE_CHARS } from './limits.js';
 import { DIFFICULTIES, type Difficulty, type ItemPayload } from './payload.js';
 import { contentKey } from './same.js';
 import { validateItem } from './schema.js';
@@ -44,12 +44,11 @@ export function fileRefusal(file: Sized): string | null {
 }
 
 /**
- * A passage of a workbook, known to its questions by the code its row gives it.
- * Its picture, like a question's, is named `upload:<fingerprint>` in a review
- * and by where it is stored in what the page posts back to import.
+ * A passage of a workbook, known to its questions by its title. Its picture,
+ * like a question's, is named `upload:<fingerprint>` in a review and by where
+ * it is stored in what the page posts back to import.
  */
 export interface CandidatePassage {
-	code: string;
 	title: string;
 	body: string;
 	image_path: string | null;
@@ -59,7 +58,7 @@ export interface CandidatePassage {
 export interface CandidateQuestion {
 	payload: ItemPayload;
 	difficulty: Difficulty;
-	/** The code of the passage it joins; null for one that stands alone. */
+	/** The title of the passage it joins, as `titleKey` has it; null for one that stands alone. */
 	passage: string | null;
 }
 
@@ -90,9 +89,12 @@ export interface ImportReview {
 	problems: ImportProblem[];
 }
 
-/** A passage code as it is compared: a teacher writes `P1` in one sheet and `p1` in another. */
-export function passageCode(written: string): string {
-	return written.trim().toLowerCase();
+/**
+ * A passage's title as it is compared: what a question's Passage cell holds is
+ * the title on the Passages sheet whatever its capitals and the spaces around it.
+ */
+export function titleKey(title: string): string {
+	return title.trim().toLowerCase();
 }
 
 /** What a stage holds already, as far as an import looks at it. */
@@ -133,7 +135,7 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 	});
 
 	const joined = candidates.passages.filter((passage) =>
-		fresh.some((question) => question.passage === passage.code)
+		fresh.some((question) => question.passage === titleKey(passage.title))
 	);
 	const passages: ImportPlan['passages'] = [];
 	const places = new Map<string, PlannedPlace>();
@@ -141,9 +143,9 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 		const key = passageKey(passage);
 		const match = stored.passages.find((each) => passageKey(each) === key);
 		if (match) {
-			places.set(passage.code, { stored: match.id });
+			places.set(titleKey(passage.title), { stored: match.id });
 		} else {
-			places.set(passage.code, { created: passages.length });
+			places.set(titleKey(passage.title), { created: passages.length });
 			passages.push({ title: passage.title, body: passage.body, image_path: passage.image_path });
 		}
 	}
@@ -152,7 +154,7 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 		passages,
 		questions: fresh.map(({ payload, difficulty, passage }) => {
 			const place = passage === null ? null : places.get(passage);
-			if (place === undefined) throw new Error(`No passage of the import has the code ${passage}`);
+			if (place === undefined) throw new Error(`No passage of the import has the title ${passage}`);
 			return { payload, difficulty, place };
 		}),
 		duplicates: candidates.questions.length - fresh.length,
@@ -164,7 +166,6 @@ const postedSchema = z.object({
 	passages: z
 		.array(
 			z.object({
-				code: z.string().max(MAX_ENTRY_CHARS),
 				title: z.string(),
 				body: z.string(),
 				image_path: z.string().max(MAX_IMAGE_PATH_CHARS).nullable()
@@ -176,7 +177,7 @@ const postedSchema = z.object({
 			z.object({
 				payload: z.unknown(),
 				difficulty: z.enum(DIFFICULTIES),
-				passage: z.string().max(MAX_ENTRY_CHARS).nullable()
+				passage: z.string().max(MAX_PASSAGE_TITLE_CHARS).nullable()
 			})
 		)
 		.max(MAX_IMPORT_QUESTIONS)
@@ -186,8 +187,8 @@ const postedSchema = z.object({
  * The candidates a page posted back, checked as if they had never been seen:
  * every question and passage is complete, every picture one names is `free`
  * to be a new row's and is named by that row alone, no two passages share a
- * code and every question's passage is among them. Null for anything else, which a review of ours
- * cannot have produced.
+ * title and every question's passage is among them. Null for anything else,
+ * which a review of ours cannot have produced.
  */
 export function checkCandidates(
 	posted: unknown,
@@ -206,21 +207,20 @@ export function checkCandidates(
 	};
 
 	const passages: CandidatePassage[] = [];
+	const known = (title: string) => passages.some((each) => titleKey(each.title) === title);
 	for (const passage of parsed.data.passages) {
-		const { code: written, ...content } = passage;
-		const checked = validatePassage(content);
-		const code = passageCode(written);
-		if (!checked.ok || code === '' || !own(checked.content)) return null;
-		if (passages.some((each) => each.code === code)) return null;
-		passages.push({ code, ...checked.content });
+		const checked = validatePassage(passage);
+		if (!checked.ok || !own(checked.content)) return null;
+		if (known(titleKey(checked.content.title))) return null;
+		passages.push(checked.content);
 	}
 
 	const questions: CandidateQuestion[] = [];
 	for (const question of parsed.data.questions) {
 		const checked = validateItem(question.payload);
-		const passage = question.passage === null ? null : passageCode(question.passage);
+		const passage = question.passage === null ? null : titleKey(question.passage);
 		if (!checked.ok || !own(checked.payload)) return null;
-		if (passage !== null && !passages.some((each) => each.code === passage)) return null;
+		if (passage !== null && !known(passage)) return null;
 		questions.push({ payload: checked.payload, difficulty: question.difficulty, passage });
 	}
 	return { passages, questions };
