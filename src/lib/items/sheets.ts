@@ -933,7 +933,7 @@ export const README: { title: string; parts: { heading: string; lines: string[] 
 			heading: 'Good to know',
 			lines: [
 				`The yellow row that begins with “${EXAMPLE_MARK}” shows how a row is filled in. It is never imported.`,
-				'Keep the header row as it is.',
+				'Keep the header row as it is. A file whose columns were renamed, added or removed is not taken.',
 				'A cell that shows a small arrow has a list. Pick from it.',
 				'Difficulty left empty is Medium. Tip and Passage are optional.',
 				'A tip is shown in the result to a pupil who gets the question wrong.',

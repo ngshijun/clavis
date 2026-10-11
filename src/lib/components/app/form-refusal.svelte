@@ -7,11 +7,11 @@
 	 * It is said in the dialog, above the fields, where the person is looking
 	 * and for as long as the dialog is open.
 	 */
-	let { message }: { message: string | null } = $props();
+	let { message, class: className }: { message: string | null; class?: string } = $props();
 </script>
 
 {#if message}
-	<Alert.Root variant="destructive">
+	<Alert.Root variant="destructive" class={className}>
 		<CircleAlertIcon />
 		<Alert.Description>{message}</Alert.Description>
 	</Alert.Root>

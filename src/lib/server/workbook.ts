@@ -186,23 +186,26 @@ export async function readWorkbook(
 		const header = written.map(
 			(cell) => sheet.columns.find((column) => plain(column.header) === plain(cell))?.header ?? cell
 		);
+		/*
+		 * A header row that is not the template's means the file was made from another template,
+		 * and nothing in it can be trusted to mean what it does here: a column this template
+		 * lacks would be passed over without a word, and the example rows of an older template
+		 * are not marked as examples and would be imported as questions. So the file is refused
+		 * whole, whichever sheet shows it. The columns may stand in any order.
+		 */
+		const titles = header.filter((cell) => cell !== null && cell !== '');
+		if (
+			titles.length !== sheet.columns.length ||
+			!sheet.columns.every((column) => titles.includes(column.header))
+		) {
+			return { ok: false, message: m.practice_import_other_template({ sheet: sheet.name }) };
+		}
 		const placed = pictures.get(found.sheet) ?? [];
 		if (rows.length === 0 && placed.length === 0) {
 			read.push({ sheet, rows: [] });
 			continue;
 		}
-		// Without one of these columns no row of the sheet can be read, so it is said once.
-		const missing = sheet.columns.find(
-			(column) => column.required && !header.includes(column.header)
-		);
-		if (missing) {
-			problems.push({
-				sheet: sheet.name,
-				row: 1,
-				reason: m.practice_import_missing_column({ column: missing.header })
-			});
-			continue;
-		}
+
 		// A picture has slid up over the header: it is said, and the rows are read all the same.
 		if (placed.some((picture) => picture.row === 1)) {
 			problems.push({ sheet: sheet.name, row: 1, reason: m.practice_import_picture_header() });

@@ -199,11 +199,11 @@ describe('readWorkbook', () => {
 	});
 
 	it('knows a column by its header in any capitals, and with spaces around it', async () => {
+		const written = headers(short).map(
+			(header) => `  ${header.toUpperCase().replace(' ', '   ')} `
+		);
 		const reading = await read({
-			'Short Answer': [
-				['question ', '  ACCEPTED   answers'],
-				['One?', 'yes']
-			]
+			'Short Answer': [written, rowOf(short, { Question: 'One?', 'Accepted Answers': 'yes' })]
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates.questions).toMatchObject([
@@ -234,35 +234,54 @@ describe('readWorkbook', () => {
 		]);
 	});
 
-	it('says once that a sheet has lost a column it cannot be read without', async () => {
+	it('reads a sheet whose columns were moved', async () => {
+		const moved = [...headers(short)].reverse();
 		const reading = await read({
 			'Short Answer': [
-				['Question', 'Jawapan'],
-				['One?', 'yes'],
-				['Two?', 'no']
-			]
-		});
-		expect(reading.candidates.questions).toEqual([]);
-		expect(reading.problems).toEqual([
-			{
-				sheet: 'Short Answer',
-				row: 1,
-				reason: m.practice_import_missing_column({ column: 'Accepted Answers' })
-			}
-		]);
-	});
-
-	it('reads a sheet whose optional columns were deleted or moved', async () => {
-		const reading = await read({
-			'Short Answer': [
-				['Accepted Answers', 'My notes', 'Question'],
-				['yes', 'ask Aina', 'One?']
+				moved,
+				moved.map((header) => ({ Question: 'One?', 'Accepted Answers': 'yes' })[header] ?? null)
 			]
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates.questions).toMatchObject([
 			{ payload: { question: 'One?', accepted_answers: ['yes'] }, difficulty: 'medium' }
 		]);
+	});
+
+	it('refuses a file with a sheet whose columns are not the template’s, and names the sheet', async () => {
+		const refused = { ok: false, message: m.practice_import_other_template({ sheet: short.name }) };
+		const row = rowOf(short, { Question: 'One?' });
+		const others = {
+			// A column the template does not have, whose cells would be passed over.
+			added: [
+				[...headers(short), 'My notes'],
+				[...row, 'ask Aina']
+			],
+			// A column of the template's that is gone.
+			removed: [headers(short).slice(0, -1), row.slice(0, -1)],
+			renamed: [headers(short).map((header) => (header === 'Question' ? 'Soalan' : header)), row],
+			twice: [
+				[...headers(short), 'Question'],
+				[...row, 'Two?']
+			]
+		};
+		for (const data of Object.values(others)) {
+			expect(await readWorkbook(await workbook({ 'Short Answer': data }))).toEqual(refused);
+		}
+	});
+
+	it('refuses the whole file for one such sheet, so no row of another template is read', async () => {
+		// An older template: this sheet's columns are today's, but its example row is not marked as one.
+		const reading = await readWorkbook(
+			await workbook({
+				'Short Answer': [headers(short), rowOf(short)],
+				Number: [[...headers(number), 'Tip 2'], rowOf(number)]
+			})
+		);
+		expect(reading).toEqual({
+			ok: false,
+			message: m.practice_import_other_template({ sheet: number.name })
+		});
 	});
 
 	it('joins questions to the passages of the Passages sheet', async () => {
@@ -326,17 +345,14 @@ describe('readWorkbook', () => {
 	});
 
 	it('refuses more question rows than one workbook may hold', async () => {
-		const rows = Array.from({ length: MAX_IMPORT_QUESTIONS + 1 }, (_, n) => [
-			`Question ${n}?`,
-			'yes'
-		]);
+		const rows = Array.from({ length: MAX_IMPORT_QUESTIONS + 1 }, (_, n) =>
+			rowOf(short, { Question: `Question ${n}?` })
+		);
 		const full = await readWorkbook(
-			await workbook({ 'Short Answer': [['Question', 'Accepted Answers'], ...rows.slice(1)] })
+			await workbook({ 'Short Answer': [headers(short), ...rows.slice(1)] })
 		);
 		expect(full).toMatchObject({ ok: true });
-		const over = await readWorkbook(
-			await workbook({ 'Short Answer': [['Question', 'Accepted Answers'], ...rows] })
-		);
+		const over = await readWorkbook(await workbook({ 'Short Answer': [headers(short), ...rows] }));
 		expect(over).toEqual({
 			ok: false,
 			message: m.practice_import_too_many({

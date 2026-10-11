@@ -659,17 +659,16 @@
 	"practice_import_choose": "Choose File…",
 	"practice_import_reading": "Reading {name}…",
 	"practice_import_template": "Download Template",
-	"practice_import_note_sheets": "The template has one sheet for each question type, with an example row, and a sheet for passages.",
-	"practice_import_note_passages": "A question joins a passage by the passage’s title, picked from a list.",
-	"practice_import_note_pictures": "A picture goes in a Picture column, in the row of its question. Label a Picture has no sheet: it is made here.",
+	"practice_import_template_title": "Start from the template",
+	"practice_import_template_hint": "One sheet for each question type, with an example row and a Read me sheet.",
 	"practice_import_choose_another": "Choose Another…",
 	"practice_import_ready": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "question ready",
-				"countPlural=other": "questions ready"
+				"countPlural=one": "{count} question ready to import",
+				"countPlural=other": "{count} questions ready to import"
 			}
 		}
 	],
@@ -678,32 +677,42 @@
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "passage",
-				"countPlural=other": "passages"
+				"countPlural=one": "{count} passage",
+				"countPlural=other": "{count} passages"
 			}
 		}
 	],
-	"practice_import_duplicates": "repeated questions",
+	"practice_import_duplicates": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} repeated question",
+				"countPlural=other": "{count} repeated questions"
+			}
+		}
+	],
+	"practice_import_duplicates_hint": "Already in the stage, or asked twice in the file. Left out.",
 	"practice_import_problems": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "row to fix",
-				"countPlural=other": "rows to fix"
+				"countPlural=one": "{count} row to fix",
+				"countPlural=other": "{count} rows to fix"
 			}
 		}
 	],
+	"practice_import_problems_hint": "Left out for now. Fix them in the file and import it again, or add those questions here.",
 	"practice_import_problems_label": "Rows to fix",
-	"practice_import_row": "{sheet}, row {row}",
-	"practice_import_left_out": "Rows to fix are left out, and so is a question that the stage already has or that the file asks twice. Fix the rows in the file and import it again, or add those questions here.",
+	"practice_import_row": "Row {row}",
 	"practice_import_pictures": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} picture comes with them.",
-				"countPlural=other": "{count} pictures come with them."
+				"countPlural=one": "{count} picture",
+				"countPlural=other": "{count} pictures"
 			}
 		}
 	],
@@ -734,13 +743,13 @@
 	"practice_import_file_too_large": "This file is larger than 100 MB. Split it into smaller files.",
 	"practice_import_unreadable": "This file could not be read as an Excel workbook. Save it as .xlsx in Excel and choose it again.",
 	"practice_import_no_sheets": "This file has none of the template’s sheets. Use Download Template and fill that file in.",
+	"practice_import_other_template": "This file does not match the current template: the header row of its “{sheet}” sheet is different. Download the template again and copy your rows into it.",
 	"practice_import_empty": "This file has no questions yet. Use Download Template, add your questions under the example rows, and choose the file again.",
 	"practice_import_too_many": "This file has {count} questions. One file holds up to {max}, so split it.",
 	"practice_import_stale": "This review can no longer be imported. Choose the file again.",
 	"practice_import_failed": "The import did not go through and nothing was added. Try again.",
 	"practice_import_picture_failed": "A picture could not be uploaded, so nothing was added. Try again.",
 	"practice_import_at_column": "{column}: {message}",
-	"practice_import_missing_column": "This sheet has no “{column}” column. Copy the header row from the template.",
 	"practice_import_date_cell": "Excel has turned this cell into a date. Format the cell as Text and type it again.",
 	"practice_import_picture_words": "This cell takes a picture and no words. Place the picture in it.",
 	"practice_import_picture_misplaced": "A picture is in this cell, which takes none. Move it to a Picture column.",

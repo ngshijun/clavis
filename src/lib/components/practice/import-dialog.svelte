@@ -2,13 +2,19 @@
 	import { tick } from 'svelte';
 	import type { ActionResult } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileIcon from '@lucide/svelte/icons/file';
+	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { toast } from 'svelte-sonner';
+	import FormRefusal from '#lib/components/app/form-refusal.svelte';
 	import { refusal as refusalOf } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { postAction, unanswered } from '#lib/form-actions.js';
 	import { imagePaths, mapImagePaths, uploadKey } from '#lib/item-images.js';
@@ -16,6 +22,7 @@
 		fileRefusal,
 		pickedRefusal,
 		type Candidates,
+		type ImportProblem,
 		type ImportReview
 	} from '#lib/items/import.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -38,9 +45,9 @@
 	 * Mounted while it is needed and unmounted once it has closed, so every
 	 * opening starts at the first step.
 	 *
-	 * The dialog's corners are 26px. It pads 8px, so the drop zone against that
-	 * inset has 18px corners; the figures stand 4px further in and have 14px
-	 * ones. What is only words brings the rest of its own room (`px-4`).
+	 * The dialog's corners are 26px. It pads 16px, so whatever is drawn against
+	 * that inset (the drop zone, the template's row, each outcome) has 10px
+	 * corners. What is only words stands 8px further in (`px-2`).
 	 */
 	let {
 		stage,
@@ -90,23 +97,49 @@
 				)
 			: 0
 	);
-	const figures = $derived(
-		review && [
-			{ key: 'ready', count: ready, label: m.practice_import_ready({ count: ready }) },
+	/**
+	 * What the file comes to, one line an outcome: what is ready, then what is
+	 * left out and why. An outcome that did not happen is not listed.
+	 */
+	const outcomes = $derived.by(() => {
+		if (!review) return [];
+		const along = [
+			review.passages > 0 && m.practice_import_passages({ count: review.passages }),
+			pictures > 0 && m.practice_import_pictures({ count: pictures })
+		].filter((part) => part !== false);
+		return [
 			{
-				key: 'passages',
-				count: review.passages,
-				label: m.practice_import_passages({ count: review.passages })
+				key: 'ready',
+				icon: CircleCheckIcon,
+				tone: ready > 0 ? 'text-success' : 'text-muted-foreground',
+				title: m.practice_import_ready({ count: ready }),
+				detail: progress ? m.practice_import_uploading(progress) : along.join(' · ')
 			},
-			{ key: 'duplicates', count: review.duplicates, label: m.practice_import_duplicates() },
-			{
+			review.duplicates > 0 && {
+				key: 'duplicates',
+				icon: CopyIcon,
+				tone: 'text-muted-foreground',
+				title: m.practice_import_duplicates({ count: review.duplicates }),
+				detail: m.practice_import_duplicates_hint()
+			},
+			review.problems.length > 0 && {
 				key: 'problems',
-				count: review.problems.length,
-				label: m.practice_import_problems({ count: review.problems.length }),
-				alarming: review.problems.length > 0
+				icon: TriangleAlertIcon,
+				tone: 'text-destructive',
+				title: m.practice_import_problems({ count: review.problems.length }),
+				detail: m.practice_import_problems_hint()
 			}
-		]
-	);
+		].filter((outcome) => outcome !== false);
+	});
+	/** The rows to fix, sheet by sheet in the order they come in. */
+	const problemSheets = $derived.by(() => {
+		const sheets: { name: string; problems: ImportProblem[] }[] = [];
+		for (const problem of review?.problems ?? []) {
+			if (sheets.at(-1)?.name !== problem.sheet) sheets.push({ name: problem.sheet, problems: [] });
+			sheets.at(-1)?.problems.push(problem);
+		}
+		return sheets;
+	});
 
 	/**
 	 * Sends a picked file to be read, without its pictures, and answers with
@@ -267,75 +300,86 @@
 <Dialog.Root bind:open onOpenChangeComplete={(isOpen) => !isOpen && onclosed()}>
 	<!-- While a file is on its way the dialog stays, so its answer has somewhere to arrive. -->
 	<Dialog.Content
-		class="p-2 sm:max-w-135"
+		class="gap-4 p-4 sm:max-w-135"
 		showCloseButton={!busy}
 		escapeKeydownBehavior={busy ? 'ignore' : 'close'}
 		interactOutsideBehavior={busy ? 'ignore' : 'close'}
 	>
-		<Dialog.Header class="px-4 pt-4">
+		<Dialog.Header class="px-2 pt-2">
 			<Dialog.Title>{m.practice_import_title()}</Dialog.Title>
 			<Dialog.Description>{m.practice_import_description({ stage })}</Dialog.Description>
 		</Dialog.Header>
 
+		<FormRefusal message={refusal} class="rounded-lg" />
+
 		{#if !review}
-			<div class="flex flex-col gap-3">
-				<div
-					role="group"
-					aria-label={m.practice_import_drop()}
-					class={cn(
-						'flex min-h-37 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong p-4 text-center transition-colors',
-						over && 'border-primary bg-accent'
-					)}
-					ondragover={(event) => {
-						event.preventDefault();
-						over = true;
-					}}
-					ondragleave={() => (over = false)}
-					ondrop={(event) => {
-						event.preventDefault();
-						over = false;
-						choose(event.dataTransfer?.files[0]);
-					}}
+			<div
+				role="group"
+				aria-label={m.practice_import_drop()}
+				class={cn(
+					'flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong p-4 text-center transition-colors',
+					over && 'border-primary bg-accent'
+				)}
+				ondragover={(event) => {
+					event.preventDefault();
+					over = true;
+				}}
+				ondragleave={() => (over = false)}
+				ondrop={(event) => {
+					event.preventDefault();
+					over = false;
+					choose(event.dataTransfer?.files[0]);
+				}}
+			>
+				<span
+					class="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"
 				>
-					<span
-						class="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"
-					>
-						{#if busy}
-							<Spinner class="size-5" />
-						{:else}
-							<UploadIcon class="size-5" aria-hidden="true" />
-						{/if}
-					</span>
-					<span class="font-medium wrap-anywhere" aria-live="polite">
-						{busy ? m.practice_import_reading({ name: fileName }) : m.practice_import_drop()}
-					</span>
-					<Button
-						bind:ref={chooseButton}
-						variant="outline"
-						size="sm"
-						aria-disabled={busy !== null}
-						class={waiting}
-						onclick={() => busy || input?.click()}
-					>
-						{m.practice_import_choose()}
-					</Button>
-					<input
-						bind:this={input}
-						type="file"
-						accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-						hidden
-						onchange={(event) => {
-							const [file] = event.currentTarget.files ?? [];
-							// Emptied, so that choosing the same file again, once it is fixed, is a change.
-							event.currentTarget.value = '';
-							choose(file);
-						}}
-					/>
-				</div>
-				<div class="px-4">
+					{#if busy}
+						<Spinner class="size-5" />
+					{:else}
+						<UploadIcon class="size-5" aria-hidden="true" />
+					{/if}
+				</span>
+				<span class="font-medium wrap-anywhere" aria-live="polite">
+					{busy ? m.practice_import_reading({ name: fileName }) : m.practice_import_drop()}
+				</span>
+				<Button
+					bind:ref={chooseButton}
+					variant="outline"
+					size="sm"
+					aria-disabled={busy !== null}
+					class={waiting}
+					onclick={() => busy || input?.click()}
+				>
+					{m.practice_import_choose()}
+				</Button>
+				<input
+					bind:this={input}
+					type="file"
+					accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+					hidden
+					onchange={(event) => {
+						const [file] = event.currentTarget.files ?? [];
+						// Emptied, so that choosing the same file again, once it is fixed, is a change.
+						event.currentTarget.value = '';
+						choose(file);
+					}}
+				/>
+			</div>
+
+			<!-- How the file is laid out is the template's own Read me to say; here it is only handed out. -->
+			<Item.Root variant="muted" size="sm" class="rounded-lg">
+				<Item.Media variant="icon">
+					<FileSpreadsheetIcon />
+				</Item.Media>
+				<Item.Content>
+					<Item.Title>{m.practice_import_template_title()}</Item.Title>
+					<Item.Description>{m.practice_import_template_hint()}</Item.Description>
+				</Item.Content>
+				<Item.Actions>
 					<!-- A plain download: the router leaves a link with `download` to the browser. -->
 					<Button
-						variant="ghost"
+						variant="outline"
 						size="sm"
 						href={resolve('admin/practice/import-template.xlsx')}
 						download
@@ -343,79 +387,70 @@
 						<DownloadIcon data-icon="inline-start" />
 						{m.practice_import_template()}
 					</Button>
-				</div>
-				<ul class={cn(hint, 'flex list-disc flex-col gap-1 ps-8.5 pe-4')}>
-					<li>{m.practice_import_note_sheets()}</li>
-					<li>{m.practice_import_note_passages()}</li>
-					<li>{m.practice_import_note_pictures()}</li>
-				</ul>
-			</div>
+				</Item.Actions>
+			</Item.Root>
 		{:else}
-			<div class="flex flex-col gap-3">
-				<div class="flex items-center gap-1.5 px-4">
-					<Chip class="min-w-0 shrink">
-						<FileIcon class="size-3 shrink-0" aria-hidden="true" />
-						<span class="truncate">{fileName}</span>
-					</Chip>
-					<Button
-						bind:ref={anotherButton}
-						variant="ghost"
-						size="sm"
-						aria-disabled={busy !== null}
-						class={waiting}
-						onclick={another}
-					>
-						{m.practice_import_choose_another()}
-					</Button>
-				</div>
-
-				<dl class="grid grid-cols-[repeat(auto-fit,minmax(6.25rem,1fr))] gap-2 px-1">
-					{#each figures ?? [] as figure (figure.key)}
-						<!-- The number is read before what it counts, and stands above it. -->
-						<div class="flex flex-col-reverse justify-end rounded-xl bg-background px-3 py-2.5">
-							<dt class={hint}>{figure.label}</dt>
-							<dd
-								class={cn(
-									'text-xl leading-tight font-semibold tabular-nums',
-									figure.alarming && 'text-destructive'
-								)}
-							>
-								{figure.count}
-							</dd>
-						</div>
-					{/each}
-				</dl>
-
-				{#if pictures > 0}
-					<p class={cn(hint, 'px-4')} aria-live="polite">
-						{progress
-							? m.practice_import_uploading(progress)
-							: m.practice_import_pictures({ count: pictures })}
-					</p>
-				{/if}
-
-				{#if review.problems.length > 0}
-					<ul aria-label={m.practice_import_problems_label()} class="max-h-52 overflow-y-auto px-4">
-						{#each review.problems as problem (`${problem.sheet}:${problem.row}`)}
-							<li class="flex gap-3 border-t py-2.5 first:border-t-0">
-								<span class="w-40 shrink-0 font-medium">
-									{m.practice_import_row({ sheet: problem.sheet, row: problem.row })}
-								</span>
-								<span class="min-w-0 wrap-anywhere text-muted-foreground">{problem.reason}</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-
-				<p class={cn(hint, 'px-4')}>{m.practice_import_left_out()}</p>
+			<div class="flex items-center gap-2 px-2">
+				<Chip class="min-w-0 shrink">
+					<FileIcon class="size-3 shrink-0" aria-hidden="true" />
+					<span class="truncate">{fileName}</span>
+				</Chip>
+				<Button
+					bind:ref={anotherButton}
+					variant="outline"
+					size="sm"
+					aria-disabled={busy !== null}
+					class={cn(waiting, 'ms-auto')}
+					onclick={another}
+				>
+					{m.practice_import_choose_another()}
+				</Button>
 			</div>
+
+			<ul class="flex flex-col gap-1">
+				{#each outcomes as outcome (outcome.key)}
+					<li class="flex gap-3 rounded-lg bg-background px-3 py-2.5">
+						<outcome.icon class={cn('mt-0.5 size-4 shrink-0', outcome.tone)} aria-hidden="true" />
+						<div class="flex min-w-0 flex-col gap-0.5">
+							<span class="font-medium">{outcome.title}</span>
+							{#if outcome.detail}
+								<span class={hint} aria-live={outcome.key === 'ready' ? 'polite' : undefined}>
+									{outcome.detail}
+								</span>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ul>
+
+			{#if problemSheets.length > 0}
+				<div
+					role="group"
+					aria-label={m.practice_import_problems_label()}
+					class="flex max-h-56 flex-col gap-3 overflow-y-auto px-2"
+				>
+					{#each problemSheets as sheet (sheet.name)}
+						<section class="flex flex-col">
+							<h3 class="text-xs font-semibold text-muted-foreground">{sheet.name}</h3>
+							<ul>
+								{#each sheet.problems as problem (problem.row)}
+									<li class="flex gap-3 border-t py-2 first:border-t-0">
+										<span class="w-16 shrink-0 font-medium tabular-nums">
+											{m.practice_import_row({ row: problem.row })}
+										</span>
+										<span class="min-w-0 wrap-anywhere text-muted-foreground">
+											{problem.reason}
+										</span>
+									</li>
+								{/each}
+							</ul>
+						</section>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 
-		{#if refusal}
-			<p role="alert" class="px-4 text-sm text-destructive">{refusal}</p>
-		{/if}
-
-		<Dialog.Footer class="px-4 pb-4">
+		<Dialog.Footer class="px-2 pb-2">
 			<Button
 				variant="outline"
 				aria-disabled={busy !== null}
