@@ -5,7 +5,7 @@
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import UploadIcon from '@lucide/svelte/icons/upload';
-	import { toast } from 'svelte-sonner';
+
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
 	import AddQuestionMenu from '#lib/components/practice/add-question-menu.svelte';
 	import { Draft, PassageDraft } from '#lib/components/practice/editor.svelte.js';
@@ -16,7 +16,7 @@
 	import QuestionList from '#lib/components/practice/question-list.svelte';
 	import type { DeleteTarget } from '#lib/components/rows/context.js';
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
-	import { settle } from '#lib/components/rows/feedback.js';
+	import { refusal, settle, toastError } from '#lib/components/rows/feedback.js';
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
@@ -227,7 +227,8 @@
 			const id =
 				result.type === 'success' || result.type === 'failure' ? result.data?.id : undefined;
 			if (draft.id === null && typeof id === 'string') {
-				if (result.type === 'failure') toast.error(String(result.data?.message));
+				const refused = refusal(result);
+				if (refused) toastError(refused);
 				staying = true;
 				await pass(address(id), { replace: true, refreshAll: true });
 			} else if (await settle(result)) {
@@ -257,7 +258,7 @@
 		if (!checked.ok) {
 			// A refusal no field shows is one the editor cannot have made; it is said out loud.
 			if (checked.issues.some((issue) => issue.message === m.item_invalid())) {
-				toast.error(m.item_invalid());
+				toastError(m.item_invalid());
 			}
 			return;
 		}

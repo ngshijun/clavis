@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { toast } from 'svelte-sonner';
 	import Day from '#lib/components/app/day.svelte';
 	import StatStrip from '#lib/components/app/stat-strip.svelte';
 	import { settle } from '#lib/components/rows/feedback.js';
@@ -140,6 +141,9 @@
 				deleting = true;
 				return async ({ result }) => {
 					try {
+						if (result.type === 'redirect') {
+							toast.success(m.assignment_deleted({ stage: data.stage.name }));
+						}
 						// Deleted, it leads back to the classroom's overview, where it is no longer listed.
 						await settle(result);
 					} finally {

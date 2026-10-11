@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
+	import { toastError } from '#lib/components/rows/feedback.js';
 	import { IMAGE_ACCEPT, preparePicture } from '#lib/image.js';
 	import { m } from '#lib/paraglide/messages.js';
 
@@ -24,7 +24,7 @@
 
 		const picture = await preparePicture(file);
 		if (picture) onpick(picture);
-		else toast.error(m.image_invalid());
+		else toastError(m.image_invalid());
 	}
 </script>
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { refreshAll } from '$app/navigation';
-	import { toast } from 'svelte-sonner';
+	import { refusal, toastError } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { postAction } from '#lib/form-actions.js';
 	import type { Answers, Marked, Run } from '#lib/items/run.js';
@@ -49,7 +49,8 @@
 			);
 			const result = await postAction(action, body);
 			if (result.type === 'success' && result.data) marked = result.data.marked as Marked;
-			else toast.error(m.error_unexpected());
+			// A dropped connection is told apart, since the answers are still here to be sent again.
+			else toastError(refusal(result) ?? m.error_unexpected());
 		} finally {
 			finishing = false;
 		}

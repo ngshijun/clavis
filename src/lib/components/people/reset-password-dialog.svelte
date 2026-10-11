@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import FormRefusal from '#lib/components/app/form-refusal.svelte';
+	import { settleForm, type FieldErrors } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
@@ -26,7 +28,8 @@
 
 	let open = $state(true);
 	let submitting = $state(false);
-	let errors = $state<Record<string, string[] | undefined>>({});
+	let errors = $state<FieldErrors>({});
+	let refusal = $state<string | null>(null);
 </script>
 
 <Dialog.Root bind:open onOpenChangeComplete={(isOpen) => !isOpen && onclosed()}>
@@ -41,22 +44,23 @@
 			action="?/resetPassword"
 			use:enhance={() => {
 				submitting = true;
-				return async ({ result, update }) => {
-					await update({ reset: false });
+				return async ({ result }) => {
+					const refused = await settleForm(result);
 					submitting = false;
-					if (result.type === 'success') {
-						toast.success(m.password_reset_toast({ name: person.name }));
-						open = false;
-					} else if (result.type === 'failure') {
-						errors = (result.data?.errors as typeof errors | undefined) ?? {};
-						if (typeof result.data?.message === 'string') toast.error(result.data.message);
+					if (refused) {
+						({ errors, message: refusal } = refused);
+						return;
 					}
+					// Nothing on the page changes with a password, so it is said.
+					toast.success(m.password_reset_toast({ name: person.name }));
+					open = false;
 				};
 			}}
 		>
 			<input type="hidden" name="personId" value={person.id} />
 
 			<Field.FieldGroup>
+				<FormRefusal message={refusal} />
 				<Field.Field data-invalid={errors.password ? true : undefined}>
 					<Field.FieldLabel for="reset-password">{m.password_reset_label()}</Field.FieldLabel>
 					<Input

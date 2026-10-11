@@ -3,7 +3,9 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import FormRefusal from '#lib/components/app/form-refusal.svelte';
 	import Segmented from '#lib/components/app/segmented.svelte';
+	import { settleForm } from '#lib/components/rows/feedback.js';
 	import type { Stop } from '#lib/components/runner/stage-path.svelte';
 	import StarsRow from '#lib/components/runner/stars.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -41,6 +43,7 @@
 
 	let open = $state(true);
 	let submitting = $state(false);
+	let refusal = $state<string | null>(null);
 
 	let to = $state<'class' | 'chosen'>('class');
 	// Choosing starts from the students short of three stars: the ones the stage has more to give.
@@ -86,15 +89,16 @@
 				}
 				const count = given.length;
 				submitting = true;
-				return async ({ result, update }) => {
-					await update({ reset: false });
+				return async ({ result }) => {
+					const refused = await settleForm(result);
 					submitting = false;
-					if (result.type === 'success') {
-						toast.success(m.assignment_assigned_toast({ count }));
-						open = false;
-					} else if (result.type === 'failure' && typeof result.data?.message === 'string') {
-						toast.error(result.data.message);
+					if (refused) {
+						refusal = refused.message;
+						return;
 					}
+					// The assignment is listed on another tab, so it is said here.
+					toast.success(m.assignment_assigned_toast({ count }));
+					open = false;
 				};
 			}}
 		>
@@ -104,6 +108,7 @@
 			{/each}
 
 			<Field.FieldGroup class="px-4 py-2">
+				<FormRefusal message={refusal} />
 				<Field.FieldSet>
 					<Field.FieldLegend variant="label">{m.assignment_to()}</Field.FieldLegend>
 					<Segmented

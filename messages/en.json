@@ -24,8 +24,10 @@
 	"action_save": "Save",
 	"action_undo": "Undo",
 	"action_rename": "Rename",
+	"action_reload": "Reload",
 	"error_unexpected": "Something went wrong. Try again.",
 	"error_unreachable": "The server could not be reached, so nothing was saved. Check your connection and try again.",
+	"app_updated": "A new version of Clavis is ready.",
 	"error_not_found": "This page does not exist.",
 	"login_title": "Sign In",
 	"login_description": "Use the account your school gave you.",
@@ -961,6 +963,7 @@
 	"assignment_delete": "Delete Assignment…",
 	"assignment_delete_title": "Delete this assignment?",
 	"assignment_delete_description": "“{stage}” comes off the students’ lists, and its notifications go with it. The practice they have done stays.",
+	"assignment_deleted": "The assignment “{stage}” was deleted.",
 	"notifications_title": "Notifications",
 	"notifications_open": [
 		{

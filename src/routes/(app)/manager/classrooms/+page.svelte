@@ -15,7 +15,7 @@
 	import ClassroomFormDialog from '#lib/components/classrooms/classroom-form-dialog.svelte';
 	import type { NamedRow } from '#lib/components/rows/context.js';
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
-	import { settle } from '#lib/components/rows/feedback.js';
+	import { LONG_TOAST, settle } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
@@ -101,6 +101,7 @@
 		const { name } = classroom;
 		if (archived) {
 			toast.success(m.classrooms_archived({ name }), {
+				duration: LONG_TOAST,
 				action: { label: m.action_undo(), onClick: () => setArchived(classroom, false, true) }
 			});
 		} else {

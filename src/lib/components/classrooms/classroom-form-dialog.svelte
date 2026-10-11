@@ -2,7 +2,8 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { toast } from 'svelte-sonner';
+	import FormRefusal from '#lib/components/app/form-refusal.svelte';
+	import { settleForm, type FieldErrors } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
@@ -34,7 +35,8 @@
 
 	let open = $state(true);
 	let submitting = $state(false);
-	let errors = $state<Record<string, string[] | undefined>>({});
+	let errors = $state<FieldErrors>({});
+	let refusal = $state<string | null>(null);
 
 	let gradeLevelId = $state(initial?.gradeLevelId ?? '');
 	let subjectId = $state(initial?.subjectId ?? '');
@@ -87,22 +89,19 @@
 					// A file the browser cannot read as a picture, such as a HEIC photo or a damaged image.
 					if (!ready) {
 						errors = { cover: [m.form_cover_invalid()] };
+						refusal = null;
 						submitting = false;
 						cancel();
 						return;
 					}
 					formData.set('cover', ready);
 				}
-				return async ({ result, update }) => {
-					await update({ reset: false });
+				return async ({ result }) => {
+					const refused = await settleForm(result);
 					submitting = false;
-					if (result.type === 'success') {
-						// The card itself is the report: it appears, or changes, behind the dialog.
-						open = false;
-					} else if (result.type === 'failure') {
-						errors = (result.data?.errors as typeof errors | undefined) ?? {};
-						if (typeof result.data?.message === 'string') toast.error(result.data.message);
-					}
+					// Taken, the card itself is the report: it appears, or changes, behind the dialog.
+					if (!refused) open = false;
+					else ({ errors, message: refusal } = refused);
 				};
 			}}
 		>
@@ -112,6 +111,7 @@
 			<input type="hidden" name="removeCover" value={removeCover} />
 
 			<Field.FieldGroup>
+				<FormRefusal message={refusal} />
 				<Field.Field data-invalid={errors.gradeLevelId ? true : undefined}>
 					<Field.FieldLabel for="classroom-grade">{m.form_grade_label()}</Field.FieldLabel>
 					<Select.Root
