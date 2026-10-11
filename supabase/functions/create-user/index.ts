@@ -2,10 +2,10 @@ import '@supabase/functions-js/edge-runtime.d.ts'
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/http.ts'
 import { supabaseAdmin } from '../_shared/supabase-admin.ts'
 import { getAuthenticatedUser } from '../_shared/auth.ts'
+import { loadProfile } from '../_shared/profiles.ts'
 import {
   isProvisionError,
   planProvisioning,
-  type CallerProfile,
   type ProvisionPlan,
   type UserRole,
 } from './provisioning.ts'
@@ -30,22 +30,6 @@ interface CreatedAccount {
   /** Echoed back once so the creator can hand the credentials over. */
   password: string
   organizationId: string
-}
-
-async function loadCaller(userId: string): Promise<CallerProfile | null> {
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('id, user_type, organization_id')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (error || !data) return null
-
-  return {
-    id: data.id,
-    role: data.user_type as UserRole,
-    organizationId: data.organization_id,
-  }
 }
 
 /** True when Supabase Auth rejected the create because the email is taken. */
@@ -74,7 +58,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse(req, 'INVALID_INPUT', 400)
     }
 
-    const caller = await loadCaller(user.id)
+    const caller = await loadProfile(user.id)
     if (!caller) {
       return errorResponse(req, 'FORBIDDEN', 403, `no profile for caller ${user.id}`)
     }

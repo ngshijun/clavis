@@ -1,0 +1,18 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Not the app
+/supabase/
+/docs/
+/.github/
+/.claude/
+/.scratch/
+/src/lib/paraglide/
+*.md

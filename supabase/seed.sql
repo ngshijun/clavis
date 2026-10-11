@@ -1,16 +1,43 @@
 -- =============================================================================
--- CLAVIS STAGING SEED DATA
+-- CLAVIS SEED DATA — LOCAL STACK ONLY
 -- =============================================================================
--- Run against the staging database via:
---   Supabase Dashboard > SQL Editor > paste & run
---   OR: psql $DATABASE_URL -f supabase/seed.sql
+-- Loaded by `pnpm supabase db reset`, into the empty database the migrations
+-- have just built. Never run it against staging or production: it creates
+-- accounts with a known password.
 --
--- This script is idempotent — safe to run multiple times (ON CONFLICT DO NOTHING).
--- It runs as postgres superuser, bypassing RLS.
+-- Every account signs in with the password Test1234! — or, on the dev server,
+-- from the developer tools (the wrench), which list them all
+-- (src/lib/dev-accounts.ts; keep the two in step).
 --
--- Reference data (grade levels, subjects, topics, sub-topics) uses the
--- same UUIDs as production so that staging mirrors the real curriculum.
--- Questions are a small representative sample — prod has 1,200+ questions.
+-- ACCOUNTS (all of the Clavis Demo Center, but the admin, who has no centre)
+--   admin@clavis.test     Admin User  platform admin
+--   manager@clavis.test   Mr Wong     manager: seven classrooms, one archived
+--   teacher@clavis.test   Ms Lee      teaches three classrooms (+ the archived one)
+--   teacher2@clavis.test  Mr Kumar    teaches three, one of them with Ms Lee
+--   student@clavis.test   Alice Tan   three classrooms (+ the archived one)
+--   student2@clavis.test  Ben Lim     four classrooms, one with nothing to practise
+--
+-- CLASSROOMS (section 9)                             teachers     students
+--   Year 1 Math (Group A)                            Lee          Alice Ben
+--   Year 1 Math (Group B)   same subject as Group A  Lee          Alice
+--   Year 4 Science          every question type      Lee, Kumar   Alice Ben
+--   Year 2 English                                   Kumar        Ben
+--   Year 5 Bahasa Melayu    nothing to practise yet  Kumar        Ben
+--   Year 3 Math (New)       just created             —            —
+--   Year 1 Math (2025)      archived                 Lee          Alice
+--
+-- WHERE THE QUESTIONS ARE
+--   Year 4 Science > Chapter 1 > Basic Knowledge   all fourteen question types,
+--       every variant of each, and a passage with its own questions (8a)
+--   Year 1 Mathematics   five stages over two topics, one in random order (8, 8c)
+--   Year 2 English, Year 3 Mathematics   a few questions each (8)
+--   Every other subject has stages and no questions.
+--
+-- Pictures: the files under supabase/seed/ are uploaded to their buckets by
+-- the same `db reset` (config.toml, objects_path).
+--
+-- Reference data (grade levels, subjects, topics, stages) uses the same UUIDs
+-- as production, so the curriculum mirrors the real one.
 -- =============================================================================
 
 BEGIN;
@@ -18,8 +45,7 @@ BEGIN;
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 1. ORGANIZATION                                                          ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- The revamp migration also seeds this org; ON CONFLICT keeps whichever row
--- exists. All non-admin test users are attached to it via subquery below.
+-- A migration also creates the demo center; ON CONFLICT keeps that row.
 
 INSERT INTO public.organizations (name)
 VALUES ('Clavis Demo Center')
@@ -27,107 +53,45 @@ ON CONFLICT (name) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 2. TEST USERS                                                            ║
+-- ║ 2. TEST ACCOUNTS                                                         ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- All test accounts use password: Test1234!
--- Admin:    admin@clavis.test    (platform admin, no org)
--- Manager:  manager@clavis.test  (Clavis Demo Center)
--- Teacher:  teacher@clavis.test  (Clavis Demo Center)
--- Student:  student@clavis.test
--- Student2: student2@clavis.test
+-- One list drives the three rows an account needs: the auth user, its email
+-- identity (without which it cannot sign in) and its profile. The admin
+-- belongs to no centre. It is one statement because the seed is sent as one
+-- batch, in which a later statement cannot read a table an earlier one made.
 
--- auth.users
-INSERT INTO auth.users (
-  instance_id, id, aud, role, email, encrypted_password,
-  email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-  created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
-) VALUES
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000001',
-    'authenticated', 'authenticated',
-    'admin@clavis.test',
-    crypt('Test1234!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Admin User"}'::jsonb,
-    now(), now(), '', '', '', ''
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000002',
-    'authenticated', 'authenticated',
-    'student@clavis.test',
-    crypt('Test1234!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Alice Tan"}'::jsonb,
-    now(), now(), '', '', '', ''
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000003',
-    'authenticated', 'authenticated',
-    'student2@clavis.test',
-    crypt('Test1234!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Ben Lim"}'::jsonb,
-    now(), now(), '', '', '', ''
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000005',
-    'authenticated', 'authenticated',
-    'manager@clavis.test',
-    crypt('Test1234!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Mr Wong"}'::jsonb,
-    now(), now(), '', '', '', ''
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '00000000-0000-0000-0000-000000000006',
-    'authenticated', 'authenticated',
-    'teacher@clavis.test',
-    crypt('Test1234!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Ms Lee"}'::jsonb,
-    now(), now(), '', '', '', ''
+WITH account (id, email, name, user_type, centre) AS (
+  VALUES
+    ('00000000-0000-0000-0000-000000000001'::uuid, 'admin@clavis.test', 'Admin User', 'admin', NULL),
+    ('00000000-0000-0000-0000-000000000005', 'manager@clavis.test',  'Mr Wong',   'manager', 'Clavis Demo Center'),
+    ('00000000-0000-0000-0000-000000000006', 'teacher@clavis.test',  'Ms Lee',    'teacher', 'Clavis Demo Center'),
+    ('00000000-0000-0000-0000-000000000007', 'teacher2@clavis.test', 'Mr Kumar',  'teacher', 'Clavis Demo Center'),
+    ('00000000-0000-0000-0000-000000000002', 'student@clavis.test',  'Alice Tan', 'student', 'Clavis Demo Center'),
+    ('00000000-0000-0000-0000-000000000003', 'student2@clavis.test', 'Ben Lim',   'student', 'Clavis Demo Center')
+),
+auth_user AS (
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
   )
-ON CONFLICT (id) DO NOTHING;
-
--- auth.identities (required for email login)
-INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
-VALUES
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000001', 'email', 'admin@clavis.test'), now(), now(), now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000002', 'email', 'student@clavis.test'), now(), now(), now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000003', 'email', 'student2@clavis.test'), now(), now(), now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000005', 'email', 'manager@clavis.test'), now(), now(), now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'email',
-   jsonb_build_object('sub', '00000000-0000-0000-0000-000000000006', 'email', 'teacher@clavis.test'), now(), now(), now())
-ON CONFLICT DO NOTHING;
-
--- profiles (admin has no org; everyone else belongs to the demo center)
+  SELECT
+    '00000000-0000-0000-0000-000000000000', a.id, 'authenticated', 'authenticated', a.email,
+    crypt('Test1234!', gen_salt('bf')),
+    now(), '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('name', a.name),
+    now(), now(), '', '', '', ''
+  FROM account a
+),
+identity AS (
+  INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
+  SELECT gen_random_uuid(), a.id, a.id::text, 'email',
+         jsonb_build_object('sub', a.id, 'email', a.email), now(), now(), now()
+  FROM account a
+)
 INSERT INTO public.profiles (id, name, email, user_type, organization_id)
-SELECT v.id, v.name, v.email, v.user_type::public.user_role,
-       CASE WHEN v.user_type = 'admin' THEN NULL
-            ELSE (SELECT o.id FROM public.organizations o WHERE o.name = 'Clavis Demo Center')
-       END
-FROM (VALUES
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'Admin User', 'admin@clavis.test',    'admin'),
-  ('00000000-0000-0000-0000-000000000005'::uuid, 'Mr Wong',    'manager@clavis.test',  'manager'),
-  ('00000000-0000-0000-0000-000000000006'::uuid, 'Ms Lee',     'teacher@clavis.test',  'teacher'),
-  ('00000000-0000-0000-0000-000000000002'::uuid, 'Alice Tan',  'student@clavis.test',  'student'),
-  ('00000000-0000-0000-0000-000000000003'::uuid, 'Ben Lim',    'student2@clavis.test', 'student')
-) AS v(id, name, email, user_type)
-ON CONFLICT (id) DO NOTHING;
+SELECT a.id, a.name, a.email, a.user_type::public.user_role, o.id
+FROM account a
+LEFT JOIN public.organizations o ON o.name = a.centre;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -148,24 +112,15 @@ ON CONFLICT (id) DO NOTHING;
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 4. STUDENT PROFILES                                                      ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- created_by = Mr Wong (manager). Revamp 2.2: students are provisioned by the
--- manager, not the teacher. usernames NULL: these mirror legacy email-based
--- students.
+-- A student is set up by the manager of their centre (created_by). Usernames
+-- stay NULL: these accounts sign in with their email.
 
-INSERT INTO public.student_profiles (id, grade_level_id, preferred_language, created_by)
-VALUES
-  -- Alice: Year 1
-  ('00000000-0000-0000-0000-000000000002', '54081b95-ee5f-43d0-8f95-d640d48bb734', 'en', '00000000-0000-0000-0000-000000000005'),
-  -- Ben: Year 2
-  ('00000000-0000-0000-0000-000000000003', 'b4b60a7d-e2b9-49be-b2f9-6a5f54a59e3a', 'en', '00000000-0000-0000-0000-000000000005')
-ON CONFLICT (id) DO NOTHING;
-
--- The INSERT above is ON CONFLICT DO NOTHING, so existing staging rows keep
--- their old created_by. Repoint the demo students to the manager explicitly so
--- staging reflects Revamp 2.2's manager-provisioning model (idempotent).
-UPDATE public.student_profiles
-SET created_by = '00000000-0000-0000-0000-000000000005'
-WHERE id IN ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003');
+INSERT INTO public.student_profiles (id, grade_level_id, created_by)
+SELECT p.id, '54081b95-ee5f-43d0-8f95-d640d48bb734',  -- Year 1
+       m.id
+FROM public.profiles p
+JOIN public.profiles m ON m.organization_id = p.organization_id AND m.user_type = 'manager'
+WHERE p.user_type = 'student';
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -292,16 +247,16 @@ ON CONFLICT (id) DO NOTHING;
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║ 7. STAGES — the practice map (P19a)                                      ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Practice climbs ordered STAGES under a topic; each holds its own question
--- pool and its own mastery stats. These carry the ids the sub-topics used to,
--- exactly as the P19a migration converted them, so practice content and
--- student history line up with a migrated database.
+-- Practice is ordered STAGES under a topic; each holds its own questions.
+-- The ids are the ones production has, but for Number Patterns, which is
+-- the seed's own so that a topic has three stages to lay along the path.
 
 INSERT INTO public.stages (id, topic_id, name, display_order)
 VALUES
   -- Y1 Math > Chapter 1
   ('4e61c11b-d12e-449f-bdd6-44cf5639a692', 'bc9fb793-5026-4241-94ac-54ab709f0518', '基础计算 Basic Calculation',         1),
-  ('a5cf5c0e-a7d6-4009-97fe-d453445791ee', 'bc9fb793-5026-4241-94ac-54ab709f0518', '高阶思维 Higher-Order Thinking',      2),
+  ('b1000000-0000-4000-8000-000000000001', 'bc9fb793-5026-4241-94ac-54ab709f0518', '数字规律 Number Patterns',           2),
+  ('a5cf5c0e-a7d6-4009-97fe-d453445791ee', 'bc9fb793-5026-4241-94ac-54ab709f0518', '高阶思维 Higher-Order Thinking',      3),
   -- Y1 Math > Chapter 2
   ('ae3333dc-fc77-44e6-bd19-d8032ee310b5', 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5', '基础计算 Basic Calculation',         1),
   ('d0c0da71-c5b9-4ebd-8f2a-df880f7994a9', 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5', '高阶思维 Higher-Order Thinking',      2),
@@ -383,199 +338,788 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 7b. SUB-TOPICS — the assessment filing level (P19a/P20b)                 ║
+-- ║ 8. PRACTICE QUESTIONS                                                    ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Sub-topics now exist for ONE reason: to file assessment items and to give a
--- generation line something to draw across. The old pair (基础计算 / 高阶思维)
--- was a difficulty proxy, and difficulty is its own axis since P18b — so the
--- two per topic name what a question TESTS instead.
+-- A practice question is ONE item payload, of one of the fourteen item
+-- types. This section seeds the seven that predate the builder; section 8a
+-- adds a stage that shows all fourteen. Option numbers are positions in
+-- `options`, so an mcq may carry any number of them.
 --
--- Everything filed under the old sub-topics goes first: an item's sub_topic_id
--- is ON DELETE RESTRICT, so the bank has to be empty before they can be
--- replaced, and the papers and assessments built on those items go with it.
-
-DELETE FROM public.attempt_answers;
-DELETE FROM public.attempt_questions;
-DELETE FROM public.assessment_attempts;
-DELETE FROM public.assessment_assignments;
-DELETE FROM public.assessment_questions;
-DELETE FROM public.assessments;
-DELETE FROM public.paper_items;
-DELETE FROM public.papers;
-DELETE FROM public.assessment_bank_question_tags;
-DELETE FROM public.assessment_bank_questions;
-DELETE FROM public.sub_topics;
-
--- Two per topic, named for the subject they sit under. Ids are generated:
--- everything below finds a sub-topic by (topic_id, display_order).
-INSERT INTO public.sub_topics (topic_id, name, display_order)
-SELECT t.id, v.name, v.display_order
-FROM public.topics t
-JOIN public.subjects s ON s.id = t.subject_id
-CROSS JOIN LATERAL (
-  VALUES
-    (CASE
-       WHEN s.name LIKE '%Mathematics%'    THEN '概念与计算 Concepts & Computation'
-       WHEN s.name LIKE '%Science%'        THEN '概念理解 Concepts'
-       WHEN s.name LIKE '%Bahasa Melayu%'  THEN '词汇与语法 Kosa Kata & Tatabahasa'
-       ELSE 'Vocabulary & Grammar'
-     END, 1),
-    (CASE
-       WHEN s.name LIKE '%Mathematics%'    THEN '应用题 Word Problems'
-       WHEN s.name LIKE '%Science%'        THEN '探究与实验 Inquiry & Experiment'
-       WHEN s.name LIKE '%Bahasa Melayu%'  THEN '理解与写作 Kefahaman & Penulisan'
-       ELSE 'Comprehension & Writing'
-     END, 2)
-) AS v(name, display_order);
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 8. QUESTIONS (fresh new-shape sample with per-option tips)               ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Revamp 2.1 (decision 44): STAGING ONLY. Wipe the whole question bank and
--- everything that references it, then insert a fresh representative set in
--- the new shape — per-option tips (option_N_tip) instead of a single
--- explanation, spanning MCQ, MRQ, and short-answer so the tips feature is
--- testable end to end. Prod is NOT touched by this (it lives in the
--- migration, which is schema-only; prod keeps its real questions).
+-- Tips: mcq/mrq carry a `tip` per WRONG option (shown when the student picked
+-- it); every other type carries one question-level `tip` (shown when the
+-- question was answered wrong). Neither ever reveals the answer.
 --
 -- grade_level_id and subject_id are auto-populated by the
--- populate_question_hierarchy trigger from the sub-topic chain.
--- is_correct on the seeded practice answers below is recomputed by the
--- grade_practice_answer BEFORE trigger, so the values written here are
--- only illustrative.
+-- populate_question_hierarchy trigger from the stage chain.
 
--- Wipe order: children before parents. assessment_questions no longer
--- references the practice bank at all (decision 88) — it is cleared here only
--- for its own children (attempt_questions/attempt_answers cascade). The rest
--- (session_questions, student_question_progress) cascade on question
--- delete, and practice_answers.question_id is ON DELETE SET
--- NULL, but we clear the practice trio explicitly so no orphan rows remain
--- (acceptable on staging — this is test data).
--- The assessment side was cleared in 7b, before its sub-topics could go.
-DELETE FROM public.practice_answers;
-DELETE FROM public.session_questions;
-DELETE FROM public.student_question_progress;
-DELETE FROM public.questions;
-
-INSERT INTO public.questions (
-  id, type, question, stage_id, answer,
-  option_1_text, option_1_is_correct, option_1_tip,
-  option_2_text, option_2_is_correct, option_2_tip,
-  option_3_text, option_3_is_correct, option_3_tip,
-  option_4_text, option_4_is_correct, option_4_tip
-) VALUES
+INSERT INTO public.questions (id, stage_id, payload) VALUES
 
   -- ── Y1 Math > Chapter 1 > Basic Calculation (Chinese) — MCQ ──────────────
-  -- The three below back the completed practice session in section 9.
 
-  ('073d50c7-22e1-43c1-be30-ba53e7b04e66', 'mcq',
-   '在 15, 20, 25, 30 中，下一个数是多少？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '31', false, '这是五个五个地数，不是加 1。',
-   '35', true,  NULL,
-   '40', false, '你跳过了一个数，先数到 35。',
-   '45', false, '太大了，30 的下一步是 35。'),
+  ('073d50c7-22e1-43c1-be30-ba53e7b04e66', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "在 15, 20, 25, 30 中，下一个数是多少？",
+     "options": [
+       {"text": "31", "is_correct": false, "tip": "这是五个五个地数，不是加 1。"},
+       {"text": "35", "is_correct": true},
+       {"text": "40", "is_correct": false, "tip": "你跳过了一个数，先数到 35。"},
+       {"text": "45", "is_correct": false, "tip": "太大了，30 的下一步是 35。"}
+     ]}'::jsonb),
 
-  ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 'mcq',
-   '在数字 7 中，个位数值是多少？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '70', false, '70 是七十，那是十位，不是个位。',
-   '7', true,  NULL,
-   '0', false, '0 表示没有，再看看数字本身。',
-   '1', false, '1 是位数的个数，不是数值。'),
+  ('0c97d45a-f8a1-4a3d-96d9-f7449ab81607', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "在数字 7 中，个位数值是多少？",
+     "options": [
+       {"text": "70", "is_correct": false, "tip": "70 是七十，那是十位，不是个位。"},
+       {"text": "7", "is_correct": true},
+       {"text": "0", "is_correct": false, "tip": "0 表示没有，再看看数字本身。"},
+       {"text": "1", "is_correct": false, "tip": "1 是位数的个数，不是数值。"}
+     ]}'::jsonb),
 
-  ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 'mcq',
-   '哪个数字最大？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '19', false, '先比十位：1 比 9 小。',
-   '91', true,  NULL,
-   '49', false, '十位是 4，比 9 小。',
-   '90', false, '十位相同，再比个位：0 比 1 小。'),
+  ('11e08503-3ca0-409a-a46d-5bc1f2f5f50f', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mcq",
+     "question": "哪个数字最大？",
+     "options": [
+       {"text": "19", "is_correct": false, "tip": "先比十位：1 比 9 小。"},
+       {"text": "91", "is_correct": true},
+       {"text": "49", "is_correct": false, "tip": "十位是 4，比 9 小。"},
+       {"text": "90", "is_correct": false, "tip": "十位相同，再比个位：0 比 1 小。"}
+     ]}'::jsonb),
 
   -- ── Y1 Math > Chapter 1 > Basic Calculation — MRQ (multiple correct) ──────
 
-  ('a1000000-0000-4000-8000-000000000001', 'mrq',
-   '以下哪些是双数（可选多个）？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   NULL,
-   '2', true,  NULL,
-   '3', false, '3 除以 2 有余数，是单数。',
-   '4', true,  NULL,
-   '5', false, '5 是单数，末位是 5。'),
+  ('a1000000-0000-4000-8000-000000000001', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "mrq",
+     "question": "以下哪些是双数（可选多个）？",
+     "options": [
+       {"text": "2", "is_correct": true},
+       {"text": "3", "is_correct": false, "tip": "3 除以 2 有余数，是单数。"},
+       {"text": "4", "is_correct": true},
+       {"text": "5", "is_correct": false, "tip": "5 是单数，末位是 5。"}
+     ]}'::jsonb),
 
-  -- ── Y1 Math > Chapter 1 > Basic Calculation — short answer (no options) ───
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — short answer ────────────────
 
-  ('a1000000-0000-4000-8000-000000000002', 'short_answer',
-   '10 + 10 = ？',
-   '4e61c11b-d12e-449f-bdd6-44cf5639a692',
-   '20',
-   NULL, false, NULL,
-   NULL, false, NULL,
-   NULL, false, NULL,
-   NULL, false, NULL),
+  ('a1000000-0000-4000-8000-000000000002', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "short_answer",
+     "question": "10 + 10 = ？",
+     "accepted_answers": ["20", "二十"],
+     "tip": "两个十合起来是几个十？"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — true / false ────────────────
+  -- Answered with response {"value": true|false}.
+
+  ('a1000000-0000-4000-8000-000000000004', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "true_false",
+     "question": "25 比 52 大。",
+     "answer": false,
+     "tip": "先比十位：2 个十和 5 个十，哪个多？"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000005', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "true_false",
+     "question": "10 个一等于 1 个十。",
+     "answer": true,
+     "tip": "数一数：十根小棒捆成一捆，是几个十？"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — numeric ─────────────────────
+  -- Answered with text_answer; `tolerance` and `unit` are optional.
+
+  ('a1000000-0000-4000-8000-000000000006', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "numeric",
+     "question": "18 + 7 = ？",
+     "answer": 25,
+     "tip": "先凑十：18 加几等于 20？剩下的再加上去。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000007', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "numeric",
+     "question": "一支铅笔长 9.5 厘米。两支一样的铅笔接起来有多长？",
+     "answer": 19,
+     "tolerance": 0.5,
+     "unit": "厘米",
+     "tip": "两支一样长，就是把同一个数加两次。"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — cloze ───────────────────────
+  -- Blanks are {{n}} markers in `text`; answered with
+  -- response {"blanks": [{"index": n, "value": "..."}]}.
+
+  ('a1000000-0000-4000-8000-000000000008', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "cloze",
+     "question": "五个五个地数，填上漏掉的数。",
+     "text": "5, 10, {{1}}, 20, {{2}}, 30",
+     "blanks": [
+       {"index": 1, "accepted": ["15", "十五"]},
+       {"index": 2, "accepted": ["25", "二十五"]}
+     ],
+     "tip": "每一步都比前一个数多 5。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-000000000009', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "cloze",
+     "text": "34 里面有 {{1}} 个十和 {{2}} 个一。",
+     "blanks": [
+       {"index": 1, "accepted": ["3", "三"]},
+       {"index": 2, "accepted": ["4", "四"]}
+     ],
+     "tip": "左边的数字是十位，右边的数字是个位。"}'::jsonb),
+
+  -- ── Y1 Math > Chapter 1 > Basic Calculation — matching ────────────────────
+  -- One pair per left item; the right column carries a distractor. Answered
+  -- with response {"pairs": [{"left_id": "...", "right_id": "..."}]}.
+
+  ('a1000000-0000-4000-8000-00000000000a', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "matching",
+     "question": "把数字和它的读法连起来。",
+     "left": [
+       {"id": "l1", "text": "12"},
+       {"id": "l2", "text": "20"},
+       {"id": "l3", "text": "15"}
+     ],
+     "right": [
+       {"id": "r1", "text": "二十"},
+       {"id": "r2", "text": "十五"},
+       {"id": "r3", "text": "十二"},
+       {"id": "r4", "text": "二十一"}
+     ],
+     "pairs": [
+       {"left_id": "l1", "right_id": "r3"},
+       {"left_id": "l2", "right_id": "r1"},
+       {"left_id": "l3", "right_id": "r2"}
+     ],
+     "tip": "先读十位，再读个位：1 个十读作“十”。"}'::jsonb),
+
+  ('a1000000-0000-4000-8000-00000000000b', '4e61c11b-d12e-449f-bdd6-44cf5639a692',
+   '{"type": "matching",
+     "question": "每个数是单数还是双数？",
+     "left": [
+       {"id": "l1", "text": "6"},
+       {"id": "l2", "text": "9"},
+       {"id": "l3", "text": "14"},
+       {"id": "l4", "text": "17"}
+     ],
+     "right": [
+       {"id": "r1", "text": "单数"},
+       {"id": "r2", "text": "双数"}
+     ],
+     "pairs": [
+       {"left_id": "l1", "right_id": "r2"},
+       {"left_id": "l2", "right_id": "r1"},
+       {"left_id": "l3", "right_id": "r2"},
+       {"left_id": "l4", "right_id": "r1"}
+     ],
+     "tip": "看个位：0、2、4、6、8 结尾的是双数。"}'::jsonb),
 
   -- ── Y3 Math > Chapter 1 > Basic Calculation — MCQ ────────────────────────
 
-  ('0183618e-b41f-42c4-b838-c7caa9647fa6', 'mcq',
-   '3 个千、14 个十和 5 个一组成的数是？',
-   '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   NULL,
-   '3145', true, NULL,
-   '3415', false, '14 个十是 140，要进位到百位。',
-   '31405', false, '不要把 14 个十直接写进数字里。',
-   '3195', false, '14 个十是 140，不是 190。'),
+  ('0183618e-b41f-42c4-b838-c7caa9647fa6', '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
+   '{"type": "mcq",
+     "question": "3 个千、14 个十和 5 个一组成的数是？",
+     "options": [
+       {"text": "3145", "is_correct": true},
+       {"text": "3415", "is_correct": false, "tip": "14 个十是 140，要进位到百位。"},
+       {"text": "31405", "is_correct": false, "tip": "不要把 14 个十直接写进数字里。"},
+       {"text": "3195", "is_correct": false, "tip": "14 个十是 140，不是 190。"}
+     ]}'::jsonb),
 
   -- ── Y3 Math > Chapter 1 > Basic Calculation — MRQ ────────────────────────
 
-  ('a1000000-0000-4000-8000-000000000003', 'mrq',
-   '以下哪些数大于 3000（可选多个）？',
-   '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
-   NULL,
-   '3145', true, NULL,
-   '2999', false, '2999 比 3000 小 1。',
-   '3001', true, NULL,
-   '2130', false, '2130 的千位是 2，小于 3。'),
+  ('a1000000-0000-4000-8000-000000000003', '7c8010f8-7616-4ead-9431-1a9c2d6224d3',
+   '{"type": "mrq",
+     "question": "以下哪些数大于 3000（可选多个）？",
+     "options": [
+       {"text": "3145", "is_correct": true},
+       {"text": "2999", "is_correct": false, "tip": "2999 比 3000 小 1。"},
+       {"text": "3001", "is_correct": true},
+       {"text": "2130", "is_correct": false, "tip": "2130 的千位是 2，小于 3。"}
+     ]}'::jsonb),
 
   -- ── Y2 English > Grammar > Verbs — MCQ ───────────────────────────────────
 
-  ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', 'mcq',
-   'Choose the correct answer
+  ('49f16772-57a6-44a8-8d27-76d8f29eb8bc', '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
+   '{"type": "mcq",
+     "question": "Choose the correct answer\n\nI _______ my teeth.",
+     "options": [
+       {"text": "comb", "is_correct": false, "tip": "You comb your hair, not your teeth."},
+       {"text": "brush", "is_correct": true},
+       {"text": "ride", "is_correct": false, "tip": "You ride a bike or a horse."},
+       {"text": "read", "is_correct": false, "tip": "You read books, not teeth."}
+     ]}'::jsonb),
 
-I _______ my teeth.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   'comb', false, 'You comb your hair, not your teeth.',
-   'brush', true, NULL,
-   'ride', false, 'You ride a bike or a horse.',
-   'read', false, 'You read books, not teeth.'),
-
-  ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', 'mcq',
-   'Choose the correct answer
-
-I _______ books.',
-   '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
-   NULL,
-   'read', true, NULL,
-   'watch', false, 'You watch movies or TV, not books.',
-   'comb', false, 'You comb hair, not books.',
-   'feed', false, 'You feed animals, not books.'),
+  ('bd94736c-87a9-45fb-98b7-b5dbf1da58e3', '8e74125c-d629-4b0e-ab11-c5dfb57856aa',
+   '{"type": "mcq",
+     "question": "Choose the correct answer\n\nI _______ books.",
+     "options": [
+       {"text": "read", "is_correct": true},
+       {"text": "watch", "is_correct": false, "tip": "You watch movies or TV, not books."},
+       {"text": "comb", "is_correct": false, "tip": "You comb hair, not books."},
+       {"text": "feed", "is_correct": false, "tip": "You feed animals, not books."}
+     ]}'::jsonb),
 
   -- ── Y2 English > Comprehension > Unit 5 (days of the week) — MCQ ──────────
 
-  ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', 'mcq',
-   'Which group of days is written in the correct order?',
-   '3e7aa63a-900f-42f1-af4d-774b42e6020f',
-   NULL,
-   'Wednesday, Thursday, Tuesday', false, 'Tuesday comes before Wednesday, not after Thursday.',
-   'Monday, Tuesday, Wednesday', true, NULL,
-   'Saturday, Sunday, Friday', false, 'Friday comes before Saturday in the week.',
-   'Tuesday, Thursday, Wednesday', false, 'Wednesday comes before Thursday.')
+  ('05054756-a6c3-4074-80c4-a6dbb3f5ec00', '3e7aa63a-900f-42f1-af4d-774b42e6020f',
+   '{"type": "mcq",
+     "question": "Which group of days is written in the correct order?",
+     "options": [
+       {"text": "Wednesday, Thursday, Tuesday", "is_correct": false, "tip": "Tuesday comes before Wednesday, not after Thursday."},
+       {"text": "Monday, Tuesday, Wednesday", "is_correct": true},
+       {"text": "Saturday, Sunday, Friday", "is_correct": false, "tip": "Friday comes before Saturday in the week."},
+       {"text": "Tuesday, Thursday, Wednesday", "is_correct": false, "tip": "Wednesday comes before Thursday."}
+     ]}'::jsonb)
 
 ON CONFLICT (id) DO NOTHING;
+
+-- The builder's order (P23a): each stage's questions in the order they are
+-- listed above. Without this they would all sit at display_order 0.
+UPDATE public.questions q
+SET display_order = o.ord
+FROM (
+  -- Y1 Math > Chapter 1 > Basic Calculation
+  SELECT s.id, s.ord
+  FROM unnest(ARRAY[
+    '073d50c7-22e1-43c1-be30-ba53e7b04e66', '0c97d45a-f8a1-4a3d-96d9-f7449ab81607',
+    '11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 'a1000000-0000-4000-8000-000000000001',
+    'a1000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000004',
+    'a1000000-0000-4000-8000-000000000005', 'a1000000-0000-4000-8000-000000000006',
+    'a1000000-0000-4000-8000-000000000007', 'a1000000-0000-4000-8000-000000000008',
+    'a1000000-0000-4000-8000-000000000009', 'a1000000-0000-4000-8000-00000000000a',
+    'a1000000-0000-4000-8000-00000000000b'
+  ]::uuid[]) WITH ORDINALITY AS s(id, ord)
+  UNION ALL
+  -- Y3 Math > Chapter 1 > Basic Calculation
+  SELECT s.id, s.ord
+  FROM unnest(ARRAY[
+    '0183618e-b41f-42c4-b838-c7caa9647fa6', 'a1000000-0000-4000-8000-000000000003'
+  ]::uuid[]) WITH ORDINALITY AS s(id, ord)
+  UNION ALL
+  -- Y2 English > Grammar > Verbs
+  SELECT s.id, s.ord
+  FROM unnest(ARRAY[
+    '49f16772-57a6-44a8-8d27-76d8f29eb8bc', 'bd94736c-87a9-45fb-98b7-b5dbf1da58e3'
+  ]::uuid[]) WITH ORDINALITY AS s(id, ord)
+  UNION ALL
+  -- Y2 English > Comprehension > Unit 5
+  SELECT s.id, s.ord
+  FROM unnest(ARRAY['05054756-a6c3-4074-80c4-a6dbb3f5ec00']::uuid[]) WITH ORDINALITY AS s(id, ord)
+) AS o
+WHERE q.id = o.id;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 8a. THE BUILDER'S SAMPLE STAGE (P23a)                                    ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- One stage — Year 4 Science > Chapter 1 > Basic Knowledge — laid out the way
+-- the admin practice builder lays a stage out: a question of each of the
+-- fourteen practice types, every variant a type has (a true/false with its
+-- own labels; a cloze answered by typing, from a word bank and from choices;
+-- a number in each of its seven forms), then a passage with three questions
+-- of its own.
+--
+-- display_order: the passage and the questions on no passage share ONE
+-- sequence (1–24); the passage's questions are a second sequence inside it
+-- (1–3). Item ids inside a payload are random short strings, never
+-- positional, so an id never gives an answer away.
+--
+-- The picture of the label_picture question is an object in the
+-- question-images bucket. Its file is under supabase/seed/question-images/,
+-- at the same path, and `db reset` uploads it (config.toml, objects_path).
+
+INSERT INTO public.passages (id, stage_id, title, body, display_order)
+VALUES (
+  'a3000000-0000-4000-8000-000000000001',
+  '7d8028fe-a9c7-4b60-9a9b-102a07e984f4',
+  'Aina’s Bean Plant',
+  'Aina planted a bean seed in a pot on Monday. She put the pot near a window and watered it every morning. On Thursday a small root pushed out of the seed. By the next Monday the seedling had two green leaves and was 6 cm tall. Aina put a second pot in a dark cupboard. Its seedling grew tall and thin, and its leaves turned yellow.',
+  24
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.questions (id, stage_id, passage_id, display_order, difficulty, payload) VALUES
+
+  -- ── Choose ───────────────────────────────────────────────────────────────
+
+  ('a2000000-0000-4000-8000-000000000001', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 1, 'low',
+   '{"type": "mcq",
+     "question": "Which part of a plant takes in water from the soil?",
+     "options": [
+       {"text": "Leaf", "is_correct": false, "tip": "Leaves make food. They do not take in water."},
+       {"text": "Root", "is_correct": true},
+       {"text": "Stem", "is_correct": false, "tip": "The stem carries water up the plant. It does not take it in."},
+       {"text": "Flower", "is_correct": false}
+     ]}'::jsonb),
+
+  ('a2000000-0000-4000-8000-000000000002', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 2, 'medium',
+   '{"type": "mrq",
+     "question": "Tick two things a plant needs to make its own food.",
+     "options": [
+       {"text": "Sunlight", "is_correct": true},
+       {"text": "Water", "is_correct": true},
+       {"text": "Soil", "is_correct": false, "tip": "Soil holds the plant and its water. It is not used to make food."},
+       {"text": "Darkness", "is_correct": false}
+     ]}'::jsonb),
+
+  ('a2000000-0000-4000-8000-000000000003', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 3, 'low',
+   '{"type": "true_false",
+     "question": "A cactus stores water in its stem.",
+     "answer": true,
+     "tip": "Think about why a cactus stem is so thick."}'::jsonb),
+
+  -- true_false with its own labels: the word for true, then the word for false.
+  ('a2000000-0000-4000-8000-000000000004', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 4, 'low',
+   '{"type": "true_false",
+     "question": "Can a green plant make food in a dark cupboard?",
+     "answer": false,
+     "labels": ["Yes", "No"],
+     "tip": "Think about what a leaf needs to trap."}'::jsonb),
+
+  -- tick_table: `groups` are the columns, `items` the rows; group_id is the
+  -- column a row is ticked under. Answered with response
+  -- {"items": [{"id": "...", "group_id": "..."}]}.
+  ('a2000000-0000-4000-8000-000000000005', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 5, 'medium',
+   '{"type": "tick_table",
+     "question": "Tick the part of the plant that does each job.",
+     "groups": [
+       {"id": "c41f09ab", "text": "Roots"},
+       {"id": "7be2d5c0", "text": "Stem"},
+       {"id": "e9a3716d", "text": "Leaves"}
+     ],
+     "items": [
+       {"id": "2f8c1a47", "text": "Takes in water from the soil", "group_id": "c41f09ab"},
+       {"id": "b06d93e1", "text": "Carries water to the leaves", "group_id": "7be2d5c0"},
+       {"id": "91c4f7a8", "text": "Makes food using sunlight", "group_id": "e9a3716d"},
+       {"id": "d3a75b2c", "text": "Holds the plant in the ground", "group_id": "c41f09ab"}
+     ],
+     "tip": "Go through the parts one at a time: roots, stem, leaves."}'::jsonb),
+
+  -- pick_words: the sentence cut into words, in order. Answered with
+  -- selected_options, the 1-based positions of the words picked.
+  ('a2000000-0000-4000-8000-000000000006', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 6, 'low',
+   '{"type": "pick_words",
+     "question": "Underline the part of the plant that takes in water.",
+     "options": [
+       {"text": "The", "is_correct": false},
+       {"text": "roots", "is_correct": true},
+       {"text": "grow", "is_correct": false},
+       {"text": "down", "is_correct": false},
+       {"text": "into", "is_correct": false},
+       {"text": "the", "is_correct": false},
+       {"text": "soil", "is_correct": false},
+       {"text": "while", "is_correct": false},
+       {"text": "the", "is_correct": false},
+       {"text": "leaves", "is_correct": false},
+       {"text": "face", "is_correct": false},
+       {"text": "the", "is_correct": false},
+       {"text": "sun.", "is_correct": false}
+     ],
+     "tip": "This part is under the ground."}'::jsonb),
+
+  -- ── Fill in ──────────────────────────────────────────────────────────────
+
+  -- cloze, typing (no `mode` = typing).
+  ('a2000000-0000-4000-8000-000000000007', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 7, 'medium',
+   '{"type": "cloze",
+     "question": "Fill in the blanks with the correct words.",
+     "text": "The {{1}} take in water from the soil. The {{2}} carries the water to the {{3}}.",
+     "blanks": [
+       {"index": 1, "accepted": ["roots", "root"]},
+       {"index": 2, "accepted": ["stem"]},
+       {"index": 3, "accepted": ["leaves", "leaf"]}
+     ],
+     "tip": "Follow the water: it goes in at the bottom and travels up."}'::jsonb),
+
+  -- cloze, word bank: the bank is every blank's first accepted answer plus
+  -- the distractors.
+  ('a2000000-0000-4000-8000-000000000008', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 8, 'medium',
+   '{"type": "cloze",
+     "mode": "bank",
+     "question": "Use the words in the box to fill in the blanks.",
+     "text": "A seed needs {{1}}, air and warmth to start growing. First a {{2}} pushes out of the seed, then a {{3}} grows up towards the light.",
+     "blanks": [
+       {"index": 1, "accepted": ["water"]},
+       {"index": 2, "accepted": ["root"]},
+       {"index": 3, "accepted": ["shoot"]}
+     ],
+     "distractors": ["flower", "fruit"],
+     "tip": "Which part of a seedling do you see first?"}'::jsonb),
+
+  -- cloze, choices: two to four choices a blank, the answer among them.
+  ('a2000000-0000-4000-8000-000000000009', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 9, 'low',
+   '{"type": "cloze",
+     "mode": "choices",
+     "question": "Choose the correct word for each blank.",
+     "text": "The {{1}} of a plant makes its seeds. Bees carry {{2}} from one flower to another.",
+     "blanks": [
+       {"index": 1, "accepted": ["flower"], "choices": ["flower", "leaf", "root"]},
+       {"index": 2, "accepted": ["pollen"], "choices": ["pollen", "water", "soil", "seeds"]}
+     ],
+     "tip": "Bees visit the colourful part of the plant."}'::jsonb),
+
+  ('a2000000-0000-4000-8000-00000000000a', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 10, 'high',
+   '{"type": "short_answer",
+     "question": "Name the green substance in leaves that traps sunlight.",
+     "accepted_answers": ["chlorophyll", "klorofil"],
+     "tip": "Its name starts with “chloro”, which means green."}'::jsonb),
+
+  -- word_completion: one box a letter. Answered with text_answer, the whole word.
+  ('a2000000-0000-4000-8000-00000000000b', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 11, 'low',
+   '{"type": "word_completion",
+     "question": "The flat green part of a plant that makes food.",
+     "answer": "leaf",
+     "reveal_first": true,
+     "tip": "A tree drops these in dry weather."}'::jsonb),
+
+  -- numeric, one of each form. No `form` = number.
+  ('a2000000-0000-4000-8000-00000000000c', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 12, 'medium',
+   '{"type": "numeric",
+     "question": "A seedling is 4.5 cm tall. It grows 1.2 cm every week. How tall is it after 3 weeks?",
+     "answer": 8.1,
+     "tolerance": 0,
+     "unit": "cm",
+     "tip": "Work out how much it grows in three weeks first."}'::jsonb),
+
+  -- fraction: parts = [numerator, denominator].
+  ('a2000000-0000-4000-8000-00000000000d', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 13, 'medium',
+   '{"type": "numeric",
+     "form": "fraction",
+     "question": "8 seeds were planted and 6 of them sprouted. What fraction of the seeds sprouted? Give the simplest form.",
+     "parts": [3, 4],
+     "tip": "Divide the top and the bottom by the same number."}'::jsonb),
+
+  -- mixed: parts = [whole, numerator, denominator].
+  ('a2000000-0000-4000-8000-00000000000e', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 14, 'medium',
+   '{"type": "numeric",
+     "form": "mixed",
+     "question": "Each pot needs ½ ℓ of water. How much water do 5 pots need?",
+     "parts": [2, 1, 2],
+     "improper": true,
+     "unit": "ℓ",
+     "tip": "Two halves make one whole."}'::jsonb),
+
+  -- ratio: parts = [a, b] or [a, b, c].
+  ('a2000000-0000-4000-8000-00000000000f', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 15, 'low',
+   '{"type": "numeric",
+     "form": "ratio",
+     "question": "A garden has 5 rose plants and 7 orchid plants. What is the ratio of rose plants to orchid plants?",
+     "parts": [5, 7],
+     "equivalent": true,
+     "tip": "Write the number of rose plants first."}'::jsonb),
+
+  -- money: answer in ringgit.
+  ('a2000000-0000-4000-8000-000000000010', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 16, 'low',
+   '{"type": "numeric",
+     "form": "money",
+     "question": "A pot costs RM4.80. How much do 4 pots cost?",
+     "answer": 19.2,
+     "tip": "Multiply the ringgit and the sen separately, then add them."}'::jsonb),
+
+  -- time: parts = [hour, minute]; period am / pm, or null for a 24-hour clock.
+  ('a2000000-0000-4000-8000-000000000011', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 17, 'high',
+   '{"type": "numeric",
+     "form": "time",
+     "question": "Watering starts at 4:35 p.m. and takes 1 hour 15 minutes. At what time does it end?",
+     "parts": [5, 50],
+     "period": "pm",
+     "tip": "Add the hour first, then the minutes."}'::jsonb),
+
+  -- measure: parts = [large, small] in the two `units`.
+  ('a2000000-0000-4000-8000-000000000012', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 18, 'high',
+   '{"type": "numeric",
+     "form": "measure",
+     "question": "6 ℓ 450 mℓ of water is shared equally among 3 trays. How much water is in each tray?",
+     "parts": [2, 150],
+     "units": ["ℓ", "mℓ"],
+     "tip": "Share the litres first, then the millilitres."}'::jsonb),
+
+  -- ── Arrange ──────────────────────────────────────────────────────────────
+
+  -- matching: one pair a left item; the right column carries an extra answer.
+  ('a2000000-0000-4000-8000-000000000013', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 19, 'medium',
+   '{"type": "matching",
+     "question": "Match each part of a plant to what it does.",
+     "left": [
+       {"id": "5d1e8f30", "text": "Roots"},
+       {"id": "a7c92b64", "text": "Leaves"},
+       {"id": "0e6f4d19", "text": "Flower"}
+     ],
+     "right": [
+       {"id": "f28b0c75", "text": "Make food"},
+       {"id": "63d9a1e2", "text": "Make seeds"},
+       {"id": "bc50e7f8", "text": "Take in water"},
+       {"id": "19a4c3d6", "text": "Carry water up the plant"}
+     ],
+     "pairs": [
+       {"left_id": "5d1e8f30", "right_id": "bc50e7f8"},
+       {"left_id": "a7c92b64", "right_id": "f28b0c75"},
+       {"left_id": "0e6f4d19", "right_id": "63d9a1e2"}
+     ],
+     "tip": "Start with the part you are surest about."}'::jsonb),
+
+  -- ordering: answered with response {"order": ["...", "..."]}.
+  ('a2000000-0000-4000-8000-000000000014', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 20, 'medium',
+   '{"type": "ordering",
+     "question": "Put the stages of a bean plant’s growth in order.",
+     "items": [
+       {"id": "8a3f5c21", "text": "Seed"},
+       {"id": "d47e09b6", "text": "Seedling"},
+       {"id": "2c6b8e93", "text": "Young plant"},
+       {"id": "e15d7a04", "text": "Adult plant"}
+     ],
+     "correct_order": ["8a3f5c21", "d47e09b6", "2c6b8e93", "e15d7a04"],
+     "tip": "Every plant here starts as a seed."}'::jsonb),
+
+  -- rearrange: the chips of one sentence; the whole sentence must be in order.
+  ('a2000000-0000-4000-8000-000000000015', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 21, 'low',
+   '{"type": "rearrange",
+     "question": "Arrange the words to make a sentence.",
+     "items": [
+       {"id": "74b1e0c9", "text": "Plants"},
+       {"id": "c08d36a5", "text": "need"},
+       {"id": "3e97f41b", "text": "sunlight"},
+       {"id": "a5627d80", "text": "and"},
+       {"id": "916c0be3", "text": "water"},
+       {"id": "f3d85a17", "text": "to"},
+       {"id": "0b4a92ce", "text": "grow."}
+     ],
+     "correct_order": ["74b1e0c9", "c08d36a5", "3e97f41b", "a5627d80", "916c0be3", "f3d85a17", "0b4a92ce"],
+     "tip": "A sentence starts with a capital letter."}'::jsonb),
+
+  -- classify: answered with response {"items": [{"id": "...", "group_id": "..."}]}.
+  ('a2000000-0000-4000-8000-000000000016', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 22, 'high',
+   '{"type": "classify",
+     "question": "Sort the plants into two groups.",
+     "groups": [
+       {"id": "6e2a9f58", "text": "Flowering plants"},
+       {"id": "b9173c4d", "text": "Non-flowering plants"}
+     ],
+     "items": [
+       {"id": "41c8d0a7", "text": "Hibiscus", "group_id": "6e2a9f58"},
+       {"id": "d5f61b39", "text": "Fern", "group_id": "b9173c4d"},
+       {"id": "07ae4c82", "text": "Paddy", "group_id": "6e2a9f58"},
+       {"id": "9c3b75e6", "text": "Moss", "group_id": "b9173c4d"},
+       {"id": "e80d2f14", "text": "Durian tree", "group_id": "6e2a9f58"},
+       {"id": "2a94b6c0", "text": "Pine", "group_id": "b9173c4d"}
+     ],
+     "tip": "Ferns and mosses make spores, not flowers."}'::jsonb),
+
+  -- ── On a picture ─────────────────────────────────────────────────────────
+
+  -- label_picture: x and y are percent of the picture's width and height.
+  -- Answered with response {"labels": [{"id": "...", "value": "..."}]}.
+  ('a2000000-0000-4000-8000-000000000017', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', NULL, 23, 'medium',
+   '{"type": "label_picture",
+     "question": "Label the parts of the plant.",
+     "image_path": "stages/7d8028fe-a9c7-4b60-9a9b-102a07e984f4/5b0c9d4e-6f1a-4c7e-9b1d-2a3e4f5a6b7c.png",
+     "mode": "bank",
+     "labels": [
+       {"id": "c7e1a359", "text": "Flower", "x": 50, "y": 20},
+       {"id": "38f0b6d2", "text": "Leaf", "x": 33, "y": 46},
+       {"id": "a94d5e70", "text": "Stem", "x": 50, "y": 58},
+       {"id": "5b2c8f1e", "text": "Roots", "x": 50, "y": 86}
+     ],
+     "distractors": ["Seed"],
+     "tip": "The roots are the part under the soil."}'::jsonb),
+
+  -- ── On the passage "Aina’s Bean Plant" ───────────────────────────────────
+
+  ('a2000000-0000-4000-8000-000000000018', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', 'a3000000-0000-4000-8000-000000000001', 1, 'low',
+   '{"type": "mcq",
+     "question": "What grew out of the seed first?",
+     "options": [
+       {"text": "A root", "is_correct": true},
+       {"text": "A leaf", "is_correct": false, "tip": "Read what happened on Thursday."},
+       {"text": "A flower", "is_correct": false}
+     ]}'::jsonb),
+
+  ('a2000000-0000-4000-8000-000000000019', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', 'a3000000-0000-4000-8000-000000000001', 2, 'medium',
+   '{"type": "mrq",
+     "question": "Tick two things Aina did for the first seedling.",
+     "options": [
+       {"text": "Watered it every morning", "is_correct": true},
+       {"text": "Put it near a window", "is_correct": true},
+       {"text": "Kept it in a cupboard", "is_correct": false, "tip": "That was the second pot."},
+       {"text": "Covered it with a box", "is_correct": false}
+     ]}'::jsonb),
+
+  ('a2000000-0000-4000-8000-00000000001a', '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', 'a3000000-0000-4000-8000-000000000001', 3, 'high',
+   '{"type": "short_answer",
+     "question": "What did the seedling in the cupboard not get?",
+     "accepted_answers": ["sunlight", "light", "cahaya matahari"],
+     "tip": "Read the last two sentences again."}'::jsonb)
+
+ON CONFLICT (id) DO NOTHING;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 8c. YEAR 1 MATHEMATICS — THE REST OF ITS PATH                            ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Year 1 Mathematics is the subject of three classrooms, so its path is the
+-- one pupils see most: with these, both of its topics have stages to play
+-- (three and two). Higher-Order Thinking of Chapter 1 serves its questions in
+-- random order; every other stage keeps the builder's order.
+
+UPDATE public.stages
+SET question_order = 'random'
+WHERE id = 'a5cf5c0e-a7d6-4009-97fe-d453445791ee';
+
+INSERT INTO public.questions (id, stage_id, display_order, difficulty, payload) VALUES
+
+  -- ── Chapter 1 > Number Patterns ──────────────────────────────────────────
+
+  ('a4000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000001', 1, 'low',
+   '{"type": "mcq",
+     "question": "2, 4, 6, 8, 下一个数是多少？",
+     "options": [
+       {"text": "9", "is_correct": false, "tip": "这是两个两个地数，不是加 1。"},
+       {"text": "10", "is_correct": true},
+       {"text": "12", "is_correct": false, "tip": "你跳过了一个数。"},
+       {"text": "11", "is_correct": false, "tip": "每一步都是双数。"}
+     ]}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000002', 'b1000000-0000-4000-8000-000000000001', 2, 'low',
+   '{"type": "numeric",
+     "question": "10, 20, 30, 下一个数是多少？",
+     "answer": 40,
+     "tip": "每一步都多一个十。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000003', 'b1000000-0000-4000-8000-000000000001', 3, 'low',
+   '{"type": "true_false",
+     "question": "5, 10, 15, 20 是五个五个地数。",
+     "answer": true,
+     "tip": "看看相邻的两个数相差多少。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000004', 'b1000000-0000-4000-8000-000000000001', 4, 'medium',
+   '{"type": "ordering",
+     "question": "把这些数从小到大排列。",
+     "items": [
+       {"id": "k3f81b2a", "text": "27"},
+       {"id": "p9d04c7e", "text": "9"},
+       {"id": "m5a62e19", "text": "43"},
+       {"id": "t1c97f40", "text": "18"}
+     ],
+     "correct_order": ["p9d04c7e", "t1c97f40", "k3f81b2a", "m5a62e19"],
+     "tip": "先比十位，十位相同再比个位。"}'::jsonb),
+
+  -- ── Chapter 1 > Higher-Order Thinking (random order) ─────────────────────
+
+  ('a4000000-0000-4000-8000-000000000005', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 1, 'high',
+   '{"type": "mcq",
+     "question": "小明有 12 颗糖，给了弟弟 5 颗，又买了 3 颗。他现在有多少颗糖？",
+     "options": [
+       {"text": "10", "is_correct": true},
+       {"text": "7", "is_correct": false, "tip": "别忘了他后来又买了 3 颗。"},
+       {"text": "20", "is_correct": false, "tip": "给出去的糖要减掉，不是加上。"},
+       {"text": "4", "is_correct": false, "tip": "买来的糖要加上，不是减掉。"}
+     ]}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000006', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 2, 'high',
+   '{"type": "numeric",
+     "question": "我是一个两位数，十位是 4，个位比十位多 3。我是多少？",
+     "answer": 47,
+     "tip": "先算出个位：4 加 3 是多少？"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000007', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 3, 'medium',
+   '{"type": "short_answer",
+     "question": "比 59 大 1 的数是多少？",
+     "accepted_answers": ["60", "六十"],
+     "tip": "个位满十，要向十位进一。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000008', 'a5cf5c0e-a7d6-4009-97fe-d453445791ee', 4, 'medium',
+   '{"type": "mrq",
+     "question": "以下哪些数的十位是 3（可选多个）？",
+     "options": [
+       {"text": "34", "is_correct": true},
+       {"text": "43", "is_correct": false, "tip": "43 的十位是 4，个位才是 3。"},
+       {"text": "30", "is_correct": true},
+       {"text": "13", "is_correct": false, "tip": "13 的十位是 1。"}
+     ]}'::jsonb),
+
+  -- ── Chapter 2 > Basic Calculation ────────────────────────────────────────
+
+  ('a4000000-0000-4000-8000-000000000009', 'ae3333dc-fc77-44e6-bd19-d8032ee310b5', 1, 'low',
+   '{"type": "mcq",
+     "question": "7 + 5 = ？",
+     "options": [
+       {"text": "12", "is_correct": true},
+       {"text": "11", "is_correct": false, "tip": "先凑十：7 加 3 是 10，还剩几？"},
+       {"text": "13", "is_correct": false, "tip": "多数了一个，再数一次。"},
+       {"text": "2", "is_correct": false, "tip": "这是加法，不是减法。"}
+     ]}'::jsonb),
+
+  ('a4000000-0000-4000-8000-00000000000a', 'ae3333dc-fc77-44e6-bd19-d8032ee310b5', 2, 'low',
+   '{"type": "numeric",
+     "question": "15 − 6 = ？",
+     "answer": 9,
+     "tip": "先减 5 到 10，再减 1。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-00000000000b', 'ae3333dc-fc77-44e6-bd19-d8032ee310b5', 3, 'medium',
+   '{"type": "cloze",
+     "question": "填上正确的数。",
+     "text": "8 + {{1}} = 10，10 − {{2}} = 7",
+     "blanks": [
+       {"index": 1, "accepted": ["2", "二"]},
+       {"index": 2, "accepted": ["3", "三"]}
+     ],
+     "tip": "想一想：几和几合起来是 10？"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-00000000000c', 'ae3333dc-fc77-44e6-bd19-d8032ee310b5', 4, 'low',
+   '{"type": "true_false",
+     "question": "9 + 9 = 19。",
+     "answer": false,
+     "tip": "9 加 9 比 10 加 9 少 1。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-00000000000d', 'ae3333dc-fc77-44e6-bd19-d8032ee310b5', 5, 'medium',
+   '{"type": "matching",
+     "question": "把算式和答案连起来。",
+     "left": [
+       {"id": "h2b7d915", "text": "6 + 4"},
+       {"id": "q8e13a6c", "text": "12 − 5"},
+       {"id": "w4f90c2b", "text": "3 + 8"}
+     ],
+     "right": [
+       {"id": "n6a51e83", "text": "11"},
+       {"id": "z0c84d7f", "text": "10"},
+       {"id": "r3d29b54", "text": "7"},
+       {"id": "y7e60a1d", "text": "9"}
+     ],
+     "pairs": [
+       {"left_id": "h2b7d915", "right_id": "z0c84d7f"},
+       {"left_id": "q8e13a6c", "right_id": "r3d29b54"},
+       {"left_id": "w4f90c2b", "right_id": "n6a51e83"}
+     ],
+     "tip": "先算你最有把握的那一题。"}'::jsonb),
+
+  -- ── Chapter 2 > Higher-Order Thinking ────────────────────────────────────
+
+  ('a4000000-0000-4000-8000-00000000000e', 'd0c0da71-c5b9-4ebd-8f2a-df880f7994a9', 1, 'high',
+   '{"type": "mcq",
+     "question": "巴士上有 9 个人。到站后下去了 4 个人，又上来了 6 个人。现在巴士上有多少个人？",
+     "options": [
+       {"text": "11", "is_correct": true},
+       {"text": "5", "is_correct": false, "tip": "别忘了又上来了 6 个人。"},
+       {"text": "19", "is_correct": false, "tip": "下车的人要减掉。"},
+       {"text": "7", "is_correct": false, "tip": "上车的人要加上，不是减掉。"}
+     ]}'::jsonb),
+
+  ('a4000000-0000-4000-8000-00000000000f', 'd0c0da71-c5b9-4ebd-8f2a-df880f7994a9', 2, 'high',
+   '{"type": "numeric",
+     "question": "一本书 8 令吉，一支笔 3 令吉。买一本书和两支笔要多少令吉？",
+     "answer": 14,
+     "unit": "令吉",
+     "tip": "先算两支笔一共多少钱。"}'::jsonb),
+
+  ('a4000000-0000-4000-8000-000000000010', 'd0c0da71-c5b9-4ebd-8f2a-df880f7994a9', 3, 'medium',
+   '{"type": "classify",
+     "question": "把算式分成两组。",
+     "groups": [
+       {"id": "g5c18e0a", "text": "答案是 10"},
+       {"id": "g9d47b3f", "text": "答案不是 10"}
+     ],
+     "items": [
+       {"id": "i1a83f6d", "text": "4 + 6", "group_id": "g5c18e0a"},
+       {"id": "i7b20c9e", "text": "7 + 2", "group_id": "g9d47b3f"},
+       {"id": "i3e96d41", "text": "5 + 5", "group_id": "g5c18e0a"},
+       {"id": "i8f05a2c", "text": "13 − 3", "group_id": "g5c18e0a"},
+       {"id": "i6c71e98", "text": "8 + 3", "group_id": "g9d47b3f"}
+     ],
+     "tip": "一题一题算出来，再放进对的组。"}'::jsonb);
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -592,13 +1136,17 @@ VALUES
   ('a7000000-0000-4000-8000-000000000003', 'even and odd numbers'),
   ('a7000000-0000-4000-8000-000000000004', 'addition'),
   ('a7000000-0000-4000-8000-000000000005', 'verbs'),
-  ('a7000000-0000-4000-8000-000000000006', 'days of the week')
+  ('a7000000-0000-4000-8000-000000000006', 'days of the week'),
+  ('a7000000-0000-4000-8000-000000000007', 'parts of a plant'),
+  ('a7000000-0000-4000-8000-000000000008', 'what plants need'),
+  ('a7000000-0000-4000-8000-000000000009', 'observing and measuring')
 ON CONFLICT (id) DO NOTHING;
 
--- Learning points are scoped to TOPICS since P19a — the level practice and
--- assessments share — and a tag offered nowhere shows up in no picker. The
--- five number tags belong to Year 1 Mathematics; the two language ones to
--- Year 2 English.
+-- Learning points are scoped to TOPICS since P19a, and a tag offered nowhere
+-- shows up in no picker. The five number tags belong to Year 1 Mathematics;
+-- the two language ones to Year 2 English; the three plant ones to the topic
+-- of the builder's sample stage (8a), Year 4 Science, so its picker has
+-- something to offer.
 INSERT INTO public.tag_topics (tag_id, topic_id)
 VALUES
   ('a7000000-0000-4000-8000-000000000001', 'bc9fb793-5026-4241-94ac-54ab709f0518'),
@@ -606,7 +1154,10 @@ VALUES
   ('a7000000-0000-4000-8000-000000000003', 'bc9fb793-5026-4241-94ac-54ab709f0518'),
   ('a7000000-0000-4000-8000-000000000004', 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'),
   ('a7000000-0000-4000-8000-000000000005', '50da1a03-8668-4da5-bc88-086ca1cccd2b'),
-  ('a7000000-0000-4000-8000-000000000006', '50da1a03-8668-4da5-bc88-086ca1cccd2b')
+  ('a7000000-0000-4000-8000-000000000006', '50da1a03-8668-4da5-bc88-086ca1cccd2b'),
+  ('a7000000-0000-4000-8000-000000000007', 'f99902cc-d0d2-4358-8367-6f35448c2302'),
+  ('a7000000-0000-4000-8000-000000000008', 'f99902cc-d0d2-4358-8367-6f35448c2302'),
+  ('a7000000-0000-4000-8000-000000000009', 'f99902cc-d0d2-4358-8367-6f35448c2302')
 ON CONFLICT DO NOTHING;
 
 -- Tag several seeded questions (a question may carry multiple tags).
@@ -636,491 +1187,312 @@ ON CONFLICT DO NOTHING;
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9. PRACTICE SESSION (completed, for Alice)                               ║
+-- ║ 9. CLASSROOMS AND WHO IS IN THEM                                         ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Session hierarchy trigger auto-populates grade_level_id and subject_id.
-
-INSERT INTO public.practice_sessions (
-  id, student_id, stage_id, total_questions,
-  completed_at, correct_count, total_time_seconds
-) VALUES (
-  '70000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000002',
-  '4e61c11b-d12e-449f-bdd6-44cf5639a692',  -- Y1 Math > Ch1 > 基础计算 (stage)
-  3,
-  now() - interval '1 day',
-  2, 145   -- Q1 + Q3 correct, Q2 wrong (matches the answers seeded below)
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Session questions
-INSERT INTO public.session_questions (id, session_id, question_id, question_order)
-VALUES
-  ('71000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '073d50c7-22e1-43c1-be30-ba53e7b04e66', 1),
-  ('71000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '0c97d45a-f8a1-4a3d-96d9-f7449ab81607', 2),
-  ('71000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '11e08503-3ca0-409a-a46d-5bc1f2f5f50f', 3)
-ON CONFLICT (id) DO NOTHING;
-
--- Practice answers
-INSERT INTO public.practice_answers (id, session_id, question_id, is_correct, time_spent_seconds, answered_at, selected_options, text_answer)
-VALUES
-  -- Q1: MCQ correct (option 2 = "35")
-  ('72000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '073d50c7-22e1-43c1-be30-ba53e7b04e66',
-   true, 28, now() - interval '1 day', '{2}', NULL),
-  -- Q2: MCQ wrong (picked option 1 instead of 2)
-  ('72000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '0c97d45a-f8a1-4a3d-96d9-f7449ab81607',
-   false, 52, now() - interval '1 day', '{1}', NULL),
-  -- Q3: MCQ correct (option 2 = "91")
-  ('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '11e08503-3ca0-409a-a46d-5bc1f2f5f50f',
-   true, 65, now() - interval '1 day', '{2}', NULL)
-ON CONFLICT (id) DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9b. CLASSROOMS + MEMBERSHIPS (Revamp 2.2 — many-to-many)                 ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Two sections of the SAME grade+subject (decision 47 allows this), created
--- by Mr Wong (manager). Memberships demonstrate the many-to-many model:
---   * Ms Lee (teacher) teaches BOTH classrooms          -> teacher in 2 classrooms
---   * Classroom A holds Alice + Ben                      -> classroom with 2 students
---   * Alice is in BOTH classrooms                        -> student in 2 classrooms
+-- Each classroom is there for a case to test; the table at the top of the
+-- file lists them. All are the demo center's, created by its manager. The one from 2025 is archived at the end of the file, once its
+-- practice is on record.
 
 INSERT INTO public.classrooms (id, organization_id, grade_level_id, subject_id, name, created_by)
-SELECT v.id, o.id, v.grade_level_id, v.subject_id, v.name, '00000000-0000-0000-0000-000000000005'
+SELECT v.id, m.organization_id, s.grade_level_id, s.id, v.name, m.id
 FROM (VALUES
-  ('c1000000-0000-4000-8000-000000000001'::uuid,
-   '54081b95-ee5f-43d0-8f95-d640d48bb734'::uuid,  -- Year 1
-   '9d077a3d-b673-4760-9c44-218f0f25b2b1'::uuid,  -- Year 1 Mathematics
-   '一年级数学 A组 Year 1 Math (Group A)'),
-  ('c1000000-0000-4000-8000-000000000002'::uuid,
-   '54081b95-ee5f-43d0-8f95-d640d48bb734'::uuid,  -- Year 1
-   '9d077a3d-b673-4760-9c44-218f0f25b2b1'::uuid,  -- Year 1 Mathematics
-   '一年级数学 B组 Year 1 Math (Group B)')
-) AS v(id, grade_level_id, subject_id, name)
-CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o
-ON CONFLICT (id) DO NOTHING;
+  ('c1000000-0000-4000-8000-000000000001'::uuid, '00000000-0000-0000-0000-000000000005'::uuid,
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1'::uuid, '一年级数学 A组 Year 1 Math (Group A)'),
+  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000005',
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1', '一年级数学 B组 Year 1 Math (Group B)'),
+  ('c1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000005',
+   '1129720c-0a04-4832-8bbd-a8ffabfd8bc6', '四年级科学 Year 4 Science'),
+  ('c1000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000005',
+   'f73988ca-1c4e-4b22-8455-eb32c5c1e1c8', '二年级英文 Year 2 English'),
+  ('c1000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000005',
+   '870a3904-e38c-45de-819c-fc36bc71535a', '五年级国文 Year 5 Bahasa Melayu'),
+  ('c1000000-0000-4000-8000-000000000006', '00000000-0000-0000-0000-000000000005',
+   '3ac69c39-64d4-4d60-8c90-0dea1b2cd39a', '三年级数学 Year 3 Math (New)'),
+  ('c1000000-0000-4000-8000-000000000007', '00000000-0000-0000-0000-000000000005',
+   '9d077a3d-b673-4760-9c44-218f0f25b2b1', '一年级数学 2025 Year 1 Math (2025)')
+) AS v(id, manager_id, subject_id, name)
+JOIN public.profiles m ON m.id = v.manager_id
+JOIN public.subjects s ON s.id = v.subject_id;
 
--- Ms Lee (000006) teaches both classrooms.
 INSERT INTO public.classroom_teachers (classroom_id, teacher_id)
 VALUES
+  -- Ms Lee: both Year 1 groups, Year 4 Science and the class of 2025.
   ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000006'),
-  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000006')
-ON CONFLICT DO NOTHING;
+  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000006'),
+  ('c1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000006'),
+  ('c1000000-0000-4000-8000-000000000007', '00000000-0000-0000-0000-000000000006'),
+  -- Mr Kumar: Year 4 Science with Ms Lee, and two classrooms of his own.
+  ('c1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000007'),
+  ('c1000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000007'),
+  ('c1000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000007');
 
--- Classroom A: Alice + Ben.  Classroom B: Alice (so Alice is in both).
 INSERT INTO public.classroom_students (classroom_id, student_id)
 VALUES
+  -- Year 1 Math (Group A): Alice, Ben
   ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002'),
   ('c1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003'),
-  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000002')
-ON CONFLICT DO NOTHING;
+  -- Year 1 Math (Group B): Alice
+  ('c1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000002'),
+  -- Year 4 Science: Alice, Ben
+  ('c1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000002'),
+  ('c1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000003'),
+  -- Year 2 English: Ben
+  ('c1000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000003'),
+  -- Year 5 Bahasa Melayu: Ben
+  ('c1000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000003'),
+  -- Year 1 Math (2025): Alice
+  ('c1000000-0000-4000-8000-000000000007', '00000000-0000-0000-0000-000000000002');
 
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9c. ASSESSMENT ITEM BANK (P20a/P20b)                                     ║
+-- ║ 10. PRACTICE ON RECORD                                                   ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Every assessment question that is meant to be reused lives here, filed under
--- a sub-topic, owned by the PLATFORM (organization_id NULL) or by one center.
--- A paper references these rows; a published assessment holds a frozen copy.
+-- Each row is one finished stage, handed in the way the app hands it in:
+-- through submit_practice_session, as the student, so the marks are the
+-- grader's own and never written here. It is then moved back in time, so that
+-- two goes at one stage have an order.
 --
--- Sub-topics are found by (topic_id, display_order): 1 = concepts/computation,
--- 2 = word problems, per 7b.
+-- An answer names its question and carries what the type is answered with:
+-- selected_options (the numbers of the options picked), text_answer, or a
+-- response object. A question left out was left blank.
 --
--- The Year 1 Mathematics pool is deliberately deep enough for the generator:
--- both topics, both sub-topics, all three difficulties, so a 5:3:2 spec of ten
--- questions fills without a shortfall.
+-- What to look for afterwards:
+--   Alice, Group A   Basic Calculation twice (the later score shows), Number
+--                    Patterns with full marks; Higher-Order Thinking is next
+--   Alice, Group B   one other stage: a classroom keeps its own progress
+--   Alice, Science   the stage of every type, with most types answered
+--   Ben, Group A     Number Patterns handed in with every question blank
+--   Ben, English     Verbs twice, the second go with full marks
 
-INSERT INTO public.assessment_bank_questions (
-  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
-)
+DO $$
+DECLARE
+  s record;
+  v_session uuid;
+BEGIN
+  FOR s IN
+    SELECT * FROM (VALUES
+
+      -- ── Alice ──────────────────────────────────────────────────────────────
+      -- Group A > Basic Calculation, first go: two right, one wrong, ten blank.
+      ('00000000-0000-0000-0000-000000000002'::uuid, 'c1000000-0000-4000-8000-000000000001'::uuid,
+       '4e61c11b-d12e-449f-bdd6-44cf5639a692'::uuid, interval '3 days',
+       '[{"question_id": "073d50c7-22e1-43c1-be30-ba53e7b04e66", "selected_options": [2]},
+         {"question_id": "0c97d45a-f8a1-4a3d-96d9-f7449ab81607", "selected_options": [1]},
+         {"question_id": "11e08503-3ca0-409a-a46d-5bc1f2f5f50f", "selected_options": [2]}]'::jsonb),
+
+      -- Group A > Basic Calculation, second go: most right, some in part, one blank.
+      ('00000000-0000-0000-0000-000000000002', 'c1000000-0000-4000-8000-000000000001',
+       '4e61c11b-d12e-449f-bdd6-44cf5639a692', interval '1 day',
+       '[{"question_id": "073d50c7-22e1-43c1-be30-ba53e7b04e66", "selected_options": [2]},
+         {"question_id": "0c97d45a-f8a1-4a3d-96d9-f7449ab81607", "selected_options": [2]},
+         {"question_id": "11e08503-3ca0-409a-a46d-5bc1f2f5f50f", "selected_options": [2]},
+         {"question_id": "a1000000-0000-4000-8000-000000000001", "selected_options": [1]},
+         {"question_id": "a1000000-0000-4000-8000-000000000002", "text_answer": "20"},
+         {"question_id": "a1000000-0000-4000-8000-000000000004", "response": {"value": false}},
+         {"question_id": "a1000000-0000-4000-8000-000000000005", "response": {"value": true}},
+         {"question_id": "a1000000-0000-4000-8000-000000000006", "text_answer": "25"},
+         {"question_id": "a1000000-0000-4000-8000-000000000007", "text_answer": "18"},
+         {"question_id": "a1000000-0000-4000-8000-000000000008",
+          "response": {"blanks": [{"index": 1, "value": "15"}, {"index": 2, "value": "20"}]}},
+         {"question_id": "a1000000-0000-4000-8000-000000000009",
+          "response": {"blanks": [{"index": 1, "value": "3"}, {"index": 2, "value": "4"}]}},
+         {"question_id": "a1000000-0000-4000-8000-00000000000a",
+          "response": {"pairs": [{"left_id": "l1", "right_id": "r3"}, {"left_id": "l2", "right_id": "r1"},
+                                 {"left_id": "l3", "right_id": "r2"}]}}]'),
+
+      -- Group A > Number Patterns: full marks.
+      ('00000000-0000-0000-0000-000000000002', 'c1000000-0000-4000-8000-000000000001',
+       'b1000000-0000-4000-8000-000000000001', interval '2 days',
+       '[{"question_id": "a4000000-0000-4000-8000-000000000001", "selected_options": [2]},
+         {"question_id": "a4000000-0000-4000-8000-000000000002", "text_answer": "40"},
+         {"question_id": "a4000000-0000-4000-8000-000000000003", "response": {"value": true}},
+         {"question_id": "a4000000-0000-4000-8000-000000000004",
+          "response": {"order": ["p9d04c7e", "t1c97f40", "k3f81b2a", "m5a62e19"]}}]'),
+
+      -- Group B > Chapter 2 > Basic Calculation: three of five.
+      ('00000000-0000-0000-0000-000000000002', 'c1000000-0000-4000-8000-000000000002',
+       'ae3333dc-fc77-44e6-bd19-d8032ee310b5', interval '1 day',
+       '[{"question_id": "a4000000-0000-4000-8000-000000000009", "selected_options": [1]},
+         {"question_id": "a4000000-0000-4000-8000-00000000000a", "text_answer": "9"},
+         {"question_id": "a4000000-0000-4000-8000-00000000000b",
+          "response": {"blanks": [{"index": 1, "value": "2"}, {"index": 2, "value": "4"}]}},
+         {"question_id": "a4000000-0000-4000-8000-00000000000c", "response": {"value": false}},
+         {"question_id": "a4000000-0000-4000-8000-00000000000d",
+          "response": {"pairs": [{"left_id": "h2b7d915", "right_id": "y7e60a1d"}]}}]'),
+
+      -- Year 4 Science > the stage of every type: an answer of each kind, right,
+      -- wrong and in part. The money, time and measure questions are left blank.
+      ('00000000-0000-0000-0000-000000000002', 'c1000000-0000-4000-8000-000000000003',
+       '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', interval '5 hours',
+       '[{"question_id": "a2000000-0000-4000-8000-000000000001", "selected_options": [2]},
+         {"question_id": "a2000000-0000-4000-8000-000000000002", "selected_options": [1, 2]},
+         {"question_id": "a2000000-0000-4000-8000-000000000003", "response": {"value": true}},
+         {"question_id": "a2000000-0000-4000-8000-000000000004", "response": {"value": true}},
+         {"question_id": "a2000000-0000-4000-8000-000000000005",
+          "response": {"items": [{"id": "2f8c1a47", "group_id": "c41f09ab"}, {"id": "b06d93e1", "group_id": "7be2d5c0"},
+                                 {"id": "91c4f7a8", "group_id": "e9a3716d"}, {"id": "d3a75b2c", "group_id": "7be2d5c0"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000006", "selected_options": [2]},
+         {"question_id": "a2000000-0000-4000-8000-000000000007",
+          "response": {"blanks": [{"index": 1, "value": "roots"}, {"index": 2, "value": "stem"}, {"index": 3, "value": "leaves"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000008",
+          "response": {"blanks": [{"index": 1, "value": "water"}, {"index": 2, "value": "shoot"}, {"index": 3, "value": "root"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000009",
+          "response": {"blanks": [{"index": 1, "value": "flower"}, {"index": 2, "value": "pollen"}]}},
+         {"question_id": "a2000000-0000-4000-8000-00000000000a", "text_answer": "Chlorophyll"},
+         {"question_id": "a2000000-0000-4000-8000-00000000000b", "text_answer": "leaf"},
+         {"question_id": "a2000000-0000-4000-8000-00000000000c", "text_answer": "8.1"},
+         {"question_id": "a2000000-0000-4000-8000-00000000000d", "response": {"parts": [3, 4]}},
+         {"question_id": "a2000000-0000-4000-8000-00000000000e", "response": {"parts": [2, 1, 2]}},
+         {"question_id": "a2000000-0000-4000-8000-00000000000f", "response": {"parts": [7, 5]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000013",
+          "response": {"pairs": [{"left_id": "5d1e8f30", "right_id": "bc50e7f8"}, {"left_id": "a7c92b64", "right_id": "f28b0c75"},
+                                 {"left_id": "0e6f4d19", "right_id": "63d9a1e2"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000014",
+          "response": {"order": ["8a3f5c21", "2c6b8e93", "d47e09b6", "e15d7a04"]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000015",
+          "response": {"order": ["74b1e0c9", "c08d36a5", "3e97f41b", "a5627d80", "916c0be3", "f3d85a17", "0b4a92ce"]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000016",
+          "response": {"items": [{"id": "41c8d0a7", "group_id": "6e2a9f58"}, {"id": "d5f61b39", "group_id": "b9173c4d"},
+                                 {"id": "07ae4c82", "group_id": "b9173c4d"}, {"id": "9c3b75e6", "group_id": "b9173c4d"},
+                                 {"id": "e80d2f14", "group_id": "6e2a9f58"}, {"id": "2a94b6c0", "group_id": "b9173c4d"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000017",
+          "response": {"labels": [{"id": "c7e1a359", "value": "Flower"}, {"id": "38f0b6d2", "value": "Leaf"},
+                                  {"id": "a94d5e70", "value": "Roots"}, {"id": "5b2c8f1e", "value": "Stem"}]}},
+         {"question_id": "a2000000-0000-4000-8000-000000000018", "selected_options": [1]},
+         {"question_id": "a2000000-0000-4000-8000-000000000019", "selected_options": [1, 3]},
+         {"question_id": "a2000000-0000-4000-8000-00000000001a", "text_answer": "sunlight"}]'),
+
+      -- ── Ben ────────────────────────────────────────────────────────────────
+      -- Group A > Basic Calculation: six right, seven blank.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000001',
+       '4e61c11b-d12e-449f-bdd6-44cf5639a692', interval '2 days',
+       '[{"question_id": "073d50c7-22e1-43c1-be30-ba53e7b04e66", "selected_options": [2]},
+         {"question_id": "0c97d45a-f8a1-4a3d-96d9-f7449ab81607", "selected_options": [2]},
+         {"question_id": "11e08503-3ca0-409a-a46d-5bc1f2f5f50f", "selected_options": [2]},
+         {"question_id": "a1000000-0000-4000-8000-000000000004", "response": {"value": false}},
+         {"question_id": "a1000000-0000-4000-8000-000000000005", "response": {"value": true}},
+         {"question_id": "a1000000-0000-4000-8000-000000000006", "text_answer": "25"}]'),
+
+      -- Year 4 Science: the first three questions only.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000003',
+       '7d8028fe-a9c7-4b60-9a9b-102a07e984f4', interval '1 day',
+       '[{"question_id": "a2000000-0000-4000-8000-000000000001", "selected_options": [2]},
+         {"question_id": "a2000000-0000-4000-8000-000000000002", "selected_options": [1, 3]},
+         {"question_id": "a2000000-0000-4000-8000-000000000003", "response": {"value": false}}]'),
+
+      -- Group A > Number Patterns: handed in with every question blank.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000001',
+       'b1000000-0000-4000-8000-000000000001', interval '6 hours', '[]'),
+
+      -- Year 2 English > Verbs, first go: one of two.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000004',
+       '8e74125c-d629-4b0e-ab11-c5dfb57856aa', interval '4 days',
+       '[{"question_id": "49f16772-57a6-44a8-8d27-76d8f29eb8bc", "selected_options": [1]},
+         {"question_id": "bd94736c-87a9-45fb-98b7-b5dbf1da58e3", "selected_options": [1]}]'),
+
+      -- Year 2 English > Verbs, second go: full marks.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000004',
+       '8e74125c-d629-4b0e-ab11-c5dfb57856aa', interval '2 days',
+       '[{"question_id": "49f16772-57a6-44a8-8d27-76d8f29eb8bc", "selected_options": [2]},
+         {"question_id": "bd94736c-87a9-45fb-98b7-b5dbf1da58e3", "selected_options": [1]}]'),
+
+      -- Year 2 English > Unit 5: full marks.
+      ('00000000-0000-0000-0000-000000000003', 'c1000000-0000-4000-8000-000000000004',
+       '3e7aa63a-900f-42f1-af4d-774b42e6020f', interval '3 days',
+       '[{"question_id": "05054756-a6c3-4074-80c4-a6dbb3f5ec00", "selected_options": [2]}]'),
+
+      -- ── The class of 2025, before it is archived: Alice ────────────────────
+      ('00000000-0000-0000-0000-000000000002', 'c1000000-0000-4000-8000-000000000007',
+       '4e61c11b-d12e-449f-bdd6-44cf5639a692', interval '40 days',
+       '[{"question_id": "073d50c7-22e1-43c1-be30-ba53e7b04e66", "selected_options": [2]},
+         {"question_id": "a1000000-0000-4000-8000-000000000002", "text_answer": "二十"},
+         {"question_id": "a1000000-0000-4000-8000-000000000006", "text_answer": "25"}]')
+
+    ) AS v(student_id, classroom_id, stage_id, ago, answers)
+  LOOP
+    -- submit_practice_session records for whoever is signed in.
+    PERFORM set_config('request.jwt.claims',
+      jsonb_build_object('sub', s.student_id, 'role', 'authenticated')::text, true);
+    PERFORM public.submit_practice_session(s.classroom_id, s.stage_id, s.answers);
+
+    -- It has just been recorded as of now(); every earlier one was moved back.
+    UPDATE public.practice_sessions
+    SET created_at = now() - s.ago, completed_at = now() - s.ago
+    WHERE student_id = s.student_id AND completed_at = now()
+    RETURNING id INTO STRICT v_session;
+
+    UPDATE public.practice_answers
+    SET answered_at = now() - s.ago
+    WHERE session_id = v_session;
+  END LOOP;
+
+  PERFORM set_config('request.jwt.claims', '', true);
+END $$;
+
+-- The class of 2025 is over: archived, it shows to its centre's manager only.
+UPDATE public.classrooms
+SET archived_at = now()
+WHERE id = 'c1000000-0000-4000-8000-000000000007';
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║ 11. ASSIGNMENTS                                                          ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+-- Three stages Ms Lee has assigned in Year 1 Math (Group A), each moved back
+-- in time so that the practice above falls before or after it. An assignment
+-- is done by the student's first session of its stage after it was assigned,
+-- which is worked out here as submit_practice_session would have recorded it.
+--
+-- What to look for afterwards:
+--   Number Patterns     both students, due yesterday: Alice did it in time
+--                       and Ben late
+--   Basic Calculation   both, due in three days: Alice has done it; Ben's go
+--                       was before it was assigned, and does not count
+--   Chapter 2 > Basic Calculation   Ben alone, due two days ago and not done:
+--                       overdue
+--   Ms Lee's bell       three notifications, the first of them already seen
+
+INSERT INTO public.assignments (id, classroom_id, stage_id, assigned_by, created_at, due_at) VALUES
+  ('d1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001',
+   'b1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000006',
+   now() - interval '3 days', now() - interval '1 day'),
+  ('d1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001',
+   '4e61c11b-d12e-449f-bdd6-44cf5639a692', '00000000-0000-0000-0000-000000000006',
+   now() - interval '36 hours', now() + interval '3 days'),
+  ('d1000000-0000-4000-8000-000000000003', 'c1000000-0000-4000-8000-000000000001',
+   'ae3333dc-fc77-44e6-bd19-d8032ee310b5', '00000000-0000-0000-0000-000000000006',
+   now() - interval '5 days', now() - interval '2 days');
+
+INSERT INTO public.assignment_students (assignment_id, classroom_id, student_id, session_id)
 SELECT
-  v.id, v.payload, v.difficulty,
-  (SELECT st.id FROM public.sub_topics st
-    WHERE st.topic_id = v.topic_id AND st.display_order = v.sub_topic_order),
-  NULL, v.points, '00000000-0000-0000-0000-000000000001'
+  a.id,
+  a.classroom_id,
+  g.student_id,
+  (
+    SELECT ps.id
+    FROM public.practice_sessions ps
+    WHERE ps.student_id = g.student_id
+      AND ps.classroom_id = a.classroom_id
+      AND ps.stage_id = a.stage_id
+      AND ps.completed_at >= a.created_at
+    ORDER BY ps.completed_at
+    LIMIT 1
+  )
 FROM (VALUES
-  -- ── Year 1 Mathematics > 第一课 100 以内的整数 (bc9fb793) ────────────────
-  -- 概念与计算 (display_order 1)
-  ('a9200000-0000-4000-8000-000000000001'::uuid,
-   '{"type":"mcq","question":"5 + 3 = ?","options":[{"text":"7","is_correct":false},{"text":"8","is_correct":true},{"text":"9","is_correct":false},{"text":"10","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000002'::uuid,
-   '{"type":"short_answer","question":"Write the number that comes after 29.","accepted_answers":["30"]}'::jsonb,
-   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000003'::uuid,
-   '{"type":"mcq","question":"在 15, 20, 25, 30 中，下一个数是多少？","options":[{"text":"31","is_correct":false},{"text":"35","is_correct":true},{"text":"40","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000004'::uuid,
-   '{"type":"mcq","question":"Which number is greater: 47 or 74?","options":[{"text":"47","is_correct":false},{"text":"74","is_correct":true}]}'::jsonb,
-   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000005'::uuid,
-   '{"type":"mcq","question":"7 的十位数是多少？","options":[{"text":"0","is_correct":true},{"text":"7","is_correct":false},{"text":"1","is_correct":false}]}'::jsonb,
-   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000006'::uuid,
-   '{"type":"mrq","question":"Select every number smaller than 20.","options":[{"text":"12","is_correct":true},{"text":"25","is_correct":false},{"text":"18","is_correct":true},{"text":"31","is_correct":false}]}'::jsonb,
-   'high'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 1, 2::numeric),
-  -- 应用题 (display_order 2)
-  ('a9200000-0000-4000-8000-000000000007'::uuid,
-   '{"type":"mcq","question":"Ali has 12 marbles and gives 5 away. How many are left?","options":[{"text":"5","is_correct":false},{"text":"7","is_correct":true},{"text":"17","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000008'::uuid,
-   '{"type":"numeric","question":"一盒有 10 支笔，两盒一共有多少支？","answer":20,"unit":"支"}'::jsonb,
-   'medium'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000009'::uuid,
-   '{"type":"long_answer","question":"Explain how you would count 5, 10, 15 up to 50. 说说你怎么五个五个地数到 50。","rubric":"2 pts for a workable strategy, 1 for reaching 50."}'::jsonb,
-   'high'::public.question_difficulty, 'bc9fb793-5026-4241-94ac-54ab709f0518'::uuid, 2, 3::numeric),
+  ('d1000000-0000-4000-8000-000000000001'::uuid, '00000000-0000-0000-0000-000000000002'::uuid),
+  ('d1000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000002'),
+  ('d1000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000003'),
+  ('d1000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000003')
+) AS g(assignment_id, student_id)
+JOIN public.assignments a ON a.id = g.assignment_id;
 
-  -- ── Year 1 Mathematics > 第二课 基本运算 (f73c2614) ──────────────────────
-  ('a9200000-0000-4000-8000-000000000010'::uuid,
-   '{"type":"mcq","question":"10 + 10 = ?","options":[{"text":"20","is_correct":true},{"text":"11","is_correct":false},{"text":"100","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000011'::uuid,
-   '{"type":"true_false","question":"18 - 9 = 9","answer":true}'::jsonb,
-   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000012'::uuid,
-   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"6 + {{1}} = 14, and 14 - 6 = {{2}}.","blanks":[{"index":1,"accepted":["8","eight"]},{"index":2,"accepted":["8","eight"]}]}'::jsonb,
-   'medium'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 2::numeric),
-  ('a9200000-0000-4000-8000-000000000013'::uuid,
-   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
-   'high'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 1, 3::numeric),
-  ('a9200000-0000-4000-8000-000000000014'::uuid,
-   '{"type":"mcq","question":"A bus carries 30 children. 12 get off. How many stay on?","options":[{"text":"18","is_correct":true},{"text":"22","is_correct":false},{"text":"42","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000015'::uuid,
-   '{"type":"numeric","question":"一支笔 3 令吉，买 4 支要多少令吉？","answer":12,"unit":"RM"}'::jsonb,
-   'medium'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000016'::uuid,
-   '{"type":"matching","question":"Match each sum to its answer. 配对。","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
-   'high'::public.question_difficulty, 'f73c2614-9ce0-45eb-81ac-21f7c6575bb5'::uuid, 2, 3::numeric),
-
-  -- ── Year 2 English > 语法 Grammar (50da1a03) ─────────────────────────────
-  -- No seeded classroom teaches this, which is the point: the paper built from
-  -- these is invisible to Ms Lee and Mr Wong, and visible to the admin.
-  ('a9200000-0000-4000-8000-000000000020'::uuid,
-   '{"type":"mcq","question":"Choose the correct verb: They ___ football on Sundays.","options":[{"text":"plays","is_correct":false},{"text":"play","is_correct":true},{"text":"playing","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000021'::uuid,
-   '{"type":"mcq","question":"Which sentence is in the past tense?","options":[{"text":"I walk to school.","is_correct":false},{"text":"I walked to school.","is_correct":true},{"text":"I am walking to school.","is_correct":false}]}'::jsonb,
-   'medium'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 1, 1::numeric),
-  ('a9200000-0000-4000-8000-000000000022'::uuid,
-   '{"type":"short_answer","question":"Write the past tense of \"run\".","accepted_answers":["ran"]}'::jsonb,
-   'medium'::public.question_difficulty, '50da1a03-8668-4da5-bc88-086ca1cccd2b'::uuid, 2, 1::numeric)
-) AS v(id, payload, difficulty, topic_id, sub_topic_order, points);
-
--- The nine payloads the showcase assessment delivers — one of every supported
--- type, so authoring, running, partial credit and pending manual marking are
--- all visible on staging. They are bank items like any other.
-INSERT INTO public.assessment_bank_questions (
-  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
-)
-SELECT
-  v.id, v.payload, v.difficulty,
-  (SELECT st.id FROM public.sub_topics st
-    WHERE st.topic_id = 'bc9fb793-5026-4241-94ac-54ab709f0518' AND st.display_order = 1),
-  NULL, v.points, '00000000-0000-0000-0000-000000000001'
-FROM (VALUES
-  -- 1. MCQ with a question image AND a per-option image (decision 74). The
-  --    objects are not uploaded — a seed cannot write binaries — so staging
-  --    renders a broken image until someone re-uploads through the authoring
-  --    UI. The payload shape is what matters. Item images live under
-  --    `assessment-images/bank/<item_id>/`.
-  ('a9400000-0000-4000-8000-000000000001'::uuid,
-   '{"type":"mcq","question":"12 + 9 = ?","image_path":"bank/a9400000-0000-4000-8000-000000000001/showcase-q1-ten-frames.webp","options":[{"text":"19","is_correct":false},{"text":"20","is_correct":false},{"text":"21","is_correct":true,"image_path":"bank/a9400000-0000-4000-8000-000000000001/showcase-q1-option-21.webp"},{"text":"22","is_correct":false}]}'::jsonb,
-   'low'::public.question_difficulty, 1::numeric),
-  ('a9400000-0000-4000-8000-000000000002'::uuid,
-   '{"type":"mrq","question":"Which of these are even numbers? 哪些是双数？","options":[{"text":"3","is_correct":false},{"text":"8","is_correct":true},{"text":"11","is_correct":false},{"text":"14","is_correct":true}]}'::jsonb,
-   'medium'::public.question_difficulty, 2::numeric),
-  ('a9400000-0000-4000-8000-000000000003'::uuid,
-   '{"type":"true_false","question":"100 is greater than 99. 100 比 99 大。","answer":true}'::jsonb,
-   'low'::public.question_difficulty, 1::numeric),
-  ('a9400000-0000-4000-8000-000000000004'::uuid,
-   '{"type":"numeric","question":"A pencil is 14.5 cm long. How long are two pencils end to end?","answer":29,"tolerance":0.5,"unit":"cm"}'::jsonb,
-   'medium'::public.question_difficulty, 1::numeric),
-  ('a9400000-0000-4000-8000-000000000005'::uuid,
-   '{"type":"short_answer","question":"What is the name of the shape with three sides?","accepted_answers":["triangle","三角形","tri-angle"]}'::jsonb,
-   'low'::public.question_difficulty, 1::numeric),
-  ('a9400000-0000-4000-8000-000000000006'::uuid,
-   '{"type":"cloze","question":"Fill in the blanks. 填空。","text":"5 + {{1}} = 12, and 12 - 4 = {{2}}, so 12 is an {{3}} number.","blanks":[{"index":1,"accepted":["7","seven"]},{"index":2,"accepted":["8","eight"]},{"index":3,"accepted":["even","双数"]}]}'::jsonb,
-   'medium'::public.question_difficulty, 3::numeric),
-  ('a9400000-0000-4000-8000-000000000007'::uuid,
-   '{"type":"matching","question":"Match each sum to its answer. 配对。","image_path":"bank/a9400000-0000-4000-8000-000000000007/showcase-q7-number-line.webp","left":[{"id":"l1","text":"6 + 6"},{"id":"l2","text":"10 + 5"},{"id":"l3","text":"9 + 9"}],"right":[{"id":"r1","text":"15"},{"id":"r2","text":"12"},{"id":"r3","text":"18"},{"id":"r4","text":"20"}],"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r3"}]}'::jsonb,
-   'medium'::public.question_difficulty, 3::numeric),
-  ('a9400000-0000-4000-8000-000000000008'::uuid,
-   '{"type":"ordering","question":"Put these numbers in order, smallest first. 从小到大排列。","items":[{"id":"i1","text":"27"},{"id":"i2","text":"9"},{"id":"i3","text":"41"},{"id":"i4","text":"18"}],"correct_order":["i2","i4","i1","i3"]}'::jsonb,
-   'high'::public.question_difficulty, 4::numeric),
-  ('a9400000-0000-4000-8000-000000000009'::uuid,
-   '{"type":"long_answer","question":"Explain how you would add 38 + 27 in your head. 说说你怎么心算 38 + 27。","rubric":"5 pts: 2 for a workable strategy, 2 for correct steps, 1 for the right answer (65)."}'::jsonb,
-   'high'::public.question_difficulty, 5::numeric)
-) AS v(id, payload, difficulty, points);
-
--- The center's OWN items (P20a): authored by Ms Lee, visible to her center
--- alone, and drawn alongside the platform's whenever she generates a paper.
-INSERT INTO public.assessment_bank_questions (
-  id, payload, difficulty, sub_topic_id, organization_id, points, created_by
-)
-SELECT
-  v.id, v.payload, v.difficulty,
-  (SELECT st.id FROM public.sub_topics st
-    WHERE st.topic_id = 'bc9fb793-5026-4241-94ac-54ab709f0518' AND st.display_order = v.sub_topic_order),
-  o.id, v.points, '00000000-0000-0000-0000-000000000006'
-FROM (VALUES
-  ('a9500000-0000-4000-8000-000000000001'::uuid,
-   '{"type":"mcq","question":"班上有 24 名学生，其中 11 名是女生。男生有多少名？","options":[{"text":"13","is_correct":true},{"text":"12","is_correct":false},{"text":"35","is_correct":false}]}'::jsonb,
-   'medium'::public.question_difficulty, 2, 1::numeric),
-  ('a9500000-0000-4000-8000-000000000002'::uuid,
-   '{"type":"short_answer","question":"Count backwards: 40, 35, 30, ___","accepted_answers":["25"]}'::jsonb,
-   'low'::public.question_difficulty, 1, 1::numeric)
-) AS v(id, payload, difficulty, sub_topic_order, points)
-CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
-
-
--- Learning points on bank items, so the generator's tag filter has something
--- to bite on (a line may ask for "counting" questions only).
-INSERT INTO public.assessment_bank_question_tags (assessment_bank_question_id, tag_id)
-VALUES
-  ('a9200000-0000-4000-8000-000000000003', 'a7000000-0000-4000-8000-000000000002'),
-  ('a9200000-0000-4000-8000-000000000005', 'a7000000-0000-4000-8000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000004', 'a7000000-0000-4000-8000-000000000001'),
-  ('a9200000-0000-4000-8000-000000000006', 'a7000000-0000-4000-8000-000000000003'),
-  ('a9200000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000004'),
-  ('a9200000-0000-4000-8000-000000000010', 'a7000000-0000-4000-8000-000000000004'),
-  ('a9200000-0000-4000-8000-000000000020', 'a7000000-0000-4000-8000-000000000005'),
-  ('a9200000-0000-4000-8000-000000000021', 'a7000000-0000-4000-8000-000000000005')
-ON CONFLICT DO NOTHING;
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9d. PAPERS — the library (P20b)                                          ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- A paper is an ordered list of REFERENCES into the bank plus the delivery
--- settings a classroom inherits. organization_id NULL = the platform's,
--- offered to every center that teaches a grade+subject it covers; set = that
--- center's own. A paper stores no pairing — its items decide it (P20d).
---
--- Item ...0004 sits in BOTH Year 1 Math platform papers: one bank row, two
--- papers, so the reach of an edit is observable on staging.
-
-INSERT INTO public.papers (
-  id, organization_id, title, description, status, created_by
-) VALUES
-  ('a5000000-0000-4000-8000-000000000002', NULL,
-   'Year 1 Math Basics',
-   '100 以内的整数 — starter paper any center can use.', 'published',
-   '00000000-0000-0000-0000-000000000001'),
-  ('a5000000-0000-4000-8000-000000000003', NULL,
-   'Year 2 English Grammar',
-   'Verbs warm-up. No seeded classroom teaches Year 2 English, so this one is
-    deliberately out of the demo teachers'' reach.', 'published',
-   '00000000-0000-0000-0000-000000000001'),
-  ('a5000000-0000-4000-8000-000000000004', NULL,
-   'Year 1 Math — Numbers & Counting',
-   '双数、比较大小与加法 — second Year 1 Math library paper.', 'published',
-   '00000000-0000-0000-0000-000000000001');
-
-INSERT INTO public.paper_items (paper_id, item_id, "position") VALUES
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000001', 0),
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000004', 1),
-  ('a5000000-0000-4000-8000-000000000002', 'a9200000-0000-4000-8000-000000000002', 2),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000020', 0),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000021', 1),
-  ('a5000000-0000-4000-8000-000000000003', 'a9200000-0000-4000-8000-000000000022', 2),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000003', 0),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000004', 1),
-  ('a5000000-0000-4000-8000-000000000004', 'a9200000-0000-4000-8000-000000000006', 2);
-
--- The center's own papers: what Ms Lee delivers below. Owned by the center, so
--- her library is not empty on a fresh staging database.
-INSERT INTO public.papers (
-  id, organization_id, title, description, status, created_by
-)
-SELECT v.id, o.id, v.title, v.description, 'published', '00000000-0000-0000-0000-000000000006'
-FROM (VALUES
-  ('a5000000-0000-4000-8000-000000000001'::uuid,
-   'Year 1 Math — Quiz 1', '100 以内的整数 warm-up'),
-  ('a5000000-0000-4000-8000-000000000005'::uuid,
-   'Year 1 Math — Question Type Showcase',
-   '题型示范 — one question of every supported type (auto-graded + one manually marked).')
-) AS v(id, title, description)
-CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
-
-INSERT INTO public.paper_items (paper_id, item_id, "position") VALUES
-  ('a5000000-0000-4000-8000-000000000001', 'a9200000-0000-4000-8000-000000000001', 0),
-  ('a5000000-0000-4000-8000-000000000001', 'a9200000-0000-4000-8000-000000000004', 1),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000001', 0),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000002', 1),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000003', 2),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000004', 3),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000005', 4),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000006', 5),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000007', 6),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000008', 7),
-  ('a5000000-0000-4000-8000-000000000005', 'a9400000-0000-4000-8000-000000000009', 8);
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9e. DELIVERIES — an assessment is one paper in one classroom (P20b)      ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Both are PUBLISHED, so each carries a frozen snapshot of its paper's items.
--- The app builds that snapshot in publish_assessment(); the seed writes it
--- directly, keeping the ids the attempt fixtures in 9f answer against.
---
--- Point budget on the showcase: 1+2+1+1+1+3+3+4+5 = 21. Question 9
--- (long_answer) stays unmarked, so a fully-correct submission scores
--- 16/21 = 76% until a teacher marks it.
-
-INSERT INTO public.assessments (
-  id, organization_id, classroom_id, paper_id, created_by, title, description, status
-)
-SELECT v.id, o.id, 'c1000000-0000-4000-8000-000000000001', v.paper_id,
-       '00000000-0000-0000-0000-000000000006', v.title, v.description, 'published'
-FROM (VALUES
-  ('a5100000-0000-4000-8000-000000000001'::uuid, 'a5000000-0000-4000-8000-000000000001'::uuid,
-   'Year 1 Math — Quiz 1', '100 以内的整数 warm-up'),
-  ('a5100000-0000-4000-8000-000000000005'::uuid, 'a5000000-0000-4000-8000-000000000005'::uuid,
-   'Year 1 Math — Question Type Showcase',
-   '题型示范 — one question of every supported type (auto-graded + one manually marked).')
-) AS v(id, paper_id, title, description)
-CROSS JOIN (SELECT id FROM public.organizations WHERE name = 'Clavis Demo Center') o;
-
--- The snapshots: the paper's items as they read at publication.
-INSERT INTO public.assessment_questions (id, assessment_id, payload, "position", points)
-SELECT v.id, v.assessment_id, bq.payload, v."position", bq.points
-FROM (VALUES
-  ('a9100000-0000-4000-8000-000000000001'::uuid, 'a5100000-0000-4000-8000-000000000001'::uuid, 'a9200000-0000-4000-8000-000000000001'::uuid, 0),
-  ('a9100000-0000-4000-8000-000000000002'::uuid, 'a5100000-0000-4000-8000-000000000001'::uuid, 'a9200000-0000-4000-8000-000000000004'::uuid, 1),
-  ('a9300000-0000-4000-8000-000000000001'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000001'::uuid, 0),
-  ('a9300000-0000-4000-8000-000000000002'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000002'::uuid, 1),
-  ('a9300000-0000-4000-8000-000000000003'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000003'::uuid, 2),
-  ('a9300000-0000-4000-8000-000000000004'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000004'::uuid, 3),
-  ('a9300000-0000-4000-8000-000000000005'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000005'::uuid, 4),
-  ('a9300000-0000-4000-8000-000000000006'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000006'::uuid, 5),
-  ('a9300000-0000-4000-8000-000000000007'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000007'::uuid, 6),
-  ('a9300000-0000-4000-8000-000000000008'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000008'::uuid, 7),
-  ('a9300000-0000-4000-8000-000000000009'::uuid, 'a5100000-0000-4000-8000-000000000005'::uuid, 'a9400000-0000-4000-8000-000000000009'::uuid, 8)
-) AS v(id, assessment_id, item_id, "position")
-JOIN public.assessment_bank_questions bq ON bq.id = v.item_id;
-
--- Assigned to Classroom A by Ms Lee.
-INSERT INTO public.assessment_assignments (id, assessment_id, classroom_id, due_at, assigned_by)
-VALUES
-  ('a6000000-0000-4000-8000-000000000001', 'a5100000-0000-4000-8000-000000000001',
-   'c1000000-0000-4000-8000-000000000001', now() + interval '7 days',
-   '00000000-0000-0000-0000-000000000006'),
-  ('a6000000-0000-4000-8000-000000000002', 'a5100000-0000-4000-8000-000000000005',
-   'c1000000-0000-4000-8000-000000000001', now() + interval '14 days',
-   '00000000-0000-0000-0000-000000000006');
-
-
--- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║ 9f. MARKING + RELEASE FIXTURES (Revamp 2.5 — decisions 69-71)            ║
--- ╚═══════════════════════════════════════════════════════════════════════════╝
--- Two SUBMITTED attempts so the P9b gates are visible on staging without
--- anyone having to sit an assessment first:
---
---   * Alice on Quiz 1 (9e)  — fully auto-graded, and Quiz 1's answers are
---     RELEASED, so her result shows the correct answers (the released path).
---   * Ben on the Showcase (9e) — every type answered, the long_answer left
---     AWAITING MARKING, and the Showcase is NOT released (the default), so
---     his result shows the provisional score, "1 awaiting marking", and no
---     key at all. Ms Lee (teacher of Classroom A) may mark it.
---
--- Flip the Showcase to the "no score while pending" variant with:
---   UPDATE public.assessments SET show_auto_score_while_pending = false
---   WHERE id = 'a5100000-0000-4000-8000-000000000005';
-
--- Release state (written directly here — the app path is
--- release_assessment_answers(); the seed runs as postgres).
-UPDATE public.assessments
-SET answers_released_at = now() - interval '1 day',
-    answers_released_by = '00000000-0000-0000-0000-000000000006'
-WHERE id = 'a5100000-0000-4000-8000-000000000001';
-
-UPDATE public.assessments
-SET answers_released_at = NULL,
-    answers_released_by = NULL,
-    show_auto_score_while_pending = true
-WHERE id = 'a5100000-0000-4000-8000-000000000005';
-
--- The attempts. Section 7b clears every attempt on a re-run, so these are
--- always fresh; they are created open because the time-limit trigger rejects
--- answer writes to a submitted attempt.
-INSERT INTO public.assessment_attempts (id, assessment_id, student_id, started_at)
-VALUES
-  ('a8000000-0000-4000-8000-000000000001', 'a5100000-0000-4000-8000-000000000001',
-   '00000000-0000-0000-0000-000000000002', now() - interval '2 days'),
-  ('a8000000-0000-4000-8000-000000000002', 'a5100000-0000-4000-8000-000000000005',
-   '00000000-0000-0000-0000-000000000003', now() - interval '1 day')
-ON CONFLICT (id) DO NOTHING;
-
--- Frozen snapshots (start_assessment_attempt's job in the app).
-INSERT INTO public.attempt_questions (attempt_id, assessment_question_id, question_order)
-VALUES
-  ('a8000000-0000-4000-8000-000000000001', 'a9100000-0000-4000-8000-000000000001', 1),
-  ('a8000000-0000-4000-8000-000000000001', 'a9100000-0000-4000-8000-000000000002', 2),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000001', 1),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000002', 2),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000003', 3),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000004', 4),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000005', 5),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000006', 6),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000007', 7),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000008', 8),
-  ('a8000000-0000-4000-8000-000000000002', 'a9300000-0000-4000-8000-000000000009', 9)
-ON CONFLICT DO NOTHING;
-
--- The answers. is_correct / awarded_points below are NOT written: the
--- grade_attempt_answer trigger computes both (long_answer -> NULL/NULL).
-INSERT INTO public.attempt_answers
-  (id, attempt_id, assessment_question_id, selected_options, text_answer, response, time_spent_seconds)
-VALUES
-  -- Alice, Quiz 1: Q1 right (option 2 = "35"), Q2 wrong (correct is 2).
-  ('ab000000-0000-4000-8000-000000000001', 'a8000000-0000-4000-8000-000000000001',
-   'a9100000-0000-4000-8000-000000000001', '{2}', NULL, NULL, 24),
-  ('ab000000-0000-4000-8000-000000000002', 'a8000000-0000-4000-8000-000000000001',
-   'a9100000-0000-4000-8000-000000000002', '{1}', NULL, NULL, 41),
-
-  -- Ben, Showcase: 14 of the 16 auto points, plus one essay to mark.
-  -- 1. mcq  -> option 3 ("21")                                    1/1
-  ('ab000000-0000-4000-8000-000000000011', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000001', '{3}', NULL, NULL, 30),
-  -- 2. mrq  -> options 2 + 4 (8 and 14)                           2/2
-  ('ab000000-0000-4000-8000-000000000012', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000002', '{2,4}', NULL, NULL, 45),
-  -- 3. true_false -> true                                         1/1
-  ('ab000000-0000-4000-8000-000000000013', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000003', NULL, NULL, '{"value": true}'::jsonb, 12),
-  -- 4. numeric -> 29 (exact)                                      1/1
-  ('ab000000-0000-4000-8000-000000000014', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000004', NULL, '29', NULL, 33),
-  -- 5. short_answer -> "Triangle" (case-insensitive match)        1/1
-  ('ab000000-0000-4000-8000-000000000015', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000005', NULL, 'Triangle', NULL, 20),
-  -- 6. cloze -> blank 3 wrong ("odd")                             2/3
-  ('ab000000-0000-4000-8000-000000000016', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000006', NULL, NULL,
-   '{"blanks":[{"index":1,"value":"7"},{"index":2,"value":"eight"},{"index":3,"value":"odd"}]}'::jsonb, 70),
-  -- 7. matching -> l3 paired with the distractor r4               2/3
-  ('ab000000-0000-4000-8000-000000000017', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000007', NULL, NULL,
-   '{"pairs":[{"left_id":"l1","right_id":"r2"},{"left_id":"l2","right_id":"r1"},{"left_id":"l3","right_id":"r4"}]}'::jsonb, 88),
-  -- 8. ordering -> fully correct                                  4/4
-  ('ab000000-0000-4000-8000-000000000018', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000008', NULL, NULL,
-   '{"order":["i2","i4","i1","i3"]}'::jsonb, 95),
-  -- 9. long_answer -> AWAITING MARKING (0 of 5 until Ms Lee marks it)
-  ('ab000000-0000-4000-8000-000000000019', 'a8000000-0000-4000-8000-000000000002',
-   'a9300000-0000-4000-8000-000000000009', NULL,
-   'I add 38 + 2 to make 40, then I add the other 25, so 40 + 25 = 65.', NULL, 150)
-ON CONFLICT (id) DO NOTHING;
-
--- Submit + score both attempts exactly as complete_assessment_attempt would.
-UPDATE public.assessment_attempts
-SET completed_at = started_at + interval '18 minutes'
-WHERE id IN ('a8000000-0000-4000-8000-000000000001',
-             'a8000000-0000-4000-8000-000000000002');
-
-SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000001');
-SELECT app.recompute_attempt_score('a8000000-0000-4000-8000-000000000002');
+-- Ms Lee has seen that Alice did Number Patterns.
+UPDATE public.assignment_students
+SET seen_at = now() - interval '1 day'
+WHERE assignment_id = 'd1000000-0000-4000-8000-000000000001'
+  AND student_id = '00000000-0000-0000-0000-000000000002'
+  AND session_id IS NOT NULL;
 
 
 COMMIT;
