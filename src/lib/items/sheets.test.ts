@@ -3,6 +3,7 @@ import { m } from '#lib/paraglide/messages.js';
 import { ITEM_TYPES, type ItemPayload, type ItemType } from './payload.js';
 import { validateItem } from './schema.js';
 import {
+	exampleRow,
 	PASSAGE_SHEET,
 	QUESTION_SHEETS,
 	readPassageRow,
@@ -51,13 +52,45 @@ describe('the sheets', () => {
 		for (const name of names) expect(name.length).toBeLessThanOrEqual(31);
 	});
 
-	it('end every question sheet with Difficulty, Tip and Passage', () => {
+	it('end every question sheet with Difficulty and Passage, and Tip where the question has one', () => {
 		for (const sheet of QUESTION_SHEETS) {
-			expect(sheet.columns.slice(-3).map((column) => column.header)).toEqual([
-				'Difficulty',
-				'Tip',
-				'Passage'
-			]);
+			// The two choice types keep their tips on their options.
+			const choice = sheet.type === 'mcq' || sheet.type === 'mrq';
+			expect(sheet.columns.slice(choice ? -2 : -3).map((column) => column.header)).toEqual(
+				choice ? ['Difficulty', 'Passage'] : ['Difficulty', 'Tip', 'Passage']
+			);
+		}
+	});
+
+	it('offer a list for every cell that holds one of a few words, and for the passage', () => {
+		const listed = (type: SheetType) =>
+			sheetOf(type)
+				.columns.filter((column) => column.choices || column.passages)
+				.map((column) => column.header);
+		expect(listed('mcq')).toEqual(['Answer', 'Difficulty', 'Passage']);
+		expect(listed('mrq')).toEqual(['Difficulty', 'Passage']);
+		expect(listed('numeric')).toEqual([
+			'Answer Form',
+			'Accept Equal Answers',
+			'Difficulty',
+			'Passage'
+		]);
+		// Every word a list offers is one its column reads. Whether a letter is an answer
+		// depends on the options, so the letters are left to the tests of their own.
+		for (const sheet of QUESTION_SHEETS) {
+			for (const column of sheet.columns.filter(
+				(each) => each.key !== 'answer' || !each.required
+			)) {
+				for (const word of column.choices ?? []) {
+					const read = readQuestionRow(sheet, { ...sheet.sample, [column.key]: word });
+					expect(read.ok ? null : read.problem.column).not.toBe(column.header);
+				}
+			}
+		}
+		for (const word of sheetOf('true_false').columns[2].choices ?? []) {
+			expect(
+				readQuestionRow(sheetOf('true_false'), row('true_false', { answer: word }))
+			).toMatchObject({ ok: true });
 		}
 	});
 
@@ -84,12 +117,7 @@ describe('the sheets', () => {
 	it('read the example of Passages as a passage', () => {
 		expect(readPassageRow(PASSAGE_SHEET.sample)).toEqual({
 			ok: true,
-			passage: {
-				code: 'p1',
-				title: 'The Water Cycle',
-				body: PASSAGE_SHEET.sample.text,
-				image_path: null
-			}
+			passage: { title: 'The Water Cycle', body: PASSAGE_SHEET.sample.text, image_path: null }
 		});
 	});
 });
@@ -107,13 +135,13 @@ describe('what every question row has', () => {
 		});
 	});
 
-	it('carries its tip and the code of its passage', () => {
+	it('carries its tip and the title of its passage, as titles are compared', () => {
 		const read = readQuestionRow(
 			sheetOf('short_answer'),
-			row('short_answer', { tip: 'Think of the air.', passage: ' P1 ' })
+			row('short_answer', { tip: 'Think of the air.', passage: ' The Water Cycle ' })
 		);
 		expect(read).toMatchObject({
-			question: { passage: 'p1', payload: { tip: 'Think of the air.' } }
+			question: { passage: 'the water cycle', payload: { tip: 'Think of the air.' } }
 		});
 		expect(payloadOf('short_answer')).not.toHaveProperty('tip');
 	});
@@ -137,16 +165,17 @@ describe('what every question row has', () => {
 
 describe('Multiple Choice and Multiple Response', () => {
 	it('marks the option under the answer’s letter', () => {
-		expect(payloadOf('mcq', { answer: 'c', tip: '' }).options).toEqual([
-			{ text: 'Roots', is_correct: false },
-			{ text: 'Stem', is_correct: false },
-			{ text: 'Leaf', is_correct: true },
-			{ text: 'Flower', is_correct: false }
+		const payload = payloadOf('mcq', { answer: 'c', tip_C: '' });
+		expect(payload.options.map((option) => [option.text, option.is_correct])).toEqual([
+			['Roots', false],
+			['Stem', false],
+			['Leaf', true],
+			['Flower', false]
 		]);
 	});
 
-	it('keeps an option’s letter when a column before it is empty', () => {
-		const payload = payloadOf('mcq', { option_B: '', answer: 'D', tip: '' });
+	it('keeps an option’s letter when the columns before it are empty', () => {
+		const payload = payloadOf('mcq', { option_B: '', tip_B: '', answer: 'D' });
 		expect(payload.options.map((option) => [option.text, option.is_correct])).toEqual([
 			['Roots', false],
 			['Leaf', false],
@@ -154,15 +183,25 @@ describe('Multiple Choice and Multiple Response', () => {
 		]);
 	});
 
-	it('puts the tip on the wrong options, where these two types keep it', () => {
-		const payload = payloadOf('mcq', { tip: 'Under the ground.' });
+	it('keeps each tip on its own option, and has none of its own', () => {
+		const payload = payloadOf('mcq');
 		expect(payload).not.toHaveProperty('tip');
 		expect(payload.options.map((option) => option.tip)).toEqual([
 			undefined,
-			'Under the ground.',
-			'Under the ground.',
-			'Under the ground.'
+			'The stem carries water up the plant.',
+			'A leaf makes food from sunlight.',
+			undefined
 		]);
+		expect(sheetOf('mcq').columns.map((column) => column.header)).not.toContain('Tip');
+	});
+
+	it('refuses a tip on a right option, and one on an option that is not there', () => {
+		expect(problemOf('mcq', { tip_A: 'Under the ground.' })).toEqual({
+			column: 'Option A Tip',
+			message: m.practice_import_tip_on_answer()
+		});
+		expect(problemOf('mrq', { tip_C: 'Green.' }).column).toBe('Option C Tip');
+		expect(problemOf('mcq', { tip_E: 'No option.' }).column).toBe('Option E');
 	});
 
 	it('takes several letters for a Multiple Response, however they are set apart', () => {
@@ -200,10 +239,8 @@ describe('Multiple Choice and Multiple Response', () => {
 			column: 'Option C',
 			message: m.item_option_repeated()
 		});
-		expect(problemOf('mcq', { option_B: '', option_C: '', option_D: '', answer: 'A' })).toEqual({
-			column: null,
-			message: m.item_options_too_few()
-		});
+		const alone = { option_B: '', tip_B: '', option_C: '', tip_C: '', option_D: '', answer: 'A' };
+		expect(problemOf('mcq', alone)).toEqual({ column: null, message: m.item_options_too_few() });
 	});
 });
 
@@ -653,35 +690,30 @@ describe('Classify', () => {
 });
 
 describe('readPassageRow', () => {
+	const { title, text } = PASSAGE_SHEET.sample;
+
 	it('names the cell that is empty', () => {
-		const { code, title, text } = PASSAGE_SHEET.sample;
-		expect(readPassageRow({ code: '', title, text })).toEqual({
-			ok: false,
-			problem: { column: 'Code', message: m.practice_import_cell_empty() }
-		});
-		expect(readPassageRow({ code, title: '', text })).toEqual({
+		expect(readPassageRow({ title: '', text })).toEqual({
 			ok: false,
 			problem: { column: 'Title', message: m.practice_passage_title_required() }
 		});
-		expect(readPassageRow({ code, title, text: '' })).toEqual({
+		expect(readPassageRow({ title, text: '' })).toEqual({
 			ok: false,
 			problem: { column: 'Text', message: m.practice_passage_content_required() }
 		});
 	});
 
 	it('takes a picture with the text, or in place of it', () => {
-		const { code, title, text } = PASSAGE_SHEET.sample;
-		expect(readPassageRow({ code, title, text }, { picture: 'upload:a' })).toMatchObject({
+		expect(readPassageRow({ title, text }, { picture: 'upload:a' })).toMatchObject({
 			passage: { body: text, image_path: 'upload:a' }
 		});
-		expect(readPassageRow({ code, title, text: '' }, { picture: 'upload:a' })).toMatchObject({
+		expect(readPassageRow({ title, text: '' }, { picture: 'upload:a' })).toMatchObject({
 			passage: { body: '', image_path: 'upload:a' }
 		});
 	});
 
 	it('refuses words where the picture goes', () => {
-		const { code, title, text } = PASSAGE_SHEET.sample;
-		expect(readPassageRow({ code, title, text, picture: 'cycle.png' })).toEqual({
+		expect(readPassageRow({ title, text, picture: 'cycle.png' })).toEqual({
 			ok: false,
 			problem: { column: 'Picture', message: m.practice_import_picture_words() }
 		});
@@ -704,18 +736,24 @@ describe('pictures', () => {
 		expect(read).toMatchObject({ ok: true, question: { payload: { image_path: 'upload:a' } } });
 	});
 
-	it('take a picture only in the cells of what a pupil is shown', () => {
+	it('take a picture only in the Picture columns, one for each thing a pupil is shown', () => {
 		const taking = (type: SheetType) =>
 			sheetOf(type)
 				.columns.filter((column) => column.picture)
 				.map((column) => column.header);
 		expect(taking('short_answer')).toEqual(['Picture']);
-		expect(taking('mcq')).toEqual(
-			['Picture', ...'ABCDEF'].map((each, index) => (index === 0 ? each : `Option ${each}`))
-		);
+		expect(taking('mcq')).toEqual([
+			'Picture',
+			...Array.from('ABCDEF', (letter) => `Option ${letter} Picture`)
+		]);
 		expect(taking('ordering')).toHaveLength(9);
 		expect(taking('matching')).toHaveLength(17);
 		expect(taking('classify')).toEqual(['Picture']);
+		for (const sheet of SHEETS) {
+			for (const header of sheet.columns.filter((column) => column.picture)) {
+				expect(header.header).toMatch(/Picture$/);
+			}
+		}
 	});
 
 	it('refuse words where the picture goes', () => {
@@ -723,27 +761,33 @@ describe('pictures', () => {
 			column: 'Picture',
 			message: m.practice_import_picture_words()
 		});
+		expect(problemOf('mcq', { picture_B: 'stem.png' })).toEqual({
+			column: 'Option B Picture',
+			message: m.practice_import_picture_words()
+		});
 	});
 
 	it('make an option of a picture, with words or without', () => {
 		const payload = pictured(
 			'mcq',
-			{ option_B: '', option_E: '', answer: 'E', tip: '' },
-			{ option_A: 'upload:a', option_B: 'upload:b', option_E: 'upload:e' }
+			{ option_B: '', tip_B: '', option_E: '', answer: 'E' },
+			{ picture_A: 'upload:a', picture_B: 'upload:b', picture_E: 'upload:e' }
 		);
-		expect(payload.options).toEqual([
-			{ text: 'Roots', image_path: 'upload:a', is_correct: false },
-			{ text: '', image_path: 'upload:b', is_correct: false },
-			{ text: 'Leaf', is_correct: false },
-			{ text: 'Flower', is_correct: false },
-			{ text: '', image_path: 'upload:e', is_correct: true }
+		expect(
+			payload.options.map(({ text, image_path, is_correct }) => [text, image_path, is_correct])
+		).toEqual([
+			['Roots', 'upload:a', false],
+			['', 'upload:b', false],
+			['Leaf', undefined, false],
+			['Flower', undefined, false],
+			['', 'upload:e', true]
 		]);
 	});
 
 	it('refuse two options that show the same words and the same picture', () => {
 		const read = readQuestionRow(sheetOf('mcq'), row('mcq', { option_A: '', option_B: '' }), {
-			option_A: 'upload:a',
-			option_B: 'upload:a'
+			picture_A: 'upload:a',
+			picture_B: 'upload:a'
 		});
 		expect(read).toMatchObject({ ok: false });
 	});
@@ -753,10 +797,10 @@ describe('pictures', () => {
 			'matching',
 			{ left_1: '', right_1: '', right_2: '', right_3: '' },
 			{
-				left_1: 'upload:cat',
-				right_1: 'upload:kitten',
-				right_2: 'upload:young',
-				right_3: 'upload:young'
+				left_picture_1: 'upload:cat',
+				right_picture_1: 'upload:kitten',
+				right_picture_2: 'upload:young',
+				right_picture_3: 'upload:young'
 			}
 		);
 		expect(payload.left.map(({ text, image_path }) => [text, image_path])).toEqual([
@@ -781,7 +825,7 @@ describe('pictures', () => {
 		const payload = pictured(
 			'ordering',
 			{ item_2: '' },
-			{ item_2: 'upload:b', item_5: 'upload:e' }
+			{ item_picture_2: 'upload:b', item_picture_5: 'upload:e' }
 		);
 		expect(payload.items.map(({ text, image_path }) => [text, image_path])).toEqual([
 			['Egg', undefined],
@@ -793,22 +837,23 @@ describe('pictures', () => {
 		expect(payload.correct_order).toEqual(payload.items.map((item) => item.id));
 	});
 
-	it('read a row that is a picture and nothing else, and the example once it has one', () => {
+	it('read a row that is a picture and nothing else, and never the example', () => {
 		const sheet = sheetOf('short_answer');
 		const read = readRows([
 			{
 				sheet,
 				rows: [
-					{ row: 2, cells: sheet.sample, pictures: { picture: 'upload:a' } },
-					{ row: 3, cells: {}, pictures: { picture: 'upload:b' } },
-					{ row: 4, cells: {}, pictures: {} }
+					{ row: 2, cells: exampleRow(sheet), pictures: { picture: 'upload:a' } },
+					{ row: 3, cells: sheet.sample, pictures: { picture: 'upload:b' } },
+					{ row: 4, cells: {}, pictures: { picture: 'upload:c' } },
+					{ row: 5, cells: {}, pictures: {} }
 				]
 			}
 		]);
 		expect(read.questionRows).toBe(2);
-		expect(read.candidates.questions.map((each) => each.payload.image_path)).toEqual(['upload:a']);
+		expect(read.candidates.questions.map((each) => each.payload.image_path)).toEqual(['upload:b']);
 		expect(read.problems).toEqual([
-			{ sheet: sheet.name, row: 3, reason: expect.stringContaining('Question') }
+			{ sheet: sheet.name, row: 4, reason: expect.stringContaining('Question') }
 		]);
 	});
 });
@@ -825,7 +870,7 @@ describe('readRows', () => {
 		cells.map((each, index) => ({ row: index + 2, cells: each }));
 
 	it('reads nothing from a workbook that still holds only the examples', () => {
-		const read = readRows(SHEETS.map((sheet) => ({ sheet, rows: rows(sheet.sample) })));
+		const read = readRows(SHEETS.map((sheet) => ({ sheet, rows: rows(exampleRow(sheet)) })));
 		expect(read).toEqual({
 			candidates: { passages: [], questions: [] },
 			problems: [],
@@ -837,7 +882,14 @@ describe('readRows', () => {
 		const read = readRows([
 			{
 				sheet: short,
-				rows: rows(short.sample, answer('One?'), {}, { question: '', answers: '' }, answer(''), {})
+				rows: rows(
+					exampleRow(short),
+					answer('One?'),
+					{},
+					{ question: '', answers: '' },
+					answer(''),
+					{}
+				)
 			}
 		]);
 		expect(read.questionRows).toBe(2);
@@ -854,9 +906,21 @@ describe('readRows', () => {
 		]);
 	});
 
-	it('imports the example once it has been written over', () => {
-		const read = readRows([{ sheet: short, rows: rows({ ...short.sample, tip: 'A gas.' }) }]);
-		expect(read.candidates.questions).toHaveLength(1);
+	it('leaves out a row for as long as it begins as the example does', () => {
+		const read = readRows([
+			{
+				sheet: short,
+				rows: rows(
+					{ ...exampleRow(short), tip: 'A gas.' },
+					answer('example: in small letters?'),
+					short.sample
+				)
+			}
+		]);
+		expect(read.questionRows).toBe(1);
+		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual([
+			short.sample.question
+		]);
 	});
 
 	it('lists the questions sheet by sheet in the order of the template, row by row', () => {
@@ -871,15 +935,15 @@ describe('readRows', () => {
 		]);
 	});
 
-	it('joins a question to the passage whose code it writes, in any capitals', () => {
+	it('joins a question to the passage whose title it holds, in any capitals', () => {
 		const read = readRows([
-			{ sheet: short, rows: rows(answer('On it?', { passage: 'p1' }), answer('Alone?')) },
-			{ sheet: PASSAGE_SHEET, rows: rows({ code: 'P1', title: 'Rain', text: 'It rains.' }) }
+			{ sheet: short, rows: rows(answer('On it?', { passage: ' rain ' }), answer('Alone?')) },
+			{ sheet: PASSAGE_SHEET, rows: rows({ title: 'Rain', text: 'It rains.' }) }
 		]);
 		expect(read.candidates.passages).toEqual([
-			{ code: 'p1', title: 'Rain', body: 'It rains.', image_path: null }
+			{ title: 'Rain', body: 'It rains.', image_path: null }
 		]);
-		expect(read.candidates.questions.map((each) => each.passage)).toEqual(['p1', null]);
+		expect(read.candidates.questions.map((each) => each.passage)).toEqual(['rain', null]);
 		expect(read.problems).toEqual([]);
 	});
 
@@ -887,14 +951,14 @@ describe('readRows', () => {
 		const read = readRows([
 			{
 				sheet: short,
-				rows: rows(answer('Lost?', { passage: 'P9' }), answer('Waiting?', { passage: 'P2' }))
+				rows: rows(answer('Lost?', { passage: 'Snow' }), answer('Waiting?', { passage: 'Wind' }))
 			},
 			{
 				sheet: PASSAGE_SHEET,
 				rows: rows(
-					{ code: 'P1', title: 'Rain', text: 'It rains.' },
-					{ code: 'P2', title: '', text: 'No title.' },
-					{ code: 'p1', title: 'Again', text: 'The same code.' }
+					{ title: 'Rain', text: 'It rains.' },
+					{ title: 'Wind', text: '' },
+					{ title: 'rain', text: 'The same title.' }
 				)
 			}
 		]);
@@ -906,18 +970,18 @@ describe('readRows', () => {
 			{
 				sheet: 'Short Answer',
 				row: 2,
-				reason: at('Passage', m.practice_import_passage_unknown({ code: 'P9' }))
+				reason: at('Passage', m.practice_import_passage_unknown({ title: 'Snow' }))
 			},
 			{
 				sheet: 'Short Answer',
 				row: 3,
-				reason: at('Passage', m.practice_import_passage_broken({ code: 'P2' }))
+				reason: at('Passage', m.practice_import_passage_broken({ title: 'Wind' }))
 			},
-			{ sheet: 'Passages', row: 3, reason: at('Title', m.practice_passage_title_required()) },
+			{ sheet: 'Passages', row: 3, reason: at('Text', m.practice_passage_content_required()) },
 			{
 				sheet: 'Passages',
 				row: 4,
-				reason: at('Code', m.practice_import_code_repeated({ code: 'p1' }))
+				reason: at('Title', m.practice_import_passage_repeated({ title: 'rain' }))
 			}
 		]);
 	});

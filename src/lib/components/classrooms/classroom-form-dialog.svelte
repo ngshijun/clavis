@@ -9,7 +9,7 @@
 	import { Input } from '#lib/components/ui/input/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { optimizeImage } from '#lib/image.js';
+	import { preparePicture } from '#lib/image.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { Classroom, GradeLevelOption } from '#lib/server/classrooms.js';
 
@@ -83,15 +83,15 @@
 				submitting = true;
 				const cover = formData.get('cover');
 				if (cover instanceof File && cover.size > 0) {
-					try {
-						formData.set('cover', await optimizeImage(cover));
-					} catch {
-						// A file the browser cannot decode, such as a HEIC photo or a damaged image.
+					const ready = await preparePicture(cover);
+					// A file the browser cannot read as a picture, such as a HEIC photo or a damaged image.
+					if (!ready) {
 						errors = { cover: [m.form_cover_invalid()] };
 						submitting = false;
 						cancel();
 						return;
 					}
+					formData.set('cover', ready);
 				}
 				return async ({ result, update }) => {
 					await update({ reset: false });

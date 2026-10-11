@@ -33,6 +33,9 @@ export default defineConfig({
 			strategy: ['cookie', 'preferredLanguage', 'baseLocale']
 		})
 	],
+	// The WebP encoder finds its WebAssembly file beside its own module, which it no longer
+	// is once the dev server has bundled the package.
+	optimizeDeps: { exclude: ['@jsquash/webp'] },
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
