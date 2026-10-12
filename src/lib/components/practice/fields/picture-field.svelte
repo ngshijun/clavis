@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import ImageUpIcon from '@lucide/svelte/icons/image-up';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -9,6 +10,8 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
 	import { getEditor } from '../editor.svelte.js';
+	import { slot } from '../styles.js';
+	import { focusLost } from './focus.js';
 
 	/**
 	 * An optional picture: of the question, of an option, of an item. Picking
@@ -40,6 +43,18 @@
 	const url = $derived(editor.imageUrl(path));
 
 	let picker = $state<PicturePicker>();
+	let root = $state<HTMLElement>();
+
+	/**
+	 * Sets the picture or takes it away. The button that was pressed gives way
+	 * to another when a picture comes or goes, and the focus it held would drop
+	 * to the top of the page: it goes to the one that took its place.
+	 */
+	async function set(next: string | undefined) {
+		path = next;
+		await tick();
+		if (focusLost()) root?.querySelector('button')?.focus();
+	}
 
 	/**
 	 * The button a set picture becomes. In a row it is a tile that shows the
@@ -56,77 +71,81 @@
 	);
 </script>
 
-<PicturePicker bind:this={picker} onpick={(picture) => (path = editor.addImage(picture))} />
+<PicturePicker bind:this={picker} onpick={(picture) => set(editor.addImage(picture))} />
 
-{#if size !== 'field'}
-	{#if url}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						class={cn('shrink-0', thumb.button)}
-						aria-label={label}
-						{...props}
-					>
-						<img src={url} alt="" class={cn('size-full', thumb.picture)} />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="start">
-				<DropdownMenu.Group>
-					<DropdownMenu.Item onSelect={() => picker?.open()}>
-						<ImageUpIcon />
-						{m.image_replace()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item variant="destructive" onSelect={() => (path = undefined)}>
-						<Trash2Icon />
-						{m.image_remove()}
-					</DropdownMenu.Item>
-				</DropdownMenu.Group>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-	{:else}
-		<IconButton
-			variant="ghost"
-			size={size === 'chip' ? 'icon-xs' : 'icon-sm'}
-			{label}
-			class="shrink-0 text-muted-foreground"
-			aria-invalid={invalid ? true : undefined}
-			onclick={() => picker?.open()}
-		>
-			<ImageIcon />
-		</IconButton>
-	{/if}
-{:else if url}
-	<!--
+<!-- Draws no box of its own: it is here to find the button that stands for the picture now. -->
+<span bind:this={root} class="contents">
+	{#if size !== 'field'}
+		{#if url}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							class={cn('shrink-0', thumb.button)}
+							aria-label={label}
+							data-picture={size === 'row' ? '' : undefined}
+							{...props}
+						>
+							<img src={url} alt="" class={cn('size-full', thumb.picture)} />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="start">
+					<DropdownMenu.Group>
+						<DropdownMenu.Item onSelect={() => picker?.open()}>
+							<ImageUpIcon />
+							{m.image_replace()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item variant="destructive" onSelect={() => set(undefined)}>
+							<Trash2Icon />
+							{m.image_remove()}
+						</DropdownMenu.Item>
+					</DropdownMenu.Group>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{:else}
+			<IconButton
+				variant="ghost"
+				size={size === 'chip' ? 'icon-xs' : 'icon-sm'}
+				{label}
+				class={cn('shrink-0 text-muted-foreground', size === 'row' && slot)}
+				aria-invalid={invalid ? true : undefined}
+				onclick={() => picker?.open()}
+			>
+				<ImageIcon />
+			</IconButton>
+		{/if}
+	{:else if url}
+		<!--
 		Small: the pupil view beside the form shows the picture at its full size. It stands 8px
 		inside its field's 18px corners, so its own are 10px.
 	-->
-	<div class="flex flex-wrap items-center gap-1">
-		<img
-			src={url}
-			alt={label}
-			class="me-1 h-14 max-w-32 rounded-lg border bg-card object-contain"
-		/>
-		<Button variant="ghost" size="sm" onclick={() => picker?.open()}>
-			<ImageUpIcon data-icon="inline-start" />
-			{m.image_replace()}
+		<div class="flex flex-wrap items-center gap-1">
+			<img
+				src={url}
+				alt={label}
+				class="me-1 h-14 max-w-32 rounded-lg border bg-card object-contain"
+			/>
+			<Button variant="ghost" size="sm" onclick={() => picker?.open()}>
+				<ImageUpIcon data-icon="inline-start" />
+				{m.image_replace()}
+			</Button>
+			<Button variant="ghost" size="sm" onclick={() => set(undefined)}>
+				<Trash2Icon data-icon="inline-start" />
+				{m.image_remove()}
+			</Button>
+		</div>
+	{:else}
+		<Button
+			variant="ghost"
+			size="sm"
+			aria-invalid={invalid ? true : undefined}
+			onclick={() => picker?.open()}
+		>
+			<ImageIcon data-icon="inline-start" />
+			{m.practice_image_add()}
 		</Button>
-		<Button variant="ghost" size="sm" onclick={() => (path = undefined)}>
-			<Trash2Icon data-icon="inline-start" />
-			{m.image_remove()}
-		</Button>
-	</div>
-{:else}
-	<Button
-		variant="ghost"
-		size="sm"
-		aria-invalid={invalid ? true : undefined}
-		onclick={() => picker?.open()}
-	>
-		<ImageIcon data-icon="inline-start" />
-		{m.practice_image_add()}
-	</Button>
-{/if}
+	{/if}
+</span>

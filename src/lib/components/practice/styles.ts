@@ -14,8 +14,19 @@ export const hint = 'text-xs text-muted-foreground';
  */
 export const group = 'flex flex-col gap-5';
 
-/** A list of rows in a form, each a control with what belongs to it. */
-export const rows = 'flex flex-col gap-1.5';
+/**
+ * A list of rows in a form, each a control with what belongs to it. It is a
+ * named group, so a row can tell what the rows around it hold: see `slot`.
+ */
+export const rows = 'group/rows flex flex-col gap-1.5';
+
+/**
+ * For the 32px button that adds a picture to a row. Once a row of the list
+ * shows a picture, as a 48px tile, the buttons of the others take a tile's
+ * room too, 8px on each side, so the pictures and the fields beside them
+ * stand in columns.
+ */
+export const slot = 'group-has-data-picture/rows:mx-2';
 
 /** A chip: one word or phrase in a row of them. Set them in `chips`. */
 export const chips = 'flex flex-wrap items-center gap-1.5';

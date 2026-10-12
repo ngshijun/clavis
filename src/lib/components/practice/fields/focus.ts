@@ -5,7 +5,7 @@ const FOCUSABLE =
 	'input:not(:disabled), textarea:not(:disabled), button:not(:disabled), [role="button"], a[href]';
 
 /** Whether the keyboard's focus is nowhere it can be used from. */
-function focusLost(): boolean {
+export function focusLost(): boolean {
 	const active = document.activeElement;
 	return (
 		!(active instanceof HTMLElement) ||
