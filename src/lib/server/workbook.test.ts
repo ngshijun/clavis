@@ -134,7 +134,39 @@ describe('readWorkbook', () => {
 					accepted_answers: ['oxygen']
 				},
 				difficulty: 'medium',
-				passage: null
+				passage: null,
+				learningPoints: []
+			}
+		]);
+	});
+
+	it('files a row under the learning points of the topic it is read for, and says a name the topic lacks', async () => {
+		const reading = await readWorkbook(
+			await workbook({
+				'Short Answer': [
+					headers(short),
+					rowOf(short, { Question: 'One?', 'Learning Points': 'Counting | Place Value' }),
+					rowOf(short, { Question: 'Two?', 'Learning Points': 'Fractions' })
+				]
+			}),
+			undefined,
+			[
+				{ id: 'counting', name: 'counting' },
+				{ id: 'place', name: 'place value' }
+			]
+		);
+		if (!reading.ok) throw new Error(reading.message);
+		expect(reading.candidates.questions).toMatchObject([
+			{ payload: { question: 'One?' }, learningPoints: ['counting', 'place'] }
+		]);
+		expect(reading.problems).toEqual([
+			{
+				sheet: 'Short Answer',
+				row: 3,
+				reason: m.practice_import_at_column({
+					column: 'Learning Points',
+					message: m.practice_import_learning_point({ name: 'Fractions' })
+				})
 			}
 		]);
 	});

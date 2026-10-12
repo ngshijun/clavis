@@ -52,12 +52,14 @@ describe('the sheets', () => {
 		for (const name of names) expect(name.length).toBeLessThanOrEqual(31);
 	});
 
-	it('end every question sheet with Difficulty and Passage, and Tip where the question has one', () => {
+	it('end every question sheet with Difficulty, Passage and Learning Points, and Tip where the question has one', () => {
 		for (const sheet of QUESTION_SHEETS) {
 			// The two choice types keep their tips on their options.
 			const choice = sheet.type === 'mcq' || sheet.type === 'mrq';
-			expect(sheet.columns.slice(choice ? -2 : -3).map((column) => column.header)).toEqual(
-				choice ? ['Difficulty', 'Passage'] : ['Difficulty', 'Tip', 'Passage']
+			expect(sheet.columns.slice(choice ? -3 : -4).map((column) => column.header)).toEqual(
+				choice
+					? ['Difficulty', 'Passage', 'Learning Points']
+					: ['Difficulty', 'Tip', 'Passage', 'Learning Points']
 			);
 		}
 	});
@@ -154,11 +156,41 @@ describe('what every question row has', () => {
 		expect(problemOf('true_false', { question: '' }).column).toBe('Statement');
 	});
 
+	it('is filed under the learning points it names, of those its topic offers', () => {
+		const offered = [
+			{ id: 'counting', name: 'counting' },
+			{ id: 'place', name: 'place value' }
+		];
+		const read = (written: string) =>
+			readQuestionRow(
+				sheetOf('short_answer'),
+				row('short_answer', { learning_points: written }),
+				{},
+				offered
+			);
+		expect(read('')).toMatchObject({ question: { learningPoints: [] } });
+		// By name, in any capitals and with any room around it; named twice it is still one.
+		expect(read(' Place Value | counting|COUNTING ')).toMatchObject({
+			question: { learningPoints: ['place', 'counting'] }
+		});
+		expect(read('counting | fractions')).toEqual({
+			ok: false,
+			problem: {
+				column: 'Learning Points',
+				message: m.practice_import_learning_point({ name: 'fractions' })
+			}
+		});
+		// Read for no topic, a row can name none.
+		expect(problemOf('short_answer', { learning_points: 'counting' }).column).toBe(
+			'Learning Points'
+		);
+	});
+
 	it('does not mind a column that is gone', () => {
 		const { question, answers } = row('short_answer');
 		expect(readQuestionRow(sheetOf('short_answer'), { question, answers })).toMatchObject({
 			ok: true,
-			question: { difficulty: 'medium', passage: null }
+			question: { difficulty: 'medium', passage: null, learningPoints: [] }
 		});
 	});
 });

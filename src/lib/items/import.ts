@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { imagePaths } from '#lib/item-images.js';
 import { m } from '#lib/paraglide/messages.js';
 import { passageKey, validatePassage } from '#lib/passage.js';
-import { MAX_IMAGE_PATH_CHARS, MAX_PASSAGE_TITLE_CHARS } from './limits.js';
+import { MAX_ENTRIES, MAX_IMAGE_PATH_CHARS, MAX_PASSAGE_TITLE_CHARS } from './limits.js';
 import { DIFFICULTIES, type Difficulty, type ItemPayload } from './payload.js';
 import { contentKey } from './same.js';
 import { validateItem } from './schema.js';
@@ -54,12 +54,21 @@ export interface CandidatePassage {
 	image_path: string | null;
 }
 
+/** A learning point a stage's topic offers its questions, known to a workbook by its name. */
+export interface OfferedPoint {
+	id: string;
+	/** In small letters, as it is stored. */
+	name: string;
+}
+
 /** A question of a workbook, complete and tidied. */
 export interface CandidateQuestion {
 	payload: ItemPayload;
 	difficulty: Difficulty;
 	/** The title of the passage it joins, as `titleKey` has it; null for one that stands alone. */
 	passage: string | null;
+	/** The ids of the learning points it is filed under, each one its stage's topic offers. */
+	learningPoints: string[];
 }
 
 export interface Candidates {
@@ -110,7 +119,12 @@ export interface ImportPlan {
 	/** The passages to make, in the order they join the stage. */
 	passages: { title: string; body: string; image_path: string | null }[];
 	/** The questions to add. `created` is a place in `passages`, `stored` a passage's id. */
-	questions: { payload: ItemPayload; difficulty: Difficulty; place: PlannedPlace }[];
+	questions: {
+		payload: ItemPayload;
+		difficulty: Difficulty;
+		place: PlannedPlace;
+		learningPoints: string[];
+	}[];
 	/** How many candidates are left out because the stage, or an earlier row, asks the same. */
 	duplicates: number;
 	/** The candidates the plan is made of, as they were given, to be posted back for the import. */
@@ -152,10 +166,10 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 
 	return {
 		passages,
-		questions: fresh.map(({ payload, difficulty, passage }) => {
+		questions: fresh.map(({ payload, difficulty, passage, learningPoints }) => {
 			const place = passage === null ? null : places.get(passage);
 			if (place === undefined) throw new Error(`No passage of the import has the title ${passage}`);
-			return { payload, difficulty, place };
+			return { payload, difficulty, place, learningPoints };
 		}),
 		duplicates: candidates.questions.length - fresh.length,
 		kept: { passages: joined, questions: fresh }
@@ -177,7 +191,8 @@ const postedSchema = z.object({
 			z.object({
 				payload: z.unknown(),
 				difficulty: z.enum(DIFFICULTIES),
-				passage: z.string().max(MAX_PASSAGE_TITLE_CHARS).nullable()
+				passage: z.string().max(MAX_PASSAGE_TITLE_CHARS).nullable(),
+				learningPoints: z.array(z.guid()).max(MAX_ENTRIES)
 			})
 		)
 		.max(MAX_IMPORT_QUESTIONS)
@@ -187,12 +202,14 @@ const postedSchema = z.object({
  * The candidates a page posted back, checked as if they had never been seen:
  * every question and passage is complete, every picture one names is `free`
  * to be a new row's and is named by that row alone, no two passages share a
- * title and every question's passage is among them. Null for anything else,
- * which a review of ours cannot have produced.
+ * title, every question's passage is among them and every learning point is
+ * one the stage's topic `offers`. Null for anything else, which a review of
+ * ours cannot have produced.
  */
 export function checkCandidates(
 	posted: unknown,
-	free: (path: string) => boolean
+	free: (path: string) => boolean,
+	offers: (learningPointId: string) => boolean = () => false
 ): Candidates | null {
 	const parsed = postedSchema.safeParse(posted);
 	if (!parsed.success) return null;
@@ -221,7 +238,13 @@ export function checkCandidates(
 		const passage = question.passage === null ? null : titleKey(question.passage);
 		if (!checked.ok || !own(checked.payload)) return null;
 		if (passage !== null && !known(passage)) return null;
-		questions.push({ payload: checked.payload, difficulty: question.difficulty, passage });
+		if (!question.learningPoints.every(offers)) return null;
+		questions.push({
+			payload: checked.payload,
+			difficulty: question.difficulty,
+			passage,
+			learningPoints: [...new Set(question.learningPoints)]
+		});
 	}
 	return { passages, questions };
 }

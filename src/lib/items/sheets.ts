@@ -6,7 +6,8 @@ import {
 	type CandidatePassage,
 	type CandidateQuestion,
 	type Candidates,
-	type ImportProblem
+	type ImportProblem,
+	type OfferedPoint
 } from './import.js';
 import { newId } from './kinds.js';
 import {
@@ -150,8 +151,10 @@ const DIFFICULTY: Column = {
 };
 const TIP: Column = { key: 'tip', header: 'Tip', width: 32 };
 const PASSAGE: Column = { key: 'passage', header: 'Passage', width: 28, passages: true };
+/** The names of the learning points the question is filed under, of those its topic has. */
+const LEARNING_POINTS: Column = { key: 'learning_points', header: 'Learning Points', width: 32 };
 
-const FILING: Column[] = [DIFFICULTY, TIP, PASSAGE];
+const FILING: Column[] = [DIFFICULTY, TIP, PASSAGE, LEARNING_POINTS];
 
 /** Left empty, a question is of medium difficulty. */
 const DIFFICULTY_WORDS = new Map<string, Difficulty>([
@@ -183,7 +186,8 @@ const choiceColumns = (answer: Column): Column[] => [
 	answer,
 	// These two types have no tip of their own: theirs are on their wrong options.
 	DIFFICULTY,
-	PASSAGE
+	PASSAGE,
+	LEARNING_POINTS
 ];
 
 const choice =
@@ -935,7 +939,8 @@ export const README: { title: string; parts: { heading: string; lines: string[] 
 				`The yellow row that begins with “${EXAMPLE_MARK}” shows how a row is filled in. It is never imported.`,
 				'Keep the header row as it is. A file whose columns were renamed, added or removed is not taken.',
 				'A cell that shows a small arrow has a list. Pick from it.',
-				'Difficulty left empty is Medium. Tip and Passage are optional.',
+				'Difficulty left empty is Medium. Tip, Passage and Learning Points are optional.',
+				'Learning Points takes names from the list of the stage’s topic, with | between them: Counting | Place value. A name the topic does not have makes its row a row to fix.',
 				'A tip is shown in the result to a pupil who gets the question wrong.',
 				'Start from this template: its cells keep 3/4 and 7:30 as you type them.',
 				'A question the stage already has is left out, so importing a file twice adds nothing twice.',
@@ -979,11 +984,17 @@ function whole(sheet: Sheet, cells: Cells): Cells {
  * it. The question is checked by the same rules as one saved in the builder;
  * the first thing wrong is what the row says, beside the column it was read
  * from.
+ *
+ * `offered` are the learning points of the topic the rows are read for. A
+ * row names its own by their names, in any capitals, and a name the topic
+ * does not have is a mistake of the row: the template is one file for every
+ * stage, so it cannot offer the names to pick from.
  */
 export function readQuestionRow(
 	sheet: QuestionSheet,
 	written: Cells,
-	pictures: Pictures = {}
+	pictures: Pictures = {},
+	offered: OfferedPoint[] = []
 ): { ok: true; question: CandidateQuestion } | { ok: false; problem: RowProblem } {
 	const cells = whole(sheet, written);
 	try {
@@ -991,6 +1002,10 @@ export function readQuestionRow(
 		if (worded) refuse(worded.key, m.practice_import_picture_words());
 		const difficulty = DIFFICULTY_WORDS.get(cells.difficulty.toLowerCase());
 		if (!difficulty) return refuse('difficulty', m.practice_import_difficulty());
+		const learningPoints = list(cells.learning_points).map((name) => {
+			const point = offered.find((each) => each.name === name.toLowerCase());
+			return point?.id ?? refuse('learning_points', m.practice_import_learning_point({ name }));
+		});
 
 		const built = sheet.build(cells, pictures);
 		const checked = validateItem({
@@ -1011,7 +1026,9 @@ export function readQuestionRow(
 			question: {
 				payload: checked.payload,
 				difficulty,
-				passage: cells.passage ? titleKey(cells.passage) : null
+				passage: cells.passage ? titleKey(cells.passage) : null,
+				// Written twice, a learning point is still one.
+				learningPoints: [...new Set(learningPoints)]
 			}
 		};
 	} catch (cause) {
@@ -1083,9 +1100,13 @@ const reasonOf = ({ column, message }: RowProblem) =>
  * sheet it lacks is simply not there.
  *
  * `questionRows` counts every question row, good or not, which is what the
- * limit on a workbook is about.
+ * limit on a workbook is about. `offered` are the learning points a row may
+ * name: those of the topic of the stage the workbook is read for.
  */
-export function readRows(sheets: { sheet: Sheet; rows: SheetRow[] }[]): {
+export function readRows(
+	sheets: { sheet: Sheet; rows: SheetRow[] }[],
+	offered: OfferedPoint[] = []
+): {
 	candidates: Candidates;
 	problems: ImportProblem[];
 	questionRows: number;
@@ -1133,7 +1154,7 @@ export function readRows(sheets: { sheet: Sheet; rows: SheetRow[] }[]): {
 				refused(row.fault);
 				continue;
 			}
-			const read = readQuestionRow(sheet, row.cells, row.pictures);
+			const read = readQuestionRow(sheet, row.cells, row.pictures, offered);
 			if (!read.ok) {
 				refused(read.problem);
 				continue;

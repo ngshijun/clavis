@@ -22,7 +22,8 @@ const short = (question: string): ShortAnswerPayload => ({
 const candidate = (question: string, passage: string | null = null): CandidateQuestion => ({
 	payload: short(question),
 	difficulty: 'medium',
-	passage
+	passage,
+	learningPoints: []
 });
 
 const empty: Stored = { questions: [], passages: [] };
@@ -66,6 +67,14 @@ describe('planImport', () => {
 			['One?', null],
 			['Two?', null]
 		]);
+	});
+
+	it('keeps the learning points a question is filed under', () => {
+		const plan = planImport(
+			{ passages: [], questions: [{ ...candidate('One?'), learningPoints: ['a', 'b'] }] },
+			empty
+		);
+		expect(plan.questions[0].learningPoints).toEqual(['a', 'b']);
 	});
 
 	it('leaves out a question the stage already asks, whatever its capitals', () => {
@@ -132,7 +141,12 @@ describe('planImport', () => {
 		expect(plan.passages).toEqual([]);
 		expect(plan.duplicates).toBe(1);
 		expect(plan.questions).toEqual([
-			{ payload: short('New?'), difficulty: 'medium', place: { stored: 'stored-rain' } }
+			{
+				payload: short('New?'),
+				difficulty: 'medium',
+				place: { stored: 'stored-rain' },
+				learningPoints: []
+			}
 		]);
 		// The passage goes back with its question, so the import can find the stored one again.
 		expect(plan.kept).toEqual({ passages: [rain], questions: [candidate('New?', 'rain')] });
@@ -214,12 +228,19 @@ describe('checkCandidates', () => {
 		const candidates = {
 			passages: [{ title: ' Rain ', body: 'It rains.', image_path: null }],
 			questions: [
-				{ payload: { ...short(' One? '), stray: true }, difficulty: 'high', passage: ' RAIN' }
+				{
+					payload: { ...short(' One? '), stray: true },
+					difficulty: 'high',
+					passage: ' RAIN',
+					learningPoints: []
+				}
 			]
 		};
 		expect(check(candidates)).toEqual({
 			passages: [rain],
-			questions: [{ payload: short('One?'), difficulty: 'high', passage: 'rain' }]
+			questions: [
+				{ payload: short('One?'), difficulty: 'high', passage: 'rain', learningPoints: [] }
+			]
 		});
 		expect(check(JSON.parse(JSON.stringify(candidates)))).not.toBeNull();
 	});
@@ -237,7 +258,7 @@ describe('checkCandidates', () => {
 		]);
 		expect(check(rows, ['stages/s/one.png', 'stages/s/rain.png'])).toEqual({
 			passages: [{ ...rain, body: '', image_path: 'stages/s/rain.png' }],
-			questions: [{ payload: pictured, difficulty: 'medium', passage: 'rain' }]
+			questions: [{ payload: pictured, difficulty: 'medium', passage: 'rain', learningPoints: [] }]
 		});
 	});
 
@@ -261,6 +282,23 @@ describe('checkCandidates', () => {
 		const rows = { passages: [], questions: [pictured('One?'), pictured('Two?')] };
 		expect(check(rows, ['stages/s/one.png'])).toBeNull();
 		expect(check({ ...rows, questions: [pictured('One?')] }, ['stages/s/one.png'])).not.toBeNull();
+	});
+
+	it('takes a learning point the topic offers, once, and refuses one it does not', () => {
+		const counting = '0b0e5b4e-6c1f-4a52-9d6b-2f1c3a4d5e6f';
+		const other = '7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+		const filed = (...learningPoints: string[]) => posted({ ...candidate('One?'), learningPoints });
+		const offers = (id: string) => id === counting;
+		const free = () => false;
+		expect(checkCandidates(filed(counting, counting), free, offers)?.questions).toEqual([
+			{ ...candidate('One?'), learningPoints: [counting] }
+		]);
+		expect(checkCandidates(filed(counting, other), free, offers)).toBeNull();
+		expect(checkCandidates(filed('counting'), free, () => true)).toBeNull();
+		// Asked of no topic, a row may name none.
+		expect(checkCandidates(filed(counting), free)).toBeNull();
+		const { payload, difficulty, passage } = candidate('One?');
+		expect(checkCandidates(posted({ payload, difficulty, passage }), free, offers)).toBeNull();
 	});
 
 	it('refuses a passage title that names no passage, or two passages', () => {
