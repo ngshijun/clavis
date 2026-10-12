@@ -897,6 +897,10 @@ export type Database = {
 			reorder_subjects: { Args: { p_grade_level_id: string; p_ids: string[] }; Returns: undefined };
 			reorder_topics: { Args: { p_ids: string[]; p_subject_id: string }; Returns: undefined };
 			review_practice_session: { Args: { p_session_id: string }; Returns: Json };
+			save_learning_point: {
+				Args: { p_id: string; p_name: string; p_topic_ids: string[] };
+				Returns: string;
+			};
 			serve_practice_stage: { Args: { p_classroom_id: string; p_stage_id: string }; Returns: Json };
 			submit_practice_session: {
 				Args: { p_answers: Json; p_classroom_id: string; p_stage_id: string };

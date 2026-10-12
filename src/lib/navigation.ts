@@ -7,6 +7,7 @@ import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import ListTreeIcon from '@lucide/svelte/icons/list-tree';
 import SchoolIcon from '@lucide/svelte/icons/school';
+import TagsIcon from '@lucide/svelte/icons/tags';
 import TargetIcon from '@lucide/svelte/icons/target';
 import UsersIcon from '@lucide/svelte/icons/users';
 import { m } from '#lib/paraglide/messages.js';
@@ -170,7 +171,8 @@ export function navItems(role: Role): NavItem[] {
 		return [
 			{ label: m.nav_dashboard, href: homePath(role), icon: LayoutDashboardIcon },
 			{ label: m.nav_organizations, href: 'admin/organizations', icon: Building2Icon },
-			{ label: m.nav_practice, href: 'admin/practice', icon: TargetIcon }
+			{ label: m.nav_practice, href: 'admin/practice', icon: TargetIcon },
+			{ label: m.nav_learning_points, href: 'admin/learning-points', icon: TagsIcon }
 		];
 	}
 	if (role === 'teacher') {

@@ -990,5 +990,48 @@
 	"run_their_answer": "Student’s answer",
 	"run_their_no_answer": "Left out.",
 	"run_their_marks": "Marks",
-	"run_correct_answer": "Correct answer"
+	"run_correct_answer": "Correct answer",
+	"nav_learning_points": "Learning Points",
+	"action_edit": "Edit",
+	"learning_points_add": "New Learning Point…",
+	"learning_points_search": "Search learning points",
+	"learning_points_none_found": "No learning points match. Try a different search.",
+	"learning_points_none_title": "No learning points yet",
+	"learning_points_none_description": "A learning point says what a question teaches. Create one and choose the topics that offer it.",
+	"learning_points_no_topics": "A learning point belongs to topics, and the curriculum has none yet. Add topics on the Curriculum page first.",
+	"learning_points_of": "Learning points of {name}",
+	"learning_points_unplaced": "No topic",
+	"learning_points_unplaced_note": "Offered to no question until it is given a topic.",
+	"learning_point_elsewhere": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "and {count} topic in another subject",
+				"countPlural=other": "and {count} topics in other subjects"
+			}
+		}
+	],
+	"learning_point_new_title": "New Learning Point",
+	"learning_point_new_description": "A learning point says what a question teaches. Questions of the topics you choose can be filed under it.",
+	"learning_point_edit_title": "Edit Learning Point",
+	"learning_point_edit_description": "A new name shows on every question filed under it. A topic you take away loses it on its questions.",
+	"learning_point_create": "Create Learning Point",
+	"learning_point_name_hint": "Shown with a capital at its start. Other capitals are not kept.",
+	"learning_point_name_required": "Enter a name for the learning point.",
+	"learning_point_name_taken": "A learning point with that name already exists.",
+	"learning_point_topics_label": "Topics",
+	"learning_point_topics_placeholder": "Choose topics",
+	"learning_point_topics_required": "Choose at least one topic.",
+	"learning_point_delete_unused": "No question is filed under it. This cannot be undone.",
+	"learning_point_delete_used": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "It is taken off {count} question. The question itself stays. This cannot be undone.",
+				"countPlural=other": "It is taken off {count} questions. The questions themselves stay. This cannot be undone."
+			}
+		}
+	]
 }

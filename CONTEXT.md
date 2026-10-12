@@ -64,6 +64,7 @@ Use these words. Avoid the ones in parentheses.
 - **R3.2 KEEP** A topic holds stages and nothing else; the stage is where practice questions are filed and what a student practises. *(P19a, P24a)*
 - **R3.3 KEEP** Order at every level is `display_order`, set by admin drag-reorder through positional RPCs. The stage order is the learning map. *(d17, d72)*
 - **R3.4 KEEP** Learning points are a global vocabulary, admin-managed, each scoped to one or more topics; a learning point with no topic is never offered. *(d57, P19a)*
+- **R3.5 KEEP** An admin creates, edits and deletes learning points on their own page, which lists them subject by subject in the curriculum's order; one that no topic offers any more is listed apart. A learning point is saved whole, its name and its topics together, and is given at least one topic. A name is one learning point's, whatever its capitals. A question is filed only under what its topic offers: a learning point taken away from a topic comes off the questions of that topic's stages in the same transaction, and a deleted one comes off every question. The questions themselves stay. *(P36a)*
 
 ## 4. Practice questions
 
