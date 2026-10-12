@@ -1,6 +1,9 @@
 <script lang="ts">
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
 	import type { McqPayload, MrqPayload } from '#lib/items/payload.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -10,12 +13,18 @@
 	import Issue from '../fields/issue.svelte';
 	import ItemRow from '../fields/item-row.svelte';
 	import PictureField from '../fields/picture-field.svelte';
+	import { cn } from '#lib/utils.js';
 	import { rows } from '../styles.js';
 
 	/**
 	 * The options of a Multiple Choice or a Multiple Response question. The two
 	 * differ only in how many options may be right: one, marked with a radio
 	 * button, or several, each marked with a checkbox.
+	 *
+	 * An option carries its letter, the one a pupil sees beside it. A right
+	 * one is green and says so, so the answer can be found without reading the
+	 * marks. A wrong one's tip is a quiet line under it: it is a note on the
+	 * option, and drawn as a second field it made four options look like seven.
 	 */
 	let { payload = $bindable() }: { payload: McqPayload | MrqPayload } = $props();
 
@@ -49,12 +58,23 @@
 					aria-label={m.practice_option_correct({ letter: name })}
 				/>
 			{/if}
-			<Input
-				bind:value={option.text}
-				class="h-8"
-				aria-label={m.practice_option({ letter: name })}
-				aria-invalid={error ? true : undefined}
-			/>
+			<InputGroup.Root class={cn('h-8', option.is_correct && 'border-success/60 bg-success/10')}>
+				<InputGroup.Addon>
+					<span class="w-3 font-semibold" aria-hidden="true">{name}</span>
+				</InputGroup.Addon>
+				<InputGroup.Input
+					bind:value={option.text}
+					aria-label={m.practice_option({ letter: name })}
+					aria-invalid={error ? true : undefined}
+				/>
+				{#if option.is_correct}
+					<!-- The words go where the card is too narrow for them and the option both. -->
+					<InputGroup.Addon align="inline-end" class="gap-1 text-xs font-semibold text-success">
+						<CheckIcon class="size-3.5" aria-hidden="true" />
+						<span class="hidden @xl:inline">{m.practice_right_answer()}</span>
+					</InputGroup.Addon>
+				{/if}
+			</InputGroup.Root>
 			<PictureField
 				bind:path={option.image_path}
 				size="row"
@@ -68,13 +88,17 @@
 				-->
 				{#if !option.is_correct}
 					{@const tipError = editor.issue('options', index, 'tip')}
-					<Input
-						bind:value={() => option.tip ?? '', (tip) => (option.tip = tip || undefined)}
-						class="ms-6.5 h-8 w-auto"
-						placeholder={m.practice_option_tip_placeholder()}
-						aria-label={m.practice_option_tip({ letter: name })}
-						aria-invalid={tipError ? true : undefined}
-					/>
+					<!-- It starts under the option's letter. It is a field still, and fills as one when pointed at or typed in. -->
+					<div class="ms-6.5 flex items-center gap-1 ps-2.5 text-muted-foreground">
+						<LightbulbIcon class="size-3.5 shrink-0" aria-hidden="true" />
+						<Input
+							bind:value={() => option.tip ?? '', (tip) => (option.tip = tip || undefined)}
+							class="h-7 bg-transparent px-2 text-muted-foreground hover:bg-input/50 focus-visible:bg-input/50 focus-visible:text-foreground"
+							placeholder={m.practice_option_tip_placeholder()}
+							aria-label={m.practice_option_tip({ letter: name })}
+							aria-invalid={tipError ? true : undefined}
+						/>
+					</div>
 					<Issue message={tipError} />
 				{/if}
 			{/snippet}

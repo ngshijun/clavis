@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { dragHandleZone } from 'svelte-dnd-action';
 	import IconButton from '#lib/components/app/icon-button.svelte';
@@ -7,7 +8,7 @@
 	import { FLIP_MS, saveOrder } from '#lib/components/rows/reorder.js';
 	import PassageView from '#lib/components/runner/passage-view.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
 	import type { ItemType } from '#lib/items/payload.js';
 	import { itemSummary } from '#lib/items/text.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -18,9 +19,9 @@
 	import { editorOf, setEditor, type PassageDraft } from './editor.svelte.js';
 	import FormField from './fields/form-field.svelte';
 	import Issue from './fields/issue.svelte';
-	import PictureField from './fields/picture-field.svelte';
+	import PicturedTextarea from './fields/pictured-textarea.svelte';
 	import QuestionLine from './question-line.svelte';
-	import { hint } from './styles.js';
+	import { group, hint } from './styles.js';
 
 	/**
 	 * The open passage: its title, its text and its picture, with the questions
@@ -74,96 +75,110 @@
 	}
 </script>
 
-<EditorCard bind:this={card} {draft} {saving} {onsave} {onrevert} class={className}>
-	{#snippet head()}
-		<h2 class="text-lg font-semibold">{m.practice_passage()}</h2>
-		<IconButton variant="destructive" label={m.action_delete()} class="ms-auto" onclick={ondelete}>
+<EditorCard
+	bind:this={card}
+	{draft}
+	title={m.practice_passage()}
+	{saving}
+	{onsave}
+	{onrevert}
+	class={className}
+>
+	{#snippet actions()}
+		<IconButton variant="destructive" label={m.action_delete()} onclick={ondelete}>
 			<Trash2Icon />
 		</IconButton>
 	{/snippet}
 
 	{#snippet form()}
-		<FormField label={m.practice_passage_title()} for="{id}-title">
-			<Input
-				id="{id}-title"
-				bind:value={draft.content.title}
-				aria-invalid={editor.issue('title') ? true : undefined}
-			/>
-			<Issue message={editor.issue('title')} />
-		</FormField>
+		<div class={group}>
+			<FormField label={m.practice_passage_title()} for="{id}-title">
+				<Input
+					id="{id}-title"
+					bind:value={draft.content.title}
+					aria-invalid={editor.issue('title') ? true : undefined}
+				/>
+				<Issue message={editor.issue('title')} />
+			</FormField>
 
-		<FormField label={m.practice_passage_text()} for="{id}-text">
-			<Textarea
-				id="{id}-text"
-				bind:value={draft.content.body}
-				class="min-h-56"
-				aria-invalid={editor.issue('body') ? true : undefined}
-			/>
-			<Issue message={editor.issue('body')} />
-			<PictureField
-				bind:path={draft.content.image_path}
-				label={m.practice_passage_image()}
-				invalid={editor.issue('body') !== undefined}
-			/>
-			<p class={hint}>{m.practice_passage_content_hint()}</p>
-		</FormField>
+			<FormField label={m.practice_passage_text()} for="{id}-text">
+				<PicturedTextarea
+					id="{id}-text"
+					bind:value={draft.content.body}
+					bind:path={draft.content.image_path}
+					pictureLabel={m.practice_passage_image()}
+					invalid={editor.issue('body') !== undefined}
+					class="min-h-56"
+				/>
+				<Issue message={editor.issue('body')} />
+				<p class={hint}>{m.practice_passage_content_hint()}</p>
+			</FormField>
+		</div>
 
-		<FormField label={m.practice_passage_questions()} hint={m.practice_passage_questions_hint()}>
-			{#if draft.id === null}
-				<!-- Its questions are filed on it by its id, which it gets when it is first saved. -->
-				<p class="text-sm text-muted-foreground">{m.practice_passage_save_first()}</p>
-			{:else}
-				{#if rows.length > 0}
-					<div
-						class="flex flex-col gap-0.5"
-						use:dragHandleZone={{
-							items: rows,
-							// Not the list's zone of the same questions: a row is not dragged from one to the other.
-							type: `passage-editor:${draft.id}`,
-							flipDurationMs: FLIP_MS,
-							dropTargetStyle: {}
-						}}
-						onconsider={(event) => (rows = event.detail.items)}
-						onfinalize={(event) => {
-							rows = event.detail.items;
-							if (!draft.id) return;
-							saveOrder({ kind: 'passage', parentId: draft.id }, questions, rows).then(
-								(saved) => saved || (rows = questions)
-							);
-						}}
-					>
-						{#each rows as question, index (question.id)}
-							{@const text = itemSummary(question.payload)}
-							<!-- Named, so the drag library can say which row is being moved. -->
-							<div
-								class="flex items-center rounded-xl hover:bg-muted"
-								aria-label={text || m.practice_new_question()}
-								animate:flip={{ duration: FLIP_MS }}
-							>
-								<DragHandle label={m.row_reorder({ name: text })} class="ms-1" />
-								<a
-									href={questionHref(question.id)}
-									data-sveltekit-reset={false}
-									class="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2 ps-1.5 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+		<Separator />
+
+		<div class={group}>
+			<FormField label={m.practice_passage_questions()} hint={m.practice_passage_questions_hint()}>
+				{#if draft.id === null}
+					<!-- Its questions are filed on it by its id, which it gets when it is first saved. -->
+					<p class="text-sm text-muted-foreground">{m.practice_passage_save_first()}</p>
+				{:else}
+					{#if rows.length > 0}
+						<div
+							class="flex flex-col gap-0.5"
+							use:dragHandleZone={{
+								items: rows,
+								// Not the list's zone of the same questions: a row is not dragged from one to the other.
+								type: `passage-editor:${draft.id}`,
+								flipDurationMs: FLIP_MS,
+								dropTargetStyle: {}
+							}}
+							onconsider={(event) => (rows = event.detail.items)}
+							onfinalize={(event) => {
+								rows = event.detail.items;
+								if (!draft.id) return;
+								saveOrder({ kind: 'passage', parentId: draft.id }, questions, rows).then(
+									(saved) => saved || (rows = questions)
+								);
+							}}
+						>
+							{#each rows as question, index (question.id)}
+								{@const text = itemSummary(question.payload)}
+								<!-- Named, so the drag library can say which row is being moved. -->
+								<div
+									class="flex items-start rounded-xl hover:bg-muted"
+									aria-label={text || m.practice_new_question()}
+									animate:flip={{ duration: FLIP_MS }}
 								>
-									<QuestionLine
-										position={first + index}
-										type={question.payload.type}
-										difficulty={question.difficulty}
-										{text}
-									/>
-								</a>
-							</div>
-						{/each}
+									<DragHandle label={m.row_reorder({ name: text })} class="ms-1 mt-1" />
+									<a
+										href={questionHref(question.id)}
+										data-sveltekit-reset={false}
+										class="flex min-w-0 flex-1 items-start gap-2.5 rounded-xl py-2 ps-1.5 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									>
+										<QuestionLine
+											position={first + index}
+											type={question.payload.type}
+											difficulty={question.difficulty}
+											{text}
+											picture={editor.imageUrl(question.payload.image_path)}
+										/>
+									</a>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					<div>
+						<AddQuestionMenu size="sm" onpick={onadd} />
 					</div>
 				{/if}
-				<div>
-					<AddQuestionMenu size="sm" onpick={onadd} />
-				</div>
-			{/if}
-		</FormField>
+			</FormField>
 
-		<p class={hint}>{m.practice_passage_marking()}</p>
+			<p class={[hint, 'flex items-start gap-1.5']}>
+				<InfoIcon class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+				{m.practice_passage_marking()}
+			</p>
+		</div>
 	{/snippet}
 
 	{#snippet preview()}

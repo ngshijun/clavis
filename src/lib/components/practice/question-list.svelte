@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dragHandleZone } from 'svelte-dnd-action';
+	import Segmented from '#lib/components/app/segmented.svelte';
 	import DragHandle from '#lib/components/rows/drag-handle.svelte';
 	import { FLIP_MS, saveOrder } from '#lib/components/rows/reorder.js';
-	import type { ItemPayload } from '#lib/items/payload.js';
+	import { DIFFICULTIES, type ItemPayload } from '#lib/items/payload.js';
 	import { itemSummary } from '#lib/items/text.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type {
@@ -13,6 +14,7 @@
 		StageQuestion
 	} from '#lib/server/practice.js';
 	import { cn } from '#lib/utils.js';
+	import DifficultyMeter from './difficulty-meter.svelte';
 	import type { Draft, PassageDraft } from './editor.svelte.js';
 	import PassageIcon from './passage-icon.svelte';
 	import QuestionLine from './question-line.svelte';
@@ -25,11 +27,17 @@
 	 * order inside it. The open row follows the draft, so it reads as the
 	 * question or the passage will once saved, and one not saved yet has a
 	 * place kept for it where it will land.
+	 *
+	 * Its head says what the stage holds, how many questions and how many of
+	 * each difficulty, and holds the order pupils get them in: a setting of the
+	 * stage, kept beside the list it orders.
 	 */
 	let {
 		stageId,
 		entries: stored,
 		order,
+		onorder,
+		imageBase,
 		query,
 		draft,
 		questionHref,
@@ -39,6 +47,10 @@
 		stageId: string;
 		entries: StageEntry[];
 		order: QuestionOrder;
+		/** Asks for the stage's questions to be served in another order. */
+		onorder: (order: QuestionOrder) => void;
+		/** What a stored picture's path is appended to, to get its public URL. */
+		imageBase: string;
 		/** What the list is searched for; empty for the whole list. */
 		query: string;
 		/** What is open in the editor, if anything is. */
@@ -78,6 +90,22 @@
 			count: Object.keys(byId).length
 		};
 	});
+
+	/** How many of the stored questions are of each difficulty. */
+	const mix = $derived.by(() => {
+		const questions = stored.flatMap((entry) =>
+			entry.kind === 'passage' ? entry.questions : [entry]
+		);
+		return DIFFICULTIES.map((difficulty) => ({
+			difficulty,
+			count: questions.filter((question) => question.difficulty === difficulty).length
+		}));
+	});
+
+	const orders = [
+		{ value: 'fixed', label: m.practice_order_fixed() },
+		{ value: 'random', label: m.practice_order_random() }
+	] as const;
 
 	const needle = $derived(query.trim().toLowerCase());
 	const matches = (payload: ItemPayload) => itemSummary(payload).toLowerCase().includes(needle);
@@ -148,19 +176,25 @@
 	{@const open = draft?.kind === 'question' && draft.id === question.id}
 	{@const shown = open && draft?.kind === 'question' ? draft : question}
 	{@const text = itemSummary(shown.payload)}
+	<!-- The picture of the open question may be one just picked, which only its draft can show. -->
+	{@const picture =
+		open && draft
+			? draft.uploads.url(shown.payload.image_path)
+			: question.payload.image_path && imageBase + question.payload.image_path}
 	<div
-		class={cn('flex items-center rounded-xl', open ? 'bg-accent' : 'hover:bg-muted')}
+		class={cn('flex items-start rounded-xl', open ? 'bg-accent' : 'hover:bg-muted')}
 		{@attach open && reveal}
 	>
 		{#if sortable}
-			<DragHandle label={m.row_reorder({ name: text })} class="ms-1" />
+			<!-- Set down by the row's own padding, so it is level with the number on the first line. -->
+			<DragHandle label={m.row_reorder({ name: text })} class="ms-1 mt-1" />
 		{/if}
 		<a
 			href={questionHref(question.id)}
 			data-sveltekit-reset={false}
 			aria-current={open ? 'true' : undefined}
 			class={cn(
-				'flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				'flex min-w-0 flex-1 items-start gap-2.5 rounded-xl py-2 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring',
 				sortable ? 'ps-1.5' : 'ps-3'
 			)}
 		>
@@ -169,20 +203,22 @@
 				type={shown.payload.type}
 				difficulty={shown.difficulty}
 				{text}
+				picture={picture || undefined}
 				{open}
+				unsaved={open && draft?.dirty}
 			/>
 		</a>
 	</div>
 {/snippet}
 
-<!-- What a passage's row says: that it is one, how many questions it has, and its title. -->
+<!-- What a passage's row says: its title, that it is a passage, and how many questions it has. -->
 {#snippet passageLine(title: string, count: number)}
 	<PassageIcon />
-	<span class="grid min-w-0 gap-px leading-snug">
-		<span class={cn(hint, 'truncate')}>{m.practice_passage_meta({ count })}</span>
+	<span class="grid min-w-0 gap-0.5 leading-snug">
 		<span class={cn('truncate font-medium', !title.trim() && 'text-muted-foreground')}>
 			{title.trim() || m.practice_new_passage()}
 		</span>
+		<span class={cn(hint, 'truncate')}>{m.practice_passage_meta({ count })}</span>
 	</span>
 {/snippet}
 
@@ -201,7 +237,7 @@
 			data-sveltekit-reset={false}
 			aria-current={open ? 'true' : undefined}
 			class={cn(
-				'flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl py-2 pe-3 outline-none focus-visible:ring-2 focus-visible:ring-ring',
 				sortable ? 'ps-1.5' : 'ps-3'
 			)}
 		>
@@ -209,8 +245,11 @@
 		</a>
 	</div>
 
-	<!-- Its questions are a sequence of their own: dragged among themselves, never out of it. -->
-	<div class="ms-5 flex flex-col gap-0.5">
+	<!--
+		Its questions are a sequence of their own: dragged among themselves, never out of it. They
+		hang from a line that comes down from the passage's row, so the block reads as one thing.
+	-->
+	<div class="ms-3.5 flex flex-col gap-0.5 border-s border-border-strong/50 ps-1.5">
 		<div
 			class="flex flex-col gap-0.5"
 			use:dragHandleZone={{
@@ -244,7 +283,7 @@
 <!-- A question not saved yet has a place kept for it: the last of its passage, or of the stage. -->
 {#snippet unsavedQuestion(question: Draft)}
 	<div
-		class={cn('flex items-center gap-3 rounded-xl bg-accent py-2 pe-3', lead)}
+		class={cn('flex items-start gap-2.5 rounded-xl bg-accent py-2 pe-3', lead)}
 		aria-current="true"
 		{@attach reveal}
 	>
@@ -253,19 +292,38 @@
 			type={question.payload.type}
 			difficulty={question.difficulty}
 			text={itemSummary(question.payload)}
+			picture={question.uploads.url(question.payload.image_path)}
 			open
+			unsaved
 		/>
 	</div>
 {/snippet}
 
 <nav aria-label={m.practice_list_label()} class={cn('flex min-h-0 flex-col', className)}>
-	<p class={cn(hint, 'px-3 pb-2')}>
-		{order === 'fixed'
-			? m.practice_caption_fixed({ count: numbers.count })
-			: m.practice_caption_random({ count: numbers.count })}
-	</p>
+	<div class="flex flex-col gap-2 pb-2">
+		<div class="flex items-center justify-between gap-3 px-3">
+			<h2 class="font-semibold">{m.practice_question_count({ count: numbers.count })}</h2>
+			<span class="flex gap-3 text-xs text-muted-foreground tabular-nums">
+				{#each mix as each (each.difficulty)}
+					<span class="inline-flex items-end gap-1 leading-none">
+						<DifficultyMeter difficulty={each.difficulty} />
+						{each.count}
+					</span>
+				{/each}
+			</span>
+		</div>
+		<Segmented
+			bind:value={() => order, onorder}
+			options={orders}
+			label={m.practice_order_label()}
+			class="grid w-full grid-cols-2"
+		/>
+		<p class={cn(hint, 'px-3')}>
+			{order === 'fixed' ? m.practice_caption_fixed() : m.practice_caption_random()}
+		</p>
+	</div>
 
-	<!-- The rows scroll under the caption, which says what the whole list is. -->
+	<!-- The rows scroll under the head, which says what the whole list is. -->
 	<div data-list-rows class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
 		<div
 			class="flex flex-col gap-0.5"
@@ -304,7 +362,7 @@
 		{:else if draft?.kind === 'passage' && draft.id === null}
 			<!-- So has a passage not saved yet: the last of the stage, with no questions so far. -->
 			<div
-				class={cn('flex items-center gap-3 rounded-xl bg-accent py-2 pe-3', lead)}
+				class={cn('flex items-center gap-2.5 rounded-xl bg-accent py-2 pe-3', lead)}
 				aria-current="true"
 				{@attach reveal}
 			>

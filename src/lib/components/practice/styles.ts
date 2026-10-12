@@ -7,6 +7,13 @@
 /** The small line under a label, or under a control it explains. */
 export const hint = 'text-xs text-muted-foreground';
 
+/**
+ * A group of fields that belong together. A question's form is three of
+ * them, with a line between: what is asked, how it is answered and marked,
+ * and what follows an answer.
+ */
+export const group = 'flex flex-col gap-5';
+
 /** A list of rows in a form, each a control with what belongs to it. */
 export const rows = 'flex flex-col gap-1.5';
 

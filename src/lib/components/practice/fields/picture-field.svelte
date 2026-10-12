@@ -26,9 +26,11 @@
 		/** What the picture is of: "Picture for option B". Names the control when it shows no words. */
 		label: string;
 		/**
-		 * `field`: a button with words and the picture large beneath it, for a
-		 * field of its own. `row`: an icon that becomes a thumbnail, for a row.
-		 * `chip`: the same, round and small enough to sit inside a chip.
+		 * `field`: a button with words that becomes the picture, small, with
+		 * what replaces and removes it beside it; it goes in the foot of the
+		 * field the picture belongs to. `row`: an icon that becomes a tile, for
+		 * a row. `chip`: an icon that becomes a round thumbnail, small enough
+		 * to sit inside a chip.
 		 */
 		size?: 'field' | 'row' | 'chip';
 		invalid?: boolean;
@@ -39,11 +41,18 @@
 
 	let picker = $state<PicturePicker>();
 
-	/** The thumbnail's button and the picture in it: a 4px inset, so the picture's corners are one rung in. */
+	/**
+	 * The button a set picture becomes. In a row it is a tile that shows the
+	 * whole picture, large enough to tell one picture from another. In a chip
+	 * there is no room for that: it is a round thumbnail, 4px inside its button.
+	 */
 	const thumb = $derived(
 		size === 'chip'
-			? { button: 'size-6 rounded-full p-0.5', picture: 'rounded-full' }
-			: { button: 'rounded-lg p-1', picture: 'rounded-sm' }
+			? { button: 'size-6 rounded-full p-0.5', picture: 'rounded-full object-cover' }
+			: {
+					button: 'size-12 overflow-hidden rounded-lg border-border bg-card p-0',
+					picture: 'object-contain'
+				}
 	);
 </script>
 
@@ -61,7 +70,7 @@
 						aria-label={label}
 						{...props}
 					>
-						<img src={url} alt="" class={cn('size-full object-cover', thumb.picture)} />
+						<img src={url} alt="" class={cn('size-full', thumb.picture)} />
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
@@ -91,29 +100,33 @@
 		</IconButton>
 	{/if}
 {:else if url}
-	<div class="flex flex-col items-start gap-1">
-		<img src={url} alt={label} class="max-h-40 max-w-full rounded-xl border bg-card" />
-		<div class="flex flex-wrap gap-1">
-			<Button variant="ghost" size="sm" onclick={() => picker?.open()}>
-				<ImageUpIcon data-icon="inline-start" />
-				{m.image_replace()}
-			</Button>
-			<Button variant="ghost" size="sm" onclick={() => (path = undefined)}>
-				<Trash2Icon data-icon="inline-start" />
-				{m.image_remove()}
-			</Button>
-		</div>
-	</div>
-{:else}
-	<div>
-		<Button
-			variant="ghost"
-			size="sm"
-			aria-invalid={invalid ? true : undefined}
-			onclick={() => picker?.open()}
-		>
-			<ImageIcon data-icon="inline-start" />
-			{m.practice_image_add()}
+	<!--
+		Small: the pupil view beside the form shows the picture at its full size. It stands 8px
+		inside its field's 18px corners, so its own are 10px.
+	-->
+	<div class="flex flex-wrap items-center gap-1">
+		<img
+			src={url}
+			alt={label}
+			class="me-1 h-14 max-w-32 rounded-lg border bg-card object-contain"
+		/>
+		<Button variant="ghost" size="sm" onclick={() => picker?.open()}>
+			<ImageUpIcon data-icon="inline-start" />
+			{m.image_replace()}
+		</Button>
+		<Button variant="ghost" size="sm" onclick={() => (path = undefined)}>
+			<Trash2Icon data-icon="inline-start" />
+			{m.image_remove()}
 		</Button>
 	</div>
+{:else}
+	<Button
+		variant="ghost"
+		size="sm"
+		aria-invalid={invalid ? true : undefined}
+		onclick={() => picker?.open()}
+	>
+		<ImageIcon data-icon="inline-start" />
+		{m.practice_image_add()}
+	</Button>
 {/if}

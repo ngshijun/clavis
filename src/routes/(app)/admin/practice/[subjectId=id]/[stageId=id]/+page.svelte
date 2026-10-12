@@ -9,7 +9,6 @@
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
 	import AddQuestionMenu from '#lib/components/practice/add-question-menu.svelte';
 	import { Draft, PassageDraft } from '#lib/components/practice/editor.svelte.js';
-	import Segmented from '#lib/components/app/segmented.svelte';
 	import ImportDialog from '#lib/components/practice/import-dialog.svelte';
 	import PassageEditor from '#lib/components/practice/passage-editor.svelte';
 	import QuestionEditor from '#lib/components/practice/question-editor.svelte';
@@ -34,8 +33,9 @@
 
 	/**
 	 * One stage: its questions and passages listed on the left, the open one
-	 * edited on the right. The list saves a drag at once. The editor works on a
-	 * draft, which Save writes and Revert throws away.
+	 * edited on the right. The list saves a drag, and the order pupils get the
+	 * questions in, at once. The editor works on a draft, which Save writes and
+	 * Revert throws away.
 	 *
 	 * What is open is in the address: `?q=<id>` for a stored question and
 	 * `?p=<id>` for a stored passage; `?new=<type>` for a question not saved yet
@@ -154,6 +154,14 @@
 	const passage = $derived.by(() => {
 		const passageId = draft?.kind === 'question' ? draft.passageId : null;
 		return passages.find((each) => each.id === passageId) ?? null;
+	});
+
+	/** What the card is titled: the open question by its number in the stage, a new one as new. */
+	const title = $derived.by(() => {
+		if (draft?.kind !== 'question') return '';
+		const { id } = draft;
+		const position = questions.findIndex((each) => each.id === id) + 1;
+		return position > 0 ? m.practice_question_number({ n: position }) : m.practice_new_question();
 	});
 
 	/** The open passage's questions as stored, and the number the first of them has in the stage. */
@@ -362,11 +370,6 @@
 
 	/** Opens something new to write. It is a navigation like any other, so unsaved work is asked about. */
 	const start = (search: string) => goto(here + search, { reset: false });
-
-	const orders = [
-		{ value: 'fixed', label: m.practice_order_fixed() },
-		{ value: 'random', label: m.practice_order_random() }
-	] as const;
 </script>
 
 <PageToolbar>
@@ -381,7 +384,6 @@
 			placeholder={m.practice_search()}
 		/>
 	</InputGroup.Root>
-	<Segmented bind:value={() => order, setOrder} options={orders} label={m.practice_order_label()} />
 	<Button variant="outline" onclick={() => (importing = true)}>
 		<UploadIcon data-icon="inline-start" />
 		{m.practice_import()}
@@ -403,11 +405,13 @@
 		stageId={stage.id}
 		entries={stage.entries}
 		{order}
+		onorder={setOrder}
+		imageBase={stage.imageBase}
 		query={search}
 		{draft}
 		{questionHref}
 		{passageHref}
-		class="max-h-80 xl:max-h-none xl:w-80 xl:shrink-0"
+		class="max-h-96 xl:max-h-none xl:w-80 xl:shrink-0"
 	/>
 
 	{#if draft?.kind === 'passage'}
@@ -428,6 +432,7 @@
 		<QuestionEditor
 			bind:this={editor}
 			bind:draft
+			{title}
 			passage={passage && { ...passage, href: passageHref(passage.id) }}
 			learningPoints={stage.learningPoints}
 			{saving}

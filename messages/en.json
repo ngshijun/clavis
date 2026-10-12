@@ -311,26 +311,18 @@
 	"practice_add_question": "Add Question",
 	"practice_question_types": "Question types",
 	"practice_list_label": "Questions in this stage",
-	"practice_caption_fixed": [
+	"practice_question_count": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} question. Pupils answer all of them, in this order.",
-				"countPlural=other": "{count} questions. Pupils answer all of them, in this order."
+				"countPlural=one": "{count} question",
+				"countPlural=other": "{count} questions"
 			}
 		}
 	],
-	"practice_caption_random": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} question. Pupils answer all of them, in a random order.",
-				"countPlural=other": "{count} questions. Pupils answer all of them, in a random order."
-			}
-		}
-	],
+	"practice_caption_fixed": "Pupils answer all of them, in this order.",
+	"practice_caption_random": "Pupils answer all of them, in a random order.",
 	"practice_passage_meta": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -342,6 +334,7 @@
 		}
 	],
 	"practice_new_question": "New question",
+	"practice_question_number": "Question {n}",
 	"practice_no_match": "No questions match. Try a different search.",
 	"practice_stage_empty_description": "Choose a type under Add Question to write the first one.",
 	"practice_type_label": "Question type",
@@ -354,6 +347,7 @@
 	"practice_tip": "Tip",
 	"practice_tip_hint": "Shown in the result to a pupil who gets this wrong. The right answer is never shown.",
 	"practice_pupil_view": "Pupil view",
+	"practice_pupil_view_try": "Try it. Nothing is saved.",
 	"practice_unsaved": "Unsaved changes",
 	"practice_fix_to_save": "Fix what is marked, then save.",
 	"practice_revert": "Revert",
@@ -368,6 +362,7 @@
 	"practice_mrq_hint": "Mark every right answer. A wrong option can carry a tip, shown to a pupil who picks it.",
 	"practice_option": "Option {letter}",
 	"practice_option_correct": "Option {letter} is a right answer",
+	"practice_right_answer": "Right answer",
 	"practice_option_image": "Picture for option {letter}",
 	"practice_option_remove": "Remove option {letter}",
 	"practice_option_tip": "Tip for option {letter}",
@@ -759,6 +754,7 @@
 	"practice_import_picture_unusable": "The picture in this cell cannot be used. Replace it with a PNG, JPEG, WebP or GIF of 4 MB or less.",
 	"practice_import_cell_empty": "This cell is empty.",
 	"practice_import_difficulty": "Write Low, Medium or High, or leave it empty for Medium.",
+	"practice_import_learning_point": "“{name}” is not a learning point of this topic.",
 	"practice_import_yes_no": "Write Yes or No.",
 	"practice_import_answer_letter": "Write the letter of the one right option, such as B.",
 	"practice_import_answer_letters": "Write the letters of the right options, such as A, C.",
