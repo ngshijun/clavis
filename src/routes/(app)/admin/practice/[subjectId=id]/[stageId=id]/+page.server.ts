@@ -30,7 +30,8 @@ import {
 	saveQuestion,
 	setLearningPoints,
 	setQuestionOrder,
-	storeImportPicture
+	storeImportPicture,
+	type StageRows
 } from '#lib/server/practice.js';
 import { inStageFolder } from '#lib/server/stage-pictures.js';
 import { readWorkbook } from '#lib/server/workbook.js';
@@ -105,22 +106,31 @@ async function readSave<T>(
 	return { value: checked.value, pictures };
 }
 
+/** How many times an import is planned before it gives up on a stage that keeps changing under it. */
+const IMPORT_ATTEMPTS = 3;
+
 /**
  * What the stage holds now, as an import looks at it: the questions a row may
  * repeat and the passages a row's passage may already be. With it come the
- * learning points of the stage's topic, which are all a row may be filed under.
+ * learning points of the stage's topic, which are all a row may be filed under,
+ * and the ids of what was read, by which the database knows the stage again.
  */
 async function storedIn({
 	locals,
 	params
-}: RequestEvent): Promise<Stored & { learningPoints: OfferedPoint[] }> {
+}: RequestEvent): Promise<Stored & { learningPoints: OfferedPoint[]; seen: StageRows }> {
 	const stage = await getStage(locals.supabase, params.subjectId, params.stageId);
 	if (!stage) error(404, 'Stage not found');
 	const passages = stage.entries.filter((entry) => entry.kind === 'passage');
+	const questions = stage.entries.flatMap((entry) =>
+		entry.kind === 'passage' ? entry.questions : [entry]
+	);
 	return {
-		questions: stage.entries.flatMap((entry) =>
-			entry.kind === 'passage' ? entry.questions.map((each) => each.payload) : [entry.payload]
-		),
+		questions: questions.map((each) => each.payload),
+		seen: {
+			passages: passages.map((each) => each.id),
+			questions: questions.map((each) => each.id)
+		},
 		passages: passages.map(({ id, title, body, imagePath }) => ({
 			id,
 			title,
@@ -331,6 +341,10 @@ export const actions: Actions = {
 	 * from the stage as it is now, so neither an edited page nor a second press
 	 * of the button adds a question twice. Answers with how many questions were
 	 * added.
+	 *
+	 * The database adds the rows only if the stage is still as it was read. If
+	 * something was added in between, by another import of the same file at the
+	 * same moment for one, all of it is done again from the reading.
 	 */
 	import: async (event) => {
 		let posted: unknown;
@@ -340,21 +354,30 @@ export const actions: Actions = {
 			return fail(400, { message: m.practice_import_stale() });
 		}
 		const { stageId } = event.params;
-		const stored = await storedIn(event);
-		const offered = new Set(stored.learningPoints.map((point) => point.id));
-		const candidates = checkCandidates(posted, freePictures(stageId, stored), (id) =>
-			offered.has(id)
-		);
-		if (!candidates) return fail(400, { message: m.practice_import_stale() });
+		for (let attempt = 0; attempt < IMPORT_ATTEMPTS; attempt += 1) {
+			const stored = await storedIn(event);
+			const offered = new Set(stored.learningPoints.map((point) => point.id));
+			const candidates = checkCandidates(posted, freePictures(stageId, stored), (id) =>
+				offered.has(id)
+			);
+			if (!candidates) return fail(400, { message: m.practice_import_stale() });
 
-		const plan = planImport(candidates, stored);
-		try {
-			const added = await importRows(event.locals.supabase, stageId, plan, imagePaths(candidates));
-			return { added };
-		} catch (cause) {
-			console.error(cause);
-			return fail(500, { message: m.practice_import_failed() });
+			const plan = planImport(candidates, stored);
+			try {
+				const added = await importRows(
+					event.locals.supabase,
+					stageId,
+					plan,
+					stored.seen,
+					imagePaths(candidates)
+				);
+				if (added !== null) return { added };
+			} catch (cause) {
+				console.error(cause);
+				return fail(500, { message: m.practice_import_failed() });
+			}
 		}
+		return fail(409, { message: m.practice_import_failed() });
 	},
 
 	/**

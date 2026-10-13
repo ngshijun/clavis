@@ -867,7 +867,13 @@ export type Database = {
 				};
 			};
 			import_stage_rows: {
-				Args: { p_passages: Json; p_questions: Json; p_stage_id: string };
+				Args: {
+					p_passages: Json;
+					p_questions: Json;
+					p_seen_passages: string[];
+					p_seen_questions: string[];
+					p_stage_id: string;
+				};
 				Returns: number;
 			};
 			item_payload_is_valid: { Args: { p: Json }; Returns: boolean };

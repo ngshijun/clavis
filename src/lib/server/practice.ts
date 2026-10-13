@@ -751,6 +751,9 @@ export async function storeImportPicture(
 	return uploadPicture(supabase, QUESTION_IMAGES, stageFolder(stageId), picture);
 }
 
+/** The SQLSTATE import_stage_rows refuses with when the stage is not as the import was planned. */
+const STAGE_CHANGED = 'PT409';
+
 /**
  * Removes pictures that were stored for an import and that no row came to
  * name. Whoever calls has made sure of both: that each is in the stage's
@@ -760,12 +763,23 @@ export async function discardImportPictures(supabase: Supabase, paths: string[])
 	await removePictures(supabase, paths);
 }
 
+/** The ids of all a stage's passages and questions, as an import read them. */
+export interface StageRows {
+	passages: string[];
+	questions: string[];
+}
+
 /**
  * Adds what an import plans to the end of a stage and returns how many
  * questions that was: first its passages, in their order, then its questions
  * in theirs. A question on a passage goes to the end of that passage instead.
  * The database does it as one piece: an import leaves everything behind or
  * nothing, and it refuses a row that names a picture not stored for the stage.
+ *
+ * `seen` is what the stage held when the plan was made. The database adds
+ * nothing if the stage holds anything else by the time it has the stage to
+ * itself, since the plan may then repeat a row; the answer is null, and
+ * whoever calls reads the stage and plans again.
  *
  * `uploaded` are the pictures that were stored for the import. Those the plan
  * came to leave out, with the rows that named them, are removed once the
@@ -775,14 +789,18 @@ export async function importRows(
 	supabase: Supabase,
 	stageId: string,
 	plan: Pick<ImportPlan, 'passages' | 'questions'>,
+	seen: StageRows,
 	uploaded: string[]
-): Promise<number> {
+): Promise<number | null> {
 	const { data, error } = await supabase.rpc('import_stage_rows', {
 		p_stage_id: stageId,
 		p_passages: plan.passages,
 		// The generated type of a jsonb argument is looser than the plan's own.
-		p_questions: plan.questions as never
+		p_questions: plan.questions as never,
+		p_seen_passages: seen.passages,
+		p_seen_questions: seen.questions
 	});
+	if (error?.code === STAGE_CHANGED) return null;
 	if (error) throw error;
 
 	const named = imagePaths([plan.passages, plan.questions]);
