@@ -206,12 +206,15 @@
 		<div class={group}>
 			{#if hasTip(type)}
 				<FormField label={m.practice_tip()} for="{id}-tip" error={editor.issue('tip')}>
-					<InputGroup.Root>
-						<InputGroup.Addon>
+					<!-- A tip may run to a few lines, so the field grows with it and the light stays by its first. -->
+					<InputGroup.Root class="items-start">
+						<InputGroup.Addon class="py-2.5">
 							<LightbulbIcon />
 						</InputGroup.Addon>
-						<InputGroup.Input
+						<InputGroup.Textarea
 							id="{id}-tip"
+							rows={1}
+							class="min-h-9 py-2"
 							bind:value={
 								() => draft.payload.tip ?? '', (tip) => (draft.payload.tip = tip || undefined)
 							}

@@ -160,7 +160,7 @@
 					<LightbulbIcon class="mt-1 size-5 shrink-0 text-warning" aria-hidden="true" />
 					<span>
 						<span class="font-semibold">{m.run_tip()}</span>
-						{tip}
+						<span class="whitespace-pre-line">{tip}</span>
 					</span>
 				</p>
 			{/each}
