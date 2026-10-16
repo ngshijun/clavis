@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '#lib/utils.js';
+	import { picture } from './styles.js';
 
 	/**
 	 * A passage as a pupil gets it: beside each of its questions, in a box that
@@ -38,7 +39,7 @@
 			<p class="wrap-break-word whitespace-pre-line">{body}</p>
 		{/if}
 		{#if imageUrl}
-			<img src={imageUrl} alt="" class="max-w-full self-start rounded-sm" />
+			<img src={imageUrl} alt="" class={cn(picture.large, 'self-start rounded-sm')} />
 		{/if}
 	</div>
 {/if}

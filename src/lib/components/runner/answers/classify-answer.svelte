@@ -4,7 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
 	import { getRunner } from '../context.js';
-	import { chip, chips, hint, marked, zone } from '../styles.js';
+	import { chip, chips, hint, marked, picture as frame, zone } from '../styles.js';
 	import MarkIcon from '../mark-icon.svelte';
 	import { partVerdict, type Verdict, type AnswerMark } from '../marks.js';
 
@@ -109,7 +109,7 @@
 	>
 		{#if picture}
 			<!-- A picture does not fit a chip, so the item is a tile with its words under it. -->
-			<img src={picture} alt="" class="max-h-16 max-w-full rounded-sm" />
+			<img src={picture} alt="" class={cn(frame.small, 'rounded-sm')} />
 		{/if}
 		{#if thing.text}
 			<span class={picture ? 'px-1.5 pb-0.5 wrap-break-word' : 'truncate'}>{thing.text}</span>

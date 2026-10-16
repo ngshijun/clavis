@@ -35,6 +35,20 @@ export const badge =
 export const number =
 	'flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground';
 
+/**
+ * A picture has one size where it stands, whatever size it was made in: it is
+ * scaled up or down to fit its frame and keeps its shape. `large` is a
+ * question's or a passage's picture, as wide as there is room for up to 28rem
+ * and 14rem tall; `small` is the picture of an option, or of a thing to move
+ * or sort, a framed 6rem square. Label a Picture draws its picture the width of the
+ * question, since its parts are placed on it.
+ */
+export const picture = {
+	large: 'h-56 w-full max-w-md object-contain',
+	// Framed, so a picture drawn wide or tall still reads as the same size as the others.
+	small: 'size-24 shrink-0 border bg-background object-contain'
+};
+
 /** A row of words to pick up. */
 export const chips = 'flex flex-wrap items-center gap-1.5';
 

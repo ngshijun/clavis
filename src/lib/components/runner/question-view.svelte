@@ -5,6 +5,8 @@
 	import { answerOf } from './answers/index.js';
 	import { getRunner } from './context.js';
 	import type { AnswerMark } from './marks.js';
+	import { picture as frame } from './styles.js';
+	import { cn } from '#lib/utils.js';
 
 	/**
 	 * One question as a pupil gets it: what it asks, its picture, and the place
@@ -47,7 +49,7 @@
 		</p>
 	{/if}
 	{#if picture}
-		<img src={picture} alt="" class="max-h-64 max-w-full self-start rounded-lg border bg-card" />
+		<img src={picture} alt="" class={cn(frame.large, 'self-start rounded-lg border bg-card')} />
 	{/if}
 	{#if readonly}
 		{@const answered = isAnswered(answer)}
