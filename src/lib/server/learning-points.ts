@@ -28,12 +28,15 @@ export async function listLearningPoints(supabase: Supabase): Promise<LearningPo
 	}));
 }
 
+/** A learning point's name, as a person types it. */
+const nameSchema = z
+	.string({ error: () => m.learning_point_name_required() })
+	.trim()
+	.min(1, { error: () => m.learning_point_name_required() })
+	.max(120, { error: () => m.row_name_invalid() });
+
 const savedSchema = z.object({
-	name: z
-		.string({ error: () => m.learning_point_name_required() })
-		.trim()
-		.min(1, { error: () => m.learning_point_name_required() })
-		.max(120, { error: () => m.row_name_invalid() }),
+	name: nameSchema,
 	topics: z
 		.array(z.guid())
 		.min(1, { error: () => m.learning_point_topics_required() })
@@ -64,6 +67,24 @@ export async function saveLearningPoint(supabase: Supabase, form: FormData, id?:
 		return fail(409, { errors: { name: [m.learning_point_name_taken()] } });
 	}
 	if (error) return unexpected(error);
+}
+
+/**
+ * Has a stage's topic offer the learning point of the posted name, as an
+ * admin: a new name makes a new learning point, and one another topic has is
+ * that one, now this topic's too. It answers with the learning point, its
+ * name as it is stored, or with a failure saying what is wrong with the name.
+ */
+export async function offerLearningPoint(supabase: Supabase, stageId: string, form: FormData) {
+	const parsed = nameSchema.safeParse(form.get('name'));
+	if (!parsed.success) return fail(400, { message: parsed.error.issues[0].message });
+
+	const { data, error } = await supabase.rpc('offer_learning_point', {
+		p_stage_id: stageId,
+		p_name: parsed.data
+	});
+	if (error) return unexpected(error);
+	return { point: { id: data, name: parsed.data.toLowerCase() } };
 }
 
 /**

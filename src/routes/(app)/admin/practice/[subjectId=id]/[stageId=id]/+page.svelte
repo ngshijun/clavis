@@ -28,7 +28,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { blankPassage, validatePassage } from '#lib/passage.js';
 	import { resolvePath } from '#lib/paths.js';
-	import type { QuestionOrder, StageQuestion } from '#lib/server/practice.js';
+	import type { LearningPoint, QuestionOrder, StageQuestion } from '#lib/server/practice.js';
 	import type { PageProps } from './$types';
 
 	/**
@@ -55,6 +55,33 @@
 				: [{ ...entry, passageId: null }]
 		)
 	);
+
+	/**
+	 * The learning points named here since the page was loaded. The topic has
+	 * them at once, but the page reads them again only when it next loads.
+	 */
+	let madePoints = $state<LearningPoint[]>([]);
+
+	/** The topic's learning points, in the order of their names. */
+	const learningPoints = $derived(
+		[
+			...stage.learningPoints,
+			...madePoints.filter((made) => !stage.learningPoints.some((each) => each.id === made.id))
+		].sort((a, b) => a.name.localeCompare(b.name))
+	);
+
+	async function makeLearningPoint(name: string): Promise<LearningPoint | undefined> {
+		const form = new FormData();
+		form.set('name', name);
+		const result = await postAction('?/learningPoint', form);
+		const point = result.type === 'success' ? (result.data?.point as LearningPoint) : undefined;
+		if (!point) {
+			toastError(refusal(result) ?? m.error_unexpected());
+			return undefined;
+		}
+		madePoints = [...madePoints, point];
+		return point;
+	}
 
 	/** Every stored passage, each with its questions. */
 	const passages = $derived(stage.entries.filter((entry) => entry.kind === 'passage'));
@@ -434,7 +461,8 @@
 			bind:draft
 			{title}
 			passage={passage && { ...passage, href: passageHref(passage.id) }}
-			learningPoints={stage.learningPoints}
+			{learningPoints}
+			{makeLearningPoint}
 			{saving}
 			onsave={save}
 			onrevert={() => (reseeded += 1)}

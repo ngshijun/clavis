@@ -893,6 +893,7 @@ export type Database = {
 				}[];
 			};
 			mark_notifications_seen: { Args: { p_assignment_id: string }; Returns: undefined };
+			offer_learning_point: { Args: { p_name: string; p_stage_id: string }; Returns: string };
 			reorder_grade_levels: { Args: { p_ids: string[] }; Returns: undefined };
 			reorder_passage_questions: {
 				Args: { p_ids: string[]; p_passage_id: string };

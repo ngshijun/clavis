@@ -15,6 +15,7 @@ import { stageTrail } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
 import { validatePassage } from '#lib/passage.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
+import { offerLearningPoint } from '#lib/server/learning-points.js';
 import { postedPictures, readPicture } from '#lib/server/images.js';
 import {
 	deletePassage,
@@ -152,6 +153,10 @@ function freePictures(stageId: string, stored: Stored): (path: string) => boolea
 }
 
 export const actions: Actions = {
+	/** A learning point named while a question is written, for the stage's topic to offer. */
+	learningPoint: async ({ request, locals, params }) =>
+		offerLearningPoint(locals.supabase, params.stageId, await request.formData()),
+
 	/** Whether pupils get the questions in the builder's order or shuffled. */
 	order: async ({ request, locals, params }) => {
 		const parsed = orderSchema.safeParse(formValues(await request.formData()));

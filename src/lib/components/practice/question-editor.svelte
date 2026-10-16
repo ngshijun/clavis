@@ -47,6 +47,7 @@
 		title,
 		passage,
 		learningPoints,
+		makeLearningPoint,
 		saving,
 		onsave,
 		onrevert,
@@ -62,6 +63,8 @@
 		passage: (Pick<StagePassage, 'title' | 'body' | 'imagePath'> & { href: string }) | null;
 		/** The learning points of the stage's topic, which the question's are chosen from. */
 		learningPoints: LearningPoint[];
+		/** Has the topic offer the learning point of a name, and answers with it. */
+		makeLearningPoint: (name: string) => Promise<LearningPoint | undefined>;
 		/** Whether a Save is on its way. */
 		saving: boolean;
 		onsave: () => void;
@@ -225,7 +228,11 @@
 				</FormField>
 			{/if}
 
-			<LearningPoints bind:chosen={draft.learningPoints} offered={learningPoints} />
+			<LearningPoints
+				bind:chosen={draft.learningPoints}
+				offered={learningPoints}
+				make={makeLearningPoint}
+			/>
 		</div>
 	{/snippet}
 
