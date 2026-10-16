@@ -40,13 +40,16 @@ export const number =
  * scaled up or down to fit its frame and keeps its shape. `large` is a
  * question's or a passage's picture, as wide as there is room for up to 28rem
  * and 14rem tall; `small` is the picture of an option, or of a thing to move
- * or sort, a framed 6rem square. Label a Picture draws its picture the width of the
- * question, since its parts are placed on it.
+ * or sort, a framed 6rem square; `tile` is the picture of an option of a
+ * question whose options are all pictures, the width of its tile and 9rem
+ * tall. Label a Picture draws its picture the width of the question, since
+ * its parts are placed on it.
  */
 export const picture = {
 	large: 'h-56 w-full max-w-md object-contain',
 	// Framed, so a picture drawn wide or tall still reads as the same size as the others.
-	small: 'size-24 shrink-0 border bg-background object-contain'
+	small: 'size-24 shrink-0 border bg-background object-contain',
+	tile: 'h-36 w-full border bg-background object-contain'
 };
 
 /** A row of words to pick up. */
