@@ -53,14 +53,7 @@ const thing = ({ id, text, image_path }: ServedThing): ServedThing => ({
 	image_path: image_path ?? null
 });
 
-/**
- * `shuffleOptions` is the stage's setting: whether the options of a Multiple
- * Choice or Multiple Response come in an order of their own.
- */
-export function serveItem(
-	payload: ItemPayload,
-	{ shuffleOptions = false }: { shuffleOptions?: boolean } = {}
-): ServedItem {
+export function serveItem(payload: ItemPayload): ServedItem {
 	const common = {
 		question: payload.question ?? null,
 		image_path: payload.image_path ?? null,
@@ -77,8 +70,8 @@ export function serveItem(
 				image_path: ('image_path' in option ? option.image_path : null) ?? null,
 				image_bucket: null
 			}));
-			// A sentence to pick words from keeps its order.
-			const shuffled = payload.type !== 'pick_words' && shuffleOptions;
+			// A sentence to pick words from keeps its order, and so does a choice that asks to.
+			const shuffled = payload.type !== 'pick_words' && !payload.fixed_order;
 			return {
 				...common,
 				type: payload.type,

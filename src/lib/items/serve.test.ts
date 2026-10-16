@@ -61,6 +61,7 @@ describe('serveItem', () => {
 		const served = serveItem({
 			type: 'mrq',
 			question: 'Q',
+			fixed_order: true,
 			options: [
 				{ text: 'a', is_correct: true },
 				{ text: 'b', is_correct: true },
@@ -76,13 +77,13 @@ describe('serveItem', () => {
 		});
 	});
 
-	it('shuffles the options of a choice where the stage does, keeping their numbers', () => {
+	it('shuffles the options of a choice unless it keeps them as written, keeping their numbers', () => {
 		const options = ['a', 'b', 'c', 'd', 'e', 'f'].map((text, at) => ({
 			text,
 			is_correct: at === 0
 		}));
-		const plain = serveItem({ type: 'mcq', question: 'Q', options });
-		const shuffled = serveItem({ type: 'mcq', question: 'Q', options }, { shuffleOptions: true });
+		const plain = serveItem({ type: 'mcq', question: 'Q', options, fixed_order: true });
+		const shuffled = serveItem({ type: 'mcq', question: 'Q', options });
 		if (plain.type !== 'mcq' || shuffled.type !== 'mcq') throw new Error('not a choice');
 
 		expect(plain.options.map((option) => option.text).join('')).toBe('abcdef');
@@ -91,14 +92,11 @@ describe('serveItem', () => {
 			expect(option.number).toBe(options.findIndex((each) => each.text === option.text) + 1);
 		}
 		// The same while the admin types: the order goes by the options' places.
-		const retyped = serveItem(
-			{
-				type: 'mcq',
-				question: 'Q',
-				options: options.map((option) => ({ ...option, text: option.text.toUpperCase() }))
-			},
-			{ shuffleOptions: true }
-		);
+		const retyped = serveItem({
+			type: 'mcq',
+			question: 'Q',
+			options: options.map((option) => ({ ...option, text: option.text.toUpperCase() }))
+		});
 		if (retyped.type !== 'mcq') throw new Error('not a choice');
 		expect(retyped.options.map((option) => option.number)).toEqual(
 			shuffled.options.map((option) => option.number)

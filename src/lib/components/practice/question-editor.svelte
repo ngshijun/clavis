@@ -48,7 +48,6 @@
 		passage,
 		learningPoints,
 		makeLearningPoint,
-		shuffleOptions,
 		saving,
 		onsave,
 		onrevert,
@@ -66,8 +65,6 @@
 		learningPoints: LearningPoint[];
 		/** Has the topic offer the learning point of a name, and answers with it. */
 		makeLearningPoint: (name: string) => Promise<LearningPoint | undefined>;
-		/** The stage's setting, which the pupil view follows. */
-		shuffleOptions: boolean;
 		/** Whether a Save is on its way. */
 		saving: boolean;
 		onsave: () => void;
@@ -87,7 +84,7 @@
 	// The pupil view is the real thing: the components a pupil answers in, fed the draft as a
 	// pupil would get it. It can be tried, and what is tried there goes nowhere.
 	setRunner({ imageUrl: editor.imageUrl });
-	const served = $derived(serveItem(draft.payload, { shuffleOptions }));
+	const served = $derived(serveItem(draft.payload));
 	let tried = $state<ItemResponse>({});
 
 	const difficulties = DIFFICULTIES.map((value) => ({ value, label: DIFFICULTY_LABELS[value]() }));

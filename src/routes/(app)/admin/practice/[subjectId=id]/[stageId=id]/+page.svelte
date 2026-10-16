@@ -233,18 +233,6 @@
 		if (!(await settle(await postAction('?/order', form)))) order = stage.questionOrder;
 	}
 
-	// Like the order, the switch follows a press at once and goes back if it was not saved.
-	let shuffleOptions = $derived(stage.shuffleOptions);
-
-	async function setShuffle(next: boolean) {
-		shuffleOptions = next;
-		const form = new FormData();
-		form.set('shuffle', String(next));
-		if (!(await settle(await postAction('?/shuffle', form)))) {
-			shuffleOptions = stage.shuffleOptions;
-		}
-	}
-
 	let editor = $state<{ scrollToTop: () => void }>();
 	let saving = $state(false);
 
@@ -445,8 +433,6 @@
 		entries={stage.entries}
 		{order}
 		onorder={setOrder}
-		{shuffleOptions}
-		onshuffle={setShuffle}
 		imageBase={stage.imageBase}
 		query={search}
 		{draft}
@@ -477,7 +463,6 @@
 			passage={passage && { ...passage, href: passageHref(passage.id) }}
 			{learningPoints}
 			{makeLearningPoint}
-			{shuffleOptions}
 			{saving}
 			onsave={save}
 			onrevert={() => (reseeded += 1)}

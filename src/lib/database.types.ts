@@ -613,7 +613,6 @@ export type Database = {
 					id: string;
 					name: string;
 					question_order: string;
-					shuffle_options: boolean;
 					topic_id: string;
 					updated_at: string;
 				};
@@ -623,7 +622,6 @@ export type Database = {
 					id?: string;
 					name: string;
 					question_order?: string;
-					shuffle_options?: boolean;
 					topic_id: string;
 					updated_at?: string;
 				};
@@ -633,7 +631,6 @@ export type Database = {
 					id?: string;
 					name?: string;
 					question_order?: string;
-					shuffle_options?: boolean;
 					topic_id?: string;
 					updated_at?: string;
 				};

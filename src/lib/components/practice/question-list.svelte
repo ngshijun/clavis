@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dragHandleZone } from 'svelte-dnd-action';
-	import { Label } from '#lib/components/ui/label/index.js';
-	import { Switch } from '#lib/components/ui/switch/index.js';
 	import Segmented from '#lib/components/app/segmented.svelte';
 	import DragHandle from '#lib/components/rows/drag-handle.svelte';
 	import { FLIP_MS, saveOrder } from '#lib/components/rows/reorder.js';
@@ -39,8 +37,6 @@
 		entries: stored,
 		order,
 		onorder,
-		shuffleOptions,
-		onshuffle,
 		imageBase,
 		query,
 		draft,
@@ -53,10 +49,6 @@
 		order: QuestionOrder;
 		/** Asks for the stage's questions to be served in another order. */
 		onorder: (order: QuestionOrder) => void;
-		/** Whether the options of the stage's choice questions are shuffled. */
-		shuffleOptions: boolean;
-		/** Asks for them to be shuffled, or not. */
-		onshuffle: (shuffle: boolean) => void;
 		/** What a stored picture's path is appended to, to get its public URL. */
 		imageBase: string;
 		/** What the list is searched for; empty for the whole list. */
@@ -329,13 +321,6 @@
 		<p class={cn(hint, 'px-3')}>
 			{order === 'fixed' ? m.practice_caption_fixed() : m.practice_caption_random()}
 		</p>
-		<Label class="px-3 pt-1 font-normal">
-			<Switch size="sm" bind:checked={() => shuffleOptions, onshuffle} />
-			{m.practice_shuffle_options()}
-		</Label>
-		{#if shuffleOptions}
-			<p class={cn(hint, 'px-3')}>{m.practice_shuffle_options_hint()}</p>
-		{/if}
 	</div>
 
 	<!-- The rows scroll under the head, which says what the whole list is. -->

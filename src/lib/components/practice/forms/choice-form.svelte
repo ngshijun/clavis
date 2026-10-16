@@ -3,7 +3,9 @@
 	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
 	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import type { McqPayload, MrqPayload } from '#lib/items/payload.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -14,7 +16,7 @@
 	import ItemRow from '../fields/item-row.svelte';
 	import PictureField from '../fields/picture-field.svelte';
 	import { cn } from '#lib/utils.js';
-	import { rows } from '../styles.js';
+	import { hint, rows } from '../styles.js';
 
 	/**
 	 * The options of a Multiple Choice or a Multiple Response question. The two
@@ -135,3 +137,20 @@
 		onclick={() => payload.options.push({ text: '', is_correct: false })}
 	/>
 </FormField>
+
+<div class="flex flex-col gap-1.5">
+	<Label class="font-normal">
+		<Switch
+			size="sm"
+			bind:checked={
+				() => payload.fixed_order ?? false,
+				// Off is stored as the key left out.
+				(on) => (payload.fixed_order = on || undefined)
+			}
+		/>
+		{m.practice_fixed_order()}
+	</Label>
+	<p class={hint}>
+		{payload.fixed_order ? m.practice_fixed_order_on() : m.practice_fixed_order_off()}
+	</p>
+</div>

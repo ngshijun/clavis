@@ -76,8 +76,8 @@ function content(payload: ItemPayload): unknown {
 	}
 }
 
-/** The keys that never make a question another one. */
-const LEFT_OUT = new Set(['id', 'tip']);
+/** The keys that never make a question another one: shuffled or not, the options are the same. */
+const LEFT_OUT = new Set(['id', 'tip', 'fixed_order']);
 
 /**
  * A value without what never makes a question another one: the keys above
