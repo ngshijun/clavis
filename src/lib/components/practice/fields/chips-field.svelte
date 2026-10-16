@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
@@ -57,7 +58,10 @@
 
 <div bind:this={row} class={chips}>
 	{#each lead as text (text)}
-		<Chip tone="key">{text}</Chip>
+		<Chip tone="key">
+			<CheckIcon data-icon="inline-start" aria-hidden="true" />
+			{text}
+		</Chip>
 	{/each}
 	<!-- No word is in the list twice, so a word is what tells one chip from another. -->
 	{#each values as text (text)}

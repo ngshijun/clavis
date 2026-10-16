@@ -230,12 +230,16 @@
 		</Label>
 		<Issue message={editor.issue('reuse')} />
 	</FormField>
-{:else if marks.length > 0}
+{:else}
 	{@const choosing = mode === 'choices'}
 	<FormField
 		label={choosing ? m.practice_cloze_choices() : m.practice_accepted_answers()}
 		hint={choosing ? m.practice_cloze_choices_hint() : m.practice_cloze_accepted_hint()}
 	>
+		{#if marks.length === 0}
+			<!-- Said, since a blank is made in the text above and this would otherwise not be there at all. -->
+			<p class={hint}>{m.practice_cloze_no_blanks()}</p>
+		{/if}
 		<div class={rows}>
 			{#each marks as mark, at (at)}
 				{@const error = editor.issue('blanks', at, choosing ? 'choices' : 'accepted')}
@@ -247,7 +251,7 @@
 					>
 						<span class={cn(number, 'mt-0.5')}>{at + 1}</span>
 						{#if choosing}
-							<!-- The answer is the first choice, so three more make the four a blank may have. -->
+							<!-- The answer is one choice, so three more make the four a blank may have. -->
 							<ChipsField
 								lead={[answerOf(mark)]}
 								tone="plain"
