@@ -94,14 +94,19 @@ export interface ChoiceOption {
 	tip?: string | null;
 }
 
-export interface McqPayload extends Common {
-	type: 'mcq';
+/** What the two choice types share. */
+interface ChoiceCommon extends Common {
 	options: ChoiceOption[];
+	/** The options in an order of each pupil's own. Absent: the order they are written in. */
+	shuffle?: boolean;
 }
 
-export interface MrqPayload extends Common {
+export interface McqPayload extends ChoiceCommon {
+	type: 'mcq';
+}
+
+export interface MrqPayload extends ChoiceCommon {
 	type: 'mrq';
-	options: ChoiceOption[];
 }
 
 export interface TrueFalsePayload extends Common {

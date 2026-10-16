@@ -217,7 +217,7 @@ const choiceRule = (enough: (correct: number) => boolean, message: () => string)
 	);
 
 export const mcqSchema = z
-	.object({ type: z.literal('mcq'), ...commonWithoutTip, options: choiceOptions })
+	.object({ type: z.literal('mcq'), ...commonWithoutTip, options: choiceOptions, shuffle: flag })
 	.check(
 		choiceRule(
 			(correct) => correct === 1,
@@ -232,7 +232,7 @@ export const mcqSchema = z
  * ticking everything is full marks.
  */
 export const mrqSchema = z
-	.object({ type: z.literal('mrq'), ...commonWithoutTip, options: choiceOptions })
+	.object({ type: z.literal('mrq'), ...commonWithoutTip, options: choiceOptions, shuffle: flag })
 	.check(
 		choiceRule(
 			(correct) => correct >= 2,

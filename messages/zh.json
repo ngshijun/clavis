@@ -472,6 +472,8 @@
 	"practice_cloze_blank": "空格 {n}",
 	"practice_cloze_bank": "词库",
 	"practice_cloze_bank_hint": "各空格的答案，加上你为了让学生多想一想而添加的干扰词。",
+	"practice_shuffle_options": "打乱选项顺序",
+	"practice_shuffle_options_hint": "每位学生看到的选项顺序各不相同。顺序有意义时请关闭，例如“以上皆是”。",
 	"practice_cloze_reuse": "一个词可以使用多次",
 	"practice_cloze_choices": "每个空格的选项",
 	"practice_cloze_choices_hint": "每个空格二至四个选项。第一个是答案。",

@@ -63,17 +63,21 @@ export function serveItem(payload: ItemPayload): ServedItem {
 	switch (payload.type) {
 		case 'mcq':
 		case 'mrq':
-		case 'pick_words':
+		case 'pick_words': {
+			const options = payload.options.map((option, at) => ({
+				number: at + 1,
+				text: option.text,
+				image_path: ('image_path' in option ? option.image_path : null) ?? null,
+				image_bucket: null
+			}));
+			const shuffled = payload.type !== 'pick_words' && payload.shuffle;
 			return {
 				...common,
 				type: payload.type,
-				options: payload.options.map((option, at) => ({
-					number: at + 1,
-					text: option.text,
-					image_path: ('image_path' in option ? option.image_path : null) ?? null,
-					image_bucket: null
-				}))
+				// Mixed by their numbers, so the order holds while the options are being written.
+				options: shuffled ? mixed(options, (option) => String(option.number)) : options
 			};
+		}
 		case 'true_false':
 			return { ...common, type: payload.type, labels: payload.labels ?? null };
 		case 'tick_table':
