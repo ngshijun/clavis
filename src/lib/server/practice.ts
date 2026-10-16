@@ -217,6 +217,8 @@ export interface StageDetail {
 	id: string;
 	name: string;
 	questionOrder: QuestionOrder;
+	/** Whether pupils get the options of its choice questions in an order of their own. */
+	shuffleOptions: boolean;
 	topic: { id: string; name: string };
 	subject: { id: string; name: string };
 	grade: { id: string; name: string };
@@ -242,7 +244,7 @@ export async function getStage(
 		supabase
 			.from('stages')
 			.select(
-				`id, name, question_order,
+				`id, name, question_order, shuffle_options,
 				topics!inner (id, name,
 					tags (id, name),
 					subjects!inner (id, name,
@@ -304,6 +306,7 @@ export async function getStage(
 		id: stage.data.id,
 		name: stage.data.name,
 		questionOrder: stage.data.question_order === 'random' ? 'random' : 'fixed',
+		shuffleOptions: stage.data.shuffle_options,
 		topic: { id: topic.id, name: topic.name },
 		subject: { id: topic.subjects.id, name: topic.subjects.name },
 		grade: topic.subjects.grade_levels,
@@ -326,6 +329,21 @@ export async function setQuestionOrder(
 	const { data, error } = await supabase
 		.from('stages')
 		.update({ question_order: order })
+		.eq('id', stageId)
+		.select('id');
+	if (error) throw error;
+	if (data.length === 0) throw new Error(`stages ${stageId} was not updated`);
+}
+
+/** Whether pupils get the options of the stage's choice questions in an order of their own. */
+export async function setShuffleOptions(
+	supabase: Supabase,
+	stageId: string,
+	shuffle: boolean
+): Promise<void> {
+	const { data, error } = await supabase
+		.from('stages')
+		.update({ shuffle_options: shuffle })
 		.eq('id', stageId)
 		.select('id');
 	if (error) throw error;

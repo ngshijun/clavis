@@ -31,6 +31,7 @@ import {
 	saveQuestion,
 	setLearningPoints,
 	setQuestionOrder,
+	setShuffleOptions,
 	storeImportPicture,
 	type StageRows
 } from '#lib/server/practice.js';
@@ -54,6 +55,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 };
 
 const orderSchema = z.object({ order: z.enum(QUESTION_ORDERS) });
+const shuffleSchema = z.object({ shuffle: z.enum(['true', 'false']) });
 const ids = z.array(z.guid()).min(1);
 const reorderSchema = z.discriminatedUnion('kind', [
 	/** The stage's one sequence: its passages and its questions on no passage. */
@@ -163,6 +165,17 @@ export const actions: Actions = {
 		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
 		try {
 			await setQuestionOrder(locals.supabase, params.stageId, parsed.data.order);
+		} catch (cause) {
+			return unexpected(cause);
+		}
+	},
+
+	/** Whether pupils get the options of the stage's choice questions shuffled. */
+	shuffle: async ({ request, locals, params }) => {
+		const parsed = shuffleSchema.safeParse(formValues(await request.formData()));
+		if (!parsed.success) return fail(400, { message: m.error_unexpected() });
+		try {
+			await setShuffleOptions(locals.supabase, params.stageId, parsed.data.shuffle === 'true');
 		} catch (cause) {
 			return unexpected(cause);
 		}
