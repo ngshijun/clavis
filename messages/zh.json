@@ -572,6 +572,8 @@
 	"practice_import_pick_words_brackets": "请用 [方括号] 括住每个作为答案的词。",
 	"practice_import_cloze_mode": "请填写 Typing、Word Bank 或 Choices，留空即为 Typing。",
 	"practice_import_cloze_extra": "额外词语只用于 Word Bank。",
+	"practice_import_cloze_extra_choices": "选择题模式下，每个空格的错误选项写在它的方括号里、答案之后，不写在这里：[roots|stem|flower]。",
+	"practice_import_cloze_choices_missing": "第 {n} 个空格没有错误选项。选择题模式下，请在方括号里的答案之后写上：[roots|stem|flower]。",
 	"practice_import_numeric_form": "请填写 Number、Fraction、Mixed Number、Ratio、Money、Time 或 Measure。",
 	"practice_import_numeric_unused": "{form} 答案不使用此列。请留空。",
 	"practice_import_not_number": "“{value}”不是数字。",

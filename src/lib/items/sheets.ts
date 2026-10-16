@@ -61,8 +61,12 @@ export interface Sheet {
 	/** The name on the sheet's tab. */
 	name: string;
 	columns: Column[];
-	/** The example in row 2 of the template, which marks it as one. It is never imported. */
-	sample: Cells;
+	/**
+	 * The examples from row 2 of the template on, each marked as one, so none
+	 * is imported. A sheet with ways of answering that are written differently
+	 * has one for each.
+	 */
+	samples: [Cells, ...Cells[]];
 	/** What the Read me sheet says about filling this one. */
 	notes: string[];
 }
@@ -327,9 +331,18 @@ const CLOZE_MODE_WORDS = new Map<string, ClozeMode>([
 function cloze(cells: Cells): Built {
 	const mode = CLOZE_MODE_WORDS.get(cells.mode.toLowerCase());
 	if (!mode) return refuse('mode', m.practice_import_cloze_mode());
-	if (mode !== 'bank' && cells.extra) refuse('extra', m.practice_import_cloze_extra());
+	if (mode !== 'bank' && cells.extra) {
+		refuse(
+			'extra',
+			mode === 'choices' ? m.practice_import_cloze_extra_choices() : m.practice_import_cloze_extra()
+		);
+	}
 
 	const { text, blanks } = clozeFromBrackets(cells.text);
+	// Said in the file's own terms: a blank written as for Typing has no wrong choices to pick from.
+	const alone =
+		mode === 'choices' ? blanks.find((blank) => blank.accepted.length === 1) : undefined;
+	if (alone) refuse('text', m.practice_import_cloze_choices_missing({ n: alone.index }));
 	const answers = blanks.map((blank) => blank.accepted[0]).filter(Boolean);
 	return {
 		own: {
@@ -592,17 +605,19 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			required: true,
 			choices: LETTERS
 		}),
-		sample: {
-			question: 'Which part of a plant takes in water?',
-			option_A: 'Roots',
-			option_B: 'Stem',
-			tip_B: 'The stem carries water up the plant.',
-			option_C: 'Leaf',
-			tip_C: 'A leaf makes food from sunlight.',
-			option_D: 'Flower',
-			answer: 'A',
-			difficulty: 'Low'
-		},
+		samples: [
+			{
+				question: 'Which part of a plant takes in water?',
+				option_A: 'Roots',
+				option_B: 'Stem',
+				tip_B: 'The stem carries water up the plant.',
+				option_C: 'Leaf',
+				tip_C: 'A leaf makes food from sunlight.',
+				option_D: 'Flower',
+				answer: 'A',
+				difficulty: 'Low'
+			}
+		],
 		notes: ['Fill in two to six options. Answer is the letter of the right one.', TIPS],
 		build: choice('mcq')
 	},
@@ -610,16 +625,18 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 		type: 'mrq',
 		name: 'Multiple Response',
 		columns: choiceColumns({ key: 'answer', header: 'Answers', width: 12, required: true }),
-		sample: {
-			question: 'Which of these are parts of a plant?',
-			option_A: 'Roots',
-			option_B: 'Wheel',
-			tip_B: 'A wheel is part of a car.',
-			option_C: 'Leaf',
-			option_D: 'Stem',
-			answer: 'A, C, D',
-			difficulty: 'Medium'
-		},
+		samples: [
+			{
+				question: 'Which of these are parts of a plant?',
+				option_A: 'Roots',
+				option_B: 'Wheel',
+				tip_B: 'A wheel is part of a car.',
+				option_C: 'Leaf',
+				option_D: 'Stem',
+				answer: 'A, C, D',
+				difficulty: 'Medium'
+			}
+		],
 		notes: ['Answers holds the letters of all the right options, two or more: A, C.', TIPS],
 		build: choice('mrq')
 	},
@@ -637,7 +654,7 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			},
 			...FILING
 		],
-		sample: { question: 'A plant makes its own food.', answer: 'True' },
+		samples: [{ question: 'A plant makes its own food.', answer: 'True' }],
 		notes: [
 			'Answer is True or False.',
 			'Pick a word of another pair, such as Betul or Salah, and pupils choose between those two words.'
@@ -656,16 +673,18 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			]),
 			...FILING
 		],
-		sample: {
-			question: 'Tick the right column for each one.',
-			columns: 'Living | Non-living',
-			row_1: 'Cat',
-			tick_1: 'Living',
-			row_2: 'Rock',
-			tick_2: 'Non-living',
-			row_3: 'Tree',
-			tick_3: 'Living'
-		},
+		samples: [
+			{
+				question: 'Tick the right column for each one.',
+				columns: 'Living | Non-living',
+				row_1: 'Cat',
+				tick_1: 'Living',
+				row_2: 'Rock',
+				tick_2: 'Non-living',
+				row_3: 'Tree',
+				tick_3: 'Living'
+			}
+		],
 		notes: [
 			`Columns holds the names of the two to five columns pupils tick under, ${PIPE}.`,
 			'Each Row is one line of the table. The Tick beside it names the column that is right for it.'
@@ -680,10 +699,12 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'sentence', header: 'Sentence', width: 48, required: true },
 			...FILING
 		],
-		sample: {
-			question: 'Pick the nouns in this sentence.',
-			sentence: 'The [cat] sat on the [mat].'
-		},
+		samples: [
+			{
+				question: 'Pick the nouns in this sentence.',
+				sentence: 'The [cat] sat on the [mat].'
+			}
+		],
 		notes: [
 			'Write the sentence whole, with [square brackets] around each word that is an answer.',
 			CHINESE
@@ -705,18 +726,31 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'extra', header: 'Extra Words', width: 20 },
 			...FILING
 		],
-		sample: {
-			question: 'Fill in the blanks.',
-			text: 'The [roots] take in water and the [leaves] make food.',
-			mode: 'Word Bank',
-			extra: 'stem | flower'
-		},
+		// One a way of answering, since each is written its own way.
+		samples: [
+			{
+				question: 'Fill in the blanks.',
+				text: 'The [roots] take in water and the [leaves] make food.',
+				mode: 'Word Bank',
+				extra: 'stem | flower'
+			},
+			{
+				question: 'Choose the right word.',
+				text: 'Plants take in water through their [roots|stem|flower].',
+				mode: 'Choices'
+			},
+			{
+				question: 'Type the missing word.',
+				text: 'Rain falls from grey [clouds|cloud].',
+				mode: 'Typing'
+			}
+		],
 		notes: [
 			'Write the text whole, with the answer to each blank in [square brackets].',
-			'To accept more than one spelling, put | between them: [colour|color].',
-			'Answer Mode is Typing, Word Bank or Choices. Left empty, it is Typing.',
+			'Answer Mode is Typing, Word Bank or Choices. Left empty, it is Typing. The yellow rows show one of each.',
+			'Typing: pupils type each answer. To accept more than one spelling, put | between them: [colour|color].',
 			`Word Bank: pupils pick from the answers and the Extra Words. Write the Extra Words ${PIPE}.`,
-			'Choices: pupils pick at each blank. Write two to four choices in each bracket, the answer first: [roots|leaves|stem].',
+			'Choices: pupils pick from a short list at each blank. In each bracket write the answer first, then the wrong choices, with | between: [roots|stem|flower]. Two to four in all. The Extra Words column is not used.',
 			'Question is optional on this sheet: a line above the text.'
 		],
 		build: cloze
@@ -729,10 +763,12 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'answers', header: 'Accepted Answers', width: 32, required: true },
 			...FILING
 		],
-		sample: {
-			question: 'Which gas do plants take in from the air?',
-			answers: 'carbon dioxide | CO2'
-		},
+		samples: [
+			{
+				question: 'Which gas do plants take in from the air?',
+				answers: 'carbon dioxide | CO2'
+			}
+		],
 		notes: [`Accepted Answers holds every answer you accept, ${PIPE}.`],
 		build: shortAnswer
 	},
@@ -745,11 +781,13 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'reveal', header: 'Show First Letter', width: 18, choices: YES_NO },
 			...FILING
 		],
-		sample: {
-			question: 'The green part of a plant that makes food.',
-			word: 'leaf',
-			reveal: 'Yes'
-		},
+		samples: [
+			{
+				question: 'The green part of a plant that makes food.',
+				word: 'leaf',
+				reveal: 'Yes'
+			}
+		],
 		notes: [
 			'Word is one word with no spaces. Pupils get one box for each letter.',
 			'Show First Letter left empty is No.'
@@ -768,12 +806,14 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'equal', header: 'Accept Equal Answers', width: 22, choices: YES_NO },
 			...FILING
 		],
-		sample: {
-			question: 'What fraction of the pizza is left?',
-			form: 'Fraction',
-			answer: '3/4',
-			equal: 'Yes'
-		},
+		samples: [
+			{
+				question: 'What fraction of the pizza is left?',
+				form: 'Fraction',
+				answer: '3/4',
+				equal: 'Yes'
+			}
+		],
 		notes: [
 			'Pick the Answer Form and write the answer in it. Left empty, it is Number.',
 			'Number: 12.5. Fraction: 3/4. Mixed Number: 2 1/2. Ratio: 3:4. Money: 19.20. Time: 7:30 am, or 19:30. Measure: 2 kg 500 g.',
@@ -797,16 +837,18 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'extras', header: 'Extra Answers', width: 20 },
 			...FILING
 		],
-		sample: {
-			question: 'Match each animal to its young.',
-			left_1: 'Cat',
-			right_1: 'Kitten',
-			left_2: 'Dog',
-			right_2: 'Puppy',
-			left_3: 'Cow',
-			right_3: 'Calf',
-			extras: 'Chick'
-		},
+		samples: [
+			{
+				question: 'Match each animal to its young.',
+				left_1: 'Cat',
+				right_1: 'Kitten',
+				left_2: 'Dog',
+				right_2: 'Puppy',
+				left_3: 'Cow',
+				right_3: 'Calf',
+				extras: 'Chick'
+			}
+		],
 		notes: [
 			'Each Item and the Answer beside it are one right pair.',
 			'An item or an answer is words, a picture, or both.',
@@ -826,13 +868,15 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			]),
 			...FILING
 		],
-		sample: {
-			question: 'Put the stages of a butterfly’s life in order.',
-			item_1: 'Egg',
-			item_2: 'Caterpillar',
-			item_3: 'Pupa',
-			item_4: 'Butterfly'
-		},
+		samples: [
+			{
+				question: 'Put the stages of a butterfly’s life in order.',
+				item_1: 'Egg',
+				item_2: 'Caterpillar',
+				item_3: 'Pupa',
+				item_4: 'Butterfly'
+			}
+		],
 		notes: [
 			'Write the items in their right order. Pupils get them shuffled.',
 			'An item is words, a picture, or both.'
@@ -847,10 +891,12 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			{ key: 'sentence', header: 'Sentence', width: 48, required: true },
 			...FILING
 		],
-		sample: {
-			question: 'Put the words in order to make a sentence.',
-			sentence: 'The cat sat on the mat.'
-		},
+		samples: [
+			{
+				question: 'Put the words in order to make a sentence.',
+				sentence: 'The cat sat on the mat.'
+			}
+		],
 		notes: ['Write the sentence in its right order. Pupils get its words shuffled.', CHINESE],
 		build: rearrange
 	},
@@ -865,13 +911,15 @@ export const QUESTION_SHEETS: QuestionSheet[] = [
 			]),
 			...FILING
 		],
-		sample: {
-			question: 'Sort these into living and non-living things.',
-			group_1: 'Living things',
-			items_1: 'Cat | Tree | Bird',
-			group_2: 'Non-living things',
-			items_2: 'Rock | Chair'
-		},
+		samples: [
+			{
+				question: 'Sort these into living and non-living things.',
+				group_1: 'Living things',
+				items_1: 'Cat | Tree | Bird',
+				group_2: 'Non-living things',
+				items_2: 'Rock | Chair'
+			}
+		],
 		notes: [`Name two to four groups, and write the items of each beside it, ${PIPE}.`],
 		build: classify
 	}
@@ -888,10 +936,12 @@ export const PASSAGE_SHEET: Sheet = {
 		picture('picture'),
 		{ key: 'text', header: 'Text', width: 90 }
 	],
-	sample: {
-		title: 'The Water Cycle',
-		text: 'The sun heats the sea, and water rises into the air as vapour. High up it cools and forms clouds. Rain falls from the clouds and runs back to the sea.'
-	},
+	samples: [
+		{
+			title: 'The Water Cycle',
+			text: 'The sun heats the sea, and water rises into the air as vapour. High up it cools and forms clouds. Rain falls from the clouds and runs back to the sea.'
+		}
+	],
 	notes: [
 		'A passage is a title with a text, a picture, or both.',
 		'For a new paragraph in the Text cell, press Alt+Enter, or Option+Return on a Mac.'
@@ -908,10 +958,13 @@ export const SHEETS: Sheet[] = [...QUESTION_SHEETS, PASSAGE_SHEET];
  */
 export const EXAMPLE_MARK = 'Example:';
 
-/** The example of a sheet as the template writes it: its sample, marked as one. */
-export function exampleRow(sheet: Sheet): Cells {
+/** The examples of a sheet as the template writes them: its samples, each marked as one. */
+export function exampleRows(sheet: Sheet): Cells[] {
 	const [first] = sheet.columns;
-	return { ...sheet.sample, [first.key]: `${EXAMPLE_MARK} ${sheet.sample[first.key]}` };
+	return sheet.samples.map((sample) => ({
+		...sample,
+		[first.key]: `${EXAMPLE_MARK} ${sample[first.key]}`
+	}));
 }
 
 /** The name of the template's first sheet, which only explains the others and is never read. */
@@ -936,7 +989,7 @@ export const README: { title: string; parts: { heading: string; lines: string[] 
 		{
 			heading: 'Good to know',
 			lines: [
-				`The yellow row that begins with “${EXAMPLE_MARK}” shows how a row is filled in. It is never imported.`,
+				`A yellow row that begins with “${EXAMPLE_MARK}” shows how a row is filled in. It is never imported. A sheet whose rows are written in more than one way has one for each.`,
 				'Keep the header row as it is. A file whose columns were renamed, added or removed is not taken.',
 				'A cell that shows a small arrow has a list. Pick from it.',
 				'Difficulty left empty is Medium. Tip, Passage and Learning Points are optional.',

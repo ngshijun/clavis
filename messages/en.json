@@ -770,6 +770,8 @@
 	"practice_import_pick_words_brackets": "Put [square brackets] around each word that is an answer.",
 	"practice_import_cloze_mode": "Write Typing, Word Bank or Choices, or leave it empty for Typing.",
 	"practice_import_cloze_extra": "Extra words go with Word Bank only.",
+	"practice_import_cloze_extra_choices": "With Choices, each blank's wrong choices go in its brackets after the answer, not here: [roots|stem|flower].",
+	"practice_import_cloze_choices_missing": "Blank {n} has no wrong choices. With Choices, write them in its brackets after the answer: [roots|stem|flower].",
 	"practice_import_numeric_form": "Write Number, Fraction, Mixed Number, Ratio, Money, Time or Measure.",
 	"practice_import_numeric_unused": "A {form} answer does not use this column. Leave it empty.",
 	"practice_import_not_number": "“{value}” is not a number.",

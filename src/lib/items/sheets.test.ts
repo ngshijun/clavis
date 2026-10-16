@@ -3,7 +3,7 @@ import { m } from '#lib/paraglide/messages.js';
 import { ITEM_TYPES, type ItemPayload, type ItemType } from './payload.js';
 import { validateItem } from './schema.js';
 import {
-	exampleRow,
+	exampleRows,
 	PASSAGE_SHEET,
 	QUESTION_SHEETS,
 	readPassageRow,
@@ -24,7 +24,10 @@ const sheetOf = (type: SheetType) => {
 };
 
 /** A row of the type's sheet: its example, with the cells given written over it. */
-const row = (type: SheetType, cells: Cells = {}): Cells => ({ ...sheetOf(type).sample, ...cells });
+const row = (type: SheetType, cells: Cells = {}): Cells => ({
+	...sheetOf(type).samples[0],
+	...cells
+});
 
 function payloadOf<Type extends SheetType>(type: Type, cells: Cells = {}) {
 	const read = readQuestionRow(sheetOf(type), row(type, cells));
@@ -84,7 +87,7 @@ describe('the sheets', () => {
 				(each) => each.key !== 'answer' || !each.required
 			)) {
 				for (const word of column.choices ?? []) {
-					const read = readQuestionRow(sheet, { ...sheet.sample, [column.key]: word });
+					const read = readQuestionRow(sheet, { ...sheet.samples[0], [column.key]: word });
 					expect(read.ok ? null : read.problem.column).not.toBe(column.header);
 				}
 			}
@@ -102,24 +105,26 @@ describe('the sheets', () => {
 			const headers = sheet.columns.map((column) => column.header);
 			expect(new Set(keys).size).toBe(keys.length);
 			expect(new Set(headers).size).toBe(headers.length);
-			for (const key of Object.keys(sheet.sample)) expect(keys).toContain(key);
+			for (const key of sheet.samples.flatMap(Object.keys)) expect(keys).toContain(key);
 			expect(sheet.notes.length).toBeGreaterThan(0);
 		}
 	});
 
 	it.each(QUESTION_SHEETS.map((sheet) => [sheet.name, sheet] as const))(
-		'read the example of %s as a complete question',
+		'read the examples of %s as complete questions',
 		(_, sheet) => {
-			const read = readQuestionRow(sheet, sheet.sample);
-			expect(read).toMatchObject({ ok: true, question: { payload: { type: sheet.type } } });
-			if (read.ok) expect(validateItem(read.question.payload)).toMatchObject({ ok: true });
+			for (const sample of sheet.samples) {
+				const read = readQuestionRow(sheet, sample);
+				expect(read).toMatchObject({ ok: true, question: { payload: { type: sheet.type } } });
+				if (read.ok) expect(validateItem(read.question.payload)).toMatchObject({ ok: true });
+			}
 		}
 	);
 
 	it('read the example of Passages as a passage', () => {
-		expect(readPassageRow(PASSAGE_SHEET.sample)).toEqual({
+		expect(readPassageRow(PASSAGE_SHEET.samples[0])).toEqual({
 			ok: true,
-			passage: { title: 'The Water Cycle', body: PASSAGE_SHEET.sample.text, image_path: null }
+			passage: { title: 'The Water Cycle', body: PASSAGE_SHEET.samples[0].text, image_path: null }
 		});
 	});
 });
@@ -458,10 +463,18 @@ describe('Fill in the Blanks', () => {
 			column: 'Extra Words',
 			message: m.practice_import_cloze_extra()
 		});
+		// Written as for Word Bank, a Choices row is told where its wrong choices go.
+		expect(problemOf('cloze', { mode: 'Choices' })).toEqual({
+			column: 'Extra Words',
+			message: m.practice_import_cloze_extra_choices()
+		});
 		expect(problemOf('cloze', { mode: 'Choices', extra: '' })).toEqual({
 			column: 'Text',
-			message: m.item_cloze_choices_count()
+			message: m.practice_import_cloze_choices_missing({ n: 1 })
 		});
+		expect(
+			problemOf('cloze', { mode: 'Choices', extra: '', text: 'The [a|b|c|d|e] sat.' })
+		).toEqual({ column: 'Text', message: m.item_cloze_choices_count() });
 	});
 });
 
@@ -722,7 +735,7 @@ describe('Classify', () => {
 });
 
 describe('readPassageRow', () => {
-	const { title, text } = PASSAGE_SHEET.sample;
+	const { title, text } = PASSAGE_SHEET.samples[0];
 
 	it('names the cell that is empty', () => {
 		expect(readPassageRow({ title: '', text })).toEqual({
@@ -764,7 +777,7 @@ describe('pictures', () => {
 			header: 'Picture',
 			picture: true
 		});
-		const read = readQuestionRow(sheet, sheet.sample, { picture: 'upload:a' });
+		const read = readQuestionRow(sheet, sheet.samples[0], { picture: 'upload:a' });
 		expect(read).toMatchObject({ ok: true, question: { payload: { image_path: 'upload:a' } } });
 	});
 
@@ -875,8 +888,8 @@ describe('pictures', () => {
 			{
 				sheet,
 				rows: [
-					{ row: 2, cells: exampleRow(sheet), pictures: { picture: 'upload:a' } },
-					{ row: 3, cells: sheet.sample, pictures: { picture: 'upload:b' } },
+					{ row: 2, cells: exampleRows(sheet)[0], pictures: { picture: 'upload:a' } },
+					{ row: 3, cells: sheet.samples[0], pictures: { picture: 'upload:b' } },
 					{ row: 4, cells: {}, pictures: { picture: 'upload:c' } },
 					{ row: 5, cells: {}, pictures: {} }
 				]
@@ -902,7 +915,7 @@ describe('readRows', () => {
 		cells.map((each, index) => ({ row: index + 2, cells: each }));
 
 	it('reads nothing from a workbook that still holds only the examples', () => {
-		const read = readRows(SHEETS.map((sheet) => ({ sheet, rows: rows(exampleRow(sheet)) })));
+		const read = readRows(SHEETS.map((sheet) => ({ sheet, rows: rows(exampleRows(sheet)[0]) })));
 		expect(read).toEqual({
 			candidates: { passages: [], questions: [] },
 			problems: [],
@@ -915,7 +928,7 @@ describe('readRows', () => {
 			{
 				sheet: short,
 				rows: rows(
-					exampleRow(short),
+					exampleRows(short)[0],
 					answer('One?'),
 					{},
 					{ question: '', answers: '' },
@@ -943,22 +956,22 @@ describe('readRows', () => {
 			{
 				sheet: short,
 				rows: rows(
-					{ ...exampleRow(short), tip: 'A gas.' },
+					{ ...exampleRows(short)[0], tip: 'A gas.' },
 					answer('example: in small letters?'),
-					short.sample
+					short.samples[0]
 				)
 			}
 		]);
 		expect(read.questionRows).toBe(1);
 		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual([
-			short.sample.question
+			short.samples[0].question
 		]);
 	});
 
 	it('lists the questions sheet by sheet in the order of the template, row by row', () => {
 		const read = readRows([
 			{ sheet: short, rows: rows(answer('Short one?'), answer('Short two?')) },
-			{ sheet: mcq, rows: rows({ ...mcq.sample, question: 'Choice?' }) }
+			{ sheet: mcq, rows: rows({ ...mcq.samples[0], question: 'Choice?' }) }
 		]);
 		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual([
 			'Choice?',

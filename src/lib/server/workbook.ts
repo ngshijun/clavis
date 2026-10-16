@@ -27,7 +27,7 @@ import {
 } from '#lib/items/import.js';
 import {
 	EXAMPLE_MARK,
-	exampleRow,
+	exampleRows,
 	PASSAGE_SHEET,
 	README,
 	README_NAME,
@@ -332,7 +332,7 @@ function listsOf(sheet: Sheet): DataValidationRule[] {
 }
 
 /**
- * A sheet of the template: its header and its example. The example is shown
+ * A sheet of the template: its header and its examples. An example is shown
  * in yellow for as long as it begins with the mark that keeps it from being
  * imported, so a row a teacher typed over it is no longer yellow.
  */
@@ -344,7 +344,7 @@ function templateSheet(sheet: Sheet): TemplateSheet {
 	}));
 	return {
 		sheet: sheet.name,
-		data: getSheetData([exampleRow(sheet)], columns),
+		data: getSheetData(exampleRows(sheet), columns),
 		columns,
 		textColumns: true,
 		// The header stays in sight going down, and what is asked stays in sight going across.

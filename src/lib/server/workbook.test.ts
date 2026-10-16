@@ -4,7 +4,7 @@ import writeExcelFile, { type SheetData } from 'write-excel-file/node';
 import { describe, expect, it } from 'vitest';
 import { MAX_IMPORT_QUESTIONS, MAX_WORKBOOK_BYTES } from '#lib/items/import.js';
 import {
-	exampleRow,
+	exampleRows,
 	PASSAGE_SHEET,
 	QUESTION_SHEETS,
 	README_NAME,
@@ -35,12 +35,14 @@ const headers = (sheet: Sheet) => sheet.columns.map((column) => column.header);
 /** A row of a sheet: its example, with the cells given (by header) written over it. */
 const rowOf = (sheet: Sheet, cells: Record<string, unknown> = {}) =>
 	sheet.columns.map((column) =>
-		column.header in cells ? cells[column.header] : (sheet.sample[column.key] ?? null)
+		column.header in cells ? cells[column.header] : (sheet.samples[0][column.key] ?? null)
 	) as never[];
 
-/** The example of a sheet as the template writes it, which is never imported. */
-const exampleOf = (sheet: Sheet) =>
-	sheet.columns.map((column) => exampleRow(sheet)[column.key] ?? null) as never[];
+/** The examples of a sheet as the template writes them, which are never imported. */
+const examplesOf = (sheet: Sheet) =>
+	exampleRows(sheet).map(
+		(example) => sheet.columns.map((column) => example[column.key] ?? null) as never[]
+	);
 
 const short = sheetNamed('Short Answer');
 const number = sheetNamed('Number');
@@ -61,11 +63,11 @@ describe('writeTemplate', () => {
 		]);
 	});
 
-	it('gives each sheet its header row and its example, and nothing else', async () => {
+	it('gives each sheet its header row and its examples, and nothing else', async () => {
 		const sheets = await readExcelFile(await writeTemplate());
 		for (const sheet of SHEETS) {
 			const written = sheets.find((each) => each.sheet === sheet.name)?.data;
-			expect(written).toEqual([headers(sheet), exampleOf(sheet)]);
+			expect(written).toEqual([headers(sheet), ...examplesOf(sheet)]);
 		}
 	});
 
@@ -86,8 +88,8 @@ describe('writeTemplate', () => {
 			const columns = [...xml.matchAll(/<col [^>]*>/g)].map(([column]) => column);
 			expect(columns).toHaveLength(sheet.columns.length);
 			for (const column of columns) expect(column).toContain(`style="${text}"`);
-			// Only the header and the example are written, so the file stays small.
-			expect(xml.match(/<row /g)).toHaveLength(2);
+			// Only the header and the examples are written, so the file stays small.
+			expect(xml.match(/<row /g)).toHaveLength(1 + sheet.samples.length);
 
 			expect(xml).toContain('<formula>LEFT($A2,8)="Example:"</formula>');
 			const lists = sheet.columns.filter((column) => column.choices || column.passages);
@@ -121,7 +123,7 @@ describe('readWorkbook', () => {
 			[README_NAME]: [['Importing practice questions into Clavis']],
 			'Short Answer': [
 				headers(short),
-				exampleOf(short),
+				...examplesOf(short),
 				rowOf(short, { Question: 'Which gas do animals breathe in?', 'Accepted Answers': 'oxygen' })
 			]
 		});
@@ -440,7 +442,7 @@ describe('readWorkbook, with pictures', () => {
 				sheet: choice.name,
 				data: [
 					headers(choice),
-					exampleOf(choice),
+					...examplesOf(choice),
 					rowOf(choice, {
 						Question: 'Which is the root?',
 						'Option B': null,
