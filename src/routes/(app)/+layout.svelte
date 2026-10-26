@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppSidebar from '#lib/components/app/app-sidebar.svelte';
 	import Notifications from '#lib/components/app/notifications.svelte';
 	import { scrollRegion } from '#lib/components/app/scroll-region.svelte.js';
 	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
-	import { breadcrumbs, navItems } from '#lib/navigation.js';
+	import { ACCOUNT, breadcrumbs, navItems } from '#lib/navigation.js';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -39,6 +39,13 @@
 		}
 	});
 </script>
+
+<!-- What the person shares across pages is read again when they come back to the tab, in case it changed meanwhile. -->
+<svelte:document
+	onvisibilitychange={() => {
+		if (document.visibilityState === 'visible') invalidate(ACCOUNT);
+	}}
+/>
 
 <svelte:head>
 	<title>{title ? `${title} · Clavis` : 'Clavis'}</title>

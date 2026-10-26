@@ -65,27 +65,57 @@ const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompar
  * level security returns every classroom of a manager's organization, archived
  * ones included, the live classrooms a teacher teaches, and the live
  * classrooms a student is enrolled in.
- *
- * The teachers' names come from the database's own reading of them, because
- * a student can read neither a classroom's teacher list nor another
- * person's profile.
  */
-export async function listClassrooms(supabase: Supabase, role: Role): Promise<Classroom[]> {
-	const [{ data, error }, names] = await Promise.all([
-		supabase
-			.from('classrooms')
-			.select(
-				`id, name, grade_level_id, subject_id, cover_image_path, archived_at,
-				grade_levels (name), subjects (name),
-				classroom_teachers (count), classroom_students (count)`
-			)
-			.order('name'),
-		supabase.rpc('classroom_teacher_names')
-	]);
-	if (error) throw error;
-	if (names.error) throw names.error;
+export function listClassrooms(supabase: Supabase, role: Role): Promise<Classroom[]> {
+	return readClassrooms(supabase, role, null);
+}
 
-	const teachers = Map.groupBy(names.data, (row) => row.classroom_id);
+/**
+ * The classroom an address names, if the person can reach it. The database
+ * refuses to return anyone else's, so a miss means a mistyped link or one
+ * shared from another account, and the error page says so rather than
+ * showing an empty classroom.
+ */
+export async function getClassroom(
+	supabase: Supabase,
+	role: Role,
+	classroomId: string
+): Promise<Classroom> {
+	const [classroom] = await readClassrooms(supabase, role, classroomId);
+	if (!classroom) error(404, 'Classroom not found');
+	return classroom;
+}
+
+/**
+ * The classrooms the person can reach, or the one of them named. The
+ * teachers' names come from the database's own reading of them, because a
+ * student can read neither a classroom's teacher list nor another person's
+ * profile.
+ */
+async function readClassrooms(
+	supabase: Supabase,
+	role: Role,
+	classroomId: string | null
+): Promise<Classroom[]> {
+	let rows = supabase
+		.from('classrooms')
+		.select(
+			`id, name, grade_level_id, subject_id, cover_image_path, archived_at,
+			grade_levels (name), subjects (name),
+			classroom_teachers (count), classroom_students (count)`
+		)
+		.order('name');
+	let names = supabase.rpc('classroom_teacher_names');
+	if (classroomId) {
+		rows = rows.eq('id', classroomId);
+		names = names.eq('classroom_id', classroomId);
+	}
+
+	const [{ data, error }, named] = await Promise.all([rows, names]);
+	if (error) throw error;
+	if (named.error) throw named.error;
+
+	const teachers = Map.groupBy(named.data, (row) => row.classroom_id);
 
 	return data.map((row) => ({
 		id: row.id,
@@ -107,18 +137,6 @@ export async function listClassrooms(supabase: Supabase, role: Role): Promise<Cl
 						students: row.classroom_students[0]?.count ?? 0
 					}
 	}));
-}
-
-/**
- * The classroom named in an address, resolved against the classrooms the
- * person can reach. The database already refuses to return anyone else's, so
- * a miss means a mistyped link or one shared from another account, and the
- * error page says so rather than showing an empty classroom.
- */
-export function findClassroom(classrooms: Classroom[], classroomId: string): Classroom {
-	const classroom = classrooms.find((item) => item.id === classroomId);
-	if (!classroom) error(404, 'Classroom not found');
-	return classroom;
 }
 
 /** Grade levels with their subjects, in curriculum order, for the classroom form. */

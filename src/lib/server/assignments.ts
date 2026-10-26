@@ -53,19 +53,20 @@ function toAssignment(row: {
 }
 
 /**
- * What has been assigned in some classrooms that the caller may read, the
- * latest first: all of it for a classroom's staff, and for a student what
- * was given to them.
+ * What has been assigned in some classrooms that the caller may read, or in
+ * every one of them for null, the latest first: all of it for a classroom's
+ * staff, and for a student what was given to them.
  */
 export async function listAssignments(
 	supabase: Supabase,
-	classroomIds: string[]
+	classroomIds: string[] | null
 ): Promise<Assignment[]> {
-	const { data, error } = await supabase
+	let query = supabase
 		.from('assignments')
 		.select(COLUMNS)
-		.in('classroom_id', classroomIds)
 		.order('created_at', { ascending: false });
+	if (classroomIds) query = query.in('classroom_id', classroomIds);
+	const { data, error } = await query;
 	if (error) throw error;
 
 	return data.map(toAssignment);

@@ -26,6 +26,12 @@ export interface Crumb {
 	href: string;
 }
 
+/**
+ * What every signed-in page shares, the person and their classrooms, as
+ * something to `invalidate`: it is not read again on a move between pages.
+ */
+export const ACCOUNT = 'app:account';
+
 /** The roles that have classrooms. An admin works above every classroom and has none. */
 export type ClassroomRole = Exclude<Role, 'admin'>;
 

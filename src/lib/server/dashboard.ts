@@ -5,19 +5,24 @@ import type { Enrolment, PointScore, StageBest } from '#lib/items/dashboard.js';
 type Supabase = SupabaseClient<Database>;
 
 /**
- * What a teacher's dashboard reads of some of their classrooms. The database
- * answers only for the live classrooms among them that the caller teaches,
- * and only of the students still in them (P42a).
+ * What a teacher's dashboard reads of some of their classrooms, or of every
+ * one they teach for null. The database answers only for the live classrooms
+ * among them that the caller teaches, and only of the students still in them
+ * (P42a, P43a).
  */
+
+/** The classrooms asked for, as the functions take them. */
+function asked(classroomIds: string[] | null) {
+	// Null is every classroom the caller teaches, which the generated types do not know the functions take.
+	return { p_classroom_ids: classroomIds as string[] };
+}
 
 /** Every student of the classrooms, once for each they are in. */
 export async function listEnrolments(
 	supabase: Supabase,
-	classroomIds: string[]
+	classroomIds: string[] | null
 ): Promise<Enrolment[]> {
-	const { data, error } = await supabase.rpc('dashboard_students', {
-		p_classroom_ids: classroomIds
-	});
+	const { data, error } = await supabase.rpc('dashboard_students', asked(classroomIds));
 	if (error) throw error;
 
 	return data.map((row) => ({
@@ -32,11 +37,9 @@ export async function listEnrolments(
 /** Each student's best session on each stage they have practised. */
 export async function listStageBests(
 	supabase: Supabase,
-	classroomIds: string[]
+	classroomIds: string[] | null
 ): Promise<StageBest[]> {
-	const { data, error } = await supabase.rpc('dashboard_stage_bests', {
-		p_classroom_ids: classroomIds
-	});
+	const { data, error } = await supabase.rpc('dashboard_stage_bests', asked(classroomIds));
 	if (error) throw error;
 
 	return data.map((row) => ({
@@ -51,11 +54,9 @@ export async function listStageBests(
 /** How each student does on each learning point, by the last questions they answered on it. */
 export async function listPointScores(
 	supabase: Supabase,
-	classroomIds: string[]
+	classroomIds: string[] | null
 ): Promise<PointScore[]> {
-	const { data, error } = await supabase.rpc('dashboard_learning_points', {
-		p_classroom_ids: classroomIds
-	});
+	const { data, error } = await supabase.rpc('dashboard_learning_points', asked(classroomIds));
 	if (error) throw error;
 
 	return data.map((row) => ({
@@ -76,8 +77,11 @@ export interface Week {
 }
 
 /** The last eight weeks of practice, the earliest first. */
-export async function listWeeks(supabase: Supabase, classroomIds: string[]): Promise<Week[]> {
-	const { data, error } = await supabase.rpc('dashboard_weeks', { p_classroom_ids: classroomIds });
+export async function listWeeks(
+	supabase: Supabase,
+	classroomIds: string[] | null
+): Promise<Week[]> {
+	const { data, error } = await supabase.rpc('dashboard_weeks', asked(classroomIds));
 	if (error) throw error;
 
 	return data
@@ -103,11 +107,9 @@ export interface Activity {
 /** The latest practice finished, newest first. */
 export async function listActivity(
 	supabase: Supabase,
-	classroomIds: string[]
+	classroomIds: string[] | null
 ): Promise<Activity[]> {
-	const { data, error } = await supabase.rpc('dashboard_activity', {
-		p_classroom_ids: classroomIds
-	});
+	const { data, error } = await supabase.rpc('dashboard_activity', asked(classroomIds));
 	if (error) throw error;
 
 	return data.map((row) => ({

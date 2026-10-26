@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { refreshAll } from '$app/navigation';
+	import { invalidate, refreshAll } from '$app/navigation';
 	import { refusal, toastError } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { postAction } from '#lib/form-actions.js';
 	import type { Answers, Marked, Run } from '#lib/items/run.js';
+	import { ACCOUNT } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { setRunner } from './context.js';
 	import Review from './review.svelte';
@@ -48,7 +49,11 @@
 				)
 			);
 			const result = await postAction(action, body);
-			if (result.type === 'success' && result.data) marked = result.data.marked as Marked;
+			if (result.type === 'success' && result.data) {
+				marked = result.data.marked as Marked;
+				// A finished run may have done an assignment, which the sidebar counts.
+				void invalidate(ACCOUNT);
+			}
 			// A dropped connection is told apart, since the answers are still here to be sent again.
 			else toastError(refusal(result) ?? m.error_unexpected());
 		} finally {

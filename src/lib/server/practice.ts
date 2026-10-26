@@ -119,13 +119,51 @@ export async function getSubjectStages(
 		.order('created_at', { referencedTable: 'topics.stages' })
 		.maybeSingle();
 	if (error) throw error;
-	if (!data) return null;
+	return data && subjectStagesOf(data);
+}
 
+/**
+ * The topics and stages of a classroom's subject; null when the person
+ * reaches no such classroom. It asks by the classroom, so a page need not
+ * read the classroom first to learn its subject.
+ */
+export async function getClassroomSubjectStages(
+	supabase: Supabase,
+	classroomId: string
+): Promise<SubjectStages | null> {
+	const { data, error } = await supabase
+		.from('classrooms')
+		.select(
+			`subjects!inner (id, name,
+				grade_levels!inner (id, name),
+				topics (id, name,
+					stages (id, name, questions (id.count()))))`
+		)
+		.eq('id', classroomId)
+		.order('display_order', { referencedTable: 'subjects.topics' })
+		.order('created_at', { referencedTable: 'subjects.topics' })
+		.order('display_order', { referencedTable: 'subjects.topics.stages' })
+		.order('created_at', { referencedTable: 'subjects.topics.stages' })
+		.maybeSingle();
+	if (error) throw error;
+	return data && subjectStagesOf(data.subjects);
+}
+
+function subjectStagesOf(subject: {
+	id: string;
+	name: string;
+	grade_levels: { id: string; name: string };
+	topics: {
+		id: string;
+		name: string;
+		stages: { id: string; name: string; questions: { count: number }[] }[];
+	}[];
+}): SubjectStages {
 	return {
-		id: data.id,
-		name: data.name,
-		grade: data.grade_levels,
-		topics: data.topics.map((topic) => ({
+		id: subject.id,
+		name: subject.name,
+		grade: subject.grade_levels,
+		topics: subject.topics.map((topic) => ({
 			id: topic.id,
 			name: topic.name,
 			stages: topic.stages.map((stage) => ({

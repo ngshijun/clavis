@@ -6,9 +6,8 @@ import type { ItemPayload } from '#lib/items/payload.js';
 import { standingOf, type Standing } from '#lib/items/progress.js';
 import type { Answers, Marked, Run } from '#lib/items/run.js';
 import type { ItemResponse } from '#lib/items/served.js';
-import type { Classroom } from './classrooms.js';
 import {
-	getSubjectStages,
+	getClassroomSubjectStages,
 	QUESTION_IMAGES,
 	type SubjectStages,
 	type TopicStages
@@ -45,17 +44,20 @@ export interface StagePlace {
 	topic: { id: string; name: string };
 }
 
-/** A stage of a subject, with the topic it is in; null when the subject has no such stage. */
+/**
+ * A stage of a classroom's subject, with the topic it is in; null when the
+ * subject has no such stage or the person reaches no such classroom.
+ */
 export async function findStage(
 	supabase: Supabase,
-	subjectId: string,
+	classroomId: string,
 	stageId: string
 ): Promise<StagePlace | null> {
 	const { data, error } = await supabase
 		.from('stages')
-		.select('id, name, topics!inner (id, name, subject_id)')
+		.select('id, name, topics!inner (id, name, subjects!inner (classrooms!inner (id)))')
 		.eq('id', stageId)
-		.eq('topics.subject_id', subjectId)
+		.eq('topics.subjects.classrooms.id', classroomId)
 		.maybeSingle();
 	if (error) throw error;
 	if (!data) return null;
@@ -165,10 +167,10 @@ export function standingsOf(attempts: ClassroomAttempts): ClassroomStandings {
 /** The stages a classroom can practise: those of its subject, topic by topic. */
 export async function classroomTopics(
 	supabase: Supabase,
-	classroom: Classroom
+	classroomId: string
 ): Promise<TopicStages[]> {
-	const subject = await getSubjectStages(supabase, classroom.subjectId);
-	if (!subject) error(404, 'Subject not found');
+	const subject = await getClassroomSubjectStages(supabase, classroomId);
+	if (!subject) error(404, 'Classroom not found');
 
 	return playableTopics(subject);
 }
@@ -180,11 +182,11 @@ export async function classroomTopics(
  */
 export async function classroomPractice(
 	supabase: Supabase,
-	classroom: Classroom
+	classroomId: string
 ): Promise<{ topics: TopicStages[]; attempts: ClassroomAttempts }> {
 	const [topics, attempts] = await Promise.all([
-		classroomTopics(supabase, classroom),
-		classroomAttempts(supabase, classroom.id)
+		classroomTopics(supabase, classroomId),
+		classroomAttempts(supabase, classroomId)
 	]);
 	return { topics, attempts };
 }

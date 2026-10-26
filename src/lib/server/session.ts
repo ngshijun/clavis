@@ -21,6 +21,16 @@ export interface SessionUser {
 }
 
 /**
+ * The person a signed-in page is answering. The hook turns a visitor away
+ * before any such page loads, so a miss is a page that forgot to be in the
+ * `(app)` group.
+ */
+export function signedIn(locals: App.Locals): SessionUser {
+	if (!locals.user) error(401, 'Not signed in');
+	return locals.user;
+}
+
+/**
  * The person behind the request's session cookie, or null for a visitor.
  *
  * `getClaims` verifies the token rather than trusting the cookie, so the id

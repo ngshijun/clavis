@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import * as z from 'zod';
-import { assignmentPath } from '#lib/navigation.js';
+import { assignmentPath, dashboardHref } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
 import { resolvePath } from '#lib/paths.js';
 import {
@@ -30,11 +30,13 @@ import type { Actions, PageServerLoad } from './$types';
  * hands over, and only what the page shows is sent.
  */
 export const load: PageServerLoad = async ({ locals, parent, url }) => {
-	const { classrooms } = await parent();
-	const chosen = classrooms.find((each) => each.id === url.searchParams.get('classroom'));
-	const ids = chosen ? [chosen.id] : classrooms.map((each) => each.id);
+	// The reads start from the address alone, alongside the classrooms it is checked against.
+	const named = z.guid().safeParse(url.searchParams.get('classroom'));
+	const chosenId = named.success ? named.data : null;
+	const ids = chosenId ? [chosenId] : null;
 
-	const [enrolments, bests, scores, given, weeks, activity] = await Promise.all([
+	const [{ classrooms }, enrolments, bests, scores, given, weeks, activity] = await Promise.all([
+		parent(),
 		listEnrolments(locals.supabase, ids),
 		listStageBests(locals.supabase, ids),
 		listPointScores(locals.supabase, ids),
@@ -42,6 +44,9 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		listWeeks(locals.supabase, ids),
 		listActivity(locals.supabase, ids)
 	]);
+	// A classroom the teacher does not teach shows them every one they do.
+	const chosen = classrooms.find((each) => each.id === chosenId);
+	if (chosenId && !chosen) redirect(307, dashboardHref(null));
 
 	const now = Date.now();
 	const averages = averagesOf(bests);
