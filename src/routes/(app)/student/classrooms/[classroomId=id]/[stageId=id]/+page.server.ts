@@ -21,15 +21,14 @@ import type { Actions, PageServerLoad } from './$types';
  * page posts its answers and keeps the run it was given. Nothing is recorded
  * until then, so leaving the page leaves nothing behind.
  */
-export const load: PageServerLoad = async ({ locals, params, parent }) => {
-	const { classroom } = await parent();
-	const stage = await findStage(locals.supabase, classroom.subjectId, params.stageId);
+export const load: PageServerLoad = async ({ locals, params }) => {
+	const stage = await findStage(locals.supabase, params.classroomId, params.stageId);
 	if (!stage) error(404, 'Stage not found');
 
-	const run = await servePracticeStage(locals.supabase, classroom.id, stage.id);
+	const run = await servePracticeStage(locals.supabase, params.classroomId, stage.id);
 	if (run.total === 0) error(404, 'Stage not found');
 
-	const practice = resolvePath(classroomPracticePath('student', classroom.id));
+	const practice = resolvePath(classroomPracticePath('student', params.classroomId));
 	return {
 		run,
 		imageBase: questionImageBase(locals.supabase),

@@ -11,22 +11,21 @@ import type { PageServerLoad } from './$types';
  * classroom's staff; the address has to name the classroom and the student
  * it is of as well.
  */
-export const load: PageServerLoad = async ({ locals, params, parent }) => {
-	const { classroom } = await parent();
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const [student, review] = await Promise.all([
-		getClassroomStudent(locals.supabase, classroom.id, params.studentId),
+		getClassroomStudent(locals.supabase, params.classroomId, params.studentId),
 		reviewPracticeSession(locals.supabase, params.sessionId)
 	]);
 	if (
 		!student ||
 		!review ||
-		review.classroomId !== classroom.id ||
+		review.classroomId !== params.classroomId ||
 		review.studentId !== student.id
 	) {
 		error(404, 'Practice session not found');
 	}
 
-	const back = resolvePath(studentPath(classroom.id, student.id));
+	const back = resolvePath(studentPath(params.classroomId, student.id));
 	return {
 		student,
 		review,

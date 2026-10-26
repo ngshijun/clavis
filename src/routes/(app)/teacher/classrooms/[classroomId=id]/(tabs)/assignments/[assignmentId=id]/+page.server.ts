@@ -15,12 +15,11 @@ import type { Actions, PageServerLoad } from './$types';
  * they did it and the best they have scored on its stage since it was
  * assigned. Practice from before it was assigned does not count towards it.
  */
-export const load: PageServerLoad = async ({ locals, params, parent }) => {
-	const { classroom } = await parent();
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const [assignment, practice, students] = await Promise.all([
-		getAssignment(locals.supabase, classroom.id, params.assignmentId),
-		classroomPractice(locals.supabase, classroom),
-		listClassroomStudents(locals.supabase, classroom.id)
+		getAssignment(locals.supabase, params.classroomId, params.assignmentId),
+		classroomPractice(locals.supabase, params.classroomId),
+		listClassroomStudents(locals.supabase, params.classroomId)
 	]);
 	if (!assignment) error(404, 'Assignment not found');
 

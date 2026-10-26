@@ -8,11 +8,10 @@ import { classroomPractice, standingsOf } from '#lib/server/run.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /** A classroom's practice as its teacher follows it: the stages, the students, and where each student stands on each stage. */
-export const load: PageServerLoad = async ({ locals, parent }) => {
-	const { classroom } = await parent();
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const [practice, students] = await Promise.all([
-		classroomPractice(locals.supabase, classroom),
-		listClassroomStudents(locals.supabase, classroom.id)
+		classroomPractice(locals.supabase, params.classroomId),
+		listClassroomStudents(locals.supabase, params.classroomId)
 	]);
 	return { topics: practice.topics, standings: standingsOf(practice.attempts), students };
 };
