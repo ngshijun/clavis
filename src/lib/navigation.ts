@@ -76,6 +76,14 @@ export function practiceGradeHref(gradeId: string): string {
 	return `${resolve('admin/practice')}?grade=${gradeId}`;
 }
 
+/**
+ * The teacher's dashboard of one of their classrooms, or of all of them when
+ * none is named. The classroom is in the query, as the grade level above is.
+ */
+export function dashboardHref(classroomId: string | null): string {
+	return classroomId ? `${resolve('teacher')}?classroom=${classroomId}` : resolve('teacher');
+}
+
 /** A subject's practice: its topics, each with its stages. */
 export function practiceSubjectPath(subjectId: string): Path {
 	return `admin/practice/${subjectId}`;

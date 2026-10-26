@@ -13,6 +13,7 @@ export interface AssignedStudent {
 /** A stage a teacher has assigned in a classroom. */
 export interface Assignment {
 	id: string;
+	classroomId: string;
 	stageId: string;
 	assignedAt: string;
 	/** The moment it is due; null for none. It closes nothing. */
@@ -24,11 +25,12 @@ export interface Assignment {
 	students: AssignedStudent[];
 }
 
-const COLUMNS = `id, stage_id, due_at, created_at,
+const COLUMNS = `id, classroom_id, stage_id, due_at, created_at,
 	assignment_students (student_id, practice_sessions (completed_at))`;
 
 function toAssignment(row: {
 	id: string;
+	classroom_id: string;
 	stage_id: string;
 	due_at: string | null;
 	created_at: string;
@@ -39,6 +41,7 @@ function toAssignment(row: {
 }): Assignment {
 	return {
 		id: row.id,
+		classroomId: row.classroom_id,
 		stageId: row.stage_id,
 		assignedAt: row.created_at,
 		dueAt: row.due_at,
@@ -50,18 +53,18 @@ function toAssignment(row: {
 }
 
 /**
- * What has been assigned in a classroom that the caller may read, the latest
- * first: all of it for the classroom's staff, and for a student what was
- * given to them.
+ * What has been assigned in some classrooms that the caller may read, the
+ * latest first: all of it for a classroom's staff, and for a student what
+ * was given to them.
  */
 export async function listAssignments(
 	supabase: Supabase,
-	classroomId: string
+	classroomIds: string[]
 ): Promise<Assignment[]> {
 	const { data, error } = await supabase
 		.from('assignments')
 		.select(COLUMNS)
-		.eq('classroom_id', classroomId)
+		.in('classroom_id', classroomIds)
 		.order('created_at', { ascending: false });
 	if (error) throw error;
 

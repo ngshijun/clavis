@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const { classroom, user } = await parent();
 	const [{ topics, attempts }, assignments] = await Promise.all([
 		classroomPractice(locals.supabase, classroom),
-		listAssignments(locals.supabase, classroom.id)
+		listAssignments(locals.supabase, [classroom.id])
 	]);
 
 	return {

@@ -121,19 +121,6 @@ export function findClassroom(classrooms: Classroom[], classroomId: string): Cla
 	return classroom;
 }
 
-/** How many different students these classrooms hold: one enrolled in two of them counts once. */
-export async function countStudents(supabase: Supabase, classroomIds: string[]): Promise<number> {
-	if (classroomIds.length === 0) return 0;
-
-	const { data, error } = await supabase
-		.from('classroom_students')
-		.select('student_id')
-		.in('classroom_id', classroomIds);
-	if (error) throw error;
-
-	return new Set(data.map((row) => row.student_id)).size;
-}
-
 /** Grade levels with their subjects, in curriculum order, for the classroom form. */
 export async function listGradeLevels(supabase: Supabase): Promise<GradeLevelOption[]> {
 	const { data, error } = await supabase

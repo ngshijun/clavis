@@ -1,6 +1,9 @@
 <script lang="ts" module>
-	/** One of a strip's figures: a number, perhaps out of a total, or the day something happened. */
-	export type Stat = { label: string } & (
+	/**
+	 * One of a strip's figures: a number, perhaps out of a total, or the day
+	 * something happened, with perhaps a line under it that says more.
+	 */
+	export type Stat = { label: string; note?: string } & (
 		{ value: number; of?: number } | { day: string | undefined }
 	);
 </script>
@@ -42,6 +45,9 @@
 						{/if}
 					{/if}
 				</dd>
+				{#if stat.note}
+					<dd class="text-xs text-muted-foreground">{stat.note}</dd>
+				{/if}
 			</div>
 		{/each}
 	</dl>

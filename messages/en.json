@@ -1042,5 +1042,86 @@
 				"countPlural=other": "It is taken off {count} questions. The questions themselves stay. This cannot be undone."
 			}
 		}
-	]
+	],
+	"dashboard_classroom_label": "Classroom",
+	"dashboard_all_classrooms": "All classrooms",
+	"dashboard_in_classrooms": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "in {count} classroom",
+				"countPlural=other": "in {count} classrooms"
+			}
+		}
+	],
+	"dashboard_practised_this_week": "Practised this week",
+	"dashboard_more_than_last_week": "{count} more than last week",
+	"dashboard_fewer_than_last_week": "{count} fewer than last week",
+	"dashboard_same_as_last_week": "As many as last week",
+	"dashboard_points_secure": "Learning points secure",
+	"dashboard_assignments_done": "Assignments done",
+	"dashboard_overdue": "{count} overdue",
+	"dashboard_none_overdue": "None overdue",
+	"dashboard_points_title": "Learning points",
+	"dashboard_points_description": "Share of the marks earned on the questions of each learning point, weakest first",
+	"dashboard_points_needs_work": "{count} need work (below half)",
+	"dashboard_points_getting_there": "{count} getting there",
+	"dashboard_points_secure_band": "{count} secure (four fifths or more)",
+	"dashboard_points_answered": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} student answered",
+				"countPlural=other": "{count} students answered"
+			}
+		}
+	],
+	"dashboard_points_show_all": "Show all {count}",
+	"dashboard_points_show_fewer": "Show fewer",
+	"dashboard_points_empty": "Not enough answers yet. A learning point shows here once five students have answered its questions.",
+	"dashboard_subject_label": "Subject",
+	"dashboard_struggling_title": "Students needing attention",
+	"dashboard_struggling_description": "Average score below half on the stages they have practised",
+	"dashboard_struggling_empty": "No one is below half.",
+	"dashboard_struggling_more": "Show {count} more",
+	"dashboard_classrooms_title": "Classrooms",
+	"dashboard_classrooms_description": "How each of your classrooms is doing",
+	"dashboard_column_average": "Average score",
+	"dashboard_column_attention": "Need attention",
+	"dashboard_assignments_title": "Assignments",
+	"dashboard_assignments_description": "Everyone given an assignment that is still in progress",
+	"dashboard_assignments_empty": "No assignment is in progress.",
+	"dashboard_assignments_bar": "{done} done, {late} late, {toDo} to do, {overdue} overdue",
+	"dashboard_overdue_label": "Overdue",
+	"dashboard_practice": "Practice",
+	"dashboard_weeks_title": "Average score by week",
+	"dashboard_weeks_description": "Practice your students finished, seven days at a time",
+	"dashboard_weeks_this": "This week",
+	"dashboard_weeks_sessions": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} practice",
+				"countPlural=other": "{count} practices"
+			}
+		}
+	],
+	"dashboard_results_description": "Each student’s best on every stage they have practised",
+	"dashboard_results_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} result",
+				"countPlural=other": "{count} results"
+			}
+		}
+	],
+	"dashboard_activity_title": "Recent practice",
+	"dashboard_activity_description": "The latest practice finished in your classrooms",
+	"dashboard_activity_assignment": "Did an assignment",
+	"dashboard_practice_empty": "No practice finished yet."
 }

@@ -841,6 +841,60 @@ export type Database = {
 					name: string;
 				}[];
 			};
+			dashboard_activity: {
+				Args: { p_classroom_ids: string[] };
+				Returns: {
+					classroom_id: string;
+					completed_at: string;
+					did_assignment: boolean;
+					marks: number;
+					session_id: string;
+					stage_name: string;
+					student_id: string;
+					student_name: string;
+					topic_name: string;
+					total: number;
+				}[];
+			};
+			dashboard_learning_points: {
+				Args: { p_classroom_ids: string[] };
+				Returns: {
+					classroom_id: string;
+					learning_point_id: string;
+					name: string;
+					questions: number;
+					score: number;
+					student_id: string;
+				}[];
+			};
+			dashboard_stage_bests: {
+				Args: { p_classroom_ids: string[] };
+				Returns: {
+					classroom_id: string;
+					marks: number;
+					stage_id: string;
+					student_id: string;
+					total: number;
+				}[];
+			};
+			dashboard_students: {
+				Args: { p_classroom_ids: string[] };
+				Returns: {
+					classroom_id: string;
+					last_week: boolean;
+					name: string;
+					student_id: string;
+					this_week: boolean;
+				}[];
+			};
+			dashboard_weeks: {
+				Args: { p_classroom_ids: string[] };
+				Returns: {
+					average: number;
+					sessions: number;
+					weeks_ago: number;
+				}[];
+			};
 			delete_organization: {
 				Args: { p_name: string; p_organization_id: string };
 				Returns: string[];
