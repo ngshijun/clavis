@@ -1,10 +1,11 @@
 <script lang="ts" module>
 	/**
 	 * One of a strip's figures: a number, perhaps out of a total, or the day
-	 * something happened, with perhaps a line under it that says more.
+	 * something happened, with perhaps a line under it that says more. A number
+	 * that cannot be told yet is null.
 	 */
 	export type Stat = { label: string; note?: string } & (
-		{ value: number; of?: number } | { day: string | undefined }
+		{ value: number | null; of?: number } | { day: string | undefined }
 	);
 </script>
 
@@ -18,7 +19,7 @@
 	 * A page's headline numbers as one strip: a single card divided into equal
 	 * segments, so the row spans the page whatever the count. Each number sits in
 	 * a fixed place under its name, and a zero is a quiet zero, never a message.
-	 * A day that never came is a dash.
+	 * A day that never came, and a number that cannot be told yet, is a dash.
 	 */
 	let { stats }: { stats: Stat[] } = $props();
 </script>
@@ -26,7 +27,7 @@
 <Card.Root class="py-0">
 	<dl class="grid divide-y sm:auto-cols-fr sm:grid-flow-col sm:divide-x sm:divide-y-0">
 		{#each stats as stat (stat.label)}
-			{@const quiet = 'day' in stat ? !stat.day : stat.value === 0}
+			{@const quiet = 'day' in stat ? !stat.day : !stat.value}
 			<div class="flex flex-col gap-1 px-6 py-5">
 				<dt class="text-sm text-muted-foreground">{stat.label}</dt>
 				<dd class={cn('text-3xl font-semibold tabular-nums', quiet && 'text-muted-foreground')}>
@@ -37,7 +38,7 @@
 							—
 						{/if}
 					{:else}
-						{stat.value}
+						{stat.value ?? '—'}
 						{#if stat.of !== undefined}
 							<span class="text-base font-medium text-muted-foreground">
 								{m.count_of({ count: stat.of })}

@@ -1095,7 +1095,6 @@
 	"dashboard_assignments_empty": "No assignment is in progress.",
 	"dashboard_assignments_bar": "{done} done, {late} late, {toDo} to do, {overdue} overdue",
 	"dashboard_overdue_label": "Overdue",
-	"dashboard_practice": "Practice",
 	"dashboard_weeks_title": "Average score by week",
 	"dashboard_weeks_description": "Practice your students finished, seven days at a time",
 	"dashboard_weeks_this": "This week",

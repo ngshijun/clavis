@@ -12,6 +12,9 @@
 
 	/** Each of the teacher's classrooms in a row, with how it is doing. */
 	let { rows }: { rows: { classroom: Classroom; summary: ClassroomSummary }[] } = $props();
+
+	// A figure's heading may take two lines, so that every column fits beside the classroom's name.
+	const figure = 'w-24 text-end leading-tight whitespace-normal';
 </script>
 
 <Card.Root size="sm">
@@ -24,11 +27,11 @@
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>{m.dashboard_classroom_label()}</Table.Head>
-					<Table.Head class="text-end">{m.dashboard_practised_this_week()}</Table.Head>
-					<Table.Head class="text-end">{m.dashboard_column_average()}</Table.Head>
-					<Table.Head class="text-end">{m.dashboard_points_secure()}</Table.Head>
-					<Table.Head class="text-end">{m.dashboard_assignments_done()}</Table.Head>
-					<Table.Head class="text-end">{m.dashboard_column_attention()}</Table.Head>
+					<Table.Head class={figure}>{m.dashboard_practised_this_week()}</Table.Head>
+					<Table.Head class={figure}>{m.dashboard_column_average()}</Table.Head>
+					<Table.Head class={figure}>{m.dashboard_points_secure()}</Table.Head>
+					<Table.Head class={figure}>{m.dashboard_assignments_done()}</Table.Head>
+					<Table.Head class={figure}>{m.dashboard_column_attention()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
@@ -39,7 +42,7 @@
 						<Table.Cell>
 							<a
 								href={resolvePath(classroomPath('teacher', classroom.id))}
-								class="flex items-center gap-2.5 rounded-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+								class="flex max-w-64 items-center gap-2.5 rounded-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
 							>
 								<Cover
 									id={classroom.id}

@@ -17,8 +17,8 @@
 
 	/**
 	 * A teacher's home: how their classrooms are doing, all of them or one.
-	 * What the students know comes first, by learning point and by student;
-	 * practice, one of the ways they learn it, has a section of its own.
+	 * What the students know comes first, by learning point and by student,
+	 * and then how their practice, one of the ways they learn it, is going.
 	 */
 	let { data }: PageProps = $props();
 
@@ -84,11 +84,16 @@
 							? m.dashboard_fewer_than_last_week({ count: -change })
 							: m.dashboard_same_as_last_week()
 			},
-			{ label: m.dashboard_points_secure(), value: data.bands.secure, of: data.points.length },
+			// Until a learning point has enough answers to tell, there is nothing to count.
+			{
+				label: m.dashboard_points_secure(),
+				value: data.points.length > 0 ? data.bands.secure : null,
+				of: data.points.length > 0 ? data.points.length : undefined
+			},
 			{
 				label: m.dashboard_assignments_done(),
-				value: done,
-				of: given,
+				value: given > 0 ? done : null,
+				of: given > 0 ? given : undefined,
 				note:
 					data.progress.overdue > 0
 						? m.dashboard_overdue({ count: data.progress.overdue })
@@ -97,27 +102,40 @@
 		]}
 	/>
 
-	<div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-		<div class="lg:col-span-2">
-			<PointsCard points={data.points} classrooms={scope} />
-		</div>
-		<div class="flex flex-col gap-4">
-			<StrugglingCard students={data.struggling} {classroomNames} />
-			<AssignmentsCard progress={data.progress} />
-		</div>
-		{#if data.summaries.length > 0}
-			<div class="lg:col-span-3">
-				<ClassroomsCard rows={data.summaries} />
+	<!--
+		Two columns that each stack their own cards, so a short card never leaves
+		a hole beside a tall one. On a narrow screen the columns give way and the
+		cards line up one under another, the most pressing first.
+	-->
+	<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+		<div class="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-4">
+			<div class="order-1 lg:order-none">
+				<PointsCard points={data.points} classrooms={scope} />
 			</div>
-		{/if}
-	</div>
-
-	<section class="flex flex-col gap-4">
-		<h2 class="mt-2 text-lg font-semibold">{m.dashboard_practice()}</h2>
-		<div class="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
-			<WeeksCard weeks={data.weeks} />
-			<ResultsCard tally={data.tally} />
-			<ActivityCard activity={data.activity} {classroomNames} />
+			{#if data.summaries.length > 0}
+				<div class="order-4 lg:order-none">
+					<ClassroomsCard rows={data.summaries} />
+				</div>
+			{/if}
+			<div class="contents lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
+				<div class="order-5 lg:order-none">
+					<WeeksCard weeks={data.weeks} />
+				</div>
+				<div class="order-6 lg:order-none">
+					<ResultsCard tally={data.tally} />
+				</div>
+			</div>
 		</div>
-	</section>
+		<div class="contents lg:flex lg:flex-col lg:gap-4">
+			<div class="order-2 lg:order-none">
+				<StrugglingCard students={data.struggling} {classroomNames} />
+			</div>
+			<div class="order-3 lg:order-none">
+				<AssignmentsCard progress={data.progress} />
+			</div>
+			<div class="order-7 lg:order-none">
+				<ActivityCard activity={data.activity} {classroomNames} />
+			</div>
+		</div>
+	</div>
 {/if}

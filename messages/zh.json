@@ -771,7 +771,6 @@
 	"dashboard_assignments_empty": "没有进行中的作业。",
 	"dashboard_assignments_bar": "{done} 人完成，{late} 人迟交，{toDo} 人待做，{overdue} 人逾期",
 	"dashboard_overdue_label": "逾期",
-	"dashboard_practice": "练习",
 	"dashboard_weeks_title": "每周平均分",
 	"dashboard_weeks_description": "学生完成的练习，每七天一组",
 	"dashboard_weeks_this": "本周",
