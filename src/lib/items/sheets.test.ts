@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formattedFromPlain, plainText } from '#lib/formatted-text.js';
+import { formattedFromMarkdown } from '#lib/formatted-markdown.js';
+import { plainText } from '#lib/formatted-text.js';
 import { m } from '#lib/paraglide/messages.js';
 import { ITEM_TYPES, type ItemPayload, type ItemType } from './payload.js';
 import { validateItem } from './schema.js';
@@ -127,7 +128,7 @@ describe('the sheets', () => {
 			ok: true,
 			passage: {
 				title: 'The Water Cycle',
-				body: formattedFromPlain(PASSAGE_SHEET.samples[0].text),
+				body: formattedFromMarkdown(PASSAGE_SHEET.samples[0].text),
 				image_path: null
 			}
 		});
@@ -746,7 +747,7 @@ describe('readPassageRow', () => {
 
 	it('takes a picture with the text, or in place of it', () => {
 		expect(readPassageRow({ title, text }, { picture: 'upload:a' })).toMatchObject({
-			passage: { body: formattedFromPlain(text), image_path: 'upload:a' }
+			passage: { body: formattedFromMarkdown(text), image_path: 'upload:a' }
 		});
 		expect(readPassageRow({ title, text: '' }, { picture: 'upload:a' })).toMatchObject({
 			passage: { body: '', image_path: 'upload:a' }

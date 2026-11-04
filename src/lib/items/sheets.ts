@@ -1,4 +1,4 @@
-import { formattedFromPlain } from '#lib/formatted-text.js';
+import { formattedFromMarkdown } from '#lib/formatted-markdown.js';
 import { MAX_LEARNING_POINT_NAME_CHARS } from '#lib/learning-points.js';
 import { m } from '#lib/paraglide/messages.js';
 import { validatePassage } from '#lib/passage.js';
@@ -232,7 +232,7 @@ const choice =
 						text: cells[keys.text],
 						image_path: pictures[keys.picture],
 						is_correct: picked.includes(letter),
-						tip: formattedFromPlain(cells[keys.tip] ?? '')
+						tip: formattedFromMarkdown(cells[keys.tip] ?? '')
 					};
 				})
 			},
@@ -1012,6 +1012,15 @@ export const README: { title: string; parts: { heading: string; lines: string[] 
 			]
 		},
 		{
+			heading: 'Formatting',
+			lines: [
+				'The question, the tips and a passage’s Text can be formatted with these marks:',
+				'**bold**    *italic*    ++underline++    ~~strikethrough~~',
+				'A line that starts with “- ” is a bulleted list item, and one that starts with “1. ” a numbered one.',
+				'Put \\ before a mark to keep it as it is: 2\\*3 stays 2*3.'
+			]
+		},
+		{
 			heading: 'Pictures',
 			lines: [
 				'A picture goes in a Picture column, in the row of its question.',
@@ -1075,9 +1084,9 @@ export function readQuestionRow(
 		const built = sheet.build(cells, pictures);
 		const checked = validateItem({
 			type: sheet.type,
-			question: formattedFromPlain(cells.question),
+			question: formattedFromMarkdown(cells.question),
 			image_path: pictures.picture,
-			tip: formattedFromPlain(cells.tip ?? ''),
+			tip: formattedFromMarkdown(cells.tip ?? ''),
 			...built.own
 		});
 		if (!checked.ok) {
@@ -1116,7 +1125,7 @@ export function readPassageRow(
 
 	const checked = validatePassage({
 		title: cells.title,
-		body: formattedFromPlain(cells.text),
+		body: formattedFromMarkdown(cells.text),
 		image_path: pictures.picture
 	});
 	if (!checked.ok) {

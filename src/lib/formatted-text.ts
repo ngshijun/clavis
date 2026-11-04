@@ -28,19 +28,3 @@ export function plainText(html: string): string {
 		.replace(/\n{2,}/g, '\n')
 		.trim();
 }
-
-const escaped = (text: string) =>
-	text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-
-/**
- * Plain text, such as a spreadsheet cell, as formatted text: each line a
- * paragraph, its spaces as the editor keeps them. Nothing written is empty.
- */
-export function formattedFromPlain(text: string): string {
-	if (!text.trim()) return '';
-	return text
-		.trim()
-		.split(/\r?\n/)
-		.map((line) => `<p>${escaped(line.replace(/\s+/g, ' ').trim())}</p>`)
-		.join('');
-}
