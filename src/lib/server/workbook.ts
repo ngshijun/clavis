@@ -22,8 +22,7 @@ import {
 	fileRefusal,
 	MAX_IMPORT_QUESTIONS,
 	type Candidates,
-	type ImportProblem,
-	type OfferedPoint
+	type ImportProblem
 } from '#lib/items/import.js';
 import {
 	EXAMPLE_MARK,
@@ -157,13 +156,11 @@ export type WorkbookReading =
  *
  * The workbook arrives without its pictures. Where each one sits is still in
  * it, and `marks` says which of them can be used; a row names its pictures
- * `upload:<fingerprint>`. `offered` are the learning points a row may name:
- * those of the topic of the stage the workbook is read for.
+ * `upload:<fingerprint>`.
  */
 export async function readWorkbook(
 	file: File,
-	marks: PictureMarks = new Map(),
-	offered: OfferedPoint[] = []
+	marks: PictureMarks = new Map()
 ): Promise<WorkbookReading> {
 	const refusal = fileRefusal(file);
 	if (refusal) return { ok: false, message: refusal };
@@ -219,7 +216,7 @@ export async function readWorkbook(
 		return { ok: false, message: m.practice_import_no_sheets() };
 	}
 
-	const rows = readRows(read, offered);
+	const rows = readRows(read);
 	if (rows.questionRows > MAX_IMPORT_QUESTIONS) {
 		return {
 			ok: false,

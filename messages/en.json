@@ -655,6 +655,13 @@
 	"item_time_am": "a.m.",
 	"item_time_pm": "p.m.",
 	"practice_import": "Import…",
+	"format_bar": "Format",
+	"format_bold": "Bold",
+	"format_italic": "Italic",
+	"format_underline": "Underline",
+	"format_strikethrough": "Strikethrough",
+	"format_bulleted_list": "Bulleted List",
+	"format_numbered_list": "Numbered List",
 	"practice_import_title": "Import Questions",
 	"practice_import_description": "Into {stage}, after the questions already there.",
 	"practice_import_drop": "Drop an Excel file here",
@@ -694,6 +701,18 @@
 			}
 		}
 	],
+	"practice_import_new_points": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} new learning point",
+				"countPlural=other": "{count} new learning points"
+			}
+		}
+	],
+	"practice_import_new_points_hint": "This topic does not have these yet. They are added with the questions. If one is a typo, fix it in the file and choose the file again.",
+	"practice_import_new_points_label": "New learning points",
 	"practice_import_duplicates_hint": "Already in the stage, or asked twice in the file. Left out.",
 	"practice_import_problems": [
 		{
@@ -761,7 +780,7 @@
 	"practice_import_picture_unusable": "The picture in this cell cannot be used. Replace it with a PNG, JPEG, WebP or GIF of 4 MB or less.",
 	"practice_import_cell_empty": "This cell is empty.",
 	"practice_import_difficulty": "Write Low, Medium or High, or leave it empty for Medium.",
-	"practice_import_learning_point": "“{name}” is not a learning point of this topic.",
+	"practice_import_learning_point_long": "A learning point’s name is {max} characters at most.",
 	"practice_import_yes_no": "Write Yes or No.",
 	"practice_import_answer_letter": "Write the letter of the one right option, such as B.",
 	"practice_import_answer_letters": "Write the letters of the right options, such as A, C.",

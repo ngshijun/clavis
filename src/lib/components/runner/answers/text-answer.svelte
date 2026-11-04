@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Input } from '#lib/components/ui/input/index.js';
+	import { plainText } from '#lib/formatted-text.js';
 	import type { ItemResponse, ServedShortAnswer } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
@@ -26,7 +27,7 @@
 
 <div class="flex items-center gap-2">
 	<Input
-		aria-label={item.question ?? m.item_answer_placeholder()}
+		aria-label={plainText(item.question ?? '') || m.item_answer_placeholder()}
 		placeholder={m.item_answer_placeholder()}
 		autocomplete="off"
 		autocapitalize="off"

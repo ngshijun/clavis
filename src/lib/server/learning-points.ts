@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as z from 'zod';
 import type { Database } from '#lib/database.types.js';
-import type { LearningPointSummary } from '#lib/learning-points.js';
+import { MAX_LEARNING_POINT_NAME_CHARS, type LearningPointSummary } from '#lib/learning-points.js';
 import { m } from '#lib/paraglide/messages.js';
 import { unexpected } from '#lib/server/forms.js';
 
@@ -33,7 +33,7 @@ const nameSchema = z
 	.string({ error: () => m.learning_point_name_required() })
 	.trim()
 	.min(1, { error: () => m.learning_point_name_required() })
-	.max(120, { error: () => m.row_name_invalid() });
+	.max(MAX_LEARNING_POINT_NAME_CHARS, { error: () => m.row_name_invalid() });
 
 const savedSchema = z.object({
 	name: nameSchema,

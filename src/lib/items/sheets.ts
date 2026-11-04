@@ -1,3 +1,5 @@
+import { formattedFromPlain } from '#lib/formatted-text.js';
+import { MAX_LEARNING_POINT_NAME_CHARS } from '#lib/learning-points.js';
 import { m } from '#lib/paraglide/messages.js';
 import { validatePassage } from '#lib/passage.js';
 import {
@@ -6,8 +8,7 @@ import {
 	type CandidatePassage,
 	type CandidateQuestion,
 	type Candidates,
-	type ImportProblem,
-	type OfferedPoint
+	type ImportProblem
 } from './import.js';
 import { newId } from './kinds.js';
 import {
@@ -112,6 +113,15 @@ function list(cell: string): string[] {
 		.split('|')
 		.map((each) => each.trim())
 		.filter(Boolean);
+}
+
+/**
+ * The names of learning points one cell holds, as they are stored: in small
+ * letters, each once. `|` stands between them as in every list of the
+ * template, and so does a comma, which is how a name is most often followed.
+ */
+function pointNames(cell: string): string[] {
+	return [...new Set(cell.split(/[|,]/).map((each) => each.trim().toLowerCase()))].filter(Boolean);
 }
 
 /** A Yes or No cell. Left empty it is No. A cell Excel made a boolean arrives as TRUE or FALSE. */
@@ -222,7 +232,7 @@ const choice =
 						text: cells[keys.text],
 						image_path: pictures[keys.picture],
 						is_correct: picked.includes(letter),
-						tip: cells[keys.tip]
+						tip: formattedFromPlain(cells[keys.tip] ?? '')
 					};
 				})
 			},
@@ -993,7 +1003,7 @@ export const README: { title: string; parts: { heading: string; lines: string[] 
 				'Keep the header row as it is. A file whose columns were renamed, added or removed is not taken.',
 				'A cell that shows a small arrow has a list. Pick from it.',
 				'Difficulty left empty is Medium. Tip, Passage and Learning Points are optional.',
-				'Learning Points takes names from the list of the stage’s topic, with | between them: Counting | Place value. A name the topic does not have makes its row a row to fix.',
+				'Learning Points takes names with | or a comma between them: Counting | Place value. A name the stage’s topic does not have yet is shown to you as a new learning point before anything is added.',
 				'A tip is shown in the result to a pupil who gets the question wrong.',
 				'Start from this template: its cells keep 3/4 and 7:30 as you type them.',
 				'A question the stage already has is left out, so importing a file twice adds nothing twice.',
@@ -1038,16 +1048,14 @@ function whole(sheet: Sheet, cells: Cells): Cells {
  * the first thing wrong is what the row says, beside the column it was read
  * from.
  *
- * `offered` are the learning points of the topic the rows are read for. A
- * row names its own by their names, in any capitals, and a name the topic
- * does not have is a mistake of the row: the template is one file for every
- * stage, so it cannot offer the names to pick from.
+ * A row names its learning points by their names, in any capitals. A name
+ * the stage's topic does not have yet is not a mistake of the row: the
+ * review shows it as a new learning point, for a typo to be caught there.
  */
 export function readQuestionRow(
 	sheet: QuestionSheet,
 	written: Cells,
-	pictures: Pictures = {},
-	offered: OfferedPoint[] = []
+	pictures: Pictures = {}
 ): { ok: true; question: CandidateQuestion } | { ok: false; problem: RowProblem } {
 	const cells = whole(sheet, written);
 	try {
@@ -1055,17 +1063,21 @@ export function readQuestionRow(
 		if (worded) refuse(worded.key, m.practice_import_picture_words());
 		const difficulty = DIFFICULTY_WORDS.get(cells.difficulty.toLowerCase());
 		if (!difficulty) return refuse('difficulty', m.practice_import_difficulty());
-		const learningPoints = list(cells.learning_points).map((name) => {
-			const point = offered.find((each) => each.name === name.toLowerCase());
-			return point?.id ?? refuse('learning_points', m.practice_import_learning_point({ name }));
-		});
+		const learningPoints = pointNames(cells.learning_points);
+		const long = learningPoints.find((name) => name.length > MAX_LEARNING_POINT_NAME_CHARS);
+		if (long) {
+			refuse(
+				'learning_points',
+				m.practice_import_learning_point_long({ max: MAX_LEARNING_POINT_NAME_CHARS })
+			);
+		}
 
 		const built = sheet.build(cells, pictures);
 		const checked = validateItem({
 			type: sheet.type,
-			question: cells.question,
+			question: formattedFromPlain(cells.question),
 			image_path: pictures.picture,
-			tip: cells.tip,
+			tip: formattedFromPlain(cells.tip ?? ''),
 			...built.own
 		});
 		if (!checked.ok) {
@@ -1080,8 +1092,7 @@ export function readQuestionRow(
 				payload: checked.payload,
 				difficulty,
 				passage: cells.passage ? titleKey(cells.passage) : null,
-				// Written twice, a learning point is still one.
-				learningPoints: [...new Set(learningPoints)]
+				learningPoints
 			}
 		};
 	} catch (cause) {
@@ -1105,7 +1116,7 @@ export function readPassageRow(
 
 	const checked = validatePassage({
 		title: cells.title,
-		body: cells.text,
+		body: formattedFromPlain(cells.text),
 		image_path: pictures.picture
 	});
 	if (!checked.ok) {
@@ -1153,13 +1164,9 @@ const reasonOf = ({ column, message }: RowProblem) =>
  * sheet it lacks is simply not there.
  *
  * `questionRows` counts every question row, good or not, which is what the
- * limit on a workbook is about. `offered` are the learning points a row may
- * name: those of the topic of the stage the workbook is read for.
+ * limit on a workbook is about.
  */
-export function readRows(
-	sheets: { sheet: Sheet; rows: SheetRow[] }[],
-	offered: OfferedPoint[] = []
-): {
+export function readRows(sheets: { sheet: Sheet; rows: SheetRow[] }[]): {
 	candidates: Candidates;
 	problems: ImportProblem[];
 	questionRows: number;
@@ -1207,7 +1214,7 @@ export function readRows(
 				refused(row.fault);
 				continue;
 			}
-			const read = readQuestionRow(sheet, row.cells, row.pictures, offered);
+			const read = readQuestionRow(sheet, row.cells, row.pictures);
 			if (!read.ok) {
 				refused(read.problem);
 				continue;

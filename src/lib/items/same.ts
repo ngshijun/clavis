@@ -1,3 +1,4 @@
+import { plainText } from '#lib/formatted-text.js';
 import { pictureMark } from '#lib/item-images.js';
 import { comparable } from './absent.js';
 import type { ItemPayload } from './payload.js';
@@ -16,7 +17,12 @@ import type { ItemPayload } from './payload.js';
  * stored twice is one.
  */
 export function contentKey(payload: ItemPayload): string {
-	return JSON.stringify(comparable(plain(content(payload))));
+	// The words are what a pupil is asked; how they are formatted does not make another question.
+	const read =
+		payload.question === undefined
+			? payload
+			: { ...payload, question: plainText(payload.question) };
+	return JSON.stringify(comparable(plain(content(read))));
 }
 
 type Entry = { id: string; text: string; image_path?: string | null };

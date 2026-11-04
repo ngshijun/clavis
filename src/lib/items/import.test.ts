@@ -6,6 +6,7 @@ import {
 	MAX_IMPORT_QUESTIONS,
 	MAX_PICKED_BYTES,
 	MAX_WORKBOOK_BYTES,
+	newPoints,
 	pickedRefusal,
 	planImport,
 	type CandidateQuestion,
@@ -75,6 +76,23 @@ describe('planImport', () => {
 			empty
 		);
 		expect(plan.questions[0].learningPoints).toEqual(['a', 'b']);
+	});
+
+	it('names the learning points the topic does not have yet, once each, in the order the rows name them', () => {
+		const filed = (question: string, ...learningPoints: string[]) => ({
+			...candidate(question),
+			learningPoints
+		});
+		expect(
+			newPoints(
+				[
+					filed('One?', 'fractions', 'counting'),
+					filed('Two?', 'counting', 'decimals', 'fractions')
+				],
+				['counting']
+			)
+		).toEqual(['fractions', 'decimals']);
+		expect(newPoints([filed('One?', 'counting')], ['counting'])).toEqual([]);
 	});
 
 	it('leaves out a question the stage already asks, whatever its capitals', () => {
@@ -284,21 +302,16 @@ describe('checkCandidates', () => {
 		expect(check({ ...rows, questions: [pictured('One?')] }, ['stages/s/one.png'])).not.toBeNull();
 	});
 
-	it('takes a learning point the topic offers, once, and refuses one it does not', () => {
-		const counting = '0b0e5b4e-6c1f-4a52-9d6b-2f1c3a4d5e6f';
-		const other = '7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+	it('takes learning points by name, in small letters and once, and refuses a name no one could type', () => {
 		const filed = (...learningPoints: string[]) => posted({ ...candidate('One?'), learningPoints });
-		const offers = (id: string) => id === counting;
 		const free = () => false;
-		expect(checkCandidates(filed(counting, counting), free, offers)?.questions).toEqual([
-			{ ...candidate('One?'), learningPoints: [counting] }
+		expect(checkCandidates(filed(' Counting ', 'counting', 'new one'), free)?.questions).toEqual([
+			{ ...candidate('One?'), learningPoints: ['counting', 'new one'] }
 		]);
-		expect(checkCandidates(filed(counting, other), free, offers)).toBeNull();
-		expect(checkCandidates(filed('counting'), free, () => true)).toBeNull();
-		// Asked of no topic, a row may name none.
-		expect(checkCandidates(filed(counting), free)).toBeNull();
+		expect(checkCandidates(filed(' '), free)).toBeNull();
+		expect(checkCandidates(filed('x'.repeat(121)), free)).toBeNull();
 		const { payload, difficulty, passage } = candidate('One?');
-		expect(checkCandidates(posted({ payload, difficulty, passage }), free, offers)).toBeNull();
+		expect(checkCandidates(posted({ payload, difficulty, passage }), free)).toBeNull();
 	});
 
 	it('refuses a passage title that names no passage, or two passages', () => {

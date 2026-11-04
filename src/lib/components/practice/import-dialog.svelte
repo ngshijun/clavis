@@ -7,6 +7,7 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
+	import TagIcon from '@lucide/svelte/icons/tag';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { toast } from 'svelte-sonner';
@@ -29,7 +30,7 @@
 	import { cn } from '#lib/utils.js';
 	import { readyPictures, splitWorkbook } from '#lib/workbook.js';
 	import Chip from './fields/chip.svelte';
-	import { hint } from './styles.js';
+	import { chips, hint } from './styles.js';
 
 	/**
 	 * Importing an Excel workbook into the stage, in two steps. The first sends
@@ -114,6 +115,13 @@
 				tone: ready > 0 ? 'text-success' : 'text-muted-foreground',
 				title: m.practice_import_ready({ count: ready }),
 				detail: progress ? m.practice_import_uploading(progress) : along.join(' · ')
+			},
+			review.newPoints.length > 0 && {
+				key: 'points',
+				icon: TagIcon,
+				tone: 'text-warning',
+				title: m.practice_import_new_points({ count: review.newPoints.length }),
+				detail: m.practice_import_new_points_hint()
 			},
 			review.duplicates > 0 && {
 				key: 'duplicates',
@@ -422,6 +430,17 @@
 					</li>
 				{/each}
 			</ul>
+
+			{#if review.newPoints.length > 0}
+				<ul
+					aria-label={m.practice_import_new_points_label()}
+					class={cn(chips, 'max-h-32 overflow-y-auto px-2')}
+				>
+					{#each review.newPoints as name (name)}
+						<li><Chip>{name}</Chip></li>
+					{/each}
+				</ul>
+			{/if}
 
 			{#if problemSheets.length > 0}
 				<div

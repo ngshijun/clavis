@@ -132,7 +132,7 @@ describe('readWorkbook', () => {
 			{
 				payload: {
 					type: 'short_answer',
-					question: 'Which gas do animals breathe in?',
+					question: '<p>Which gas do animals breathe in?</p>',
 					accepted_answers: ['oxygen']
 				},
 				difficulty: 'medium',
@@ -142,35 +142,22 @@ describe('readWorkbook', () => {
 		]);
 	});
 
-	it('files a row under the learning points of the topic it is read for, and says a name the topic lacks', async () => {
+	it('files a row under the learning points it names, whether the topic has them yet or not', async () => {
 		const reading = await readWorkbook(
 			await workbook({
 				'Short Answer': [
 					headers(short),
 					rowOf(short, { Question: 'One?', 'Learning Points': 'Counting | Place Value' }),
-					rowOf(short, { Question: 'Two?', 'Learning Points': 'Fractions' })
+					rowOf(short, { Question: 'Two?', 'Learning Points': 'Fractions, Counting' })
 				]
-			}),
-			undefined,
-			[
-				{ id: 'counting', name: 'counting' },
-				{ id: 'place', name: 'place value' }
-			]
+			})
 		);
 		if (!reading.ok) throw new Error(reading.message);
 		expect(reading.candidates.questions).toMatchObject([
-			{ payload: { question: 'One?' }, learningPoints: ['counting', 'place'] }
+			{ payload: { question: '<p>One?</p>' }, learningPoints: ['counting', 'place value'] },
+			{ payload: { question: '<p>Two?</p>' }, learningPoints: ['fractions', 'counting'] }
 		]);
-		expect(reading.problems).toEqual([
-			{
-				sheet: 'Short Answer',
-				row: 3,
-				reason: m.practice_import_at_column({
-					column: 'Learning Points',
-					message: m.practice_import_learning_point({ name: 'Fractions' })
-				})
-			}
-		]);
+		expect(reading.problems).toEqual([]);
 	});
 
 	it('knows a sheet by its name in any capitals, and passes over the ones it does not know', async () => {
@@ -195,7 +182,9 @@ describe('readWorkbook', () => {
 				formatted
 			]
 		});
-		expect(reading.candidates.questions.map((each) => each.payload.question)).toEqual(['One?']);
+		expect(reading.candidates.questions.map((each) => each.payload.question)).toEqual([
+			'<p>One?</p>'
+		]);
 		expect(reading.problems).toEqual([
 			{
 				sheet: 'Short Answer',
@@ -241,7 +230,7 @@ describe('readWorkbook', () => {
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates.questions).toMatchObject([
-			{ payload: { question: 'One?', accepted_answers: ['yes'] } }
+			{ payload: { question: '<p>One?</p>', accepted_answers: ['yes'] } }
 		]);
 	});
 
@@ -278,7 +267,7 @@ describe('readWorkbook', () => {
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates.questions).toMatchObject([
-			{ payload: { question: 'One?', accepted_answers: ['yes'] }, difficulty: 'medium' }
+			{ payload: { question: '<p>One?</p>', accepted_answers: ['yes'] }, difficulty: 'medium' }
 		]);
 	});
 
@@ -325,8 +314,8 @@ describe('readWorkbook', () => {
 		});
 		expect(reading.problems).toEqual([]);
 		expect(reading.candidates).toMatchObject({
-			passages: [{ title: '雨', body: '下雨了。\n天空很暗。' }],
-			questions: [{ passage: '雨', payload: { question: '天气怎样？' } }]
+			passages: [{ title: '雨', body: '<p>下雨了。</p><p>天空很暗。</p>' }],
+			questions: [{ passage: '雨', payload: { question: '<p>天气怎样？</p>' } }]
 		});
 	});
 
@@ -460,12 +449,12 @@ describe('readWorkbook, with pictures', () => {
 		expect(reading.candidates.questions.map((each) => each.payload)).toEqual([
 			{
 				type: 'mcq',
-				question: 'Which is the root?',
+				question: '<p>Which is the root?</p>',
 				image_path: named('plant'),
 				options: [
 					{ text: 'Roots', image_path: named('roots'), is_correct: true },
 					{ text: '', image_path: named('stem'), is_correct: false },
-					{ text: 'Leaf', is_correct: false, tip: 'A leaf makes food from sunlight.' },
+					{ text: 'Leaf', is_correct: false, tip: '<p>A leaf makes food from sunlight.</p>' },
 					{ text: 'Flower', is_correct: false }
 				]
 			}
@@ -536,7 +525,7 @@ describe('readWorkbook, with pictures', () => {
 			{ sheet: short.name, row: 9, reason: at('Question', m.item_question_required()) }
 		]);
 		expect(reading.candidates.questions.map((each) => each.payload)).toMatchObject([
-			{ question: 'Five?', image_path: named('good') }
+			{ question: '<p>Five?</p>', image_path: named('good') }
 		]);
 	});
 

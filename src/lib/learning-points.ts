@@ -5,6 +5,9 @@
  * under both.
  */
 
+/** The longest name a learning point may have. */
+export const MAX_LEARNING_POINT_NAME_CHARS = 120;
+
 /** A learning point with what the page says of it. */
 export interface LearningPointSummary {
 	id: string;

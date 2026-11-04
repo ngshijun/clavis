@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FormattedText from '#lib/components/formatted/formatted-text.svelte';
+	import { plainText } from '#lib/formatted-text.js';
 	import { cn } from '#lib/utils.js';
 	import { picture } from './styles.js';
 
@@ -17,6 +19,7 @@
 		class: className
 	}: {
 		title: string;
+		/** The text pupils read, formatted. */
 		body: string;
 		/** Where the passage's picture is shown from; undefined when it has none. */
 		imageUrl: string | undefined;
@@ -25,7 +28,7 @@
 	} = $props();
 </script>
 
-{#if title.trim() || body.trim() || imageUrl}
+{#if title.trim() || plainText(body) || imageUrl}
 	<div
 		class={cn(
 			'flex max-h-60 flex-col gap-1.5 overflow-y-auto rounded-lg border bg-card px-4 py-3.5 text-lg leading-relaxed',
@@ -35,8 +38,8 @@
 		{#if title.trim()}
 			<span class="text-xl font-semibold wrap-break-word">{title}</span>
 		{/if}
-		{#if body.trim()}
-			<p class="wrap-break-word whitespace-pre-line">{body}</p>
+		{#if plainText(body)}
+			<FormattedText html={body} />
 		{/if}
 		{#if imageUrl}
 			<img src={imageUrl} alt="" class={cn(picture.large, 'self-start rounded-sm')} />

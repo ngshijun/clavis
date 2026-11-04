@@ -1,12 +1,12 @@
 <script lang="ts">
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
+	import FormattedEditor from '#lib/components/formatted/formatted-editor.svelte';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
 	import { Switch } from '#lib/components/ui/switch/index.js';
-	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import type { McqPayload, MrqPayload } from '#lib/items/payload.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getEditor } from '../editor.svelte.js';
@@ -90,17 +90,16 @@
 				-->
 				{#if !option.is_correct}
 					{@const tipError = editor.issue('options', index, 'tip')}
-					<!-- It starts under the option's letter. It is a field still, and fills as one when pointed at or typed in. -->
-					<!-- It grows a line at a time, since a tip may run to a few. -->
-					<div class="ms-6.5 flex items-start gap-1 ps-2.5 text-muted-foreground">
-						<LightbulbIcon class="mt-2 size-3.5 shrink-0" aria-hidden="true" />
-						<Textarea
-							rows={1}
+					<!-- It starts under the option's letter, and grows a line at a time, since a tip may run to a few. -->
+					<div class="ms-6.5 flex items-start gap-1.5 ps-2.5 text-muted-foreground">
+						<LightbulbIcon class="mt-2.5 size-3.5 shrink-0" aria-hidden="true" />
+						<FormattedEditor
 							bind:value={() => option.tip ?? '', (tip) => (option.tip = tip || undefined)}
-							class="min-h-7 rounded-lg bg-transparent px-2 py-1 text-muted-foreground hover:bg-input/50 focus-visible:bg-input/50 focus-visible:text-foreground"
+							class="min-w-0 flex-1"
+							textClass="min-h-8"
 							placeholder={m.practice_option_tip_placeholder()}
-							aria-label={m.practice_option_tip({ letter: name })}
-							aria-invalid={tipError ? true : undefined}
+							label={m.practice_option_tip({ letter: name })}
+							invalid={tipError !== undefined}
 						/>
 					</div>
 					<Issue message={tipError} />

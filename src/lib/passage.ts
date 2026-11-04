@@ -5,7 +5,8 @@ import {
 	MAX_PASSAGE_TITLE_CHARS
 } from '#lib/items/limits.js';
 import { pictureMark } from '#lib/item-images.js';
-import { text, type ItemIssue } from '#lib/items/schema.js';
+import { plainText } from '#lib/formatted-text.js';
+import { formatted, text, type ItemIssue } from '#lib/items/schema.js';
 import { m } from '#lib/paraglide/messages.js';
 
 /**
@@ -15,7 +16,7 @@ import { m } from '#lib/paraglide/messages.js';
  */
 export interface PassageContent {
 	title: string;
-	/** The text pupils read. May be empty when the passage is a picture. */
+	/** The text pupils read, formatted. May be empty when the passage is a picture. */
 	body: string;
 	/** An object path in the question images bucket, or `upload:<key>` before Save. */
 	image_path: string | null;
@@ -36,7 +37,7 @@ export const passageSchema = z
 		title: text(MAX_PASSAGE_TITLE_CHARS).min(1, {
 			error: () => m.practice_passage_title_required()
 		}),
-		body: text(MAX_PASSAGE_BODY_CHARS),
+		body: formatted(MAX_PASSAGE_BODY_CHARS).transform((body) => (plainText(body) ? body : '')),
 		image_path: text(MAX_IMAGE_PATH_CHARS)
 			.nullish()
 			.transform((path) => path || null)
@@ -80,7 +81,8 @@ export function passageKey(
 	passage: Pick<PassageContent, 'title' | 'body'> & Partial<Pick<PassageContent, 'image_path'>>
 ): string {
 	return JSON.stringify([
-		...[passage.title, passage.body].map((text) => text.trim().toLowerCase()),
+		// The words are what a pupil reads the same; how they are formatted is not.
+		...[passage.title, plainText(passage.body)].map((text) => text.trim().toLowerCase()),
 		passage.image_path ? pictureMark(passage.image_path) : ''
 	]);
 }

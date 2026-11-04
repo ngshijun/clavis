@@ -1,3 +1,4 @@
+import { plainText } from '#lib/formatted-text.js';
 import type { ClozeBlank, ItemPayload } from './payload.js';
 
 /**
@@ -102,7 +103,7 @@ export function chipsToSentence(chips: string[]): string {
  * fill-in-the-blanks with no lead-in, its text with a rule where each blank is.
  */
 export function itemSummary(payload: ItemPayload): string {
-	const question = oneLine(payload.question ?? '');
+	const question = oneLine(plainText(payload.question ?? ''));
 	if (question || payload.type !== 'cloze') return question;
 	return oneLine(payload.text.replace(PLACEHOLDER, '____'));
 }

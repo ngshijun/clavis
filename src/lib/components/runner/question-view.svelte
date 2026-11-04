@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FormattedText from '#lib/components/formatted/formatted-text.svelte';
 	import type { AnswerKey } from '#lib/items/key.js';
 	import { isAnswered, type ItemResponse, type ServedItem } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -44,9 +45,7 @@
 <div class="flex flex-col gap-4">
 	{#if item.question}
 		<!-- Words stand a little further in than boxes do, clear of the corner's curve. -->
-		<p class="px-2 text-xl leading-snug font-semibold wrap-break-word whitespace-pre-line">
-			{item.question}
-		</p>
+		<FormattedText html={item.question} class="px-2 text-xl leading-snug font-medium" />
 	{/if}
 	{#if picture}
 		<img src={picture} alt="" class={cn(frame.large, 'self-start rounded-lg border bg-card')} />

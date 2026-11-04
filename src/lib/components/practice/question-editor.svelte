@@ -1,14 +1,13 @@
 <script lang="ts">
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import IconButton from '#lib/components/app/icon-button.svelte';
+	import FormattedEditor from '#lib/components/formatted/formatted-editor.svelte';
 	import { setRunner } from '#lib/components/runner/context.js';
 	import PassageView from '#lib/components/runner/passage-view.svelte';
 	import QuestionView from '#lib/components/runner/question-view.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import {
@@ -26,7 +25,7 @@
 	import EditorCard from './editor-card.svelte';
 	import { editorOf, setEditor, type Draft } from './editor.svelte.js';
 	import FormField from './fields/form-field.svelte';
-	import PicturedTextarea from './fields/pictured-textarea.svelte';
+	import PicturedText from './fields/pictured-text.svelte';
 	import Segmented from '#lib/components/app/segmented.svelte';
 	import { formOf } from './forms/index.js';
 	import { KIND_ICONS } from './kind-icons.js';
@@ -182,8 +181,9 @@
 
 			<FormField label={m.practice_question()} for="{id}-question" error={editor.issue('question')}>
 				<!-- Label a Picture is built on its picture, so its own form holds it. -->
-				<PicturedTextarea
+				<PicturedText
 					id="{id}-question"
+					label={m.practice_question()}
 					bind:value={() => draft.payload.question ?? '', (text) => (draft.payload.question = text)}
 					bind:path={() => draft.payload.image_path, (path) => draft.setImage(path ?? undefined)}
 					pictureLabel={m.practice_question_image()}
@@ -209,21 +209,16 @@
 		<div class={group}>
 			{#if hasTip(type)}
 				<FormField label={m.practice_tip()} for="{id}-tip" error={editor.issue('tip')}>
-					<!-- A tip may run to a few lines, so the field grows with it and the light stays by its first. -->
-					<InputGroup.Root class="items-start">
-						<InputGroup.Addon class="py-2.5">
-							<LightbulbIcon />
-						</InputGroup.Addon>
-						<InputGroup.Textarea
-							id="{id}-tip"
-							rows={1}
-							class="min-h-9 py-2"
-							bind:value={
-								() => draft.payload.tip ?? '', (tip) => (draft.payload.tip = tip || undefined)
-							}
-							aria-invalid={editor.issue('tip') ? true : undefined}
-						/>
-					</InputGroup.Root>
+					<!-- A tip may run to a few lines, so the field grows with it. -->
+					<FormattedEditor
+						id="{id}-tip"
+						label={m.practice_tip()}
+						textClass="min-h-9"
+						bind:value={
+							() => draft.payload.tip ?? '', (tip) => (draft.payload.tip = tip || undefined)
+						}
+						invalid={editor.issue('tip') !== undefined}
+					/>
 					<p class={hint}>{m.practice_tip_hint()}</p>
 				</FormField>
 			{/if}

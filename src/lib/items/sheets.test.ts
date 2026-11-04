@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formattedFromPlain, plainText } from '#lib/formatted-text.js';
 import { m } from '#lib/paraglide/messages.js';
 import { ITEM_TYPES, type ItemPayload, type ItemType } from './payload.js';
 import { validateItem } from './schema.js';
@@ -124,7 +125,11 @@ describe('the sheets', () => {
 	it('read the example of Passages as a passage', () => {
 		expect(readPassageRow(PASSAGE_SHEET.samples[0])).toEqual({
 			ok: true,
-			passage: { title: 'The Water Cycle', body: PASSAGE_SHEET.samples[0].text, image_path: null }
+			passage: {
+				title: 'The Water Cycle',
+				body: formattedFromPlain(PASSAGE_SHEET.samples[0].text),
+				image_path: null
+			}
 		});
 	});
 });
@@ -148,7 +153,7 @@ describe('what every question row has', () => {
 			row('short_answer', { tip: 'Think of the air.', passage: ' The Water Cycle ' })
 		);
 		expect(read).toMatchObject({
-			question: { passage: 'the water cycle', payload: { tip: 'Think of the air.' } }
+			question: { passage: 'the water cycle', payload: { tip: '<p>Think of the air.</p>' } }
 		});
 		expect(payloadOf('short_answer')).not.toHaveProperty('tip');
 	});
@@ -161,34 +166,25 @@ describe('what every question row has', () => {
 		expect(problemOf('true_false', { question: '' }).column).toBe('Statement');
 	});
 
-	it('is filed under the learning points it names, of those its topic offers', () => {
-		const offered = [
-			{ id: 'counting', name: 'counting' },
-			{ id: 'place', name: 'place value' }
-		];
+	it('is filed under the learning points it names, by name', () => {
 		const read = (written: string) =>
-			readQuestionRow(
-				sheetOf('short_answer'),
-				row('short_answer', { learning_points: written }),
-				{},
-				offered
-			);
+			readQuestionRow(sheetOf('short_answer'), row('short_answer', { learning_points: written }));
 		expect(read('')).toMatchObject({ question: { learningPoints: [] } });
-		// By name, in any capitals and with any room around it; named twice it is still one.
+		// In small letters, with any room around them; named twice, one is still one.
 		expect(read(' Place Value | counting|COUNTING ')).toMatchObject({
-			question: { learningPoints: ['place', 'counting'] }
+			question: { learningPoints: ['place value', 'counting'] }
 		});
-		expect(read('counting | fractions')).toEqual({
+		// A comma stands between names as | does, and the two may be mixed.
+		expect(read('Hai, Testing | Counting,')).toMatchObject({
+			question: { learningPoints: ['hai', 'testing', 'counting'] }
+		});
+		expect(read('x'.repeat(121))).toEqual({
 			ok: false,
 			problem: {
 				column: 'Learning Points',
-				message: m.practice_import_learning_point({ name: 'fractions' })
+				message: m.practice_import_learning_point_long({ max: 120 })
 			}
 		});
-		// Read for no topic, a row can name none.
-		expect(problemOf('short_answer', { learning_points: 'counting' }).column).toBe(
-			'Learning Points'
-		);
 	});
 
 	it('does not mind a column that is gone', () => {
@@ -225,8 +221,8 @@ describe('Multiple Choice and Multiple Response', () => {
 		expect(payload).not.toHaveProperty('tip');
 		expect(payload.options.map((option) => option.tip)).toEqual([
 			undefined,
-			'The stem carries water up the plant.',
-			'A leaf makes food from sunlight.',
+			'<p>The stem carries water up the plant.</p>',
+			'<p>A leaf makes food from sunlight.</p>',
 			undefined
 		]);
 		expect(sheetOf('mcq').columns.map((column) => column.header)).not.toContain('Tip');
@@ -514,7 +510,7 @@ describe('Number', () => {
 			payloadOf('numeric', { ...plain, answer: '12.5', unit: 'cm', tolerance: '0.1' })
 		).toEqual({
 			type: 'numeric',
-			question: 'What fraction of the pizza is left?',
+			question: '<p>What fraction of the pizza is left?</p>',
 			answer: 12.5,
 			unit: 'cm',
 			tolerance: 0.1
@@ -750,7 +746,7 @@ describe('readPassageRow', () => {
 
 	it('takes a picture with the text, or in place of it', () => {
 		expect(readPassageRow({ title, text }, { picture: 'upload:a' })).toMatchObject({
-			passage: { body: text, image_path: 'upload:a' }
+			passage: { body: formattedFromPlain(text), image_path: 'upload:a' }
 		});
 		expect(readPassageRow({ title, text: '' }, { picture: 'upload:a' })).toMatchObject({
 			passage: { body: '', image_path: 'upload:a' }
@@ -938,7 +934,9 @@ describe('readRows', () => {
 			}
 		]);
 		expect(read.questionRows).toBe(2);
-		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual(['One?']);
+		expect(read.candidates.questions.map((each) => plainText(each.payload.question ?? ''))).toEqual(
+			['One?']
+		);
 		expect(read.problems).toEqual([
 			{
 				sheet: 'Short Answer',
@@ -963,9 +961,9 @@ describe('readRows', () => {
 			}
 		]);
 		expect(read.questionRows).toBe(1);
-		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual([
-			short.samples[0].question
-		]);
+		expect(read.candidates.questions.map((each) => plainText(each.payload.question ?? ''))).toEqual(
+			[short.samples[0].question]
+		);
 	});
 
 	it('lists the questions sheet by sheet in the order of the template, row by row', () => {
@@ -973,11 +971,9 @@ describe('readRows', () => {
 			{ sheet: short, rows: rows(answer('Short one?'), answer('Short two?')) },
 			{ sheet: mcq, rows: rows({ ...mcq.samples[0], question: 'Choice?' }) }
 		]);
-		expect(read.candidates.questions.map((each) => each.payload.question)).toEqual([
-			'Choice?',
-			'Short one?',
-			'Short two?'
-		]);
+		expect(read.candidates.questions.map((each) => plainText(each.payload.question ?? ''))).toEqual(
+			['Choice?', 'Short one?', 'Short two?']
+		);
 	});
 
 	it('joins a question to the passage whose title it holds, in any capitals', () => {
@@ -986,7 +982,7 @@ describe('readRows', () => {
 			{ sheet: PASSAGE_SHEET, rows: rows({ title: 'Rain', text: 'It rains.' }) }
 		]);
 		expect(read.candidates.passages).toEqual([
-			{ title: 'Rain', body: 'It rains.', image_path: null }
+			{ title: 'Rain', body: '<p>It rains.</p>', image_path: null }
 		]);
 		expect(read.candidates.questions.map((each) => each.passage)).toEqual(['rain', null]);
 		expect(read.problems).toEqual([]);

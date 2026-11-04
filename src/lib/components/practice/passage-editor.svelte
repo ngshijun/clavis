@@ -19,7 +19,7 @@
 	import { editorOf, setEditor, type PassageDraft } from './editor.svelte.js';
 	import FormField from './fields/form-field.svelte';
 	import Issue from './fields/issue.svelte';
-	import PicturedTextarea from './fields/pictured-textarea.svelte';
+	import PicturedText from './fields/pictured-text.svelte';
 	import QuestionLine from './question-line.svelte';
 	import { group, hint } from './styles.js';
 
@@ -102,13 +102,14 @@
 			</FormField>
 
 			<FormField label={m.practice_passage_text()} for="{id}-text">
-				<PicturedTextarea
+				<PicturedText
 					id="{id}-text"
+					label={m.practice_passage_text()}
 					bind:value={draft.content.body}
 					bind:path={draft.content.image_path}
 					pictureLabel={m.practice_passage_image()}
 					invalid={editor.issue('body') !== undefined}
-					class="min-h-56"
+					textClass="min-h-56"
 				/>
 				<Issue message={editor.issue('body')} />
 				<p class={hint}>{m.practice_passage_content_hint()}</p>

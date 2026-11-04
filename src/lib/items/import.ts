@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import { imagePaths } from '#lib/item-images.js';
+import { MAX_LEARNING_POINT_NAME_CHARS } from '#lib/learning-points.js';
 import { m } from '#lib/paraglide/messages.js';
 import { passageKey, validatePassage } from '#lib/passage.js';
 import { MAX_ENTRIES, MAX_IMAGE_PATH_CHARS, MAX_PASSAGE_TITLE_CHARS } from './limits.js';
@@ -54,20 +55,17 @@ export interface CandidatePassage {
 	image_path: string | null;
 }
 
-/** A learning point a stage's topic offers its questions, known to a workbook by its name. */
-export interface OfferedPoint {
-	id: string;
-	/** In small letters, as it is stored. */
-	name: string;
-}
-
 /** A question of a workbook, complete and tidied. */
 export interface CandidateQuestion {
 	payload: ItemPayload;
 	difficulty: Difficulty;
 	/** The title of the passage it joins, as `titleKey` has it; null for one that stands alone. */
 	passage: string | null;
-	/** The ids of the learning points it is filed under, each one its stage's topic offers. */
+	/**
+	 * The names of the learning points it is filed under, in small letters as
+	 * they are stored. One the stage's topic does not have yet is made when
+	 * the question is imported.
+	 */
 	learningPoints: string[];
 }
 
@@ -95,6 +93,8 @@ export interface ImportReview {
 	passages: number;
 	/** How many rows are left out because the stage already asks the same. */
 	duplicates: number;
+	/** The learning points the rows name that the stage's topic does not have yet, by name. */
+	newPoints: string[];
 	problems: ImportProblem[];
 }
 
@@ -176,6 +176,15 @@ export function planImport(candidates: Candidates, stored: Stored): ImportPlan {
 	};
 }
 
+/**
+ * The learning points `questions` are filed under that are none of the
+ * `offered` names, in the order the questions first name them.
+ */
+export function newPoints(questions: CandidateQuestion[], offered: string[]): string[] {
+	const named = new Set(questions.flatMap((question) => question.learningPoints));
+	return [...named].filter((name) => !offered.includes(name));
+}
+
 const postedSchema = z.object({
 	passages: z
 		.array(
@@ -192,7 +201,9 @@ const postedSchema = z.object({
 				payload: z.unknown(),
 				difficulty: z.enum(DIFFICULTIES),
 				passage: z.string().max(MAX_PASSAGE_TITLE_CHARS).nullable(),
-				learningPoints: z.array(z.guid()).max(MAX_ENTRIES)
+				learningPoints: z
+					.array(z.string().trim().toLowerCase().min(1).max(MAX_LEARNING_POINT_NAME_CHARS))
+					.max(MAX_ENTRIES)
 			})
 		)
 		.max(MAX_IMPORT_QUESTIONS)
@@ -202,14 +213,14 @@ const postedSchema = z.object({
  * The candidates a page posted back, checked as if they had never been seen:
  * every question and passage is complete, every picture one names is `free`
  * to be a new row's and is named by that row alone, no two passages share a
- * title, every question's passage is among them and every learning point is
- * one the stage's topic `offers`. Null for anything else, which a review of
- * ours cannot have produced.
+ * title and every question's passage is among them. Null for anything else,
+ * which a review of ours cannot have produced. A learning point is named, so
+ * one the stage's topic does not have is not refused: the review showed it
+ * as new.
  */
 export function checkCandidates(
 	posted: unknown,
-	free: (path: string) => boolean,
-	offers: (learningPointId: string) => boolean = () => false
+	free: (path: string) => boolean
 ): Candidates | null {
 	const parsed = postedSchema.safeParse(posted);
 	if (!parsed.success) return null;
@@ -238,7 +249,6 @@ export function checkCandidates(
 		const passage = question.passage === null ? null : titleKey(question.passage);
 		if (!checked.ok || !own(checked.payload)) return null;
 		if (passage !== null && !known(passage)) return null;
-		if (!question.learningPoints.every(offers)) return null;
 		questions.push({
 			payload: checked.payload,
 			difficulty: question.difficulty,

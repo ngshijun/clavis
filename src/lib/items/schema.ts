@@ -1,7 +1,9 @@
 import * as z from 'zod';
+import { plainText } from '#lib/formatted-text.js';
 import { m } from '#lib/paraglide/messages.js';
 import { isAbsent } from './absent.js';
 import {
+	FORMATTING_ROOM,
 	MAX_ENTRIES,
 	MAX_ENTRY_CHARS,
 	MAX_ID_CHARS,
@@ -99,6 +101,28 @@ export function text(max: number, missing?: () => string) {
 		.refine((value) => chars(value) <= max, { error: () => m.item_text_too_long({ max }) });
 }
 
+/**
+ * Formatted text as it is stored: HTML, trimmed, of characters the database
+ * can hold. It is held to `max` as it reads, and to `FORMATTING_ROOM` times
+ * that with its formatting. `missing` is what is said where nothing reads.
+ */
+export function formatted(max: number, missing?: () => string) {
+	const tooLong = () => m.item_text_too_long({ max });
+	const checked = z
+		.string(missing && { error: missing })
+		.trim()
+		.refine(storable, { error: () => m.item_text_unstorable() })
+		.refine((value) => chars(plainText(value)) <= max, { error: tooLong })
+		.refine((value) => chars(value) <= max * FORMATTING_ROOM, { error: tooLong });
+	return missing ? checked.refine((value) => plainText(value) !== '', { error: missing }) : checked;
+}
+
+/** Formatted text that may be left out: null and blank both mean it was. */
+const optionalFormatted = (max: number) =>
+	formatted(max)
+		.nullish()
+		.transform((value) => (value && plainText(value) ? value : undefined));
+
 /** Text that must be there. */
 const required = (message: () => string, max = MAX_ENTRY_CHARS) =>
 	text(max, message).min(1, { error: message });
@@ -143,9 +167,9 @@ const picture = optional(MAX_IMAGE_PATH_CHARS);
 
 /** What every type carries. Cloze replaces `question`, Label a Picture `image_path`. */
 const common = {
-	question: required(() => m.item_question_required(), MAX_QUESTION_CHARS),
+	question: formatted(MAX_QUESTION_CHARS, () => m.item_question_required()),
 	image_path: picture,
-	tip: optional(MAX_TIP_CHARS)
+	tip: optionalFormatted(MAX_TIP_CHARS)
 };
 
 /** The two choice types carry their tips on their wrong options, and none of their own. */
@@ -196,7 +220,7 @@ const choiceOptions = z
 				text: entryText,
 				is_correct: z.boolean(),
 				image_path: picture,
-				tip: optional(MAX_TIP_CHARS)
+				tip: optionalFormatted(MAX_TIP_CHARS)
 			})
 			.check(textOrPicture(() => m.item_option_empty()))
 			// A tip is for a pupil who picks a wrong option, so a right one stores none.
@@ -395,7 +419,7 @@ export const clozeSchema = z
 		type: z.literal('cloze'),
 		...common,
 		// The text is what the pupil reads; a question above it is an optional lead-in.
-		question: optional(MAX_QUESTION_CHARS),
+		question: optionalFormatted(MAX_QUESTION_CHARS),
 		text: required(() => m.item_cloze_text_required(), MAX_QUESTION_CHARS),
 		blanks: z
 			.array(

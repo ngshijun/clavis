@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Input } from '#lib/components/ui/input/index.js';
+	import { plainText } from '#lib/formatted-text.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import type { ItemResponse, ServedNumeric } from '#lib/items/served.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -84,7 +85,7 @@
 			<span>RM</span>
 		{/if}
 		<Input
-			aria-label={item.question ?? m.item_answer_placeholder()}
+			aria-label={plainText(item.question ?? '') || m.item_answer_placeholder()}
 			inputmode="decimal"
 			autocomplete="off"
 			{readonly}

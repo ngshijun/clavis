@@ -3,9 +3,9 @@ import * as z from 'zod';
 import { imagePaths } from '#lib/item-images.js';
 import {
 	checkCandidates,
+	newPoints,
 	planImport,
 	type ImportReview,
-	type OfferedPoint,
 	type Stored
 } from '#lib/items/import.js';
 import { MAX_ENTRIES } from '#lib/items/limits.js';
@@ -113,13 +113,14 @@ const IMPORT_ATTEMPTS = 3;
 /**
  * What the stage holds now, as an import looks at it: the questions a row may
  * repeat and the passages a row's passage may already be. With it come the
- * learning points of the stage's topic, which are all a row may be filed under,
- * and the ids of what was read, by which the database knows the stage again.
+ * names of the learning points the stage's topic has, against which a row's
+ * new ones are told, and the ids of what was read, by which the database
+ * knows the stage again.
  */
 async function storedIn({
 	locals,
 	params
-}: RequestEvent): Promise<Stored & { learningPoints: OfferedPoint[]; seen: StageRows }> {
+}: RequestEvent): Promise<Stored & { learningPoints: string[]; seen: StageRows }> {
 	const stage = await getStage(locals.supabase, params.subjectId, params.stageId);
 	if (!stage) error(404, 'Stage not found');
 	const passages = stage.entries.filter((entry) => entry.kind === 'passage');
@@ -138,7 +139,7 @@ async function storedIn({
 			body,
 			image_path: imagePath
 		})),
-		learningPoints: stage.learningPoints
+		learningPoints: stage.learningPoints.map((point) => point.name)
 	};
 }
 
@@ -311,7 +312,7 @@ export const actions: Actions = {
 		}
 		if (!(file instanceof File)) return fail(400, { message: m.error_unexpected() });
 		const stored = await storedIn(event);
-		const read = await readWorkbook(file, new Map(Object.entries(marks)), stored.learningPoints);
+		const read = await readWorkbook(file, new Map(Object.entries(marks)));
 		if (!read.ok) return fail(400, { message: read.message });
 
 		const plan = planImport(read.candidates, stored);
@@ -319,6 +320,7 @@ export const actions: Actions = {
 			rows: plan.kept,
 			passages: plan.passages.length,
 			duplicates: plan.duplicates,
+			newPoints: newPoints(plan.kept.questions, stored.learningPoints),
 			problems: read.problems
 		};
 		return { review };
@@ -361,10 +363,7 @@ export const actions: Actions = {
 		const { stageId } = event.params;
 		for (let attempt = 0; attempt < IMPORT_ATTEMPTS; attempt += 1) {
 			const stored = await storedIn(event);
-			const offered = new Set(stored.learningPoints.map((point) => point.id));
-			const candidates = checkCandidates(posted, freePictures(stageId, stored), (id) =>
-				offered.has(id)
-			);
+			const candidates = checkCandidates(posted, freePictures(stageId, stored));
 			if (!candidates) return fail(400, { message: m.practice_import_stale() });
 
 			const plan = planImport(candidates, stored);

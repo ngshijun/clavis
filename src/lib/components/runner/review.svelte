@@ -6,6 +6,7 @@
 	import MinusIcon from '@lucide/svelte/icons/minus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import Segmented from '#lib/components/app/segmented.svelte';
+	import FormattedText from '#lib/components/formatted/formatted-text.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import PassageView from './passage-view.svelte';
@@ -156,13 +157,13 @@
 				right={mark === 'right' ? undefined : rightAnswers?.[asked.id]}
 			/>
 			{#each result.tips as tip (tip)}
-				<p class="flex gap-2.5 rounded-lg bg-background px-3 py-2.5 text-lg wrap-break-word">
+				<div class="flex gap-2.5 rounded-lg bg-background px-3 py-2.5 text-lg">
 					<LightbulbIcon class="mt-1 size-5 shrink-0 text-warning" aria-hidden="true" />
-					<span>
+					<div class="flex min-w-0 flex-col">
 						<span class="font-semibold">{m.run_tip()}</span>
-						<span class="whitespace-pre-line">{tip}</span>
-					</span>
-				</p>
+						<FormattedText html={tip} />
+					</div>
+				</div>
 			{/each}
 		</Card.Root>
 	{/if}

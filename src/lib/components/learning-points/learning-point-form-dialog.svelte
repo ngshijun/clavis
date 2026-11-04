@@ -8,7 +8,11 @@
 	import { Input } from '#lib/components/ui/input/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import type { LearningPointSummary, TopicTree } from '#lib/learning-points.js';
+	import {
+		MAX_LEARNING_POINT_NAME_CHARS,
+		type LearningPointSummary,
+		type TopicTree
+	} from '#lib/learning-points.js';
 	import { m } from '#lib/paraglide/messages.js';
 
 	/**
@@ -100,7 +104,7 @@
 						id="learning-point-name"
 						name="name"
 						autocomplete="off"
-						maxlength={120}
+						maxlength={MAX_LEARNING_POINT_NAME_CHARS}
 						value={point?.name ?? ''}
 						aria-invalid={errors.name ? true : undefined}
 					/>

@@ -7,10 +7,15 @@
  * Postgres' `char_length` does), after the text has been trimmed.
  */
 
-/** A question, and the text of a Fill in the Blanks. */
+/** A question, and the text of a Fill in the Blanks. A question is counted as it reads, without its formatting. */
 export const MAX_QUESTION_CHARS = 2000;
-/** A tip: the question's, or a wrong option's. */
+/** A tip: the question's, or a wrong option's. Counted as it reads. */
 export const MAX_TIP_CHARS = 500;
+/**
+ * How many times longer than it reads a formatted text may be as it is
+ * stored, with its formatting. The database holds a question and a tip to it.
+ */
+export const FORMATTING_ROOM = 4;
 /**
  * One entry of a list: an option, a row, an item, a group's or a column's
  * name, a label, an accepted answer, a choice, an extra word, a word of a

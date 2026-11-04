@@ -206,6 +206,22 @@
 	html {
 		@apply font-sans;
 	}
+	/* Formatted text: a question, a tip, a passage. Its paragraphs and lists stand a little apart. */
+	.formatted-text :is(p, ul, ol) {
+		@apply mb-1 last:mb-0;
+	}
+	.formatted-text ul {
+		@apply list-disc ps-6;
+	}
+	.formatted-text ol {
+		@apply list-decimal ps-6;
+	}
+	.formatted-text li > :is(p, ul, ol) {
+		@apply mb-0;
+	}
+	.formatted-text .is-editor-empty:first-child::before {
+		@apply pointer-events-none float-left h-0 text-muted-foreground content-[attr(data-placeholder)];
+	}
 	/* Search fields carry their own Clear button; hide WebKit's unstyled one. */
 	input[type='search']::-webkit-search-cancel-button {
 		appearance: none;
