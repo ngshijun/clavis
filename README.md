@@ -1,7 +1,7 @@
 # Clavis
 
 The operating platform for tuition centers: classrooms and a guided practice
-path. `CONTEXT.md` states how the product is modelled.
+path.
 
 Built with SvelteKit, shadcn-svelte, Tailwind CSS and Supabase. Postgres row level security
 decides what each account may read or change; the app keeps people on the pages built for

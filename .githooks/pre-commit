@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Format staged files before committing
-npm run format
+# Format the staged files only, then re-stage them
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$files" ] && exit 0
 
-# Re-stage any files that were reformatted
-git update-index --again
+echo "$files" | xargs pnpm exec prettier --write --ignore-unknown || exit 1
+echo "$files" | xargs git add
