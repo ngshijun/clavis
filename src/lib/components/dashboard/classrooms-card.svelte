@@ -39,10 +39,14 @@
 					{@const done = summary.progress.done + summary.progress.late}
 					{@const given = done + summary.progress.toDo + summary.progress.overdue}
 					<Table.Row>
-						<Table.Cell>
+						<!--
+							Beside the figures the name takes what they leave, and is cut only when
+							that runs out; on a narrow screen, where the table scrolls, it keeps 16rem.
+						-->
+						<Table.Cell class="lg:w-full lg:max-w-0">
 							<a
 								href={resolvePath(classroomPath('teacher', classroom.id))}
-								class="flex max-w-64 items-center gap-2.5 rounded-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+								class="flex max-w-64 min-w-48 items-center gap-2.5 rounded-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:max-w-none"
 							>
 								<Cover
 									id={classroom.id}

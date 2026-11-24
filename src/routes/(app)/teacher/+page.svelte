@@ -104,19 +104,16 @@
 
 	<!--
 		Two columns that each stack their own cards, so a short card never leaves
-		a hole beside a tall one. On a narrow screen the columns give way and the
-		cards line up one under another, the most pressing first.
+		a hole beside a tall one, and the classrooms' table under both, the whole
+		width, so its six columns fit on a laptop's screen. On a narrow screen the
+		columns give way and the cards line up one under another, the most
+		pressing first.
 	-->
 	<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
 		<div class="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-4">
 			<div class="order-1 lg:order-none">
 				<PointsCard points={data.points} classrooms={scope} />
 			</div>
-			{#if data.summaries.length > 0}
-				<div class="order-4 lg:order-none">
-					<ClassroomsCard rows={data.summaries} />
-				</div>
-			{/if}
 			<div class="contents lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
 				<div class="order-5 lg:order-none">
 					<WeeksCard weeks={data.weeks} />
@@ -137,5 +134,10 @@
 				<ActivityCard activity={data.activity} {classroomNames} />
 			</div>
 		</div>
+		{#if data.summaries.length > 0}
+			<div class="order-4 lg:order-none lg:col-span-3">
+				<ClassroomsCard rows={data.summaries} />
+			</div>
+		{/if}
 	</div>
 {/if}
