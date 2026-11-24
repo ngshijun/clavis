@@ -1,10 +1,16 @@
 <script lang="ts">
+	import HistoryIcon from '@lucide/svelte/icons/history';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import StageDialog from '#lib/components/runner/stage-dialog.svelte';
 	import StagePath, { type Stop } from '#lib/components/runner/stage-path.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { bestOf } from '#lib/items/stars.js';
-	import { classroomSessionPath, classroomStagePath } from '#lib/navigation.js';
+	import {
+		classroomHistoryPath,
+		classroomSessionPath,
+		classroomStagePath
+	} from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import type { Score } from '#lib/server/run.js';
@@ -45,6 +51,16 @@
 	</Empty.Root>
 {:else}
 	<div class="flex flex-col gap-4">
+		<!-- Every session finished here, whatever its stage; a stage's own are in its dialog. -->
+		<Button
+			variant="outline"
+			size="sm"
+			class="self-end"
+			href={resolvePath(classroomHistoryPath(params.classroomId))}
+		>
+			<HistoryIcon aria-hidden="true" />
+			{m.practice_history()}
+		</Button>
 		{#each data.topics as topic (topic.id)}
 			<StagePath {topic} {best} onpick={pick} />
 		{/each}

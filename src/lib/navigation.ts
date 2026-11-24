@@ -120,6 +120,11 @@ export function classroomStagePath(classroomId: string, stageId: string): Path {
 	return `student/classrooms/${classroomId}/${stageId}`;
 }
 
+/** Every practice session a student has finished in one of their classrooms, the latest first. */
+export function classroomHistoryPath(classroomId: string): Path {
+	return `student/classrooms/${classroomId}/practice/history`;
+}
+
 /** One of a student's own finished practice sessions in one of their classrooms, read back. */
 export function classroomSessionPath(classroomId: string, sessionId: string): Path {
 	return `student/classrooms/${classroomId}/sessions/${sessionId}`;

@@ -7,8 +7,9 @@
 	import { cn } from '#lib/utils.js';
 
 	/**
-	 * One assigned stage in a list: the stage and where it is from, a line
-	 * about the assignment, and what the page has to say of it at the end.
+	 * One stage in a list of work, assigned or finished: the stage and where
+	 * it is from, a line about the work, and what the page has to say of it
+	 * at the end.
 	 * The whole row leads somewhere when it is given an address or something
 	 * to do; otherwise what it ends in holds its own button.
 	 */
