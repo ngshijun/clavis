@@ -120,6 +120,11 @@ export function classroomStagePath(classroomId: string, stageId: string): Path {
 	return `student/classrooms/${classroomId}/${stageId}`;
 }
 
+/** One of a student's own finished practice sessions in one of their classrooms, read back. */
+export function classroomSessionPath(classroomId: string, sessionId: string): Path {
+	return `student/classrooms/${classroomId}/sessions/${sessionId}`;
+}
+
 /**
  * The pages inside a classroom, in the order they are offered: the tabs under
  * its banner. The first is the classroom's own address. A student's and a

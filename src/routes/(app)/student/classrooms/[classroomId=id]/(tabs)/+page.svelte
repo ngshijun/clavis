@@ -14,7 +14,11 @@
 	import { byDue, isLate, sinceAssigned } from '#lib/items/assignments.js';
 	import { markFigure } from '#lib/items/run.js';
 	import { bestOf, starsOf } from '#lib/items/stars.js';
-	import { classroomPracticePath, classroomStagePath } from '#lib/navigation.js';
+	import {
+		classroomPracticePath,
+		classroomSessionPath,
+		classroomStagePath
+	} from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import type { PageProps } from './$types';
@@ -22,8 +26,9 @@
 	/**
 	 * A classroom's first page for a student: what their teacher has assigned
 	 * them there, the most pressing first, and what they have done of it.
-	 * Finishing a stage once does its assignment. Either list opens the
-	 * dialog a stage on the path opens, and the run starts from there.
+	 * Finishing a stage once does its assignment. Work to do opens the dialog
+	 * a stage on the path opens, and the run starts from there; work done
+	 * opens the session its score is from.
 	 */
 	let { data, params }: PageProps = $props();
 
@@ -95,7 +100,13 @@
 			{#each done as each (each.assignment.id)}
 				{@const { assignment, stop } = each}
 				{@const best = bestSince(each)}
-				<WorkRow {stop} done onclick={() => pick(stop)}>
+				<!-- It opens the session the row's score is from: the best since it was assigned. -->
+				<WorkRow
+					{stop}
+					done
+					href={best ? resolvePath(classroomSessionPath(params.classroomId, best.id)) : undefined}
+					onclick={() => pick(stop)}
+				>
 					{#snippet detail()}
 						{#if assignment.doneAt}
 							<Day at={assignment.doneAt} say={(day) => m.assignment_finished_on({ day })} />
@@ -128,5 +139,6 @@
 		stop={picked}
 		attempts={data.attempts[picked.stage.id] ?? []}
 		href={resolvePath(classroomStagePath(params.classroomId, picked.stage.id))}
+		attemptHref={(attempt) => resolvePath(classroomSessionPath(params.classroomId, attempt.id))}
 	/>
 {/if}

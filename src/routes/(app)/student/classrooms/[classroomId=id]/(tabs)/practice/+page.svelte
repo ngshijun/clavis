@@ -4,7 +4,7 @@
 	import StagePath, { type Stop } from '#lib/components/runner/stage-path.svelte';
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { bestOf } from '#lib/items/stars.js';
-	import { classroomStagePath } from '#lib/navigation.js';
+	import { classroomSessionPath, classroomStagePath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import type { Score } from '#lib/server/run.js';
@@ -57,5 +57,6 @@
 		stop={picked}
 		attempts={data.attempts[picked.stage.id] ?? []}
 		href={resolvePath(classroomStagePath(params.classroomId, picked.stage.id))}
+		attemptHref={(attempt) => resolvePath(classroomSessionPath(params.classroomId, attempt.id))}
 	/>
 {/if}
