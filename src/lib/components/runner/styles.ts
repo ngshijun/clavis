@@ -6,9 +6,9 @@
 
 /**
  * What a pupil reads is larger than the app's own text: a question is 20px,
- * and its answers, a passage and a tip 18px, with 14px for a line that tells
- * the pupil what to do. The rail beside the questions is the app's and keeps
- * the app's sizes.
+ * and its answers, a passage and a tip 18px, with the app's `sm` for a line
+ * that tells the pupil what to do. The rail beside the questions is the app's
+ * and keeps the app's sizes.
  */
 
 /** A line that tells the pupil what to do. Words stand further in than boxes, clear of a corner's curve. */
