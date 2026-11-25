@@ -908,7 +908,6 @@
 	"practice_history": "History",
 	"practice_history_none_title": "No practice finished yet",
 	"practice_history_none_description": "Each time you finish a stage in this classroom, it shows here.",
-	"practice_finished_lately": "Finished lately",
 	"item_letter": "Letter {n}",
 	"item_ratio_term": "Term {n}",
 	"item_part": "Part {n}",
@@ -1167,5 +1166,49 @@
 	"dashboard_activity_title": "Recent practice",
 	"dashboard_activity_description": "The latest practice finished in your classrooms",
 	"dashboard_activity_assignment": "Did an assignment",
-	"dashboard_practice_empty": "No practice finished yet."
+	"dashboard_practice_empty": "No practice finished yet.",
+	"home_greeting": "Hi, {name}!",
+	"home_due_soon": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} task due soon",
+				"countPlural=other": "{count} tasks due soon"
+			}
+		}
+	],
+	"home_total_stars": "Total stars",
+	"home_streak": "Streak",
+	"home_streak_days": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} day",
+				"countPlural=other": "{count} days"
+			}
+		}
+	],
+	"home_sort": "Sort",
+	"home_sort_deadline": "Sort by deadline",
+	"home_sort_classroom": "Sort by classroom",
+	"home_goal_title": "Daily star goal",
+	"home_goal_figure": "{count} of {goal} new stars today",
+	"home_goal_more": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} more new star to hit today’s goal!",
+				"countPlural=other": "{count} more new stars to hit today’s goal!"
+			}
+		}
+	],
+	"home_goal_reached": "You hit today’s goal!",
+	"home_mastery_title": "Practice mastery",
+	"home_mastery_description": "Your best on every stage of your classrooms",
+	"home_my_classrooms": "My classrooms",
+	"home_this_week": "This week",
+	"home_practices_done": "Practices done"
 }

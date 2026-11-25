@@ -28,7 +28,7 @@ export function toDoOf<
 }
 
 /** The order finished sessions are listed in: the latest first. */
-export function byLatest(
+function byLatest(
 	a: { attempt: { completedAt: string } },
 	b: { attempt: { completedAt: string } }
 ): number {

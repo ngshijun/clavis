@@ -1,6 +1,17 @@
 import { getLocale } from '#lib/paraglide/runtime.js';
 
-const midnight = (at: Date) => new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+/**
+ * The first moment of the day a moment falls on, or of one so many days from
+ * it, where the reader is.
+ */
+export function startOfDay(at: Date, days = 0): number {
+	return new Date(at.getFullYear(), at.getMonth(), at.getDate() + days).getTime();
+}
+
+/** The first moment of the week a moment falls in, where the reader is: its Monday. */
+export function startOfWeek(at: Date): number {
+	return startOfDay(at, -((at.getDay() + 6) % 7));
+}
 
 /**
  * The day a moment falls on, in the reader's language: yesterday, today and
@@ -11,7 +22,7 @@ const midnight = (at: Date) => new Date(at.getFullYear(), at.getMonth(), at.getD
 export function dayOf(at: Date): string {
 	const locale = getLocale();
 	const now = new Date();
-	const ago = Math.round((midnight(now) - midnight(at)) / 86_400_000);
+	const ago = Math.round((startOfDay(now) - startOfDay(at)) / 86_400_000);
 	if (Math.abs(ago) <= 1) {
 		return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-ago, 'day');
 	}

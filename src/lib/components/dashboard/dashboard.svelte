@@ -40,6 +40,7 @@
 	const change = $derived(people.thisWeek - people.lastWeek);
 	const done = $derived(data.progress.done + data.progress.late);
 	const given = $derived(done + data.progress.toDo + data.progress.overdue);
+	const results = $derived(data.tally.stars.reduce((sum, count) => sum + count, 0));
 </script>
 
 {#if data.reach.length === 0}
@@ -137,7 +138,12 @@
 					<WeeksCard weeks={data.weeks} />
 				</div>
 				<div class="order-6 lg:order-none">
-					<ResultsCard tally={data.tally} />
+					<ResultsCard
+						tally={data.tally}
+						title={m.progress_best_results()}
+						description={m.dashboard_results_description()}
+						count={results > 0 ? m.dashboard_results_count({ count: results }) : undefined}
+					/>
 				</div>
 			</div>
 		</div>
