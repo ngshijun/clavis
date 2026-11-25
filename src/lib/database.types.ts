@@ -467,6 +467,7 @@ export type Database = {
 			profiles: {
 				Row: {
 					avatar_path: string | null;
+					closed_at: string | null;
 					created_at: string | null;
 					email: string;
 					id: string;
@@ -477,6 +478,7 @@ export type Database = {
 				};
 				Insert: {
 					avatar_path?: string | null;
+					closed_at?: string | null;
 					created_at?: string | null;
 					email: string;
 					id: string;
@@ -487,6 +489,7 @@ export type Database = {
 				};
 				Update: {
 					avatar_path?: string | null;
+					closed_at?: string | null;
 					created_at?: string | null;
 					email?: string;
 					id?: string;
@@ -963,6 +966,7 @@ export type Database = {
 				Returns: string;
 			};
 			serve_practice_stage: { Args: { p_classroom_id: string; p_stage_id: string }; Returns: Json };
+			set_account_closed: { Args: { p_closed: boolean; p_user_id: string }; Returns: undefined };
 			submit_practice_session: {
 				Args: { p_answers: Json; p_classroom_id: string; p_stage_id: string };
 				Returns: Json;
