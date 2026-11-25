@@ -43,12 +43,13 @@
 <Popover.Root bind:open>
 	<Popover.Trigger>
 		{#snippet child({ props })}
+			<!-- The trigger's own attributes first: they carry no class, and would take this one away. -->
 			<IconButton
+				{...props}
 				variant="ghost"
 				size="icon"
 				class="relative"
 				label={m.notifications_open({ count: notifications.unread })}
-				{...props}
 			>
 				<BellIcon />
 				{#if notifications.unread > 0}
