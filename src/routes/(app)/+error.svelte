@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
+	import SchoolIcon from '@lucide/svelte/icons/school';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import { homePath } from '#lib/roles.js';
@@ -11,6 +12,7 @@
 	const layout = $derived(page.data as LayoutData);
 	const user = $derived(layout.user);
 	const student = $derived(user.role === 'student');
+	const home = $derived(resolvePath(homePath(user.role)));
 
 	/**
 	 * A 404 naming a classroom the person cannot reach. One naming a classroom
@@ -23,21 +25,24 @@
 	);
 </script>
 
+<!-- Whatever went wrong, the page offers the way back to the person's home, their dashboard. -->
+{#snippet goHome()}
+	<Button variant="outline" href={home}>{m.error_go_home()}</Button>
+{/snippet}
+
 {#if unknownClassroom}
-	<ClassroomEmpty
+	<EmptyState
+		icon={SchoolIcon}
 		description={student ? m.classroom_unknown_student() : m.classroom_unknown_staff()}
 	>
-		<Button variant="outline" href={resolvePath(homePath(user.role))}>
-			{student ? m.classroom_back_student() : m.classroom_back_staff()}
-		</Button>
-	</ClassroomEmpty>
+		{@render goHome()}
+	</EmptyState>
 {:else}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Title>{page.status}</Empty.Title>
-			<Empty.Description>
-				{page.status === 404 ? m.error_not_found() : m.error_unexpected()}
-			</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
+	<EmptyState
+		icon={CircleAlertIcon}
+		title={String(page.status)}
+		description={page.status === 404 ? m.error_not_found() : m.error_unexpected()}
+	>
+		{@render goHome()}
+	</EmptyState>
 {/if}

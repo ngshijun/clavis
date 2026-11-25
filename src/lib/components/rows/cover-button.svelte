@@ -4,7 +4,6 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import IconButton from '#lib/components/app/icon-button.svelte';
 	import PicturePicker from '#lib/components/app/picture-picker.svelte';
-	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { postAction } from '#lib/form-actions.js';
@@ -53,15 +52,14 @@
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
-				<Button
+				<IconButton
 					variant="ghost"
-					size="icon-sm"
 					class="shrink-0 rounded-lg p-1"
-					aria-label={m.row_cover_of({ name })}
+					label={m.row_cover_of({ name })}
 					{...props}
 				>
 					<img src={coverUrl} alt="" class="size-full rounded-sm object-cover" />
-				</Button>
+				</IconButton>
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content align="start">

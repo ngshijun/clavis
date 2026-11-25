@@ -14,6 +14,7 @@
 	import type { Classroom } from '#lib/server/classrooms.js';
 	import { cn } from '#lib/utils.js';
 	import Day from './day.svelte';
+	import IconButton from './icon-button.svelte';
 
 	/**
 	 * A teacher's notifications, behind a bell that carries how many they
@@ -42,13 +43,12 @@
 <Popover.Root bind:open>
 	<Popover.Trigger>
 		{#snippet child({ props })}
-			<!-- The trigger's own attributes first: they carry no class, and would take this one away. -->
-			<Button
-				{...props}
+			<IconButton
 				variant="ghost"
 				size="icon"
 				class="relative"
-				aria-label={m.notifications_open({ count: notifications.unread })}
+				label={m.notifications_open({ count: notifications.unread })}
+				{...props}
 			>
 				<BellIcon />
 				{#if notifications.unread > 0}
@@ -59,7 +59,7 @@
 						{notifications.unread}
 					</span>
 				{/if}
-			</Button>
+			</IconButton>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content align="end" class="w-[min(26rem,calc(100vw-2rem))] gap-1 p-2">

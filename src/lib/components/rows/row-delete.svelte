@@ -15,7 +15,7 @@
 </script>
 
 <IconButton
-	variant="destructive"
+	variant="ghost"
 	label={m.action_delete()}
 	class="shrink-0 rounded-lg focus-visible:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100"
 	onclick={() => requestDelete(target)}

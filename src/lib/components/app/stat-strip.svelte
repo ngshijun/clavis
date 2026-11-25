@@ -24,11 +24,15 @@
 	let { stats }: { stats: Stat[] } = $props();
 </script>
 
+<!--
+	The hairlines between the segments are the gaps of the grid, showing what is under it. On a
+	phone the segments stand two to a row, and an odd one out takes the whole of the last row.
+-->
 <Card.Root class="py-0">
-	<dl class="grid divide-y sm:auto-cols-fr sm:grid-flow-col sm:divide-x sm:divide-y-0">
+	<dl class="grid grid-cols-2 gap-px bg-border sm:auto-cols-fr sm:grid-flow-col sm:grid-cols-none">
 		{#each stats as stat (stat.label)}
 			{@const quiet = 'day' in stat ? !stat.day : !stat.value}
-			<div class="flex flex-col gap-1 px-6 py-5">
+			<div class="flex flex-col gap-1 bg-card px-4 py-4 max-sm:last:odd:col-span-2 sm:px-6 sm:py-5">
 				<dt class="text-sm text-muted-foreground">{stat.label}</dt>
 				<dd class={cn('text-3xl font-semibold tabular-nums', quiet && 'text-muted-foreground')}>
 					{#if 'day' in stat}

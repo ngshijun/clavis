@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -10,7 +11,8 @@
 	/**
 	 * A row's name, renamed where it stands: click it, type, and Enter or
 	 * clicking away saves. Escape, or leaving it empty or unchanged, puts the
-	 * old name back.
+	 * old name back. A pencil beside it says it can be: with a mouse on the row
+	 * being pointed at, and always on a touch screen or under the keyboard's focus.
 	 */
 	let {
 		kind,
@@ -124,5 +126,9 @@
 		}}
 	>
 		{name}
+		<PencilIcon
+			class="size-3.5 text-muted-foreground group-focus-visible/button:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100"
+			aria-hidden="true"
+		/>
 	</Button>
 {/if}

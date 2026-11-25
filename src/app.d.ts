@@ -18,6 +18,11 @@ declare global {
 			trail?: { label: string; href: string }[];
 			/** What a detail page is showing, by name: the last crumb of the breadcrumb. */
 			title?: string;
+			/**
+			 * Whether the page lays itself out across the whole window: a grid of cards, a
+			 * dashboard, a builder. Every other page is held to a column a line reads well at.
+			 */
+			wide?: boolean;
 		}
 	}
 }

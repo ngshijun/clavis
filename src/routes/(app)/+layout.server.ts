@@ -6,7 +6,7 @@ import type { LayoutServerLoad } from './$types';
 
 /**
  * The person and the classrooms they can reach, for every signed-in page: the
- * sidebar names the active classroom from this list and the pickers show it.
+ * sidebar names the active classroom from this list and a dashboard is of it.
  * With them comes what is waiting for the person: a teacher's notifications,
  * and how much a student has yet to do in each classroom.
  *
