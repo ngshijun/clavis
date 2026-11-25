@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fail, type Action } from '@sveltejs/kit';
+import * as z from 'zod';
 import type { Database } from '#lib/database.types.js';
+import { m } from '#lib/paraglide/messages.js';
+import { formValues, unexpected } from '#lib/server/forms.js';
 
 type Supabase = SupabaseClient<Database>;
 
@@ -72,6 +76,28 @@ export async function listAssignments(
 	return data.map(toAssignment);
 }
 
+/** A stage assigned to a student, as they read it: of who it was given to, only that they were. */
+export type OwnAssignment = Omit<Assignment, 'students'> & {
+	/** When they did it; null until then. */
+	doneAt: string | null;
+};
+
+/**
+ * What a student has been assigned in some of their classrooms, or in every
+ * one of them for null, the latest first.
+ */
+export async function listOwnAssignments(
+	supabase: Supabase,
+	studentId: string,
+	classroomIds: string[] | null
+): Promise<OwnAssignment[]> {
+	const assignments = await listAssignments(supabase, classroomIds);
+	return assignments.map(({ students, ...assignment }) => ({
+		...assignment,
+		doneAt: students.find((student) => student.studentId === studentId)?.doneAt ?? null
+	}));
+}
+
 /** One assignment of a classroom with the name of whoever assigned it, or null when the classroom has no such assignment. */
 export async function getAssignment(
 	supabase: Supabase,
@@ -94,7 +120,7 @@ export async function getAssignment(
  * teacher. The database refuses unless they teach the classroom, the stage
  * can be practised there and every student named is a student of it.
  */
-export async function assignStage(
+async function assignStage(
 	supabase: Supabase,
 	assignment: { classroomId: string; stageId: string; studentIds: string[]; dueAt: string | null }
 ): Promise<void> {
@@ -107,6 +133,47 @@ export async function assignStage(
 	});
 	if (error) throw error;
 }
+
+const assignSchema = z.object({
+	stageId: z.guid(),
+	studentIds: z.array(z.guid()).min(1),
+	// The end of the due day where the teacher is, which only their browser knows.
+	dueAt: z.iso.datetime().optional()
+});
+
+/**
+ * The form action `assign` of a page that assigns in the classroom of its
+ * address: a stage to some of the classroom's students. The database checks
+ * the rest: that the caller teaches the classroom, that the stage can be
+ * practised there and that every student named is one of its own.
+ */
+export const assignAction: Action<{ classroomId: string }> = async ({
+	request,
+	locals,
+	params
+}) => {
+	const form = await request.formData();
+	const parsed = assignSchema.safeParse({
+		...formValues(form),
+		studentIds: form.getAll('studentId')
+	});
+	if (!parsed.success) return fail(400, { message: m.error_unexpected() });
+	const { stageId, studentIds, dueAt = null } = parsed.data;
+	if (dueAt && Date.parse(dueAt) <= Date.now()) {
+		return fail(400, { message: m.assignment_due_past() });
+	}
+
+	try {
+		await assignStage(locals.supabase, {
+			classroomId: params.classroomId,
+			stageId,
+			studentIds,
+			dueAt
+		});
+	} catch (cause) {
+		return unexpected(cause);
+	}
+};
 
 /**
  * Deletes an assignment of a classroom. The students' practice is left as it

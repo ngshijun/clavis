@@ -1,26 +1,24 @@
 <script lang="ts">
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Day from '#lib/components/app/day.svelte';
+	import PersonRow from '#lib/components/app/person-row.svelte';
+	import Score from '#lib/components/runner/score.svelte';
 	import type { Stop } from '#lib/components/runner/stage-path.svelte';
 	import StarsRow from '#lib/components/runner/stars.svelte';
-	import * as Avatar from '#lib/components/ui/avatar/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
-	import { initials } from '#lib/initials.js';
 	import { tallyOf, type Standing } from '#lib/items/progress.js';
-	import { markFigure } from '#lib/items/run.js';
 	import { starTargets, type Stars } from '#lib/items/stars.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
 	import ClassBar from './class-bar.svelte';
 
 	/**
-	 * One stage as a teacher reads it, laid out as the dialog a student is
-	 * shown before a run. On one side is the class as a whole: how many have
+	 * One stage as a classroom's staff read it, laid out as the dialog a
+	 * student is shown before a run. On one side is the class as a whole: how many have
 	 * practised the stage, and how many stand at each star, with what the star
 	 * takes in the stage's own marks. On the other is every student of the
-	 * classroom with their best. A student's row leads to their page, and
-	 * the stage can be assigned from here.
+	 * classroom with their best. A student's row leads to their page, and a
+	 * teacher can assign the stage from here.
 	 *
 	 * A 26px dialog with an 8px inset, so the pane of students has 18px
 	 * corners; it insets 8px in turn, which leaves 10px for a row.
@@ -35,8 +33,12 @@
 		stop: Stop;
 		/** Every student of the classroom: where they stand on the stage, and their page. */
 		rows: { id: string; name: string; standing: Standing | undefined; href: string }[];
-		/** Called when the stage is to be assigned. The page closes this dialog and opens the one that assigns. */
-		onassign: () => void;
+		/**
+		 * Called when the stage is to be assigned: the page closes this dialog and opens the one
+		 * that assigns. Left out when it cannot be: the reader does not assign, or nobody is in
+		 * the classroom to assign it to.
+		 */
+		onassign?: () => void;
 	} = $props();
 
 	const total = $derived(stop.stage.questionCount);
@@ -53,6 +55,11 @@
 	]);
 
 	const caption = 'text-xs font-semibold tracking-widest text-muted-foreground uppercase';
+	/**
+	 * A row of the pane: a white one on the pane's grey, with the 10px corners
+	 * its inset leaves, and kept to one line, as the pane is never wide.
+	 */
+	const paneRow = 'min-h-13 flex-nowrap rounded-lg bg-card px-3 hover:bg-accent active:bg-accent';
 </script>
 
 {#snippet line(count: number, marks: string, stars?: Stars)}
@@ -107,43 +114,19 @@
 				<h3 class={cn(caption, 'px-2 pt-2')}>{m.section_students()}</h3>
 				<ul class="flex max-h-88 flex-col gap-1 overflow-y-auto">
 					{#each rows as row (row.id)}
-						<li>
-							<a
-								href={row.href}
-								class="flex min-h-13 items-center gap-3 rounded-lg bg-card px-3 py-2 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
-							>
-								<Avatar.Root>
-									<Avatar.Fallback>{initials(row.name)}</Avatar.Fallback>
-								</Avatar.Root>
-								<span class="grid min-w-0 flex-1 leading-snug">
-									<span class="truncate font-medium">{row.name}</span>
-									<span class="truncate text-xs text-muted-foreground">
-										{#if row.standing}
-											{m.count_attempts({ count: row.standing.attempts })} ·
-											<Day at={row.standing.last} />
-										{:else}
-											{m.stars_not_practised()}
-										{/if}
-									</span>
-								</span>
+						<PersonRow name={row.name} href={row.href} class={paneRow}>
+							{#snippet detail()}
 								{#if row.standing}
-									{@const best = row.standing.best}
-									<span class="font-semibold tabular-nums">
-										<span class="sr-only">
-											{m.stars_score({ marks: markFigure(best.marks), total: best.total })}
-										</span>
-										<span aria-hidden="true">{markFigure(best.marks)}/{best.total}</span>
-									</span>
+									{m.count_attempts({ count: row.standing.attempts })} ·
+									<Day at={row.standing.last} />
 								{:else}
-									<span class="text-muted-foreground" aria-hidden="true">—</span>
+									{m.stars_not_practised()}
 								{/if}
-								<StarsRow count={row.standing?.stars ?? 0} />
-								<ChevronRightIcon
-									class="size-4 shrink-0 text-muted-foreground"
-									aria-hidden="true"
-								/>
-							</a>
-						</li>
+							{/snippet}
+							{#snippet tail()}
+								<Score score={row.standing?.best} />
+							{/snippet}
+						</PersonRow>
 					{/each}
 				</ul>
 			</section>
@@ -155,8 +138,7 @@
 					<Button variant="outline" {...props}>{m.action_close()}</Button>
 				{/snippet}
 			</Dialog.Close>
-			<!-- With nobody in the classroom there is nobody to assign it to. -->
-			{#if rows.length > 0}
+			{#if onassign}
 				<Button onclick={onassign}>{m.assignment_assign()}</Button>
 			{/if}
 		</Dialog.Footer>

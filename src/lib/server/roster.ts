@@ -11,8 +11,8 @@ import { unexpected } from '#lib/server/forms.js';
 type RosterAction = Action<{ classroomId: string }>;
 
 /**
- * The form actions of one of a classroom's two lists, for the page that
- * shows it. The classroom is the one in the address. Whether the caller may
+ * The form actions of one of a classroom's two lists, for a page that
+ * changes it. The classroom is the one in the address. Whether the caller may
  * change its roster is the database's to say: only a manager of the
  * classroom's organization may, and only while it is live.
  */

@@ -4,21 +4,22 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import SearchIcon from '@lucide/svelte/icons/search';
+	import SchoolIcon from '@lucide/svelte/icons/school';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { toast } from 'svelte-sonner';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
+	import IconButton from '#lib/components/app/icon-button.svelte';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
+	import SearchField from '#lib/components/app/search-field.svelte';
 	import Segmented from '#lib/components/app/segmented.svelte';
 	import { coverGrid } from '#lib/components/app/cover-card.svelte';
 	import ClassroomCard from '#lib/components/classrooms/classroom-card.svelte';
-	import ClassroomEmpty from '#lib/components/classrooms/classroom-empty.svelte';
 	import ClassroomFormDialog from '#lib/components/classrooms/classroom-form-dialog.svelte';
 	import type { NamedRow } from '#lib/components/rows/context.js';
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
 	import { LONG_TOAST, settle } from '#lib/components/rows/feedback.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
-	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { postAction } from '#lib/form-actions.js';
 	import { classroomPath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -29,8 +30,8 @@
 	/**
 	 * The manager's classroom list, grade level by grade level in the
 	 * curriculum's order. Opening a classroom is the card's own click and leads
-	 * to its roster, which is what a manager comes here for; the rare actions
-	 * are in the More menu on the card.
+	 * to what has been assigned there, as it does for its teachers; the rare
+	 * actions are in the More menu on the card.
 	 *
 	 * Archived classrooms are a second list, offered once there is one. Only
 	 * managers see them, and one can only be restored or deleted. Deleting is
@@ -118,17 +119,7 @@
 {/snippet}
 
 <PageToolbar>
-	<InputGroup.Root class="me-auto w-80 max-w-full">
-		<InputGroup.Addon>
-			<SearchIcon />
-		</InputGroup.Addon>
-		<InputGroup.Input
-			bind:value={search}
-			type="search"
-			aria-label={m.classrooms_search_placeholder()}
-			placeholder={m.classrooms_search_placeholder()}
-		/>
-	</InputGroup.Root>
+	<SearchField bind:value={search} placeholder={m.classrooms_search_placeholder()} />
 	{#if anyArchived}
 		<Segmented bind:value={chosenShelf} options={shelves} label={m.classrooms_shelf_label()} />
 	{/if}
@@ -138,14 +129,15 @@
 {#if visible.length === 0}
 	{#if search}
 		<!-- The search field above is the way out, so a search with no match offers no button. -->
-		<ClassroomEmpty description={m.classrooms_no_match()} />
+		<EmptyState icon={SchoolIcon} description={m.classrooms_no_match()} />
 	{:else}
-		<ClassroomEmpty
+		<EmptyState
+			icon={SchoolIcon}
 			title={m.classrooms_empty_title()}
 			description={m.classrooms_empty_description()}
 		>
 			{@render addClassroom()}
-		</ClassroomEmpty>
+		</EmptyState>
 	{/if}
 {:else}
 	<div class="flex flex-col gap-6">
@@ -159,14 +151,9 @@
 								<DropdownMenu.Root>
 									<DropdownMenu.Trigger>
 										{#snippet child({ props })}
-											<Button
-												variant="secondary"
-												size="icon-sm"
-												aria-label={m.action_more()}
-												{...props}
-											>
+											<IconButton variant="secondary" label={m.action_more()} {...props}>
 												<EllipsisIcon />
-											</Button>
+											</IconButton>
 										{/snippet}
 									</DropdownMenu.Trigger>
 									<DropdownMenu.Content align="end">

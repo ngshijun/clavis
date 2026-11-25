@@ -14,7 +14,10 @@ export interface Organization {
 	name: string;
 }
 
-/** An organization with how much is in it: its accounts of each kind and its classrooms, archived ones too. */
+/**
+ * An organization with how much is in it: its open accounts of each kind,
+ * and its classrooms, archived ones too.
+ */
 export interface OrganizationSummary extends Organization {
 	managerCount: number;
 	teacherCount: number;
@@ -26,14 +29,29 @@ export interface OrganizationManager {
 	id: string;
 	name: string;
 	email: string;
+	/** When the account was closed; null while it is open. */
+	closedAt: string | null;
 }
 
 /**
  * The counts are made by the database, one for each role, so no account is
- * read to be counted.
+ * read to be counted. A closed account is counted by none.
  */
 const SUMMARY = `id, name, managers:profiles (count), teachers:profiles (count),
 	students:profiles (count), classrooms (count)`;
+
+/** The organizations, each with what is in it. */
+function summaries(supabase: Supabase) {
+	return supabase
+		.from('organizations')
+		.select(SUMMARY)
+		.eq('managers.user_type', 'manager')
+		.is('managers.closed_at', null)
+		.eq('teachers.user_type', 'teacher')
+		.is('teachers.closed_at', null)
+		.eq('students.user_type', 'student')
+		.is('students.closed_at', null);
+}
 
 type Counted = { count: number }[];
 
@@ -57,13 +75,7 @@ function toSummary(row: {
 
 /** Every organization, by name, each with what is in it. Only an admin is shown them all. */
 export async function listOrganizations(supabase: Supabase): Promise<OrganizationSummary[]> {
-	const { data, error } = await supabase
-		.from('organizations')
-		.select(SUMMARY)
-		.eq('managers.user_type', 'manager')
-		.eq('teachers.user_type', 'teacher')
-		.eq('students.user_type', 'student')
-		.order('name');
+	const { data, error } = await summaries(supabase).order('name');
 	if (error) throw error;
 
 	return data.map(toSummary);
@@ -74,14 +86,7 @@ export async function getOrganization(
 	supabase: Supabase,
 	organizationId: string
 ): Promise<OrganizationSummary | null> {
-	const { data, error } = await supabase
-		.from('organizations')
-		.select(SUMMARY)
-		.eq('managers.user_type', 'manager')
-		.eq('teachers.user_type', 'teacher')
-		.eq('students.user_type', 'student')
-		.eq('id', organizationId)
-		.maybeSingle();
+	const { data, error } = await summaries(supabase).eq('id', organizationId).maybeSingle();
 	if (error) throw error;
 
 	return data ? toSummary(data) : null;
@@ -152,18 +157,18 @@ export async function deleteOrganization(
 	}
 }
 
-/** An organization's managers, by name. */
+/** An organization's managers, by name, those whose account is closed too. */
 export async function listOrganizationManagers(
 	supabase: Supabase,
 	organizationId: string
 ): Promise<OrganizationManager[]> {
 	const { data, error } = await supabase
 		.from('profiles')
-		.select('id, name, email')
+		.select('id, name, email, closed_at')
 		.eq('user_type', 'manager')
 		.eq('organization_id', organizationId)
 		.order('name');
 	if (error) throw error;
 
-	return data;
+	return data.map(({ closed_at, ...manager }) => ({ ...manager, closedAt: closed_at }));
 }

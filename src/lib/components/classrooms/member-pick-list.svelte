@@ -8,12 +8,11 @@
 </script>
 
 <script lang="ts">
-	import SearchIcon from '@lucide/svelte/icons/search';
+	import SearchField from '#lib/components/app/search-field.svelte';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
-	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { ScrollArea } from '#lib/components/ui/scroll-area/index.js';
 
 	/** A searchable list of people to tick. The selection belongs to the parent. */
@@ -53,17 +52,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<InputGroup.Root>
-		<InputGroup.Addon>
-			<SearchIcon />
-		</InputGroup.Addon>
-		<InputGroup.Input
-			bind:value={search}
-			type="search"
-			aria-label={searchPlaceholder}
-			placeholder={searchPlaceholder}
-		/>
-	</InputGroup.Root>
+	<SearchField bind:value={search} placeholder={searchPlaceholder} class="w-full" />
 
 	<!-- An 18px box with an 8px inset. -->
 	<ScrollArea class="max-h-64 rounded-2xl border">

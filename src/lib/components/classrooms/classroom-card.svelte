@@ -8,9 +8,8 @@
 	import type { Classroom } from '#lib/server/classrooms.js';
 
 	/**
-	 * One classroom as a card, shared by the manager's list, the teacher's
-	 * dashboard and the student's classrooms so a cover uploaded once is seen
-	 * everywhere.
+	 * One classroom as a card in the manager's list: its cover, what it
+	 * teaches, who teaches it and how many students it has.
 	 */
 	let {
 		classroom,

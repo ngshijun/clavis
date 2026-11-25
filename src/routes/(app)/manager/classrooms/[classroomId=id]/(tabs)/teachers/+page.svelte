@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ClassroomRoster from '#lib/components/classrooms/classroom-roster.svelte';
+	import TeacherRoster from '#lib/components/classrooms/teacher-roster.svelte';
 	import type { ClassroomTeacher } from '#lib/server/classrooms.js';
 	import type { PageProps } from './$types';
 
@@ -12,8 +12,7 @@
 	});
 </script>
 
-<ClassroomRoster
-	kind="teachers"
+<TeacherRoster
 	classroom={data.classroom}
 	members={data.teachers.map(row)}
 	candidates={data.candidates.map(row)}

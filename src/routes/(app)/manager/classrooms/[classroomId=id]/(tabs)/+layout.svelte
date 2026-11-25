@@ -6,6 +6,12 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LayoutProps } from './$types';
 
+	/**
+	 * The classroom's pages, under its banner. A manager reads what its
+	 * teachers read and keeps its two rosters; archived, it is only read. A
+	 * student's finished practice sits outside this group: it is the only
+	 * thing on its page.
+	 */
 	let { data, children }: LayoutProps = $props();
 </script>
 

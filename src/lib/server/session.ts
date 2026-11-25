@@ -31,7 +31,9 @@ export function signedIn(locals: App.Locals): SessionUser {
 }
 
 /**
- * The person behind the request's session cookie, or null for a visitor.
+ * The person behind the request's session cookie, or null for a visitor. A
+ * closed account is a visitor: the token it was handed may run a little
+ * longer, and the app refuses it at once.
  *
  * `getClaims` verifies the token rather than trusting the cookie, so the id
  * used below is one the auth server vouches for.
@@ -46,7 +48,7 @@ export async function loadSessionUser(
 	const { data: profile, error: profileError } = await supabase
 		.from('profiles')
 		.select(
-			`id, email, name, user_type, avatar_path, organization_id, organizations (name),
+			`id, email, name, user_type, avatar_path, organization_id, closed_at, organizations (name),
 			student_profiles!student_profiles_id_fkey (username)`
 		)
 		.eq('id', userId)
@@ -56,7 +58,7 @@ export async function loadSessionUser(
 		console.error(profileError);
 		error(500, 'Could not load the account');
 	}
-	if (!profile) return null;
+	if (!profile || profile.closed_at) return null;
 
 	return {
 		id: profile.id,

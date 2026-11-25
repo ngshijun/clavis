@@ -35,6 +35,7 @@ export interface ClassroomStudent {
 	id: string;
 	name: string;
 	username: string | null;
+	gradeLevelId: string | null;
 	gradeLevelName: string | null;
 }
 
@@ -44,9 +45,17 @@ export interface ClassroomTeacher {
 	email: string;
 }
 
-/** Someone of the organization, with how many classrooms they are in. */
-export type OrganizationStudent = ClassroomStudent & { classroomCount: number };
-export type OrganizationTeacher = ClassroomTeacher & { classroomCount: number };
+/**
+ * Someone of the organization, with how many classrooms they are in and when
+ * their account was closed: null while it is open. A closed account is in no
+ * classroom and can join none.
+ */
+interface Membership {
+	classroomCount: number;
+	closedAt: string | null;
+}
+export type OrganizationStudent = ClassroomStudent & Membership;
+export type OrganizationTeacher = ClassroomTeacher & Membership;
 
 /** The two lists a classroom keeps. */
 export const MEMBER_KINDS = ['students', 'teachers'] as const;
@@ -156,11 +165,12 @@ export async function listGradeLevels(supabase: Supabase): Promise<GradeLevelOpt
 }
 
 const STUDENT_COLUMNS =
-	'id, username, grade_levels (name), profiles!student_profiles_id_fkey (name)';
+	'id, username, grade_level_id, grade_levels (name), profiles!student_profiles_id_fkey (name, closed_at)';
 
 function toStudent(row: {
 	id: string;
 	username: string | null;
+	grade_level_id: string | null;
 	grade_levels: { name: string } | null;
 	profiles: { name: string };
 }): ClassroomStudent {
@@ -168,6 +178,7 @@ function toStudent(row: {
 		id: row.id,
 		name: row.profiles.name,
 		username: row.username,
+		gradeLevelId: row.grade_level_id,
 		gradeLevelName: row.grade_levels?.name ?? null
 	};
 }
@@ -215,7 +226,7 @@ export async function listClassroomTeachers(
 	return data.map((row) => row.profiles).sort(byName);
 }
 
-/** Every student of the caller's organization: any of them can join a classroom. */
+/** Every student of the caller's organization, those whose account is closed too. */
 export async function listOrganizationStudents(supabase: Supabase): Promise<OrganizationStudent[]> {
 	const { data, error } = await supabase
 		.from('student_profiles')
@@ -223,9 +234,15 @@ export async function listOrganizationStudents(supabase: Supabase): Promise<Orga
 	if (error) throw error;
 
 	return data
-		.map((row) => ({ ...toStudent(row), classroomCount: row.classroom_students[0]?.count ?? 0 }))
+		.map((row) => ({
+			...toStudent(row),
+			classroomCount: row.classroom_students[0]?.count ?? 0,
+			closedAt: row.profiles.closed_at
+		}))
 		.sort(byName);
 }
+
+/** Every teacher of an organization, those whose account is closed too. */
 
 export async function listOrganizationTeachers(
 	supabase: Supabase,
@@ -233,15 +250,16 @@ export async function listOrganizationTeachers(
 ): Promise<OrganizationTeacher[]> {
 	const { data, error } = await supabase
 		.from('profiles')
-		.select('id, name, email, classroom_teachers (count)')
+		.select('id, name, email, closed_at, classroom_teachers (count)')
 		.eq('user_type', 'teacher')
 		.eq('organization_id', organizationId)
 		.order('name');
 	if (error) throw error;
 
-	return data.map(({ classroom_teachers, ...teacher }) => ({
+	return data.map(({ classroom_teachers, closed_at, ...teacher }) => ({
 		...teacher,
-		classroomCount: classroom_teachers[0]?.count ?? 0
+		classroomCount: classroom_teachers[0]?.count ?? 0,
+		closedAt: closed_at
 	}));
 }
 

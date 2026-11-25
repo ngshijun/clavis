@@ -6,23 +6,26 @@
 	import FormRefusal from '#lib/components/app/form-refusal.svelte';
 	import Segmented from '#lib/components/app/segmented.svelte';
 	import { settleForm } from '#lib/components/rows/feedback.js';
-	import type { Stop } from '#lib/components/runner/stage-path.svelte';
-	import StarsRow from '#lib/components/runner/stars.svelte';
+	import Score from '#lib/components/runner/score.svelte';
+	import { stopsOf, type Stop } from '#lib/components/runner/stage-path.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { dateField, endOfDay } from '#lib/dates.js';
 	import type { Standing } from '#lib/items/progress.js';
-	import { markFigure } from '#lib/items/run.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { TopicStages } from '#lib/server/practice.js';
 
 	/**
 	 * A stage being assigned: to the whole class or to chosen students, each
 	 * shown with their best so far so that the ones who need it are easy to
-	 * pick, with or without a due date. It posts to the page's `assign` action.
+	 * pick, with or without a due date. Opened from a stage it assigns that
+	 * one; opened from a page's own button it asks which first. It posts to
+	 * the page's `assign` action.
 	 *
 	 * Mounted while it is needed and unmounted once it has closed, so every
 	 * opening starts afresh.
@@ -32,12 +35,19 @@
 	 */
 	let {
 		stop,
-		rows,
+		topics,
+		students,
+		standings,
 		onclosed
 	}: {
-		stop: Stop;
-		/** Every student of the classroom, with where they stand on the stage. */
-		rows: { id: string; name: string; standing: Standing | undefined }[];
+		/** The stage to assign. Left out, the dialog asks for one of the classroom's. */
+		stop?: Stop;
+		/** The stages the classroom can practise, topic by topic. */
+		topics: TopicStages[];
+		/** Every student of the classroom. */
+		students: { id: string; name: string }[];
+		/** Where each student stands on each stage they have practised, by the student's id and then the stage's. */
+		standings: Record<string, Record<string, Standing>>;
 		onclosed: () => void;
 	} = $props();
 
@@ -45,13 +55,21 @@
 	let submitting = $state(false);
 	let refusal = $state<string | null>(null);
 
-	let to = $state<'class' | 'chosen'>('class');
-	// Choosing starts from the students short of three stars: the ones the stage has more to give.
-	const ticked = new SvelteSet(
-		untrack(() => rows)
-			.filter((row) => (row.standing?.stars ?? 0) < 3)
-			.map((row) => row.id)
+	const stops = $derived(stopsOf(topics));
+	let stageId = $state(untrack(() => stop?.stage.id ?? ''));
+	const picked = $derived(stops[stageId]);
+	const rows = $derived(
+		students.map((student) => ({ ...student, standing: standings[student.id]?.[stageId] }))
 	);
+
+	let to = $state<'class' | 'chosen'>('class');
+	// Choosing starts from the students short of three stars on the stage: the ones it has more to give.
+	const ticked = new SvelteSet<string>();
+	function tickForStage() {
+		ticked.clear();
+		for (const row of rows) if ((row.standing?.stars ?? 0) < 3) ticked.add(row.id);
+	}
+	untrack(tickForStage);
 	const given = $derived(to === 'class' ? rows : rows.filter((row) => ticked.has(row.id)));
 
 	let due = $state('');
@@ -66,12 +84,16 @@
 <Dialog.Root bind:open onOpenChangeComplete={(isOpen) => !isOpen && onclosed()}>
 	<Dialog.Content class="max-h-[calc(100svh-2rem)] gap-2 overflow-y-auto p-2 sm:max-w-lg">
 		<Dialog.Header class="px-4 pe-10 pt-4">
-			<span class="text-xs font-semibold text-primary">{m.assignment_kicker()}</span>
-			<Dialog.Title class="leading-snug">{stop.stage.name}</Dialog.Title>
-			<Dialog.Description>
-				{m.practice_stage_number({ n: stop.number })} ·
-				{m.count_questions({ count: stop.stage.questionCount })} · {stop.topic.name}
-			</Dialog.Description>
+			{#if stop}
+				<span class="text-xs font-semibold text-primary">{m.assignment_kicker()}</span>
+				<Dialog.Title class="leading-snug">{stop.stage.name}</Dialog.Title>
+				<Dialog.Description>
+					{m.practice_stage_number({ n: stop.number })} ·
+					{m.count_questions({ count: stop.stage.questionCount })} · {stop.topic.name}
+				</Dialog.Description>
+			{:else}
+				<Dialog.Title>{m.assignment_kicker()}</Dialog.Title>
+			{/if}
 		</Dialog.Header>
 
 		<form
@@ -102,13 +124,41 @@
 				};
 			}}
 		>
-			<input type="hidden" name="stageId" value={stop.stage.id} />
+			<input type="hidden" name="stageId" value={stageId} />
 			{#each given as row (row.id)}
 				<input type="hidden" name="studentId" value={row.id} />
 			{/each}
 
 			<Field.FieldGroup class="px-4 py-2">
 				<FormRefusal message={refusal} />
+				{#if !stop}
+					<Field.Field>
+						<Field.FieldLabel for="assignment-stage">{m.assignment_stage_label()}</Field.FieldLabel>
+						<Select.Root type="single" bind:value={stageId} onValueChange={tickForStage}>
+							<Select.Trigger id="assignment-stage" class="w-full">
+								{#if picked}
+									<!-- With its topic, since two topics may each have a stage of one name. -->
+									<span class="truncate">
+										{picked.stage.name}
+										<span class="text-muted-foreground">· {picked.topic.name}</span>
+									</span>
+								{:else}
+									<span class="text-muted-foreground">{m.assignment_stage_placeholder()}</span>
+								{/if}
+							</Select.Trigger>
+							<Select.Content>
+								{#each topics as topic (topic.id)}
+									<Select.Group>
+										<Select.GroupHeading>{topic.name}</Select.GroupHeading>
+										{#each topic.stages as each (each.id)}
+											<Select.Item value={each.id} label={each.name} />
+										{/each}
+									</Select.Group>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+				{/if}
 				<Field.FieldSet>
 					<Field.FieldLegend variant="label">{m.assignment_to()}</Field.FieldLegend>
 					<Segmented
@@ -138,14 +188,8 @@
 										/>
 										<span class="min-w-0 flex-1 truncate font-medium">{row.name}</span>
 										{#if row.standing}
-											<span class="text-xs text-muted-foreground tabular-nums">
-												{m.assignment_best({
-													marks: markFigure(row.standing.best.marks),
-													total: row.standing.best.total
-												})}
-											</span>
-											<StarsRow count={row.standing.stars} />
-										{:else}
+											<Score score={row.standing.best} />
+										{:else if picked}
 											<span class="text-xs text-muted-foreground">{m.stars_not_practised()}</span>
 										{/if}
 									</label>
@@ -186,7 +230,7 @@
 				>
 					{m.action_cancel()}
 				</Button>
-				<Button type="submit" disabled={submitting || given.length === 0}>
+				<Button type="submit" disabled={submitting || !picked || given.length === 0}>
 					{#if submitting}
 						<Spinner data-icon="inline-start" />
 					{/if}

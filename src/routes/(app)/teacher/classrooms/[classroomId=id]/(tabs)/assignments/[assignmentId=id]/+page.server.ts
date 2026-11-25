@@ -1,61 +1,15 @@
-import { error, fail, redirect } from '@sveltejs/kit';
-import { sinceAssigned } from '#lib/items/assignments.js';
-import { bestOf } from '#lib/items/stars.js';
+import { fail, redirect } from '@sveltejs/kit';
 import { classroomPath } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
 import { resolvePath } from '#lib/paths.js';
-import { deleteAssignment, getAssignment } from '#lib/server/assignments.js';
-import { listClassroomStudents } from '#lib/server/classrooms.js';
+import { deleteAssignment } from '#lib/server/assignments.js';
 import { unexpected } from '#lib/server/forms.js';
-import { classroomPractice } from '#lib/server/run.js';
+import { readAssignment } from '#lib/server/staff.js';
 import type { Actions, PageServerLoad } from './$types';
 
-/**
- * One assignment of a classroom: every student it was given to, with when
- * they did it and the best they have scored on its stage since it was
- * assigned. Practice from before it was assigned does not count towards it.
- */
-export const load: PageServerLoad = async ({ locals, params }) => {
-	const [assignment, practice, students] = await Promise.all([
-		getAssignment(locals.supabase, params.classroomId, params.assignmentId),
-		classroomPractice(locals.supabase, params.classroomId),
-		listClassroomStudents(locals.supabase, params.classroomId)
-	]);
-	if (!assignment) error(404, 'Assignment not found');
-
-	const topic = practice.topics.find((each) =>
-		each.stages.some((stage) => stage.id === assignment.stageId)
-	);
-	const stage = topic?.stages.find((each) => each.id === assignment.stageId);
-	if (!topic || !stage) error(404, 'Assignment not found');
-
-	const given = new Map(assignment.students.map((student) => [student.studentId, student.doneAt]));
-	// In the roster's order, which is by name: those who have done it, then those who have yet to.
-	const rows = students
-		.filter((student) => given.has(student.id))
-		.map((student) => ({
-			id: student.id,
-			name: student.name,
-			doneAt: given.get(student.id) ?? null,
-			best:
-				bestOf(
-					sinceAssigned(practice.attempts[student.id]?.[stage.id] ?? [], assignment.assignedAt)
-				) ?? null
-		}))
-		.sort((a, b) => Number(b.doneAt !== null) - Number(a.doneAt !== null));
-
-	return {
-		assignment: {
-			assignedAt: assignment.assignedAt,
-			assignedBy: assignment.assignedBy,
-			dueAt: assignment.dueAt
-		},
-		stage,
-		topic: { name: topic.name },
-		rows,
-		title: stage.name
-	};
-};
+/** One assignment of a classroom, with every student it was given to. */
+export const load: PageServerLoad = ({ locals, params }) =>
+	readAssignment(locals.supabase, params.classroomId, params.assignmentId);
 
 export const actions: Actions = {
 	/**

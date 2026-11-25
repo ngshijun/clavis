@@ -4,14 +4,21 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import type { ClassroomSummary } from '#lib/items/dashboard.js';
-	import { classroomPath } from '#lib/navigation.js';
+	import { classroomPath, type StaffRole } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import type { Classroom } from '#lib/server/classrooms.js';
 	import { percent } from './percent.js';
 
-	/** Each of the teacher's classrooms in a row, with how it is doing. */
-	let { rows }: { rows: { classroom: Classroom; summary: ClassroomSummary }[] } = $props();
+	/** Each of the classrooms in a row, with how it is doing. A row's name opens the classroom. */
+	let {
+		role,
+		rows
+	}: {
+		/** Whose pages the classrooms open on. */
+		role: StaffRole;
+		rows: { classroom: Classroom; summary: ClassroomSummary }[];
+	} = $props();
 
 	// A figure's heading may take two lines, so that every column fits beside the classroom's name.
 	const figure = 'w-24 text-end leading-tight whitespace-normal';
@@ -45,7 +52,7 @@
 						-->
 						<Table.Cell class="lg:w-full lg:max-w-0">
 							<a
-								href={resolvePath(classroomPath('teacher', classroom.id))}
+								href={resolvePath(classroomPath(role, classroom.id))}
 								class="flex max-w-64 min-w-48 items-center gap-2.5 rounded-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:max-w-none"
 							>
 								<Cover

@@ -18,7 +18,9 @@ import {
  * `set-password` functions, done with a key this server never holds: each
  * reads who is asking from their session and decides what they may do. The
  * limits checked here are the functions' own, so a form is told what is wrong
- * in words before a function is asked.
+ * in words before a function is asked. Putting right a name or a grade level
+ * is a plain update, which row level security lets the same people make.
+ * Closing an account and opening it again are the database's own function.
  */
 
 const name = z
@@ -107,6 +109,80 @@ export async function resetPassword(supabase: SupabaseClient<Database>, form: Fo
 
 	const { error } = await supabase.functions.invoke('set-password', {
 		body: { userId: parsed.data.personId, password: parsed.data.password }
+	});
+	if (error) return unexpected(error);
+}
+
+/** What can be put right on an account once it is open. A username and an email are what it signs in with, and stay. */
+const edits: Record<'student' | 'teacher' | 'manager', z.ZodType<Record<string, string>>> = {
+	student: z.object({
+		personId: z.guid(),
+		name,
+		gradeLevelId: z.guid({ error: () => m.form_grade_required() })
+	}),
+	teacher: z.object({ personId: z.guid(), name }),
+	manager: z.object({ personId: z.guid(), name })
+};
+
+/**
+ * Puts right the name of someone whose account the caller could have opened,
+ * and a student's grade level, from a posted form naming them as `personId`.
+ * It answers as a form action does: nothing when it was done, and otherwise a
+ * failure carrying the fields to put right.
+ */
+export async function updatePerson(
+	supabase: SupabaseClient<Database>,
+	role: keyof typeof edits,
+	form: FormData
+) {
+	const parsed = edits[role].safeParse(formValues(form));
+	if (!parsed.success) {
+		return fail(400, { errors: z.flattenError(parsed.error).fieldErrors });
+	}
+	const { personId, name: newName, gradeLevelId } = parsed.data;
+
+	// Row level security hides a row it will not let you change rather than raising, so an
+	// update that touched nothing is a failure, not a success.
+	const { data: renamed, error } = await supabase
+		.from('profiles')
+		.update({ name: newName })
+		.eq('id', personId)
+		.eq('user_type', role)
+		.select('id');
+	if (error) return unexpected(error);
+	if (renamed.length === 0) return unexpected(new Error(`Profile ${personId} was not updated`));
+
+	if (role === 'student') {
+		const { data: moved, error: gradeError } = await supabase
+			.from('student_profiles')
+			.update({ grade_level_id: gradeLevelId })
+			.eq('id', personId)
+			.select('id');
+		// 23503: the grade level named is not one there is.
+		if (gradeError?.code === '23503') {
+			return fail(400, { errors: { gradeLevelId: [m.form_grade_required()] } });
+		}
+		if (gradeError) return unexpected(gradeError);
+		if (moved.length === 0) return unexpected(new Error(`Student ${personId} was not updated`));
+	}
+}
+
+/**
+ * Closes the account of someone the caller could have opened one for, or
+ * opens it again, from a posted form naming them as `personId`. The database
+ * decides who may: a closed account cannot sign in and is in no classroom,
+ * and nothing it did is deleted. It answers as a form action does: nothing
+ * when it was done, and otherwise a failure.
+ */
+export async function setAccountClosed(supabase: SupabaseClient<Database>, form: FormData) {
+	const parsed = z
+		.object({ personId: z.guid(), closed: z.enum(['true', 'false']) })
+		.safeParse(formValues(form));
+	if (!parsed.success) return unexpected(parsed.error);
+
+	const { error } = await supabase.rpc('set_account_closed', {
+		p_user_id: parsed.data.personId,
+		p_closed: parsed.data.closed === 'true'
 	});
 	if (error) return unexpected(error);
 }

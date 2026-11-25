@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import { usePinnedToolbar } from '#lib/components/app/scroll-region.svelte.js';
+	import { scrollRegion, usePinned } from '#lib/components/app/scroll-region.svelte.js';
 	import ClassroomBanner from '#lib/components/classrooms/classroom-banner.svelte';
 	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import { sectionAt, type NavItem } from '#lib/navigation.js';
@@ -28,19 +28,24 @@
 	/** The address decides which tab is open, so a tab is a link and the page is its panel. */
 	const current = $derived(sectionAt(sections, page.url.pathname)?.href ?? '');
 
-	// The tab row pins itself and has its own hairline, which is this view's one scroll edge.
-	usePinnedToolbar();
+	// The tab row pins itself and has its own hairline, which is the scroll edge of a page with no toolbar.
+	usePinned();
+	onDestroy(() => {
+		scrollRegion.bannerHeight = 0;
+		scrollRegion.tabsHeight = 0;
+	});
 </script>
 
 <!-- Arrow keys move between the tabs; only following a tab's link opens it. -->
 <Tabs.Root bind:value={() => current, () => {}} activationMode="manual" class="flex-1 gap-0">
 	<!-- The banner and its tabs run edge to edge, out of the page's own margin. -->
-	<div class="-mx-page -mt-page">
+	<div bind:offsetHeight={scrollRegion.bannerHeight} class="-mx-gutter -mt-page">
 		<ClassroomBanner {classroom} />
 	</div>
-	<!-- The banner scrolls away; the tabs stay in reach at the top of the scroll region. -->
+	<!-- The banner scrolls away; the tabs stay in reach at the top of the scroll region, and a page's toolbar under them. -->
 	<div
-		class="sticky top-0 z-10 -mx-page [scrollbar-width:none] overflow-x-auto border-b bg-background px-page"
+		bind:offsetHeight={scrollRegion.tabsHeight}
+		class="sticky top-0 z-10 -mx-gutter [scrollbar-width:none] overflow-x-auto border-b bg-background px-gutter"
 	>
 		<Tabs.List
 			variant="line"

@@ -9,7 +9,9 @@
 			id: student.id,
 			name: student.name,
 			detail: [student.username, student.gradeLevelName].filter(Boolean).join(' · ') || null,
-			classroomCount: student.classroomCount
+			classroomCount: student.classroomCount,
+			gradeLevelId: student.gradeLevelId,
+			closedAt: student.closedAt
 		}))
 	);
 </script>

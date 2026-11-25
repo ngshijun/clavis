@@ -1,78 +1,18 @@
 import { fail, redirect } from '@sveltejs/kit';
 import * as z from 'zod';
-import { assignmentPath, dashboardHref } from '#lib/navigation.js';
+import { assignmentPath } from '#lib/navigation.js';
 import { m } from '#lib/paraglide/messages.js';
 import { resolvePath } from '#lib/paths.js';
-import {
-	averagesOf,
-	bandsOf,
-	classroomSummaryOf,
-	peopleOf,
-	pointsOf,
-	progressOf,
-	starTallyOf,
-	strugglingOf
-} from '#lib/items/dashboard.js';
-import { listAssignments, markNotificationsSeen } from '#lib/server/assignments.js';
-import {
-	listActivity,
-	listEnrolments,
-	listPointScores,
-	listStageBests,
-	listWeeks
-} from '#lib/server/dashboard.js';
+import { markNotificationsSeen } from '#lib/server/assignments.js';
+import { loadDashboard } from '#lib/server/dashboard.js';
 import { formValues, unexpected } from '#lib/server/forms.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
  * The teacher's home: how their classrooms are doing, all of them or the one
- * the address names. Everything is worked out here from what the database
- * hands over, and only what the page shows is sent.
+ * the address names.
  */
-export const load: PageServerLoad = async ({ locals, parent, url }) => {
-	// The reads start from the address alone, alongside the classrooms it is checked against.
-	const named = z.guid().safeParse(url.searchParams.get('classroom'));
-	const chosenId = named.success ? named.data : null;
-	const ids = chosenId ? [chosenId] : null;
-
-	const [{ classrooms }, enrolments, bests, scores, given, weeks, activity] = await Promise.all([
-		parent(),
-		listEnrolments(locals.supabase, ids),
-		listStageBests(locals.supabase, ids),
-		listPointScores(locals.supabase, ids),
-		listAssignments(locals.supabase, ids),
-		listWeeks(locals.supabase, ids),
-		listActivity(locals.supabase, ids)
-	]);
-	// A classroom the teacher does not teach shows them every one they do.
-	const chosen = classrooms.find((each) => each.id === chosenId);
-	if (chosenId && !chosen) redirect(307, dashboardHref(null));
-
-	const now = Date.now();
-	const averages = averagesOf(bests);
-	const points = pointsOf(scores, enrolments);
-	const struggling = strugglingOf(enrolments, averages, scores);
-	const read = { enrolments, averages, scores, given, struggling };
-
-	return {
-		classroomId: chosen?.id ?? null,
-		people: peopleOf(enrolments),
-		points,
-		bands: bandsOf(points),
-		struggling,
-		progress: progressOf(given, now),
-		tally: starTallyOf(bests),
-		weeks,
-		activity,
-		// One classroom is the whole page, so only several are summed up one by one.
-		summaries: chosen
-			? []
-			: classrooms.map((classroom) => ({
-					classroom,
-					summary: classroomSummaryOf(classroom.id, read, now)
-				}))
-	};
-};
+export const load: PageServerLoad = (event) => loadDashboard('teacher', event);
 
 /**
  * What the bell in the top bar posts to, from whichever page it is pressed
@@ -93,7 +33,7 @@ export const actions: Actions = {
 		} catch (cause) {
 			return unexpected(cause);
 		}
-		redirect(303, resolvePath(assignmentPath(classroomId, assignmentId)));
+		redirect(303, resolvePath(assignmentPath('teacher', classroomId, assignmentId)));
 	},
 
 	/** Marks every one of the teacher's notifications as seen. */

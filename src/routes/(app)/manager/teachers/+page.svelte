@@ -9,7 +9,8 @@
 			id: teacher.id,
 			name: teacher.name,
 			detail: teacher.email,
-			classroomCount: teacher.classroomCount
+			classroomCount: teacher.classroomCount,
+			closedAt: teacher.closedAt
 		}))
 	);
 </script>

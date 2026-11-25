@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { homePath, redirectFor } from './roles.js';
 
 describe('homePath', () => {
-	it('sends each role to the first page it can use', () => {
+	it('sends each role to its dashboard', () => {
 		expect(homePath('admin')).toBe('admin');
-		expect(homePath('manager')).toBe('manager/classrooms');
+		expect(homePath('manager')).toBe('manager');
 		expect(homePath('teacher')).toBe('teacher');
-		expect(homePath('student')).toBe('student/classrooms');
+		expect(homePath('student')).toBe('student');
 	});
 });
 
@@ -29,32 +29,31 @@ describe('redirectFor', () => {
 	it('lets a person into the pages of their own role', () => {
 		expect(redirectFor('/admin', 'admin', 'admin')).toBeNull();
 		expect(redirectFor('/admin/curriculum', 'admin', 'admin')).toBeNull();
+		expect(redirectFor('/manager', 'manager', 'manager')).toBeNull();
 		expect(redirectFor('/manager/classrooms', 'manager', 'manager')).toBeNull();
 		expect(redirectFor('/teacher', 'teacher', 'teacher')).toBeNull();
 		expect(redirectFor('/teacher/classrooms/abc', 'teacher', 'teacher')).toBeNull();
+		expect(redirectFor('/student/', 'student', 'student')).toBeNull();
 	});
 
 	it('sends a person who opens another role’s page back to their own', () => {
-		expect(redirectFor('/admin', 'admin', 'manager')).toBe('manager/classrooms');
+		expect(redirectFor('/admin', 'admin', 'manager')).toBe('manager');
 		expect(redirectFor('/admin/curriculum', 'admin', 'teacher')).toBe('teacher');
 		expect(redirectFor('/manager/classrooms', 'manager', 'teacher')).toBe('teacher');
-		expect(redirectFor('/teacher/classrooms/abc', 'teacher', 'student')).toBe('student/classrooms');
+		expect(redirectFor('/teacher/classrooms/abc', 'teacher', 'student')).toBe('student');
+		expect(redirectFor('/manager', 'manager', 'student')).toBe('student');
 	});
 
 	it('goes by the matched route, however the address is spelled', () => {
 		expect(redirectFor('/%6Danager/classrooms', 'manager', null)).toBe('login');
-		expect(redirectFor('/%6Danager/classrooms', 'manager', 'student')).toBe('student/classrooms');
+		expect(redirectFor('/%6Danager/classrooms', 'manager', 'student')).toBe('student');
 		expect(redirectFor('/%61dmin', 'admin', 'teacher')).toBe('teacher');
-	});
-
-	it('sends a role’s bare root to a home', () => {
-		expect(redirectFor('/manager', null, 'manager')).toBe('manager/classrooms');
-		expect(redirectFor('/student/', null, 'student')).toBe('student/classrooms');
-		expect(redirectFor('/manager', null, null)).toBe('login');
 	});
 
 	it('leaves paths outside every role alone', () => {
 		expect(redirectFor('/logout', null, 'student')).toBeNull();
 		expect(redirectFor('/administrator', null, null)).toBeNull();
+		// An address under a role with no page behind it is left to the 404.
+		expect(redirectFor('/student/classrooms', null, 'student')).toBeNull();
 	});
 });

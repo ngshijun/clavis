@@ -4,7 +4,7 @@
 	import Day from '#lib/components/app/day.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { markFigure } from '#lib/items/run.js';
-	import { sessionPath } from '#lib/navigation.js';
+	import { sessionPath, type StaffRole } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import type { Activity } from '#lib/server/dashboard.js';
@@ -15,9 +15,12 @@
 	 * its student was shown it; one that did an assignment says so.
 	 */
 	let {
+		role,
 		activity,
 		classroomNames
 	}: {
+		/** Whose pages the sessions open on. */
+		role: StaffRole;
 		activity: Activity[];
 		/** The names of the classrooms, by id, when the dashboard sums up several. */
 		classroomNames: Map<string, string> | undefined;
@@ -37,7 +40,9 @@
 				{#each activity as item (item.sessionId)}
 					<li>
 						<a
-							href={resolvePath(sessionPath(item.classroomId, item.studentId, item.sessionId))}
+							href={resolvePath(
+								sessionPath(role, item.classroomId, item.studentId, item.sessionId)
+							)}
 							class="flex items-start gap-2.5 rounded-lg px-2 py-1.5 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50"
 						>
 							<span

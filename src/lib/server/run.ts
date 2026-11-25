@@ -192,6 +192,20 @@ export async function classroomPractice(
 }
 
 /**
+ * A classroom's practice as one of its students reads it: the stages, and
+ * every time they have finished each of them there. A student reads no
+ * sessions but their own.
+ */
+export async function ownPractice(
+	supabase: Supabase,
+	classroomId: string,
+	studentId: string
+): Promise<{ topics: TopicStages[]; attempts: Record<string, Attempt[]> }> {
+	const { topics, attempts } = await classroomPractice(supabase, classroomId);
+	return { topics, attempts: attempts[studentId] ?? {} };
+}
+
+/**
  * The topics of a subject as a pupil is offered them. A stage with no
  * question cannot be practised, and a topic left with no stage is not shown.
  */

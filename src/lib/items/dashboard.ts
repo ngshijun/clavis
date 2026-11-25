@@ -3,10 +3,10 @@ import type { Tally } from './progress.js';
 import { starsOf } from './stars.js';
 
 /**
- * What a teacher's dashboard works out from what the database hands it about
- * their classrooms. Like the stars, none of it is stored. A student in two of
- * the classrooms counts in each, since progress belongs to the classroom; a
- * count of people counts them once.
+ * What a teacher's or a manager's dashboard works out from what the
+ * database hands it about their classrooms. Like the stars, none of it is
+ * stored. A student in two of the classrooms counts in each, since progress
+ * belongs to the classroom; a count of people counts them once.
  */
 
 /** A student of one of the classrooms, and whether they practised there lately. */

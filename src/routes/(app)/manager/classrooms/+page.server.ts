@@ -12,7 +12,7 @@ import type { Actions, PageServerLoad } from './$types';
  * the order the list is grouped in.
  */
 export const load: PageServerLoad = async ({ locals }) => {
-	return { gradeLevels: await listGradeLevels(locals.supabase) };
+	return { gradeLevels: await listGradeLevels(locals.supabase), wide: true };
 };
 
 const classroomSchema = z.object({

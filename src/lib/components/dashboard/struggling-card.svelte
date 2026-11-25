@@ -5,7 +5,7 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import type { Struggling } from '#lib/items/dashboard.js';
 	import { initials } from '#lib/initials.js';
-	import { studentPath } from '#lib/navigation.js';
+	import { studentPath, type StaffRole } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
 	import { percent } from './percent.js';
@@ -17,9 +17,12 @@
 	 * there are several.
 	 */
 	let {
+		role,
 		students,
 		classroomNames
 	}: {
+		/** Whose pages the students open on. */
+		role: StaffRole;
 		students: Struggling[];
 		/** The names of the classrooms, by id, when the dashboard sums up several. */
 		classroomNames: Map<string, string> | undefined;
@@ -50,7 +53,7 @@
 				{#each listed as student (`${student.classroomId}:${student.studentId}`)}
 					<li>
 						<a
-							href={resolvePath(studentPath(student.classroomId, student.studentId))}
+							href={resolvePath(studentPath(role, student.classroomId, student.studentId))}
 							class="flex items-start gap-2.5 rounded-lg px-2 py-1.5 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50"
 						>
 							<Avatar.Root class="size-8">

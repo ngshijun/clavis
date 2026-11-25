@@ -19,18 +19,19 @@
 
 <!--
 	As tall as its text needs: a long name wraps on a phone, and the cover grows
-	with it. In a short window it is lower and its name a step smaller, so the
-	page under it starts higher.
+	with it. In a short window and on a phone it is lower and its name a step
+	smaller, so the page under it starts higher.
 -->
 <header class="relative">
 	<Cover id={classroom.id} coverUrl={classroom.coverUrl} class="absolute inset-0 size-full" />
 	<!-- A cover can be any picture, so the name sits on a scrim rather than on the picture. -->
 	<div
-		class="relative flex min-h-40 flex-col justify-end gap-1 bg-linear-to-t from-black/70 to-black/10 px-page py-5 text-white short:min-h-24 short:py-4"
+		class="relative flex min-h-40 flex-col justify-end gap-1 bg-linear-to-t from-black/70 to-black/10 px-gutter py-5 text-white short:min-h-24 short:py-4"
 	>
 		<h1 class="text-3xl leading-tight font-bold wrap-break-word short:text-2xl">
 			{classroom.name}
 		</h1>
-		<p>{detail}</p>
+		<!-- On a phone the name already takes two lines, and mostly says this itself. -->
+		<p class="max-sm:hidden">{detail}</p>
 	</div>
 </header>

@@ -9,8 +9,9 @@ import { signedIn } from '#lib/server/session.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * A classroom's teachers, and everyone who could join them. An archived
- * classroom's roster stands as it was, so nobody is offered for it.
+ * A classroom's teachers, and everyone who could join them: a closed account
+ * joins no classroom. An archived classroom's roster stands as it was, so
+ * nobody is offered for it.
  */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const { organizationId } = signedIn(locals);
@@ -21,7 +22,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		listClassroomTeachers(locals.supabase, params.classroomId),
 		listOrganizationTeachers(locals.supabase, organizationId)
 	]);
-	return { teachers, candidates: classroom.archivedAt ? [] : candidates };
+	return {
+		teachers,
+		candidates: classroom.archivedAt
+			? []
+			: candidates.filter((teacher) => teacher.closedAt === null)
+	};
 };
 
 export const actions: Actions = rosterActions('teachers');
