@@ -57,7 +57,7 @@
 		<!-- Across the whole page, over its padding, with what it holds in line with the frame above. -->
 		<div
 			bind:offsetHeight={footHeight}
-			class="sticky bottom-0 z-10 -mx-page mt-auto -mb-page border-t bg-background px-page py-3"
+			class="sticky bottom-0 z-10 -mx-gutter mt-auto -mb-page border-t bg-background px-gutter py-3"
 		>
 			<div class={cn('flex items-center justify-end gap-2', width)}>
 				{@render footer()}

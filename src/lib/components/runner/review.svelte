@@ -208,14 +208,20 @@
 
 		<Card.Root class="gap-3 p-4">
 			<span class="px-2 text-xs font-semibold">{m.run_questions()}</span>
-			<div class={tiles}>
+			<!-- Above the questions the numbers are one row that scrolls sideways, as they are while answering. -->
+			<div
+				class={cn(
+					tiles,
+					'@max-3xl:-m-1 @max-3xl:flex @max-3xl:[scrollbar-width:none] @max-3xl:overflow-x-auto @max-3xl:p-1'
+				)}
+			>
 				{#each results as { asked, mark } (asked.id)}
 					{@const { label, icon: Icon, tint, solid } = MARKS[mark]}
 					<Button
 						variant="ghost"
 						aria-label={m.run_tile_marked({ n: asked.number, mark: label() })}
 						disabled={!listed(asked.id)}
-						class={cn(tile, tint, 'hover:brightness-95')}
+						class={cn(tile, tint, 'hover:brightness-95 @max-3xl:w-10 @max-3xl:shrink-0')}
 						onclick={() => goTo(asked.id)}
 					>
 						{asked.number}
@@ -230,7 +236,7 @@
 					</Button>
 				{/each}
 			</div>
-			<span class={note}>{m.run_map_hint()}</span>
+			<span class="{note} @max-3xl:hidden">{m.run_map_hint()}</span>
 			<!-- With nothing to review, or everything, there is nothing to choose between. -->
 			{#if toReview > 0 && toReview < results.length}
 				<Segmented

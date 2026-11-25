@@ -11,6 +11,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { Attempt } from '#lib/server/run.js';
 	import { cn } from '#lib/utils.js';
+	import Score from './score.svelte';
 	import type { Stop } from './stage-path.svelte';
 	import StarsRow from './stars.svelte';
 
@@ -20,9 +21,9 @@
 	 * marks; on the other, every time they have finished it, the latest first.
 	 * The run starts from its button and from nowhere else in it.
 	 *
-	 * A teacher reads the same of one of their students: the dialog is then
-	 * given nowhere to start a run, and has no button for it. It is given
-	 * where each attempt can be read instead, and an attempt leads there.
+	 * A classroom's staff read the same of one of its students: the dialog
+	 * is then given nowhere to start a run, and has no button for it. It is
+	 * given where each attempt can be read instead, and an attempt leads there.
 	 *
 	 * A 26px dialog with an 8px inset, so the pane of attempts has 18px
 	 * corners; it insets 8px in turn, which leaves 10px for a row.
@@ -66,13 +67,7 @@
 	{#if attempt === best}
 		<Badge variant="secondary">{m.stars_best()}</Badge>
 	{/if}
-	<span class="font-semibold tabular-nums">
-		<span class="sr-only">
-			{m.stars_score({ marks: markFigure(attempt.marks), total: attempt.total })}
-		</span>
-		<span aria-hidden="true">{markFigure(attempt.marks)}/{attempt.total}</span>
-	</span>
-	<StarsRow count={starsOf(attempt.marks, attempt.total)} />
+	<Score score={attempt} />
 {/snippet}
 
 <Dialog.Root bind:open>
@@ -181,15 +176,16 @@
 		</div>
 
 		<Dialog.Footer class="px-4 pt-2 pb-4">
+			<!-- What a student presses is a size up. -->
 			<Dialog.Close>
 				{#snippet child({ props })}
-					<Button variant="outline" {...props}>
+					<Button variant="outline" size={href ? 'lg' : 'default'} {...props}>
 						{href ? m.action_cancel() : m.action_close()}
 					</Button>
 				{/snippet}
 			</Dialog.Close>
 			{#if href}
-				<Button bind:ref={start} {href}>
+				<Button bind:ref={start} size="lg" {href}>
 					{best ? m.practice_again() : m.practice_start()}
 				</Button>
 			{/if}

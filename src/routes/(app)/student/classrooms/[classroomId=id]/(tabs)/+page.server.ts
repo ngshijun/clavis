@@ -1,5 +1,5 @@
-import { listAssignments } from '#lib/server/assignments.js';
-import { classroomPractice } from '#lib/server/run.js';
+import { listOwnAssignments } from '#lib/server/assignments.js';
+import { ownPractice } from '#lib/server/run.js';
 import { signedIn } from '#lib/server/session.js';
 import type { PageServerLoad } from './$types';
 
@@ -9,18 +9,9 @@ import type { PageServerLoad } from './$types';
  */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const user = signedIn(locals);
-	const [{ topics, attempts }, assignments] = await Promise.all([
-		classroomPractice(locals.supabase, params.classroomId),
-		listAssignments(locals.supabase, [params.classroomId])
+	const [practice, assignments] = await Promise.all([
+		ownPractice(locals.supabase, params.classroomId, user.id),
+		listOwnAssignments(locals.supabase, user.id, [params.classroomId])
 	]);
-
-	return {
-		topics,
-		// A student reads no sessions but their own, and of an assignment only that it was given to them.
-		attempts: attempts[user.id] ?? {},
-		assignments: assignments.map(({ students, ...assignment }) => ({
-			...assignment,
-			doneAt: students.find((student) => student.studentId === user.id)?.doneAt ?? null
-		}))
-	};
+	return { ...practice, assignments };
 };

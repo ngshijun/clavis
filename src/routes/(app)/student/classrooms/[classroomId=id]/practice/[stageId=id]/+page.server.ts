@@ -35,7 +35,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		practice,
 		// A topic has no page of its own: it is a section of the classroom's practice.
 		trail: [{ label: stage.topic.name, href: `${practice}#${stage.topic.id}` }],
-		title: stage.name
+		title: stage.name,
+		// The run's frame holds itself to the width a question reads well at.
+		wide: true
 	};
 };
 

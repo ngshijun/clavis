@@ -10,6 +10,6 @@
 
 <Play run={data.run} imageBase={data.imageBase} action="?/submit">
 	{#snippet more()}
-		<Button href={data.practice}>{m.run_back_to_practice()}</Button>
+		<Button size="lg" href={data.practice}>{m.run_back_to_practice()}</Button>
 	{/snippet}
 </Play>

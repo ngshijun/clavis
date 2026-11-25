@@ -1,10 +1,11 @@
 <script lang="ts">
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import TargetIcon from '@lucide/svelte/icons/target';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
+	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
 	import StageDialog from '#lib/components/runner/stage-dialog.svelte';
 	import StagePath, { type Stop } from '#lib/components/runner/stage-path.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { bestOf } from '#lib/items/stars.js';
 	import {
 		classroomHistoryPath,
@@ -40,31 +41,26 @@
 </script>
 
 {#if data.topics.length === 0}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Media variant="icon">
-				<TargetIcon />
-			</Empty.Media>
-			<Empty.Title>{m.practice_none_title()}</Empty.Title>
-			<Empty.Description>{m.practice_none_description()}</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
+	<EmptyState
+		icon={TargetIcon}
+		title={m.practice_none_title()}
+		description={m.practice_none_description()}
+	/>
 {:else}
-	<div class="flex flex-col gap-4">
+	<PageToolbar>
 		<!-- Every session finished here, whatever its stage; a stage's own are in its dialog. -->
 		<Button
 			variant="outline"
-			size="sm"
-			class="self-end"
+			size="lg"
 			href={resolvePath(classroomHistoryPath(params.classroomId))}
 		>
-			<HistoryIcon aria-hidden="true" />
+			<HistoryIcon data-icon="inline-start" />
 			{m.practice_history()}
 		</Button>
-		{#each data.topics as topic (topic.id)}
-			<StagePath {topic} {best} onpick={pick} />
-		{/each}
-	</div>
+	</PageToolbar>
+	{#each data.topics as topic (topic.id)}
+		<StagePath {topic} {best} onpick={pick} />
+	{/each}
 {/if}
 
 {#if picked}
