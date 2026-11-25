@@ -99,11 +99,8 @@
 				<AlertDialog.Cancel type="button" disabled={pending}>
 					{m.action_cancel()}
 				</AlertDialog.Cancel>
-				<Button
-					type="submit"
-					variant="destructive"
-					disabled={pending || typed !== organization.name}
-				>
+				<!-- Typing the name is what guards this one; its button is the plain one every confirmation has. -->
+				<Button type="submit" disabled={pending || typed !== organization.name}>
 					{#if pending}
 						<Spinner data-icon="inline-start" />
 					{/if}

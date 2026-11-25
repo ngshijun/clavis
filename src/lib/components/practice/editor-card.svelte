@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -66,6 +66,20 @@
 	/** Puts the form back at its top, for when something else is opened. */
 	export function scrollToTop() {
 		body?.scrollTo({ top: 0 });
+	}
+
+	/**
+	 * Brings what a refused Save first marked as wrong into view: the control
+	 * itself, which then has the keyboard, or the line that says what is wrong
+	 * with a group of them.
+	 */
+	export async function showFirstIssue() {
+		await tick();
+		const marked = body?.querySelector<HTMLElement>(
+			'[aria-invalid="true"], [data-slot="field-error"]'
+		);
+		marked?.scrollIntoView({ block: 'center' });
+		if (marked?.matches('[aria-invalid="true"]')) marked.focus({ preventScroll: true });
 	}
 </script>
 

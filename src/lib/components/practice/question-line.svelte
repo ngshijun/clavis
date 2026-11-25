@@ -75,5 +75,5 @@
 	{:else}
 		<span></span>
 	{/if}
-	<DifficultyMeter {difficulty} />
+	<DifficultyMeter {difficulty} tabindex={-1} />
 </span>

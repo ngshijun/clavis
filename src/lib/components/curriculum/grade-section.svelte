@@ -74,7 +74,7 @@
 
 	<Collapsible.Content class="flex flex-col gap-4">
 		{#if subjects.length === 0}
-			<p class="text-sm text-muted-foreground">{m.curriculum_no_subjects()}</p>
+			<p class="text-muted-foreground">{m.curriculum_no_subjects()}</p>
 		{/if}
 		<div
 			aria-label={m.curriculum_subjects_of({ name: grade.name })}

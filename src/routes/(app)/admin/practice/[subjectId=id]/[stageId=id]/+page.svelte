@@ -3,10 +3,11 @@
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
-	import SearchIcon from '@lucide/svelte/icons/search';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
+	import SearchField from '#lib/components/app/search-field.svelte';
 	import AddQuestionMenu from '#lib/components/practice/add-question-menu.svelte';
 	import { Draft, PassageDraft } from '#lib/components/practice/editor.svelte.js';
 	import ImportDialog from '#lib/components/practice/import-dialog.svelte';
@@ -18,8 +19,6 @@
 	import { refusal, settle, toastError } from '#lib/components/rows/feedback.js';
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Empty from '#lib/components/ui/empty/index.js';
-	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { postAction } from '#lib/form-actions.js';
 	import { ITEM_KINDS } from '#lib/items/kinds.js';
 	import { ITEM_TYPES, type ItemType } from '#lib/items/payload.js';
@@ -233,7 +232,7 @@
 		if (!(await settle(await postAction('?/order', form)))) order = stage.questionOrder;
 	}
 
-	let editor = $state<{ scrollToTop: () => void }>();
+	let editor = $state<{ scrollToTop: () => void; showFirstIssue: () => void }>();
 	let saving = $state(false);
 
 	/** Set for a navigation the page makes itself, which must not ask about unsaved changes. */
@@ -282,7 +281,10 @@
 
 		if (draft.kind === 'passage') {
 			const checked = validatePassage($state.snapshot(draft.content));
-			if (!checked.ok) return;
+			if (!checked.ok) {
+				editor?.showFirstIssue();
+				return;
+			}
 			form.set('passage', JSON.stringify(checked.content));
 			for (const [key, file] of draft.uploads.filesOf(checked.content)) form.set(key, file);
 			await post('?/savePassage', form, (id) => `?p=${id}`);
@@ -295,6 +297,7 @@
 			if (checked.issues.some((issue) => issue.message === m.item_invalid())) {
 				toastError(m.item_invalid());
 			}
+			editor?.showFirstIssue();
 			return;
 		}
 		if (draft.passageId) form.set('passageId', draft.passageId);
@@ -400,17 +403,7 @@
 </script>
 
 <PageToolbar>
-	<InputGroup.Root class="me-auto min-w-40 flex-1 sm:max-w-80">
-		<InputGroup.Addon>
-			<SearchIcon />
-		</InputGroup.Addon>
-		<InputGroup.Input
-			bind:value={search}
-			type="search"
-			aria-label={m.practice_search()}
-			placeholder={m.practice_search()}
-		/>
-	</InputGroup.Root>
+	<SearchField bind:value={search} placeholder={m.practice_search()} />
 	<Button variant="outline" onclick={() => (importing = true)}>
 		<UploadIcon data-icon="inline-start" />
 		{m.practice_import()}
@@ -471,15 +464,11 @@
 			class="min-w-0 flex-1 xl:min-h-0"
 		/>
 	{:else}
-		<Empty.Root class="flex-1">
-			<Empty.Header>
-				<Empty.Media variant="icon">
-					<ListChecksIcon />
-				</Empty.Media>
-				<Empty.Title>{m.practice_no_questions_yet()}</Empty.Title>
-				<Empty.Description>{m.practice_stage_empty_description()}</Empty.Description>
-			</Empty.Header>
-		</Empty.Root>
+		<EmptyState
+			icon={ListChecksIcon}
+			title={m.practice_no_questions_yet()}
+			description={m.practice_stage_empty_description()}
+		/>
 	{/if}
 </div>
 

@@ -68,7 +68,8 @@
 		saving: boolean;
 		onsave: () => void;
 		onrevert: () => void;
-		onduplicate: () => void;
+		/** Makes a copy of the question as stored, and opens it. */
+		onduplicate: () => Promise<void>;
 		ondelete: () => void;
 		class?: string;
 	} = $props();
@@ -90,9 +91,26 @@
 
 	let card = $state<EditorCard>();
 
+	/** Whether a copy is being made, when another is not to be asked for. */
+	let duplicating = $state(false);
+	async function duplicate() {
+		if (duplicating) return;
+		duplicating = true;
+		try {
+			await onduplicate();
+		} finally {
+			duplicating = false;
+		}
+	}
+
 	/** Puts the form back at its top, for when another question is opened. */
 	export function scrollToTop() {
 		card?.scrollToTop();
+	}
+
+	/** Brings what a refused Save first marked as wrong into view. */
+	export function showFirstIssue() {
+		return card?.showFirstIssue();
 	}
 </script>
 
@@ -107,16 +125,21 @@
 	class={className}
 >
 	{#snippet actions()}
-		<!-- The copy is of what is stored, so there is none to make of unsaved work. -->
+		<!--
+			The copy is of what is stored, so there is none to make of unsaved work. While one is
+			being made the button is dimmed rather than disabled, so it keeps the focus.
+		-->
 		<IconButton
 			variant="ghost"
 			label={m.practice_duplicate()}
 			disabled={draft.id === null || draft.dirty}
-			onclick={onduplicate}
+			aria-disabled={duplicating}
+			class="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+			onclick={duplicate}
 		>
 			<CopyIcon />
 		</IconButton>
-		<IconButton variant="destructive" label={m.action_delete()} onclick={ondelete}>
+		<IconButton variant="ghost" label={m.action_delete()} onclick={ondelete}>
 			<Trash2Icon />
 		</IconButton>
 	{/snippet}

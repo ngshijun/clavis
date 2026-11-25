@@ -73,6 +73,11 @@
 	export function scrollToTop() {
 		card?.scrollToTop();
 	}
+
+	/** Brings what a refused Save first marked as wrong into view. */
+	export function showFirstIssue() {
+		return card?.showFirstIssue();
+	}
 </script>
 
 <EditorCard
@@ -85,7 +90,7 @@
 	class={className}
 >
 	{#snippet actions()}
-		<IconButton variant="destructive" label={m.action_delete()} onclick={ondelete}>
+		<IconButton variant="ghost" label={m.action_delete()} onclick={ondelete}>
 			<Trash2Icon />
 		</IconButton>
 	{/snippet}

@@ -10,6 +10,7 @@ import type { Actions } from './$types';
 const AUTH_MESSAGES: Record<string, () => string> = {
 	invalid_credentials: m.auth_invalid_credentials,
 	email_not_confirmed: m.auth_email_not_confirmed,
+	user_banned: m.auth_account_closed,
 	over_request_rate_limit: m.auth_rate_limited
 };
 

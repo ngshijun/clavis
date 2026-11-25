@@ -290,9 +290,9 @@
 				const added = result.data.added;
 				await onimported();
 				open = false;
-				// Nothing is added when the same review is sent twice: the stage has it all by then.
-				if (added > 0) toast.success(m.practice_import_done({ count: added }));
-				else toast.info(m.practice_import_done_none());
+				// The list shows what was added, so only an import that added nothing is said: when
+				// the same review is sent twice, the stage has it all by then.
+				if (added === 0) toast.info(m.practice_import_done_none());
 			} else {
 				refusal = refusalOf(result) ?? m.error_unexpected();
 				// With no answer the import may yet go through, and its pictures are then its questions'.

@@ -1,13 +1,8 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
-	import FormRefusal from '#lib/components/app/form-refusal.svelte';
-	import { settleForm, type FieldErrors } from '#lib/components/rows/feedback.js';
-	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import FormDialog from '#lib/components/app/form-dialog.svelte';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 
 	/**
@@ -25,71 +20,30 @@
 		person: { id: string; name: string };
 		onclosed: () => void;
 	} = $props();
-
-	let open = $state(true);
-	let submitting = $state(false);
-	let errors = $state<FieldErrors>({});
-	let refusal = $state<string | null>(null);
 </script>
 
-<Dialog.Root bind:open onOpenChangeComplete={(isOpen) => !isOpen && onclosed()}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{m.password_reset_title()}</Dialog.Title>
-			<Dialog.Description>{m.password_reset_description({ name: person.name })}</Dialog.Description>
-		</Dialog.Header>
+<!-- Nothing on the page changes with a password, so it is said. -->
+<FormDialog
+	title={m.password_reset_title()}
+	description={m.password_reset_description({ name: person.name })}
+	action="?/resetPassword"
+	submit={m.password_reset_title()}
+	ontaken={() => toast.success(m.password_reset_toast({ name: person.name }))}
+	{onclosed}
+>
+	{#snippet fields(errors)}
+		<input type="hidden" name="personId" value={person.id} />
 
-		<form
-			method="POST"
-			action="?/resetPassword"
-			use:enhance={() => {
-				submitting = true;
-				return async ({ result }) => {
-					const refused = await settleForm(result);
-					submitting = false;
-					if (refused) {
-						({ errors, message: refusal } = refused);
-						return;
-					}
-					// Nothing on the page changes with a password, so it is said.
-					toast.success(m.password_reset_toast({ name: person.name }));
-					open = false;
-				};
-			}}
-		>
-			<input type="hidden" name="personId" value={person.id} />
-
-			<Field.FieldGroup>
-				<FormRefusal message={refusal} />
-				<Field.Field data-invalid={errors.password ? true : undefined}>
-					<Field.FieldLabel for="reset-password">{m.password_reset_label()}</Field.FieldLabel>
-					<Input
-						id="reset-password"
-						name="password"
-						autocomplete="off"
-						aria-invalid={errors.password ? true : undefined}
-					/>
-					<Field.FieldDescription>{m.person_password_hint()}</Field.FieldDescription>
-					<Field.FieldError errors={errors.password?.map((message) => ({ message }))} />
-				</Field.Field>
-			</Field.FieldGroup>
-
-			<Dialog.Footer class="mt-6">
-				<Button
-					type="button"
-					variant="outline"
-					disabled={submitting}
-					onclick={() => (open = false)}
-				>
-					{m.action_cancel()}
-				</Button>
-				<Button type="submit" disabled={submitting}>
-					{#if submitting}
-						<Spinner data-icon="inline-start" />
-					{/if}
-					{m.password_reset_title()}
-				</Button>
-			</Dialog.Footer>
-		</form>
-	</Dialog.Content>
-</Dialog.Root>
+		<Field.Field data-invalid={errors.password ? true : undefined}>
+			<Field.FieldLabel for="reset-password">{m.password_reset_label()}</Field.FieldLabel>
+			<Input
+				id="reset-password"
+				name="password"
+				autocomplete="off"
+				aria-invalid={errors.password ? true : undefined}
+			/>
+			<Field.FieldDescription>{m.person_password_hint()}</Field.FieldDescription>
+			<Field.FieldError errors={errors.password?.map((message) => ({ message }))} />
+		</Field.Field>
+	{/snippet}
+</FormDialog>

@@ -1,12 +1,7 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import FormRefusal from '#lib/components/app/form-refusal.svelte';
-	import { settleForm, type FieldErrors } from '#lib/components/rows/feedback.js';
-	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import FormDialog from '#lib/components/app/form-dialog.svelte';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 
 	/**
@@ -37,65 +32,27 @@
 					submit: m.organization_create()
 				}
 	);
-
-	let open = $state(true);
-	let submitting = $state(false);
-	let errors = $state<FieldErrors>({});
-	let refusal = $state<string | null>(null);
 </script>
 
-<Dialog.Root bind:open onOpenChangeComplete={(isOpen) => !isOpen && onclosed()}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{copy.title}</Dialog.Title>
-			<Dialog.Description>{copy.description}</Dialog.Description>
-		</Dialog.Header>
-
-		<form
-			method="POST"
-			action={organization ? '?/rename' : '?/create'}
-			use:enhance={() => {
-				submitting = true;
-				return async ({ result }) => {
-					const refused = await settleForm(result);
-					submitting = false;
-					// Taken, the list itself is the report: the new row appears behind the dialog.
-					if (!refused) open = false;
-					else ({ errors, message: refusal } = refused);
-				};
-			}}
-		>
-			<Field.FieldGroup>
-				<FormRefusal message={refusal} />
-				<Field.Field data-invalid={errors.name ? true : undefined}>
-					<Field.FieldLabel for="organization-name">{m.organization_name_label()}</Field.FieldLabel>
-					<Input
-						id="organization-name"
-						name="name"
-						autocomplete="off"
-						value={organization?.name ?? ''}
-						aria-invalid={errors.name ? true : undefined}
-					/>
-					<Field.FieldError errors={errors.name?.map((message) => ({ message }))} />
-				</Field.Field>
-			</Field.FieldGroup>
-
-			<Dialog.Footer class="mt-6">
-				<Button
-					type="button"
-					variant="outline"
-					disabled={submitting}
-					onclick={() => (open = false)}
-				>
-					{m.action_cancel()}
-				</Button>
-				<Button type="submit" disabled={submitting}>
-					{#if submitting}
-						<Spinner data-icon="inline-start" />
-					{/if}
-					{copy.submit}
-				</Button>
-			</Dialog.Footer>
-		</form>
-	</Dialog.Content>
-</Dialog.Root>
+<!-- Taken, the list itself is the report: the new row appears behind the dialog. -->
+<FormDialog
+	title={copy.title}
+	description={copy.description}
+	action={organization ? '?/rename' : '?/create'}
+	submit={copy.submit}
+	{onclosed}
+>
+	{#snippet fields(errors)}
+		<Field.Field data-invalid={errors.name ? true : undefined}>
+			<Field.FieldLabel for="organization-name">{m.organization_name_label()}</Field.FieldLabel>
+			<Input
+				id="organization-name"
+				name="name"
+				autocomplete="off"
+				value={organization?.name ?? ''}
+				aria-invalid={errors.name ? true : undefined}
+			/>
+			<Field.FieldError errors={errors.name?.map((message) => ({ message }))} />
+		</Field.Field>
+	{/snippet}
+</FormDialog>

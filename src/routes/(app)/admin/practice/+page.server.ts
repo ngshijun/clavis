@@ -7,5 +7,5 @@ import type { PageServerLoad } from './$types';
  * another one fetches nothing.
  */
 export const load: PageServerLoad = async ({ locals }) => {
-	return { grades: await listPracticeSubjects(locals.supabase) };
+	return { grades: await listPracticeSubjects(locals.supabase), wide: true };
 };

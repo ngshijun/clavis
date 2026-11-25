@@ -80,16 +80,15 @@
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
-						<Button
+						<IconButton
 							variant="ghost"
-							size="icon-sm"
 							class={cn('shrink-0', thumb.button)}
-							aria-label={label}
+							{label}
 							data-picture={size === 'row' ? '' : undefined}
 							{...props}
 						>
 							<img src={url} alt="" class={cn('size-full', thumb.picture)} />
-						</Button>
+						</IconButton>
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="start">

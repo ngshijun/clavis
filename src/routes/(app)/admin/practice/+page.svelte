@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TargetIcon from '@lucide/svelte/icons/target';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
 	import Segmented from '#lib/components/app/segmented.svelte';
 	import { coverGrid } from '#lib/components/app/cover-card.svelte';
 	import SubjectCard from '#lib/components/practice/subject-card.svelte';
-	import * as Empty from '#lib/components/ui/empty/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { practiceGradeHref, practiceSubjectPath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
@@ -38,15 +40,13 @@
 </script>
 
 {#if !grade}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Media variant="icon">
-				<TargetIcon />
-			</Empty.Media>
-			<Empty.Title>{m.practice_empty_title()}</Empty.Title>
-			<Empty.Description>{m.practice_empty_description()}</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
+	<EmptyState
+		icon={TargetIcon}
+		title={m.practice_empty_title()}
+		description={m.practice_empty_description()}
+	>
+		<Button href={resolve('admin/curriculum')}>{m.curriculum_go_to()}</Button>
+	</EmptyState>
 {:else}
 	<PageToolbar>
 		<!--
@@ -69,7 +69,7 @@
 	</PageToolbar>
 
 	{#if grade.subjects.length === 0}
-		<p class="text-sm text-muted-foreground">{m.curriculum_no_subjects()}</p>
+		<p class="text-muted-foreground">{m.curriculum_no_subjects()}</p>
 	{:else}
 		<ul aria-label={m.practice_subjects_of({ name: grade.name })} class={coverGrid}>
 			{#each grade.subjects as subject (subject.id)}

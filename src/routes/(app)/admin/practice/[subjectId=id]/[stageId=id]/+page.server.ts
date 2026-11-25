@@ -50,7 +50,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const stage = await getStage(locals.supabase, params.subjectId, params.stageId);
 	if (!stage) error(404, 'Stage not found');
 
-	return { stage, trail: stageTrail(stage), title: stage.name };
+	return { stage, trail: stageTrail(stage), title: stage.name, wide: true };
 };
 
 const orderSchema = z.object({ order: z.enum(QUESTION_ORDERS) });

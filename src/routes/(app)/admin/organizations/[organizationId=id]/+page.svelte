@@ -2,10 +2,10 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import IconButton from '#lib/components/app/icon-button.svelte';
 	import DeleteOrganizationDialog from '#lib/components/organizations/delete-organization-dialog.svelte';
 	import OrganizationFormDialog from '#lib/components/organizations/organization-form-dialog.svelte';
 	import PeopleDirectory from '#lib/components/people/people-directory.svelte';
-	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
@@ -21,7 +21,8 @@
 		data.managers.map((manager) => ({
 			id: manager.id,
 			name: manager.name,
-			detail: manager.email
+			detail: manager.email,
+			closedAt: manager.closedAt
 		}))
 	);
 
@@ -34,9 +35,9 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
-					<Button variant="outline" size="icon" aria-label={m.action_more()} {...props}>
+					<IconButton variant="outline" size="icon" label={m.action_more()} {...props}>
 						<EllipsisIcon />
-					</Button>
+					</IconButton>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="end">

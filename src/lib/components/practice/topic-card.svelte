@@ -9,6 +9,7 @@
 	import RowDelete from '#lib/components/rows/row-delete.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { TopicStages } from '#lib/server/practice.js';
 	import { cn } from '#lib/utils.js';
@@ -46,7 +47,7 @@
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-1 px-0">
 		{#if stages.length === 0}
-			<p class="px-2 py-1 text-muted-foreground">{m.practice_no_stages()}</p>
+			<p class="px-2 text-muted-foreground">{m.practice_no_stages()}</p>
 		{/if}
 		<ol
 			aria-label={m.practice_stages_of({ name: topic.name })}
@@ -72,12 +73,21 @@
 					animate:flip={{ duration: FLIP_MS }}
 				>
 					<DragHandle label={m.row_reorder({ name: stage.name })} />
-					<span
-						title={m.practice_stage_position()}
-						class="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground"
-					>
-						{index + 1}
-					</span>
+					<!-- It is nothing to press, so a press leaves its tooltip up: on a touch screen that is how it is read. -->
+					<Tooltip.Root disableCloseOnTriggerClick>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<span
+									class="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									{...props}
+								>
+									<span class="sr-only">{m.practice_stage_position()}</span>
+									{index + 1}
+								</span>
+							{/snippet}
+						</Tooltip.Trigger>
+						<Tooltip.Content>{m.practice_stage_position()}</Tooltip.Content>
+					</Tooltip.Root>
 					<InlineName
 						kind="stage"
 						id={stage.id}

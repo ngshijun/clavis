@@ -19,7 +19,7 @@ import type { Actions, PageServerLoad } from './$types';
  * and leave who may post it to row level security.
  */
 export const load: PageServerLoad = async ({ locals }) => {
-	return { grades: await listCurriculum(locals.supabase) };
+	return { grades: await listCurriculum(locals.supabase), wide: true };
 };
 
 const kind = z.enum(['grade', 'subject', 'topic']);

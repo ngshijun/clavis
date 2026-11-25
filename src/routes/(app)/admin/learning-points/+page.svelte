@@ -1,18 +1,19 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import SearchIcon from '@lucide/svelte/icons/search';
 	import TagsIcon from '@lucide/svelte/icons/tags';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import IconButton from '#lib/components/app/icon-button.svelte';
+	import ListCard from '#lib/components/app/list-card.svelte';
+	import ListRow from '#lib/components/app/list-row.svelte';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
+	import SearchField from '#lib/components/app/search-field.svelte';
 	import LearningPointFormDialog from '#lib/components/learning-points/learning-point-form-dialog.svelte';
 	import type { NamedRow } from '#lib/components/rows/context.js';
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Empty from '#lib/components/ui/empty/index.js';
-	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { listSections, type LearningPointSummary } from '#lib/learning-points.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
@@ -55,123 +56,92 @@
 
 <!-- A learning point's row: its name, a line about where it is offered, and what is done with it. -->
 {#snippet row(point: LearningPointSummary, detail: string)}
-	<li class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl p-2">
-		<span class="grid min-w-0 flex-[1_1_14rem] leading-snug">
-			<span class="font-medium wrap-break-word first-letter:uppercase">{point.name}</span>
-			<span class="text-xs text-muted-foreground">{detail}</span>
-		</span>
-		<span class="ms-auto flex items-center gap-1">
-			<span class="me-2 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+	<ListRow title={shown(point.name)} {detail}>
+		{#snippet tail()}
+			<span class="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
 				{point.questionCount
 					? m.count_questions({ count: point.questionCount })
 					: m.practice_no_questions()}
 			</span>
-			<IconButton variant="ghost" label={m.action_edit()} onclick={() => (editing = point)}>
-				<PencilIcon />
-			</IconButton>
-			<IconButton
-				variant="ghost"
-				label={m.action_delete()}
-				onclick={() =>
-					deleteDialog?.request({
-						kind: 'learning-point',
-						id: point.id,
-						name: shown(point.name),
-						questionCount: point.questionCount
-					})}
-			>
-				<Trash2Icon />
-			</IconButton>
-		</span>
-	</li>
+			<span class="flex items-center gap-1">
+				<IconButton variant="ghost" label={m.action_edit()} onclick={() => (editing = point)}>
+					<PencilIcon />
+				</IconButton>
+				<IconButton
+					variant="ghost"
+					label={m.action_delete()}
+					onclick={() =>
+						deleteDialog?.request({
+							kind: 'learning-point',
+							id: point.id,
+							name: shown(point.name),
+							questionCount: point.questionCount
+						})}
+				>
+					<Trash2Icon />
+				</IconButton>
+			</span>
+		{/snippet}
+	</ListRow>
 {/snippet}
 
 {#if data.points.length > 0}
 	<PageToolbar>
-		<InputGroup.Root class="me-auto w-80 max-w-full">
-			<InputGroup.Addon>
-				<SearchIcon />
-			</InputGroup.Addon>
-			<InputGroup.Input
-				bind:value={search}
-				type="search"
-				aria-label={m.learning_points_search()}
-				placeholder={m.learning_points_search()}
-			/>
-		</InputGroup.Root>
+		<SearchField bind:value={search} placeholder={m.learning_points_search()} />
 		{@render addPoint()}
 	</PageToolbar>
 {/if}
 
 {#if none}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Media variant="icon">
-				<TagsIcon />
-			</Empty.Media>
-			{#if data.points.length > 0}
-				<!-- The search field above is the way out, so a search with no match offers no button. -->
-				<Empty.Description>{m.learning_points_none_found()}</Empty.Description>
+	{#if data.points.length > 0}
+		<!-- The search field above is the way out, so a search with no match offers no button. -->
+		<EmptyState icon={TagsIcon} description={m.learning_points_none_found()} />
+	{:else}
+		<EmptyState
+			icon={TagsIcon}
+			title={m.learning_points_none_title()}
+			description={hasTopics ? m.learning_points_none_description() : m.learning_points_no_topics()}
+		>
+			{#if hasTopics}
+				{@render addPoint()}
 			{:else}
-				<Empty.Title>{m.learning_points_none_title()}</Empty.Title>
-				<Empty.Description>
-					{hasTopics ? m.learning_points_none_description() : m.learning_points_no_topics()}
-				</Empty.Description>
+				<Button href={resolve('admin/curriculum')}>{m.curriculum_go_to()}</Button>
 			{/if}
-		</Empty.Header>
-		{#if data.points.length === 0 && hasTopics}
-			<Empty.Content>{@render addPoint()}</Empty.Content>
-		{/if}
-	</Empty.Root>
+		</EmptyState>
+	{/if}
 {:else}
-	<!--
-		A 22px card with an 8px inset, so a row has 14px corners. A second column only where a
-		row still has room for its name beside what it ends in.
-	-->
+	<!-- A second column only where a row still has room for its name beside what it ends in. -->
 	<div
 		class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,31rem),1fr))] items-start gap-x-4 gap-y-6"
 	>
 		{#if lists.unplaced.length > 0}
-			<section class="flex flex-col gap-2">
-				<h2 class="px-2 font-semibold">
-					{m.learning_points_unplaced()}
-					<span class="ms-1 text-sm font-medium text-muted-foreground tabular-nums">
-						{lists.unplaced.length}
-					</span>
-				</h2>
-				<Card.Root class="rounded-3xl p-2">
-					<ul aria-label={m.learning_points_unplaced()} class="flex flex-col divide-y">
-						{#each lists.unplaced as point (point.id)}
-							{@render row(point, m.learning_points_unplaced_note())}
-						{/each}
-					</ul>
-				</Card.Root>
-			</section>
+			<ListCard
+				title={m.learning_points_unplaced()}
+				count={lists.unplaced.length}
+				label={m.learning_points_unplaced()}
+			>
+				{#each lists.unplaced as point (point.id)}
+					{@render row(point, m.learning_points_unplaced_note())}
+				{/each}
+			</ListCard>
 		{/if}
 
 		{#each lists.sections as section (section.id)}
-			<section class="flex flex-col gap-2">
-				<h2 class="px-2 font-semibold">
-					{section.subject}
-					<span class="ms-1 text-sm font-medium text-muted-foreground">{section.grade}</span>
-				</h2>
-				<Card.Root class="rounded-3xl p-2">
-					<ul
-						aria-label={m.learning_points_of({ name: section.subject })}
-						class="flex flex-col divide-y"
-					>
-						{#each section.rows as { point, topics, elsewhere } (point.id)}
-							{@render row(
-								point,
-								[
-									...topics,
-									...(elsewhere ? [m.learning_point_elsewhere({ count: elsewhere })] : [])
-								].join(' · ')
-							)}
-						{/each}
-					</ul>
-				</Card.Root>
-			</section>
+			<ListCard
+				title={section.subject}
+				count={section.grade}
+				label={m.learning_points_of({ name: section.subject })}
+			>
+				{#each section.rows as { point, topics, elsewhere } (point.id)}
+					{@render row(
+						point,
+						[
+							...topics,
+							...(elsewhere ? [m.learning_point_elsewhere({ count: elsewhere })] : [])
+						].join(' · ')
+					)}
+				{/each}
+			</ListCard>
 		{/each}
 	</div>
 {/if}

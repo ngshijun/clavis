@@ -25,7 +25,10 @@
 		onpick: (type: ItemType) => void;
 		/** Starts a passage. Leave it out where one cannot be started. */
 		onpassage?: () => void;
-		/** `sm` for the menu inside a form, where it is one control among the fields. */
+		/**
+		 * `default` for a page's toolbar, where adding is the main action; `sm` for the
+		 * menu inside a form, where it is one control among the fields.
+		 */
 		size?: 'default' | 'sm';
 	} = $props();
 </script>
@@ -33,7 +36,7 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
-			<Button variant="outline" {size} {...props}>
+			<Button variant={size === 'default' ? 'default' : 'outline'} {size} {...props}>
 				<PlusIcon data-icon="inline-start" />
 				{m.practice_add_question()}
 				{#if size === 'default'}

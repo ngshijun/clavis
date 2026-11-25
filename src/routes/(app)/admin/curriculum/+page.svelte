@@ -5,6 +5,7 @@
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import ListTreeIcon from '@lucide/svelte/icons/list-tree';
 	import { dragHandleZone } from 'svelte-dnd-action';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import PageToolbar from '#lib/components/app/page-toolbar.svelte';
 	import GradeSection from '#lib/components/curriculum/grade-section.svelte';
 	import AddField from '#lib/components/rows/add-field.svelte';
@@ -12,7 +13,6 @@
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
 	import { FLIP_MS, saveOrder } from '#lib/components/rows/reorder.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
@@ -43,7 +43,7 @@
 {#if grades.length > 0}
 	<!-- Folding is how a long curriculum is crossed, so the control stays in reach while it scrolls. -->
 	<PageToolbar>
-		<Button variant="outline" size="sm" onclick={toggleAll}>
+		<Button variant="outline" onclick={toggleAll}>
 			{#if anyOpen}
 				<ChevronsDownUpIcon data-icon="inline-start" />
 				{m.curriculum_collapse_all()}
@@ -57,20 +57,16 @@
 
 <div class="flex flex-1 flex-col gap-6">
 	{#if grades.length === 0}
-		<Empty.Root>
-			<Empty.Header>
-				<Empty.Media variant="icon">
-					<ListTreeIcon />
-				</Empty.Media>
-				<Empty.Title>{m.curriculum_empty_title()}</Empty.Title>
-				<Empty.Description>{m.curriculum_empty_description()}</Empty.Description>
-			</Empty.Header>
-		</Empty.Root>
+		<EmptyState
+			icon={ListTreeIcon}
+			title={m.curriculum_empty_title()}
+			description={m.curriculum_empty_description()}
+		/>
 	{/if}
 
 	<div
 		aria-label={m.curriculum_grades()}
-		class="flex flex-col gap-8"
+		class="flex flex-col gap-6"
 		use:dragHandleZone={{
 			items: grades,
 			type: 'grades',

@@ -8,7 +8,7 @@ import {
 	listOrganizationManagers,
 	saveOrganization
 } from '#lib/server/organizations.js';
-import { createPerson } from '#lib/server/people.js';
+import { createPerson, setAccountClosed, updatePerson } from '#lib/server/people.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -29,6 +29,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 export const actions: Actions = {
 	create: async ({ request, locals, params }) =>
 		createPerson(locals.supabase, 'manager', await request.formData(), params.organizationId),
+
+	update: async ({ request, locals }) =>
+		updatePerson(locals.supabase, 'manager', await request.formData()),
+
+	setClosed: async ({ request, locals }) =>
+		setAccountClosed(locals.supabase, await request.formData()),
 
 	rename: async ({ request, locals, params }) =>
 		saveOrganization(locals.supabase, await request.formData(), params.organizationId),

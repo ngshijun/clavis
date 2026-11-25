@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ListTreeIcon from '@lucide/svelte/icons/list-tree';
+	import EmptyState from '#lib/components/app/empty-state.svelte';
 	import TopicCard from '#lib/components/practice/topic-card.svelte';
 	import { setRequestDelete, type NamedRow } from '#lib/components/rows/context.js';
 	import DeleteDialog from '#lib/components/rows/delete-dialog.svelte';
-	import * as Empty from '#lib/components/ui/empty/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { practiceStagePath } from '#lib/navigation.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolvePath } from '#lib/paths.js';
@@ -21,15 +23,13 @@
 </script>
 
 {#if data.subject.topics.length === 0}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Media variant="icon">
-				<ListTreeIcon />
-			</Empty.Media>
-			<Empty.Title>{m.practice_no_topics_title()}</Empty.Title>
-			<Empty.Description>{m.practice_no_topics_description()}</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
+	<EmptyState
+		icon={ListTreeIcon}
+		title={m.practice_no_topics_title()}
+		description={m.practice_no_topics_description()}
+	>
+		<Button href={resolve('admin/curriculum')}>{m.curriculum_go_to()}</Button>
+	</EmptyState>
 {:else}
 	<!--
 		A second column only where a card is still wide enough for a stage's name

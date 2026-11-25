@@ -369,7 +369,7 @@
 				{@render passageLine(draft.content.title, 0)}
 			</div>
 		{:else if needle && visible.length === 0}
-			<p class="px-3 text-sm text-muted-foreground">{m.practice_no_match()}</p>
+			<p class="px-3 text-muted-foreground">{m.practice_no_match()}</p>
 		{/if}
 	</div>
 </nav>
